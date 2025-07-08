@@ -1,0 +1,7 @@
+{
+    "baseurl": "http://94.138.207.132:3001/",
+    "admin": "api/Admin/",
+    "login": "api/auth/",
+    "user": "api/users/",
+    "company": "Setash"
+}
