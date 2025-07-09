@@ -1,16 +1,26 @@
 // DeleteSystemRole.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useState } from 'react'; // useState اضافه شد
+import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material'; // CircularProgress اضافه شد
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  CircularProgress,
+} from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
 
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+
 type Props = {
   openModal: boolean;
-  rowIdToDelete: string | null; // ID ردیفی که قرار است حذف شود (نام رول)
+  rowIdToDelete: string | null;
   onClose: () => void;
   onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -18,9 +28,12 @@ type Props = {
 
 const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState<boolean>(false); // State جدید برای لودینگ دکمه
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const handleDeleteRole = async () => { // تابع را async کردیم
+  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
+  const { isTooltipGloballyEnabled } = useTooltip();
+
+  const handleDeleteRole = async () => {
     if (rowIdToDelete === null) {
       showAlert('Silinecek kayıt seçilmedi.', 'warning');
       onClose();
@@ -34,20 +47,18 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
       return;
     }
 
-    setLoading(true); // شروع لودینگ
+    setLoading(true);
     try {
-      // استفاده از axios.delete به جای axios.request با method: "delete"
-      // با این تفاوت که اینجا برای حذف، name را در body ارسال می‌کنید.
       const response = await axios.delete(
-        server.baseurl + server.user + "delete-role", // آدرس API حذف رول
+        server.baseurl + server.user + "delete-role",
         {
           headers: {
-            "Accept": "text/plain", // یا "application/json" اگر سرور JSON برمی‌گرداند
+            "Accept": "text/plain",
             "Authorization": `Bearer ${authToken}`,
-            'Content-Type': 'application/json' // برای ارسال data در DELETE، Content-Type لازم است
+            'Content-Type': 'application/json'
           },
-          data: { // ارسال داده در بدنه درخواست برای متد DELETE
-            "name": rowIdToDelete // نام رول برای حذف
+          data: {
+            "name": rowIdToDelete
           }
         }
       );
@@ -69,7 +80,7 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
     } finally {
-      setLoading(false); // پایان لودینگ
+      setLoading(false);
     }
   };
 
@@ -90,19 +101,28 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          {/* دکمه "İptal et" را هم غیرفعال کن وقتی لودینگ است */}
-          <Button onClick={onClose} disabled={loading}>İptal et</Button>
-          <Button
-            color="error"
-            variant="contained" // معمولاً دکمه‌های اصلی اکشن Contained هستند
-            onClick={handleDeleteRole}
-            autoFocus
-            disabled={loading} // دکمه حذف را هنگام لودینگ غیرفعال کن
-          >
-            {loading ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Silmek'} {/* نمایش لودینگ یا متن */}
-          </Button>
+          {/* **Tooltip برای دکمه "İptal et"** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "İşlemi iptal et" : ""}>
+            <Button onClick={onClose} disabled={loading}>İptal et</Button>
+          </CustomTooltip>
+          {/* **Tooltip برای دکمه "Silmek"** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolü sil" : ""}>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={handleDeleteRole}
+              autoFocus
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                </>
+              ) : (
+                'Silmek'
+              )}
+            </Button>
+          </CustomTooltip>
         </DialogActions>
       </Dialog>
     </>

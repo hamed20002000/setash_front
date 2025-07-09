@@ -22,6 +22,8 @@ import { TransitionProps } from '@mui/material/transitions';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
     children: React.ReactElement;
@@ -36,20 +38,21 @@ interface RoleType {
   name: string;
 }
 
-// نوع پراپ‌ها را اصلاح می‌کنیم
 type Props = {
   openRoleModal: boolean;
   onClose: () => void;
-  userId: number | null; // ID کاربر انتخاب شده
-  // userRoles: number[]; // این پراپ حذف می‌شود
+  userId: number | null;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) => { // userRoles از اینجا حذف شد
+const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) => {
   const [allRoles, setAllRoles] = useState<RoleType[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+
+  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
+  const { isTooltipGloballyEnabled } = useTooltip();
 
   const fetchAllRoles = async () => {
     const authToken = localStorage.getItem('authToken');
@@ -80,7 +83,6 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
     }
   };
 
-  // --- تابع جدید برای دریافت رول‌های اختصاص‌یافته به کاربر خاص ---
   const fetchUserRoles = async (currentUserId: number) => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
@@ -88,7 +90,6 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       return [];
     }
     try {
-      // آدرس API شما: http://94.138.207.132:3001/api/users/get-user-with-role-and-operations/id
       const response = await axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${currentUserId}`, {
         headers: {
           "Accept": "application/json",
@@ -96,11 +97,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
         }
       });
       if (response.data.httpStatusCode === 200 && response.data.data) {
-        // فرض می‌کنیم response.data.data.roles آرایه‌ای از آبجکت‌هاست که هر کدام دارای 'id' (آی‌دی رول) هستند
-        // یا 'roleId' اگر نام فیلد متفاوت است.
-        // بر اساس پاسخ قبلی شما، ساختار ممکن است شامل یک آبجکت کاربر با یک فیلد roles باشد.
-        // مثلاً: response.data.data.roles.map(role => Number(role.id))
-        const assignedRoleIds = response.data.data.roles.map((role: any) => Number(role.id));
+        const assignedRoleIds = response.data.data.roles.map((item: any) => Number(item.id));
         return assignedRoleIds;
       } else {
         showAlert(response.data.message || 'Kullanıcı rolleri alınırken bir hata oluştu.', 'error');
@@ -116,14 +113,13 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
   useEffect(() => {
     if (openRoleModal && userId !== null) {
       setLoading(true);
-      // هر دو API را به صورت موازی فراخوانی کن
       Promise.all([
-        fetchAllRoles(), // دریافت تمام رول‌ها
-        fetchUserRoles(userId), // دریافت رول‌های کاربر خاص
+        fetchAllRoles(),
+        fetchUserRoles(userId),
       ])
         .then(([roles, userAssignedRoleIds]) => {
-          setAllRoles(roles); // تمام رول‌ها را تنظیم کن
-          setSelectedRoleIds(userAssignedRoleIds); // رول‌های اختصاص یافته به کاربر را تنظیم کن
+          setAllRoles(roles);
+          setSelectedRoleIds(userAssignedRoleIds);
         })
         .catch(err => {
           console.error("Failed to load roles for user:", err);
@@ -133,13 +129,12 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
           setLoading(false);
         });
     } else if (!openRoleModal) {
-      // وقتی مودال بسته شد، state ها را ریست کن
       setAllRoles([]);
       setSelectedRoleIds([]);
       setLoading(false);
       setSaving(false);
     }
-  }, [openRoleModal, userId]); // userRoles از اینجا حذف شد
+  }, [openRoleModal, userId]);
 
   const handleToggle = (roleId: number) => () => {
     const currentIndex = selectedRoleIds.indexOf(roleId);
@@ -157,7 +152,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
     if (selectedRoleIds.length === allRoles.length && allRoles.length > 0) {
       setSelectedRoleIds([]);
     } else {
-      setSelectedRoleIds(allRoles.map(role => role.id));
+      setSelectedRoleIds(allRoles.map(role => Number(role.id)));
     }
   };
 
@@ -171,17 +166,14 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       return;
     }
 
-    // تبدیل selectedRoleIds (ID) به roleNames (string) برای ارسال به API
-    const roleNamesToSend = allRoles
+    const roleIdsToSend = allRoles
       .filter(role => selectedRoleIds.includes(role.id))
-      .map(role => role.id);
-debugger
+      .map(role => role.id); // ارسال ID رول‌ها (اگر API نام می‌خواست، اینجا به نام تبدیل کنید)
+
     try {
-      // این آدرس API باید رول‌ها را برای کاربر با ID مشخص به‌روزرسانی کند.
-      // فرض می‌شود API نام رول‌ها را می‌پذیرد.
       const response = await axios.post(
-        `${server.baseurl}${server.user}assign-user-roles`,
-        { UserId:userId,  roleIds: roleNamesToSend }, // ارسال نام رول‌ها
+        `${server.baseurl}${server.user}assign-user-roles`, // آدرس API اختصاص رول به کاربر
+        { UserId: userId, roleIds: roleIdsToSend }, // UserId و roleIds را ارسال کن
         {
           headers: {
             "Accept": "application/json",
@@ -213,15 +205,21 @@ debugger
     <Dialog fullScreen open={openRoleModal} onClose={onClose} TransitionComponent={Transition}>
       <AppBar sx={{ position: 'relative' }}>
         <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
-            <IconX width={24} height={24} />
-          </IconButton>
+          {/* **Tooltip برای دکمه بستن (IconX)** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Kapat" : ""}>
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+              <IconX width={24} height={24} />
+            </IconButton>
+          </CustomTooltip>
           <Typography ml={2} flex={1} variant="h6" component="div">
             Kullanıcı için Rolleri Seçin
           </Typography>
-          <Button autoFocus color="inherit" onClick={handleSaveRoles} disabled={loading || saving}>
-            {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
-          </Button>
+          {/* **Tooltip برای دکمه ذخیره (Kaydet)** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolleri kaydet" : ""}>
+            <Button autoFocus color="inherit" onClick={handleSaveRoles} disabled={loading || saving}>
+              {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
+            </Button>
+          </CustomTooltip>
         </Toolbar>
       </AppBar>
       <DialogContent sx={{ p: 0 }}>
@@ -234,40 +232,46 @@ debugger
           <List dense component="div" role="list">
             {allRoles.length > 0 ? (
               <>
-                <ListItem
-                  onClick={handleSelectAllToggle}
-                  role="checkbox"
-                  sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}
-                >
-                  <ListItemIcon>
-                    <Checkbox
-                      edge="start"
-                      checked={isAllSelected}
-                      indeterminate={isIndeterminate}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <ListItemText primary="Tümünü Seç / Seçimi Kaldır" />
-                </ListItem>
-
-                {allRoles.map((role) => (
+                {/* آیتم "انتخاب همه" */}
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri seç/seçimi kaldır" : ""}>
                   <ListItem
-                    key={role.id}
-                    onClick={handleToggle(role.id)}
+                    onClick={handleSelectAllToggle}
                     role="checkbox"
-                    sx={{ py: 0.5 }}
+                    sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}
                   >
                     <ListItemIcon>
                       <Checkbox
                         edge="start"
-                        checked={selectedRoleIds.indexOf(role.id) !== -1}
+                        checked={isAllSelected}
+                        indeterminate={isIndeterminate}
                         tabIndex={-1}
                         disableRipple
                       />
                     </ListItemIcon>
-                    <ListItemText primary={role.name} />
+                    <ListItemText primary="Tümünü Seç / Seçimi Kaldır" />
                   </ListItem>
+                </CustomTooltip>
+
+                {/* لیست رول‌ها */}
+                {allRoles.map((role) => (
+                  <CustomTooltip key={`role-tooltip-${role.id}`} title={isTooltipGloballyEnabled ? role.name : ""}>
+                    <ListItem
+                      key={role.id}
+                      onClick={handleToggle(role.id)}
+                      role="checkbox"
+                      sx={{ py: 0.5 }}
+                    >
+                      <ListItemIcon>
+                        <Checkbox
+                          edge="start"
+                          checked={selectedRoleIds.indexOf(role.id) !== -1}
+                          tabIndex={-1}
+                          disableRipple
+                        />
+                      </ListItemIcon>
+                      <ListItemText primary={role.name} />
+                    </ListItem>
+                  </CustomTooltip>
                 ))}
               </>
             ) : (

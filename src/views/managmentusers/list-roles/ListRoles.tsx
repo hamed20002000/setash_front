@@ -24,8 +24,9 @@ import {
   TablePagination,
   TextField,
   InputAdornment,
-  CircularProgress, // اضافه شد: برای نمایش لودینگ دکمه
+  CircularProgress,
 } from '@mui/material';
+
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -37,6 +38,8 @@ import DeleteListRole from './DeleteListRole';
 import ListSystemOperationModal from './ListSystemOperationModal';
 import axios from 'axios';
 import server from '../../../assets/address.json';
+
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
 
 interface RowType {
   id: number;
@@ -74,8 +77,10 @@ const SystemRole = () => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- State جدید برای لودینگ دکمه‌های ثبت/ویرایش ---
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
+
+  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
+  const { isTooltipGloballyEnabled } = useTooltip();
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
@@ -140,7 +145,7 @@ const SystemRole = () => {
       return;
     }
 
-    setLoadingButton(true); // شروع لودینگ
+    setLoadingButton(true);
     try {
       const response = await axios.post(
         server.baseurl + server.user + "create-role",
@@ -156,7 +161,7 @@ const SystemRole = () => {
       if (response.data.httpStatusCode === 201) {
         showAlert('Yeni rol başarıyla eklendi!', 'success');
         resetFormAndState();
-        getListRole(); // رفرش لیست برای نمایش رکورد جدید در ابتدا
+        getListRole();
       } else {
         showAlert(response.data.message || 'Yeni rol eklenirken bir hata oluştu.', 'error');
       }
@@ -164,11 +169,11 @@ const SystemRole = () => {
       console.error("Error inserting Role:", e);
       showAlert(e.response?.data?.message || 'Rol eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
-      setLoadingButton(false); // پایان لودینگ
+      setLoadingButton(false);
     }
   };
 
-  const editRole = async () => { // Async اضافه شد
+  const editRole = async () => {
     if (editingId === null) return;
     if (!name.trim()) {
       showAlert('İsim boş olamaz!', 'warning');
@@ -190,11 +195,11 @@ const SystemRole = () => {
       return;
     }
 
-    setLoadingButton(true); // شروع لودینگ
+    setLoadingButton(true);
     try {
       const response = await axios.put(
         server.baseurl + server.user + "update-role",
-        { name: originalName, newname: name }, // بر اساس `name` اصلی و `newname` ویرایش می‌شود
+        { name: originalName, newname: name },
         {
           headers: {
             "Accept": "application/json",
@@ -205,12 +210,11 @@ const SystemRole = () => {
       );
       if (response.data.httpStatusCode === 200) {
         showAlert('Rol başarıyla güncellendi!', 'success');
-        // به جای آپدیت دستی، لیست رو رفرش می‌کنیم تا مرتب‌سازی اعمال بشه
-        // setRolesList(prevList =>
-        //   prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
-        // );
+        setRolesList(prevList =>
+          prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
+        );
         resetFormAndState();
-        getListRole(); // رفرش لیست برای نمایش رکورد ویرایش شده در ابتدا
+        getListRole();
       } else {
         showAlert(response.data.message || 'Rol güncellenirken bir hata oluştu.', 'error');
       }
@@ -218,7 +222,7 @@ const SystemRole = () => {
       console.error("Error updating Role:", e);
       showAlert(e.response?.data?.message || 'Rol güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
-      setLoadingButton(false); // پایان لودینگ
+      setLoadingButton(false);
     }
   }
 
@@ -248,7 +252,7 @@ const SystemRole = () => {
       if (response.data.httpStatusCode === 200) {
         const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
         showAlert(`Rol başarıyla ${statusText} olarak ayarlandı!`, 'success');
-        getListRole(); // رفرش کامل لیست برای اطمینان از به روزرسانی
+        getListRole();
         resetFormAndState();
       } else {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
@@ -263,13 +267,13 @@ const SystemRole = () => {
 
   const handleSetActive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, selectedRowForMenu.name, 0); // 0 برای Aktif
+      sendStatusUpdate(selectedRowForMenu.id, selectedRowForMenu.name, 0);
     }
   };
 
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, selectedRowForMenu.name, 1); // 1 برای Etkin değil
+      sendStatusUpdate(selectedRowForMenu.id, selectedRowForMenu.name, 1);
     }
   };
 
@@ -303,7 +307,6 @@ const SystemRole = () => {
   const handleClickCloseOperationModal = () => {
     setOpenOperationModal(false);
     setRoleIdForOperations(null);
-    // getListRole(); // اگر عملیات‌های رول تغییر کرده باشند و نیاز به رفرش لیست نقش‌ها باشد
   };
 
 
@@ -332,19 +335,12 @@ const SystemRole = () => {
           createAt: item.createAt,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
         }));
-        // **مهم‌ترین تغییر:** مرتب‌سازی لیست بر اساس تاریخ ایجاد یا ID به صورت نزولی
         const sortedData = formattedData.sort((a: RowType, b: RowType) => {
           const dateA = new Date(a.createAt);
           const dateB = new Date(b.createAt);
-          // مرتب‌سازی نزولی بر اساس تاریخ (جدیدترین تاریخ اول)
           return dateB.getTime() - dateA.getTime();
-          // اگر تاریخ‌ها برابر بودند و می‌خواستید بر اساس ID بزرگتر (که معمولا جدیدتر است) مرتب کنید:
-          // if (dateB.getTime() === dateA.getTime()) {
-          //   return b.id - a.id;
-          // }
-          // return dateB.getTime() - dateA.getTime();
         });
-        setRolesList(sortedData as RowType[]); // لیست مرتب شده را تنظیم کن
+        setRolesList(sortedData as RowType[]);
       } else {
         showAlert(result.data.message || 'Rol listesi alınırken bir hata oluştu.', 'error');
       }
@@ -412,31 +408,42 @@ const SystemRole = () => {
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>
-                  <Button
-                    variant="contained"
-                    color="info"
-                    onClick={editRole}
-                    disabled={loadingButton} 
-                  >
-                    {loadingButton ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Düzenlemek'}
-                  </Button>
-                  <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                    İptal Et
-                  </Button>
+                  {/* **Tooltip برای دکمه ویرایش (Düzenlemek)** */}
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili rolü güncelleyin" : ""}>
+                    <Button
+                      variant="contained"
+                      color="info"
+                      onClick={editRole}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Düzenlemek'}
+                    </Button>
+                  </CustomTooltip>
+                  {/* **Tooltip برای دکمه انصراف (İptal Et)** */}
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni rol moduna dön" : ""}>
+                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                      İptal Et
+                    </Button>
+                  </CustomTooltip>
                 </>
               ) : (
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={insertRole}
-                  disabled={loadingButton} 
-                >
-                  {loadingButton ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Yeni Rol Ekle'}
-                </Button>
+                <>
+                  {/* **Tooltip برای دکمه ثبت جدید (Yeni Rol Ekle)** */}
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir rol ekle" : ""}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={insertRole}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Yeni Rol Ekle'}
+                    </Button>
+                  </CustomTooltip>
+                </>
               )}
             </Stack>
           </Grid>
@@ -520,15 +527,18 @@ const SystemRole = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <IconButton
-                        id={`basic-button-${row.id}`}
-                        aria-controls={openMenu ? 'basic-menu' : undefined}
-                        aria-haspopup="true"
-                        aria-expanded={openMenu ? 'true' : undefined}
-                        onClick={(event) => handleClickMenu(event, row)}
-                      >
-                        <IconDots width={18} />
-                      </IconButton>
+                      {/* Tooltip for IconButtons within Menu (optional, but good for consistency) */}
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                        <IconButton
+                          id={`basic-button-${row.id}`}
+                          aria-controls={openMenu ? 'basic-menu' : undefined}
+                          aria-haspopup="true"
+                          aria-expanded={openMenu ? 'true' : undefined}
+                          onClick={(event) => handleClickMenu(event, row)}
+                        >
+                          <IconDots width={18} />
+                        </IconButton>
+                      </CustomTooltip>
                       <Menu
                         id="basic-menu"
                         anchorEl={anchorEl}
@@ -539,39 +549,49 @@ const SystemRole = () => {
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <MenuItem onClick={handleSetInactive}>
-                            <ListItemIcon>
-                              <DoNotDisturbOnRoundedIcon width={18} />
-                            </ListItemIcon>
-                            Etkin değil
-                          </MenuItem>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
+                            <MenuItem onClick={handleSetInactive}>
+                              <ListItemIcon>
+                                <DoNotDisturbOnRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Etkin değil
+                            </MenuItem>
+                          </CustomTooltip>
                         ) : (
-                          <MenuItem onClick={handleSetActive}>
-                            <ListItemIcon>
-                              <DoneRoundedIcon width={18} />
-                            </ListItemIcon>
-                            Aktif
-                          </MenuItem>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
+                            <MenuItem onClick={handleSetActive}>
+                              <ListItemIcon>
+                                <DoneRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Aktif
+                            </MenuItem>
+                          </CustomTooltip>
                         )}
 
-                        <MenuItem onClick={handleClickOpenOperationModal}>
-                          <ListItemIcon>
-                            <IconPlus width={18} />
-                          </ListItemIcon>
-                          İşlemi Seçin
-                        </MenuItem>
-                        <MenuItem onClick={handleEditClick}>
-                          <ListItemIcon>
-                            <IconEdit width={18} />
-                          </ListItemIcon>
-                          Düzenlemek
-                        </MenuItem>
-                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                          <ListItemIcon>
-                            <IconTrash width={18} />
-                          </ListItemIcon>
-                          Silmek
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
+                          <MenuItem onClick={handleClickOpenOperationModal}>
+                            <ListItemIcon>
+                              <IconPlus width={18} />
+                            </ListItemIcon>
+                            İşlemi Seçin
+                          </MenuItem>
+                        </CustomTooltip>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
+                          <MenuItem onClick={handleEditClick}>
+                            <ListItemIcon>
+                              <IconEdit width={18} />
+                            </ListItemIcon>
+                            Düzenlemek
+                          </MenuItem>
+                        </CustomTooltip>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
+                          <MenuItem onClick={handleClickOpenDeleteModal}>
+                            <ListItemIcon>
+                              <IconTrash width={18} />
+                            </ListItemIcon>
+                            Silmek
+                          </MenuItem>
+                        </CustomTooltip>
                       </Menu>
                     </TableCell>
                   </TableRow>

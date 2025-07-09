@@ -1,5 +1,5 @@
 // DeleteListUser.tsx
-import React, { useState } from 'react'; // Import useState
+import React, { useState } from 'react';
 import {
   Button,
   Dialog,
@@ -7,22 +7,28 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  CircularProgress, // Import CircularProgress
+  CircularProgress,
+  Tooltip, // ایمپورت Tooltip
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
 
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // ایمپورت useTooltip و CustomTooltip
+
 type Props = {
   openModal: boolean;
-  userIdToDelete: number | null; // User ID to be deleted
+  userIdToDelete: number | null;
   onClose: () => void;
-  onDeleteSuccess: () => void; // Function to refresh the main list
+  onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
 const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
-  const [loading, setLoading] = useState<boolean>(false); // New state for button loading
+  const [loading, setLoading] = useState<boolean>(false);
+
+  // استفاده از useTooltip برای دسترسی به وضعیت Tooltip
+  const { isTooltipGloballyEnabled } = useTooltip();
 
   const handleDeleteUser = async () => {
     if (userIdToDelete === null) {
@@ -34,15 +40,13 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Lütfen giriş yapın.', 'warning');
-      // In a real app, you might want to redirect to login here if not already handled by an interceptor
       return;
     }
 
-    setLoading(true); // Start loading
+    setLoading(true);
     try {
-      // Using axios.delete as per your provided snippet
       const response = await axios.delete(
-        `${server.baseurl}${server.user}delete-user/${userIdToDelete}`, // API endpoint for deleting a user by ID
+        `${server.baseurl}${server.user}delete-user/${userIdToDelete}`,
         {
           headers: {
             "Accept": "application/json",
@@ -51,27 +55,23 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
         }
       );
 
-      // Check the httpStatusCode from the response data
       if (response.data.httpStatusCode === 200) {
         showAlert('Kullanıcı başarıyla silindi!', 'success');
-        onDeleteSuccess(); // Call function to refresh the list in the parent component
-        onClose(); // Close the modal
+        onDeleteSuccess();
+        onClose();
       } else {
-        // Handle server-side errors
         showAlert(response.data.message || 'Kullanıcı silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
       console.error("Error deleting user:", e);
-      // Get a more specific error message from the server response if available
       const errorMessage = e.response?.data?.message || 'Kullanıcı silinirken bir hata oluştu, lütfen tekrar deneyin.';
       showAlert(errorMessage, 'error');
-      // Optionally, handle 401 Unauthorized errors here
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
-        // You might want to trigger a global redirect or re-login flow here
+        // در اینجا می‌توانید یک ریدایرکت سراسری به صفحه لاگین داشته باشید.
       }
     } finally {
-      setLoading(false); // End loading (whether successful or not)
+      setLoading(false);
     }
   };
 
@@ -92,19 +92,28 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          {/* Disable the "İptal Et" button when loading to prevent multiple clicks */}
-          <Button onClick={onClose} disabled={loading}>İptal Et</Button>
-          <Button
-            color="error"
-            variant="contained" // Typically primary action buttons are contained
-            onClick={handleDeleteUser}
-            autoFocus
-            disabled={loading} // Disable the delete button when loading
-          >
-            {loading ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Silmek'} {/* Show loading spinner or text */}
-          </Button>
+          {/* **Tooltip برای دکمه "İptal Et"** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
+            <Button onClick={onClose} disabled={loading}>İptal Et</Button>
+          </CustomTooltip>
+          {/* **Tooltip برای دکمه "Silmek"** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen kullanıcıyı sil" : ""}>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={handleDeleteUser}
+              autoFocus
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                </>
+              ) : (
+                'Silmek'
+              )}
+            </Button>
+          </CustomTooltip>
         </DialogActions>
       </Dialog>
     </>

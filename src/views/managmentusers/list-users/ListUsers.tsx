@@ -4,52 +4,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  TableContainer,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Typography,
-  Chip,
-  Menu,
-  MenuItem,
-  IconButton,
-  ListItemIcon,
-  Box,
-  Stack,
-  Grid,
-  Button,
-  Alert,
-  Checkbox,
-  InputAdornment,
-  TablePagination,
-  TextField,
-  CircularProgress, // Import CircularProgress for button loading
-  FormControl,
-  InputLabel,
-  Select,
-  OutlinedInput,
-  CardMedia,
-  FormControlLabel,
-  ListItemText,
+  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
+  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
+  TextField, CircularProgress, FormControl, InputLabel, Select, OutlinedInput,
+  CardMedia, FormControlLabel, ListItemText,
 } from '@mui/material';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
-  IconDots,
-  IconEdit,
-  IconPlus,
-  IconTrash,
-  IconEye,
-  IconEyeOff,
-  IconKey,
-  IconUserCheck,
-  IconUsersGroup,
-  IconLock,
-  IconSearch,
+  IconDots, IconEdit, IconPlus, IconTrash, IconEye, IconEyeOff, IconKey,
+  IconUserCheck, IconUsersGroup, IconLock, IconSearch,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -59,7 +26,9 @@ import ChangeUserPasswordModal from './ChangeUserPasswordModal';
 import DeleteListUser from './DeleteListUser';
 import axios from 'axios';
 import server from '../../../assets/address.json';
-import imagedefault from '../../../assets/images/profile/user-d.png'; // Make sure this path is correct
+import imagedefault from '../../../assets/images/profile/user-d.svg';
+
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
 
 interface UserType {
   id: number;
@@ -135,13 +104,14 @@ const ListUsers = () => {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- New state for button loading ---
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
 
- // --- useRefs برای فیلدهای نام کاربری و پسورد برای مقابله با Autofill ---
   const usernameFieldRef = useRef<HTMLInputElement>(null);
   const passwordFieldRef = useRef<HTMLInputElement>(null);
   const confirmPasswordFieldRef = useRef<HTMLInputElement>(null);
+
+  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
+  const { isTooltipGloballyEnabled } = useTooltip();
 
 
   const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -180,7 +150,7 @@ const ListUsers = () => {
   const handleClickOpenRoleModal = () => {
     if (selectedUserForMenu) {
       setUserIdForRoleSelection(selectedUserForMenu.id);
-      setOpenRoleModal(true); // User roles are fetched inside ListUsersModal
+      setOpenRoleModal(true);
     }
     handleCloseMenu();
   };
@@ -267,14 +237,11 @@ const ListUsers = () => {
     setOriginalUsername('');
     clearAlert();
 
-    // **مهم:** پاک کردن مقادیر فیلدها پس از ریست کردن state برای مقابله با autofill
-    // این کار را با تأخیر بسیار کوتاه انجام می‌دهیم تا مرورگر فرصت Autofill را نداشته باشد
-    // و سپس فوراً مقادیر را پاک کنیم.
     setTimeout(() => {
       if (usernameFieldRef.current) usernameFieldRef.current.value = '';
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
       if (confirmPasswordFieldRef.current) confirmPasswordFieldRef.current.value = '';
-    }, 0); // تأخیر 0 میلی‌ثانیه، باعث می‌شود در microtask queue قرار گیرد و بعد از رندر اولیه اجرا شود.
+    }, 0);
   };
 
   const handleEditItemClick = () => {
@@ -284,9 +251,8 @@ const ListUsers = () => {
       setEditingUserId(selectedUserForMenu.id);
 
       setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
-      setProfileImageBase64(''); // Clear base64 for edit mode, unless a new file is chosen
+      setProfileImageBase64('');
 
-      // **مهم:** این فیلدها را در حالت ویرایش هم خالی می‌کنیم
       setPassword('');
       setConfirmPassword('');
       setGenerateRandomPassword(false);
@@ -295,7 +261,6 @@ const ListUsers = () => {
     handleCloseMenu();
     clearAlert();
 
-    // **مهم:** پس از پر کردن نام کاربری در حالت ویرایش، بلافاصله فیلدهای پسورد را خالی کن
     setTimeout(() => {
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
       if (confirmPasswordFieldRef.current) confirmPasswordFieldRef.current.value = '';
@@ -325,7 +290,7 @@ const ListUsers = () => {
       .filter(role => selectedRoles.includes(role.id))
       .map(role => role.name);
 
-    setLoadingButton(true); // Start loading for insert
+    setLoadingButton(true);
     try {
       const response = await axios.post(
         server.baseurl + server.user + "create-user",
@@ -347,7 +312,7 @@ const ListUsers = () => {
       if (response.data.httpStatusCode === 201) {
         showAlert('Yeni kullanıcı başarıyla eklendi!', 'success');
         resetFormAndState();
-        getListUsers(); // Refresh list to show new user at the top
+        getListUsers();
       } else {
         showAlert(response.data.message || 'Yeni kullanıcı eklenirken bir hata oluştu.', 'error');
       }
@@ -355,7 +320,7 @@ const ListUsers = () => {
       console.error("Error inserting user:", e);
       showAlert(e.response?.data?.message || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
-      setLoadingButton(false); // End loading for insert
+      setLoadingButton(false);
     }
   };
 
@@ -365,7 +330,7 @@ const ListUsers = () => {
       showAlert('Kullanıcı adı boş olamaz!', 'warning');
       return;
     }
-    clearAlert(); // Clear alert as password/confirm password are not always required here
+    clearAlert();
 
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
@@ -386,13 +351,11 @@ const ListUsers = () => {
     if (profileImageBase64) {
       updateData.imageSrc = profileImageBase64;
     } else if (profileImageUrl === DEFAULT_IMAGE_URL && selectedUserForMenu?.imageUrl !== DEFAULT_IMAGE_URL) {
-      // This condition handles cases where the user previously had an image but now wants to remove it
-      // by setting it back to the default, or if the API interprets an empty string as a removal.
-      updateData.imageSrc = ""; // Assuming API accepts empty string for image removal
+      updateData.imageSrc = "";
     }
 
 
-    setLoadingButton(true); // Start loading for edit
+    setLoadingButton(true);
     try {
       const response = await axios.put(
         server.baseurl + server.user + "update-user",
@@ -406,10 +369,10 @@ const ListUsers = () => {
         }
       );
 
-      if (response.data.httpStatusCode === 200) {debugger
+      if (response.data.httpStatusCode === 200) {
         showAlert('Kullanıcı başarıyla güncellendi!', 'success');
-        resetFormAndState(); // Reset form to 'add new user' state
-        getListUsers(); // Refresh list to show updated user at the top
+        resetFormAndState();
+        getListUsers();
       } else {
         showAlert(response.data.message || 'Kullanıcı güncellenirken bir hata oluştu.', 'error');
       }
@@ -417,7 +380,7 @@ const ListUsers = () => {
       console.error("Error updating user:", e);
       showAlert(e.response?.data?.message || 'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
-      setLoadingButton(false); // End loading for edit
+      setLoadingButton(false);
     }
   };
 
@@ -481,7 +444,6 @@ const ListUsers = () => {
           imageUrl: item.imageSrc || DEFAULT_IMAGE_URL,
           roles: item.roles || [],
         }));
-        // Sort by creation date descending to show the latest record first
         const sortedData = formattedData.sort((a: UserType, b: UserType) => {
           const dateA = new Date(a.createAt);
           const dateB = new Date(b.createAt);
@@ -523,7 +485,7 @@ const ListUsers = () => {
       }
     } catch (e: any) {
       console.error("Error fetching roles:", e);
-      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
     }
   };
 
@@ -565,116 +527,125 @@ const ListUsers = () => {
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
                 <CustomFormLabel htmlFor="username">Kullanıcı Adı</CustomFormLabel>
-                <CustomTextField
-                  id="username"
-                  placeholder="Kullanıcı Adı"
-                  fullWidth
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  // **Autocomplete را برای نام کاربری تنظیم می‌کنیم**
-                  inputProps={{ autocomplete: 'off' }} // یا 'new-username'
-                  ref={usernameFieldRef} // ارجاع به رفرنس
-                />
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı adını girin" : ""}>
+                  <CustomTextField
+                    id="username"
+                    placeholder="Kullanıcı Adı"
+                    fullWidth
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    inputProps={{ autocomplete: 'off' }}
+                    ref={usernameFieldRef}
+                  />
+                </CustomTooltip>
               </Grid>
 
-              {/* Conditional rendering of password and roles fields */}
-              {editingUserId === null && ( // Only show in "Add New User" mode
+              {editingUserId === null && (
                 <>
                   <Grid item xs={12} md={6}>
                     <CustomFormLabel htmlFor="password">Şifre</CustomFormLabel>
-                     <CustomTextField
-                      id="password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Şifre"
-                      fullWidth
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      disabled={generateRandomPassword}
-                      // **Autocomplete را برای پسورد جدید تنظیم می‌کنیم**
-                      inputProps={{ autocomplete: 'new-password' }}
-                      ref={passwordFieldRef} // ارجاع به رفرنس
-                      InputProps={{
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton
-                              aria-label="toggle password visibility"
-                              onClick={() => setShowPassword((prev) => !prev)}
-                              edge="end"
-                              size="small"
-                            >
-                              {showPassword ? <IconEye size={20} /> : <IconEyeOff size={20} />}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                    />
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi girin" : ""}>
+                      <CustomTextField
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Şifre"
+                        fullWidth
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={generateRandomPassword}
+                        inputProps={{ autocomplete: 'new-password' }}
+                        ref={passwordFieldRef}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <CustomTooltip title={isTooltipGloballyEnabled ? (showPassword ? "Şifreyi gizle" : "Şifreyi göster") : ""}>
+                                <IconButton
+                                  aria-label="toggle password visibility"
+                                  onClick={() => setShowPassword((prev) => !prev)}
+                                  edge="end"
+                                  size="small"
+                                >
+                                  {showPassword ? <IconEye size={20} /> : <IconEyeOff size={20} />}
+                                </IconButton>
+                              </CustomTooltip>
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    </CustomTooltip>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <CustomFormLabel htmlFor="confirm-password">Şifreyi Tekrarla</CustomFormLabel>
-                    <CustomTextField
-                      id="confirm-password"
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="Şifreyi Tekrarla"
-                      fullWidth
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      disabled={generateRandomPassword}
-                      error={password !== confirmPassword && confirmPassword !== ''}
-                      helperText={password !== confirmPassword && confirmPassword !== '' ? 'Şifreler eşleşmiyor!' : ''}
-                      // **Autocomplete را برای تکرار پسورد جدید تنظیم می‌کنیم**
-                      inputProps={{ autocomplete: 'new-password' }}
-                      ref={confirmPasswordFieldRef} // ارجاع به رفرنس
-                    />
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi tekrar girin" : ""}>
+                      <CustomTextField
+                        id="confirm-password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Şifreyi Tekrarla"
+                        fullWidth
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        disabled={generateRandomPassword}
+                        error={password !== confirmPassword && confirmPassword !== ''}
+                        helperText={password !== confirmPassword && confirmPassword !== '' ? 'Şifreler eşleşmiyor!' : ''}
+                        inputProps={{ autocomplete: 'new-password' }}
+                        ref={confirmPasswordFieldRef}
+                      />
+                    </CustomTooltip>
                   </Grid>
                   <Grid item xs={12} md={6} display="flex" alignItems="center">
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={generateRandomPassword}
-                          onChange={handleRandomPasswordCheckboxChange}
-                          name="generateRandomPassword"
-                          color="primary"
-                        />
-                      }
-                      label="Rastgele Şifre Oluştur"
-                      sx={{ mt: 3 }}
-                    />
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Sistem tarafından rastgele bir şifre oluşturun" : ""}>
+                      <FormControlLabel
+                        control={
+                          <Checkbox
+                            checked={generateRandomPassword}
+                            onChange={handleRandomPasswordCheckboxChange}
+                            name="generateRandomPassword"
+                            color="primary"
+                          />
+                        }
+                        label="Rastgele Şifre Oluştur"
+                        sx={{ mt: 3 }}
+                      />
+                    </CustomTooltip>
                   </Grid>
                   <Grid item xs={12} md={12}>
                     <CustomFormLabel htmlFor="select-roles">Roller</CustomFormLabel>
-                    <FormControl fullWidth>
-                      <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
-                      <Select
-                        labelId="roles-multiple-checkbox-label"
-                        id="select-roles"
-                        multiple
-                        value={selectedRoles}
-                        onChange={(e) => setSelectedRoles(e.target.value as number[])}
-                        input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
-                        renderValue={(selected) => (
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {selected.map((value) => {
-                              const role = allRoles.find(r => r.id === value);
-                              return <Chip key={value} label={role ? role.name : ''} />;
-                            })}
-                          </Box>
-                        )}
-                        sx={{ width: '100%' }}
-                      >
-                        {allRoles.map((role) => (
-                          <MenuItem key={role.id} value={role.id}>
-                            <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
-                            <ListItemText primary={role.name} />
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
+                      <FormControl fullWidth>
+                        <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
+                        <Select
+                          labelId="roles-multiple-checkbox-label"
+                          id="select-roles"
+                          multiple
+                          value={selectedRoles}
+                          onChange={(e) => setSelectedRoles(e.target.value as number[])}
+                          input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
+                          renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                              {selected.map((value) => {
+                                const role = allRoles.find(r => r.id === value);
+                                return <Chip key={value} label={role ? role.name : ''} />;
+                              })}
+                            </Box>
+                          )}
+                          sx={{ width: '100%' }}
+                        >
+                          {allRoles.map((role) => (
+                            <MenuItem key={role.id} value={role.id}>
+                              <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
+                              <ListItemText primary={role.name} />
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </CustomTooltip>
                   </Grid>
                 </>
               )}
             </Grid>
           </Grid>
 
+          {/* بخش آپلود و نمایش عکس */}
           <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
             <CardMedia
               component="img"
@@ -689,43 +660,51 @@ const ListUsers = () => {
               style={{ display: 'none' }}
               onChange={handleImageChange}
             />
-            <Button
-              variant="outlined"
-              onClick={() => fileInputRef.current?.click()}
-              size="small"
-            >
-              Resim Seç
-            </Button>
+            <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının profil resmini seçin" : ""}>
+              <Button
+                variant="outlined"
+                onClick={() => fileInputRef.current?.click()}
+                size="small"
+              >
+                Resim Seç
+              </Button>
+            </CustomTooltip>
           </Grid>
           <Grid item xs={12}>
             <Stack direction="row" spacing={1} justifyContent="flex-start" mt={2}>
               {editingUserId !== null ? (
                 <>
-                  <Button
-                    variant="contained"
-                    color="info"
-                    onClick={editUser}
-                    disabled={loadingButton} // Disable button when loading
-                  >
-                    {loadingButton ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Kullanıcıyı Güncelle'}
-                  </Button>
-                  <Button variant="outlined" color="secondary" onClick={resetFormAndState}>
-                    İptal Et
-                  </Button>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen kullanıcıyı güncelleyin" : ""}>
+                    <Button
+                      variant="contained"
+                      color="info"
+                      onClick={editUser}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Kullanıcıyı Güncelle'}
+                    </Button>
+                  </CustomTooltip>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni kullanıcı moduna dön" : ""}>
+                    <Button variant="outlined" color="secondary" onClick={resetFormAndState}>
+                      İptal Et
+                    </Button>
+                  </CustomTooltip>
                 </>
               ) : (
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={insertUser}
-                  disabled={loadingButton} // Disable button when loading
-                >
-                  {loadingButton ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Yeni Kullanıcı Ekle'}
-                </Button>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir kullanıcı ekle" : ""}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={insertUser}
+                    disabled={loadingButton}
+                  >
+                    {loadingButton ? <>
+                      <BoltIcon sx={{ mr: 1 }} /> Beklemek....
+                    </> : 'Yeni Kullanıcı Ekle'}
+                  </Button>
+                </CustomTooltip>
               )}
             </Stack>
           </Grid>
@@ -741,20 +720,22 @@ const ListUsers = () => {
 
       <BlankCard>
         <Box sx={{ p: 2 }}>
-          <TextField
-            label="Kullanıcı Ara"
-            variant="outlined"
-            fullWidth
-            value={searchTerm}
-            onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <IconSearch size={20} />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı adına göre ara" : ""}>
+            <TextField
+              label="Kullanıcı Ara"
+              variant="outlined"
+              fullWidth
+              value={searchTerm}
+              onChange={handleSearchChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <IconSearch size={20} />
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </CustomTooltip>
         </Box>
         <TableContainer>
           <Table aria-label="user table">
@@ -813,15 +794,18 @@ const ListUsers = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <IconButton
-                        id={`basic-button-${row.id}`}
-                        aria-controls={openMenu ? 'basic-menu' : undefined}
-                        aria-haspopup="true"
-                        aria-expanded={openMenu ? 'true' : undefined}
-                        onClick={(event) => handleClickMenu(event, row)}
-                      >
-                        <IconDots width={18} />
-                      </IconButton>
+                      {/* Tooltip برای IconButton منوی سطر */}
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                        <IconButton
+                          id={`basic-button-${row.id}`}
+                          aria-controls={openMenu ? 'basic-menu' : undefined}
+                          aria-haspopup="true"
+                          aria-expanded={openMenu ? 'true' : undefined}
+                          onClick={(event) => handleClickMenu(event, row)}
+                        >
+                          <IconDots width={18} />
+                        </IconButton>
+                      </CustomTooltip>
                       <Menu
                         id="basic-menu"
                         anchorEl={anchorEl}
@@ -831,56 +815,71 @@ const ListUsers = () => {
                           'aria-labelledby': `basic-button-${selectedUserForMenu?.id}`,
                         }}
                       >
+                        {/* Tooltip برای آیتم‌های منو */}
                         {selectedUserForMenu?.recordStatus === 0 ? (
-                          <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
-                            <ListItemIcon>
-                              <DoNotDisturbOnRoundedIcon width={18} />
-                            </ListItemIcon>
-                            Pasif Yap
-                          </MenuItem>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
+                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
+                              <ListItemIcon>
+                                <DoNotDisturbOnRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Pasif Yap
+                            </MenuItem>
+                          </CustomTooltip>
                         ) : (
-                          <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
-                            <ListItemIcon>
-                              <DoneRoundedIcon width={18} />
-                            </ListItemIcon>
-                            Aktif Yap
-                          </MenuItem>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
+                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
+                              <ListItemIcon>
+                                <DoneRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Aktif Yap
+                            </MenuItem>
+                          </CustomTooltip>
                         )}
 
-                        <MenuItem onClick={handleClickOpenChangePasswordModal}>
-                          <ListItemIcon>
-                            <IconKey width={18} />
-                          </ListItemIcon>
-                          Şifre Değiştir
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının şifresini değiştir" : ""}>
+                          <MenuItem onClick={handleClickOpenChangePasswordModal}>
+                            <ListItemIcon>
+                              <IconKey width={18} />
+                            </ListItemIcon>
+                            Şifre Değiştir
+                          </MenuItem>
+                        </CustomTooltip>
 
-                        <MenuItem onClick={handleClickOpenRoleModal}>
-                          <ListItemIcon>
-                            <IconUsersGroup width={18} />
-                          </ListItemIcon>
-                          Rolleri Seç
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini yönet" : ""}>
+                          <MenuItem onClick={handleClickOpenRoleModal}>
+                            <ListItemIcon>
+                              <IconUsersGroup width={18} />
+                            </ListItemIcon>
+                            Rolleri Seç
+                          </MenuItem>
+                        </CustomTooltip>
 
-                        <MenuItem onClick={handleClickOpenOperationsModal}>
-                          <ListItemIcon>
-                            <IconLock width={18} />
-                          </ListItemIcon>
-                          Operasyonları Seç
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının operasyonlarını yönet" : ""}>
+                          <MenuItem onClick={handleClickOpenOperationsModal}>
+                            <ListItemIcon>
+                              <IconLock width={18} />
+                            </ListItemIcon>
+                            Operasyonları Seç
+                          </MenuItem>
+                        </CustomTooltip>
 
-                        <MenuItem onClick={handleEditItemClick}>
-                          <ListItemIcon>
-                            <IconEdit width={18} />
-                          </ListItemIcon>
-                          Düzenlemek
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı bilgilerini düzenle" : ""}>
+                          <MenuItem onClick={handleEditItemClick}>
+                            <ListItemIcon>
+                              <IconEdit width={18} />
+                            </ListItemIcon>
+                            Düzenlemek
+                          </MenuItem>
+                        </CustomTooltip>
 
-                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                          <ListItemIcon>
-                            <IconTrash width={18} />
-                          </ListItemIcon>
-                          Silmek
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı sil" : ""}>
+                          <MenuItem onClick={handleClickOpenDeleteModal}>
+                            <ListItemIcon>
+                              <IconTrash width={18} />
+                            </ListItemIcon>
+                            Silmek
+                          </MenuItem>
+                        </CustomTooltip>
                       </Menu>
                     </TableCell>
                   </TableRow>

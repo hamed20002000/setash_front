@@ -22,6 +22,8 @@ import { TransitionProps } from '@mui/material/transitions';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
     children: React.ReactElement;
@@ -37,9 +39,9 @@ interface OperationType {
 }
 
 type Props = {
-  openOperationsModal: boolean; // نام پراپ
+  openOperationsModal: boolean;
   onClose: () => void;
-  userId: number | null; // ID کاربر انتخاب شده
+  userId: number | null;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
@@ -49,6 +51,10 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
 
+  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
+  const { isTooltipGloballyEnabled } = useTooltip();
+
+
   const fetchAllOperations = async () => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
@@ -56,7 +62,7 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
       return [];
     }
     try {
-      const response = await axios.get(server.baseurl + server.user + "get-system-operations", { // API دریافت تمام عملیات‌ها
+      const response = await axios.get(server.baseurl + server.user + "get-system-operations", {
         headers: {
           "Accept": "application/json",
           "Authorization": `Bearer ${authToken}`
@@ -85,14 +91,13 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
       return [];
     }
     try {
-      // این آدرس API برای گرفتن عملیات‌های یک کاربر خاص است. (جدید)
       const response = await axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${currentUserId}`, {
         headers: {
           "Accept": "application/json",
           "Authorization": `Bearer ${authToken}`
         }
       });
-      if (response.data.httpStatusCode === 200) {debugger
+      if (response.data.httpStatusCode === 200) {
         // فرض می‌شود پاسخ شامل آرایه‌ای از آبجکت‌هاست که هر کدام دارای `id` عملیات هستند
         const assignedOps = response.data.data.systemOperations.map((item: any) => Number(item.id));
         return assignedOps;
@@ -164,10 +169,9 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
     }
 
     try {
-      // این آدرس API برای ذخیره/به‌روزرسانی عملیات‌های اختصاص‌یافته به کاربر است. (جدید)
       const response = await axios.post(
-        `${server.baseurl}${server.user}assign-user-operations`,
-        { UserId:userId ,operationIds: selectedOperationIds },
+        `${server.baseurl}${server.user}assign-user-operations/${userId}`, // آدرس API اختصاص به کاربر
+        { UserId: userId, operationIds: selectedOperationIds },
         {
           headers: {
             "Accept": "application/json",
@@ -199,15 +203,21 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
     <Dialog fullScreen open={openOperationsModal} onClose={onClose} TransitionComponent={Transition}>
       <AppBar sx={{ position: 'relative' }}>
         <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
-            <IconX width={24} height={24} />
-          </IconButton>
+          {/* **Tooltip برای دکمه بستن (IconX)** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Kapat" : ""}>
+            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+              <IconX width={24} height={24} />
+            </IconButton>
+          </CustomTooltip>
           <Typography ml={2} flex={1} variant="h6" component="div">
             Kullanıcı için Operasyonları Seçin
           </Typography>
-          <Button autoFocus color="inherit" onClick={handleSaveOperations} disabled={loading || saving}>
-            {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
-          </Button>
+          {/* **Tooltip برای دکمه ذخیره (Kaydet)** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen operasyonları kaydet" : ""}>
+            <Button autoFocus color="inherit" onClick={handleSaveOperations} disabled={loading || saving}>
+              {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
+            </Button>
+          </CustomTooltip>
         </Toolbar>
       </AppBar>
       <DialogContent sx={{ p: 0 }}>
@@ -220,40 +230,46 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
           <List dense component="div" role="list">
             {allOperations.length > 0 ? (
               <>
-                <ListItem
-                  onClick={handleSelectAllToggle}
-                  role="checkbox"
-                  sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}
-                >
-                  <ListItemIcon>
-                    <Checkbox
-                      edge="start"
-                      checked={isAllSelected}
-                      indeterminate={isIndeterminate}
-                      tabIndex={-1}
-                      disableRipple
-                    />
-                  </ListItemIcon>
-                  <ListItemText primary="Tümünü Seç / Seçimi Kaldır" />
-                </ListItem>
-
-                {allOperations.map((operation) => (
+                {/* آیتم "انتخاب همه" */}
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm operasyonları seç/seçimi kaldır" : ""}>
                   <ListItem
-                    key={operation.id}
-                    onClick={handleToggle(operation.id)}
+                    onClick={handleSelectAllToggle}
                     role="checkbox"
-                    sx={{ py: 0.5 }}
+                    sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}
                   >
                     <ListItemIcon>
                       <Checkbox
                         edge="start"
-                        checked={selectedOperationIds.indexOf(operation.id) !== -1}
+                        checked={isAllSelected}
+                        indeterminate={isIndeterminate}
                         tabIndex={-1}
                         disableRipple
                       />
                     </ListItemIcon>
-                    <ListItemText primary={operation.name} />
+                    <ListItemText primary="Tümünü Seç / Seçimi Kaldır" />
                   </ListItem>
+                </CustomTooltip>
+
+                {/* لیست عملیات‌ها */}
+                {allOperations.map((operation) => (
+                  <CustomTooltip key={`op-tooltip-${operation.id}`} title={isTooltipGloballyEnabled ? operation.name : ""}>
+                    <ListItem
+                      key={operation.id}
+                      onClick={handleToggle(operation.id)}
+                      role="checkbox"
+                      sx={{ py: 0.5 }}
+                    >
+                      <ListItemIcon>
+                        <Checkbox
+                          edge="start"
+                          checked={selectedOperationIds.indexOf(operation.id) !== -1}
+                          tabIndex={-1}
+                          disableRipple
+                        />
+                      </ListItemIcon>
+                      <ListItemText primary={operation.name} />
+                    </ListItem>
+                  </CustomTooltip>
                 ))}
               </>
             ) : (

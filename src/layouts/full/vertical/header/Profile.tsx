@@ -1,26 +1,34 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Box,
-  Menu,
-  Avatar,
-  Typography,
-  Divider,
-  Button,
-  IconButton,
-  Stack
+  Box, Menu, Avatar, Typography, Divider, Button, IconButton, Stack,
+  Alert,
 } from '@mui/material';
-import * as dropdownData from './data';
+import { IconMail, IconUserShield } from '@tabler/icons-react';
 
-import { IconMail } from '@tabler/icons-react';
-
-import ProfileImg from 'src/assets/images/profile/user-1.jpg';
-import unlimitedImg from 'src/assets/images/backgrounds/unlimited-bg.png';
+import ProfileImg from 'src/assets/images/profile/user-d1.svg';
+import { useAuth } from 'src/context/AuthContext';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import ChangeUserRoleModal from './ChangeUserRoleModal';
 
 const Profile = () => {
+  const { username, userRoles, activeRoleName, updateActiveRole } = useAuth();
+  const { isTooltipGloballyEnabled } = useTooltip(); // **استفاده از useTooltip**
+
   const [anchorEl2, setAnchorEl2] = useState(null);
+  const [openChangeRoleModal, setOpenChangeRoleModal] = useState(false);
+
+  const [profileAlertMessage, setProfileAlertMessage] = useState<string | null>(null);
+  const [profileAlertSeverity, setProfileAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
+
+  const showProfileAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    setProfileAlertMessage(message);
+    setProfileAlertSeverity(severity);
+    setTimeout(() => setProfileAlertMessage(null), 5000);
+  };
+
   const handleClick2 = (event: any) => {
     setAnchorEl2(event.currentTarget);
   };
@@ -28,33 +36,63 @@ const Profile = () => {
     setAnchorEl2(null);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('activeUserRoleName');
+    localStorage.removeItem('hasSeenWelcomeMessage');
+    window.location.href = '/auth/login';
+  };
+
+  const handleOpenChangeRoleModal = () => {
+    if (userRoles.length > 1) {
+      setOpenChangeRoleModal(true);
+    } else if (userRoles.length === 1) {
+      showProfileAlert("Bu kullanıcının zaten tek bir rolü var.", "info");
+    } else {
+      showProfileAlert("Bu kullanıcı için rol bulunamadı.", "warning");
+    }
+    handleClose2();
+  };
+
+  const handleChangeRoleModalClose = () => {
+    setOpenChangeRoleModal(false);
+  };
+
+  // useEffect که قبلا رول ها رو از توکن میخوند، حالا از AuthContext لود میشن.
+  // const [username, setUsername] = useState<string>('Guest');
+  // const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  // const [activeRoleName, setActiveRoleName] = useState<string>('Yükleniyor...');
+  // useEffect(() => { ... }, []); این useEffect حذف شده است.
+
+
   return (
     <Box>
-      <IconButton
-        size="large"
-        aria-label="show 11 new notifications"
-        color="inherit"
-        aria-controls="msgs-menu"
-        aria-haspopup="true"
-        sx={{
-          ...(typeof anchorEl2 === 'object' && {
-            color: 'primary.main',
-          }),
-        }}
-        onClick={handleClick2}
-      >
-        <Avatar
-          src={ProfileImg}
-          alt={ProfileImg}
+      <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı Profili" : ""}> 
+        
+        <IconButton
+          size="large"
+          aria-label="show 11 new notifications"
+          color="inherit"
+          aria-controls="msgs-menu"
+          aria-haspopup="true"
           sx={{
-            width: 35,
-            height: 35,
+            ...(typeof anchorEl2 === 'object' && {
+              color: 'primary.main',
+            }),
           }}
-        />
-      </IconButton>
-      {/* ------------------------------------------- */}
-      {/* Message Dropdown */}
-      {/* ------------------------------------------- */}
+          onClick={handleClick2}
+        >
+          <Avatar
+            src={ProfileImg}
+            alt="Profile Picture"
+            sx={{
+              width: 35,
+              height: 35,
+            }}
+          />
+        </IconButton>
+      </CustomTooltip>
+
       <Menu
         id="msgs-menu"
         anchorEl={anchorEl2}
@@ -72,99 +110,61 @@ const Profile = () => {
       >
         <Typography variant="h5">Kullanıcı Profili</Typography>
         <Stack direction="row" py={3} spacing={2} alignItems="center">
-          <Avatar src={ProfileImg} alt={ProfileImg} sx={{ width: 95, height: 95 }} />
+          <Avatar src={ProfileImg} alt="Profile Picture" sx={{ width: 95, height: 95 }} />
           <Box>
             <Typography variant="subtitle2" color="textPrimary" fontWeight={600}>
-              setash
+              {username}
             </Typography>
             <Typography variant="subtitle2" color="textSecondary">
-              admin
-            </Typography>
-            <Typography
-              variant="subtitle2"
-              color="textSecondary"
-              display="flex"
-              alignItems="center"
-              gap={1}
-            >
-              <IconMail width={15} height={15} />
-              info@setash.com
+              {activeRoleName}
             </Typography>
           </Box>
         </Stack>
         <Divider />
-        {/* {dropdownData.profile.map((profile) => (
-          <Box key={profile.title}>
-            <Box sx={{ py: 2, px: 0 }} className="hover-text-primary">
-              <Link to={profile.href}>
-                <Stack direction="row" spacing={2}>
-                  <Box
-                    width="45px"
-                    height="45px"
-                    bgcolor="primary.light"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <Avatar
-                      src={profile.icon}
-                      alt={profile.icon}
-                      sx={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 0,
-                      }}
-                    />
-                  </Box>
-                  <Box>
-                    <Typography
-                      variant="subtitle2"
-                      fontWeight={600}
-                      color="textPrimary"
-                      className="text-hover"
-                      noWrap
-                      sx={{
-                        width: '240px',
-                      }}
-                    >
-                      {profile.title}
-                    </Typography>
-                    <Typography
-                      color="textSecondary"
-                      variant="subtitle2"
-                      sx={{
-                        width: '240px',
-                      }}
-                      noWrap
-                    >
-                      {profile.subtitle}
-                    </Typography>
-                  </Box>
-                </Stack>
-              </Link>
-            </Box>
+        
+        {userRoles.length > 1 && (
+          <Box mt={2}>
+            <CustomTooltip title={isTooltipGloballyEnabled ? "Aktif rolünüzü değiştirin" : ""}> 
+              
+              <Button
+                variant="outlined"
+                color="primary"
+                onClick={handleOpenChangeRoleModal}
+                startIcon={<IconUserShield size={20} />}
+                fullWidth
+              >
+                Rolü Değiştir
+              </Button>
+            </CustomTooltip>
           </Box>
-        ))} */}
+        )}
+
         <Box mt={2}>
-          {/* <Box bgcolor="primary.light" p={3} mb={3} overflow="hidden" position="relative">
-            <Box display="flex" justifyContent="space-between">
-              <Box>
-                <Typography variant="h5" mb={2}>
-                  Unlimited <br />
-                  Access
-                </Typography>
-                <Button variant="contained" color="primary">
-                  Upgrade
-                </Button>
-              </Box>
-              <img src={unlimitedImg} alt="unlimited" className="signup-bg"></img>
-            </Box>
-          </Box> */}
-          <Button to="/auth/login" variant="outlined" color="primary" component={Link} fullWidth>
-            Çıkış Yap
-          </Button>
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Hesaptan çıkış yapın" : ""}> 
+            
+            <Button variant="outlined" color="primary" onClick={handleLogout} fullWidth>
+              Çıkış Yap
+            </Button>
+          </CustomTooltip>
         </Box>
       </Menu>
+
+      <ChangeUserRoleModal
+        open={openChangeRoleModal}
+        onClose={handleChangeRoleModalClose}
+        userRoles={userRoles}
+        currentActiveRoleName={activeRoleName}
+        onRoleChange={updateActiveRole}
+        showAlert={showProfileAlert}
+      />
+
+      {profileAlertMessage && (
+        <Box sx={{ position: 'fixed', top: 70, right: 20, zIndex: 9999 }}>
+          <Alert severity={profileAlertSeverity} onClose={() => setProfileAlertMessage(null)}>
+            {profileAlertMessage}
+          </Alert>
+        </Box>
+      )}
     </Box>
   );
 };

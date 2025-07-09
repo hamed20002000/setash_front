@@ -4,7 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Grid, Box, Stack, Typography } from '@mui/material';
 import PageContainer from 'src/components/container/PageContainer';
-import img1 from 'src/assets/images/backgrounds/login-bg.svg';
+import img1 from 'src/assets/images/backgrounds/login-bg.jpg';
 import Logo from 'src/layouts/full/shared/logo/Logo';
 import AuthLogin from '../authForms/AuthLogin';
 
@@ -51,7 +51,8 @@ const Login = () => (
               alt="bg"
               style={{
                 width: '100%',
-                maxWidth: '500px',
+                height: '100%',
+                objectFit: "cover"
               }}
             />
           </Box>

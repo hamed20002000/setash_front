@@ -1,12 +1,22 @@
 // DeleteSystemOperation.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useState } from 'react'; // useState اضافه شد
+import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material'; // CircularProgress اضافه شد
+import {
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  CircularProgress,
+} from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
+
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
 
 type Props = {
   openModal: boolean;
@@ -18,9 +28,12 @@ type Props = {
 
 const DeleteSystemOperation = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState<boolean>(false); // State جدید برای لودینگ دکمه
+  const [loading, setLoading] = useState<boolean>(false);
 
-  const handleDeleteOperation = async () => { // تابع را async کردیم
+  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
+  const { isTooltipGloballyEnabled } = useTooltip();
+
+  const handleDeleteOperation = async () => {
     if (rowIdToDelete === null) {
       showAlert('Silinecek kayıt seçilmedi.', 'warning');
       onClose();
@@ -34,43 +47,36 @@ const DeleteSystemOperation = ({ openModal, rowIdToDelete, onClose, onDeleteSucc
       return;
     }
 
-    setLoading(true); // شروع لودینگ
+    setLoading(true);
     try {
-      // استفاده از axios.delete به جای axios.request با method: "delete"
-      // این روش تمیزتر و استانداردتر است.
       const response = await axios.delete(
         `${server.baseurl}${server.user}delete-system-operation/${rowIdToDelete}`,
         {
           headers: {
-            "Accept": "text/plain", // یا "application/json" اگر سرور JSON برمی‌گرداند
+            "Accept": "text/plain",
             "Authorization": `Bearer ${authToken}`,
-            // 'Content-Type': 'application/json' // برای DELETE با URL نیازی نیست مگر اینکه بدنه داشته باشد
           }
         }
       );
 
-      // فرض می‌کنیم httpStatusCode در result.data.httpStatusCode است (بر اساس ساختار پاسخ‌های قبلی شما)
       if (response.data.httpStatusCode === 200) {
         showAlert('Kayıt başarıyla silindi!', 'success');
         onDeleteSuccess();
         onClose();
       } else {
-        // در صورت statusCode غیر 200، پیام خطا را از سرور بگیر
         showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
       console.error("Error deleting operation:", e);
-      // پیام خطای دقیق‌تر از سرور اگر موجود باشد
       const errorMessage = e.response?.data?.message || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
       showAlert(errorMessage, 'error');
-      // اگر خطا 401 بود، به صفحه لاگین هدایت کن
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
     } finally {
-      setLoading(false); // پایان لودینگ (هم در موفقیت و هم در خطا)
+      setLoading(false);
     }
   };
 
@@ -91,19 +97,28 @@ const DeleteSystemOperation = ({ openModal, rowIdToDelete, onClose, onDeleteSucc
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          {/* دکمه "İptal et" را هم غیرفعال کن وقتی لودینگ است */}
-          <Button onClick={onClose} disabled={loading}>İptal et</Button>
-          <Button
-            color="error"
-            variant="contained" // معمولاً دکمه‌های اصلی اکشن Contained هستند
-            onClick={handleDeleteOperation}
-            autoFocus
-            disabled={loading} // دکمه حذف را هنگام لودینگ غیرفعال کن
-          >
-            {loading ? <>
-                            <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-                          </>  : 'Silmek'} {/* نمایش لودینگ یا متن */}
-          </Button>
+          {/* **Tooltip برای دکمه "İptal et"** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "İşlemi iptal et" : ""}>
+            <Button onClick={onClose} disabled={loading}>İptal et</Button>
+          </CustomTooltip>
+          {/* **Tooltip برای دکمه "Silmek"** */}
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen kaydı sil" : ""}>
+            <Button
+              color="error"
+              variant="contained"
+              onClick={handleDeleteOperation}
+              autoFocus
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                </>
+              ) : (
+                'Silmek'
+              )}
+            </Button>
+          </CustomTooltip>
         </DialogActions>
       </Dialog>
     </>

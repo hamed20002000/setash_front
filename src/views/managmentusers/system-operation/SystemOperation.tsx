@@ -4,27 +4,10 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  TableContainer,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Typography,
-  Chip,
-  Menu,
-  MenuItem,
-  IconButton,
-  ListItemIcon,
-  Box,
-  Stack,
-  Grid,
-  Button,
-  Alert,
-  TablePagination,
-  TextField,
-  InputAdornment,
-  CircularProgress, // اضافه شد: برای نمایش لودینگ دکمه
+  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
+  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  Stack, Grid, Button, Alert, TablePagination, TextField,
+  InputAdornment, CircularProgress,
 } from '@mui/material';
 
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -37,6 +20,8 @@ import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteSystemOperation from './DeleteSystemOperation';
 import axios from 'axios';
 import server from '../../../assets/address.json';
+
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // ایمپورت CustomTooltip
 
 interface RowType {
   id: number;
@@ -67,13 +52,13 @@ const SystemOperation = () => {
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [rowIdToDelete, setRowIdToDelete] = useState<number | null>(null);
 
-  // --- States برای صفحه‌بندی و جستجو ---
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- State برای لودینگ دکمه ثبت/ویرایش ---
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
+
+  const { isTooltipGloballyEnabled } = useTooltip(); // استفاده از useTooltip
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
@@ -138,7 +123,7 @@ const SystemOperation = () => {
       return;
     }
 
-    setLoadingButton(true); // شروع لودینگ
+    setLoadingButton(true);
     try {
       const response = await axios.post(
         server.baseurl + server.user + "create-system-operation",
@@ -162,7 +147,7 @@ const SystemOperation = () => {
       console.error("Error inserting operation:", e);
       showAlert(e.response?.data?.message || 'İşlem eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
-      setLoadingButton(false); // پایان لودینگ
+      setLoadingButton(false);
     }
   };
 
@@ -188,7 +173,7 @@ const SystemOperation = () => {
       return;
     }
 
-    setLoadingButton(true); // شروع لودینگ
+    setLoadingButton(true);
     try {
       const response = await axios.put(
         server.baseurl + server.user + "update-system-operation",
@@ -207,6 +192,7 @@ const SystemOperation = () => {
           prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
         );
         resetFormAndState();
+        getListOperation();
       } else {
         showAlert(response.data.message || 'İşlem güncellenirken bir hata oluştu.', 'error');
       }
@@ -214,7 +200,7 @@ const SystemOperation = () => {
       console.error("Error updating operation:", e);
       showAlert(e.response?.data?.message || 'İşlem güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
-      setLoadingButton(false); // پایان لودینگ
+      setLoadingButton(false);
     }
   }
 
@@ -307,22 +293,19 @@ const SystemOperation = () => {
       }
     }).then((result) => {
       if (result.data.httpStatusCode === 200) {
-          const formattedData = result.data.data.map((item: any) => ({
+        const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
           name: item.name,
           recordStatus: item.recordStatus,
           createAt: item.createAt,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
         }));
-         const sortedData = formattedData.sort((a: RowType, b: RowType) => {
-          // اگر createAt رشته است و می‌توانید آن را به تاریخ تبدیل کنید:
+        const sortedData = formattedData.sort((a: RowType, b: RowType) => {
           const dateA = new Date(a.createAt);
           const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime(); // جدیدترین تاریخ اول (نزولی)
-          // یا اگر بر اساس ID بزرگتر = جدیدتر:
-          // return b.id - a.id;
+          return dateB.getTime() - dateA.getTime();
         });
-        setOperationsList(sortedData as RowType[]); // لیست مرتب شده را تنظیم کن
+        setOperationsList(sortedData as RowType[]);
       } else {
         showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
       }
@@ -333,7 +316,7 @@ const SystemOperation = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error fetching operations list:", e);
-        showAlert('Operasyon listesi alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
+        showAlert('Operasyon listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     });
   }
@@ -390,33 +373,39 @@ const SystemOperation = () => {
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>
-                  <Button
-                    variant="contained"
-                    color="info"
-                    onClick={editOperation}
-                    disabled={loadingButton} // غیرفعال کردن دکمه هنگام لودینگ
-                  >
-                    {loadingButton ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </>  : 'Düzenlemek'}
-                  </Button>
-                  <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                    İptal Et
-                  </Button>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili operasyonu güncelle" : ""}>
+                    <Button
+                      variant="contained"
+                      color="info"
+                      onClick={editOperation}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Düzenlemek'}
+                    </Button>
+                  </CustomTooltip>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni işlem moduna dön" : ""}>
+                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                      İptal Et
+                    </Button>
+                  </CustomTooltip>
                 </>
               ) : (
-                <Button
-                
-                  variant="contained"
-                  color="success"
-                  onClick={insertOperation}
-                  disabled={loadingButton} // غیرفعال کردن دکمه هنگام لودینگ
-                >
-                  {loadingButton ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
-              </> : 'Yeni İşlem Ekle'}
-                </Button>
-                 
+                <>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir operasyon ekle" : ""}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={insertOperation}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Yeni İşlem Ekle'}
+                    </Button>
+                  </CustomTooltip>
+                </>
               )}
             </Stack>
           </Grid>
@@ -500,15 +489,18 @@ const SystemOperation = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <IconButton
-                        id={`basic-button-${row.id}`}
-                        aria-controls={openMenu ? 'basic-menu' : undefined}
-                        aria-haspopup="true"
-                        aria-expanded={openMenu ? 'true' : undefined}
-                        onClick={(event) => handleClickMenu(event, row)}
-                      >
-                        <IconDots width={18} />
-                      </IconButton>
+                      {/* Tooltip for IconButtons within Menu (optional, but good for consistency) */}
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                        <IconButton
+                          id={`basic-button-${row.id}`}
+                          aria-controls={openMenu ? 'basic-menu' : undefined}
+                          aria-haspopup="true"
+                          aria-expanded={openMenu ? 'true' : undefined}
+                          onClick={(event) => handleClickMenu(event, row)}
+                        >
+                          <IconDots width={18} />
+                        </IconButton>
+                      </CustomTooltip>
                       <Menu
                         id="basic-menu"
                         anchorEl={anchorEl}
@@ -519,32 +511,40 @@ const SystemOperation = () => {
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <MenuItem onClick={handleSetInactive}>
-                            <ListItemIcon>
-                              <DoNotDisturbOnRoundedIcon width={18} />
-                            </ListItemIcon>
-                            Etkin değil
-                          </MenuItem>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu pasif yap" : ""}>
+                            <MenuItem onClick={handleSetInactive}>
+                              <ListItemIcon>
+                                <DoNotDisturbOnRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Etkin değil
+                            </MenuItem>
+                          </CustomTooltip>
                         ) : (
-                          <MenuItem onClick={handleSetActive}>
-                            <ListItemIcon>
-                              <DoneRoundedIcon width={18} />
-                            </ListItemIcon>
-                            Aktif
-                          </MenuItem>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu aktif yap" : ""}>
+                            <MenuItem onClick={handleSetActive}>
+                              <ListItemIcon>
+                                <DoneRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Aktif
+                            </MenuItem>
+                          </CustomTooltip>
                         )}
-                        <MenuItem onClick={handleEditClick}>
-                          <ListItemIcon>
-                            <IconEdit width={18} />
-                          </ListItemIcon>
-                          Düzenlemek
-                        </MenuItem>
-                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                          <ListItemIcon>
-                            <IconTrash width={18} />
-                          </ListItemIcon>
-                          Silmek
-                        </MenuItem>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu düzenle" : ""}>
+                          <MenuItem onClick={handleEditClick}>
+                            <ListItemIcon>
+                              <IconEdit width={18} />
+                            </ListItemIcon>
+                            Düzenlemek
+                          </MenuItem>
+                        </CustomTooltip>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu sil" : ""}>
+                          <MenuItem onClick={handleClickOpenDeleteModal}>
+                            <ListItemIcon>
+                              <IconTrash width={18} />
+                            </ListItemIcon>
+                            Silmek
+                          </MenuItem>
+                        </CustomTooltip>
                       </Menu>
                     </TableCell>
                   </TableRow>
