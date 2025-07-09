@@ -22,6 +22,10 @@ import { loginType } from 'src/types/auth/auth';
 import CustomCheckbox from '../../../components/forms/theme-elements/CustomCheckbox';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
+import Logo from '../../../layouts/full/shared/logo/Logo';
+
+
+import { useAuth } from 'src/context/AuthContext'; 
 
 // Keyframes برای افکت "جریان الکتریکی" (بدون تغییر)
 const electricFlow = keyframes`
@@ -62,6 +66,8 @@ const ElectricEffect = styled('span')({
 
 const AuthLogin = ({ title, subtext }: loginType) => {
   const navigate = useNavigate();
+
+  const { loadAuthData } = useAuth(); // **loadAuthData را از useAuth دریافت کنید**
 
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -117,6 +123,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         if (token) {
           localStorage.setItem('authToken', token); // ذخیره توکن
           console.log('Giriş başarılı, token kaydedildi:', token);
+           loadAuthData(); 
           showAlert('Giriş başarılı!', 'success');
 
           navigate('/dashboards/dashboard'); // هدایت به صفحه اصلی یا داشبورد
@@ -142,6 +149,13 @@ const AuthLogin = ({ title, subtext }: loginType) => {
 
   return (
     <>
+      <div style={{
+        marginBottom: "5%",
+        display: "flex",
+        justifyContent: "start",
+      }}>
+        <Logo/>
+      </div>
       {title ? (
         <Typography fontWeight="700" variant="h3" mb={1}>
           {title}

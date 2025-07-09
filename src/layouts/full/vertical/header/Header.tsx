@@ -109,7 +109,7 @@ const Header = () => {
             </CustomTooltip>
           )}
 
-          <CustomTooltip title="Araç İpuçlarını Etkinleştir/Devre Dışı Bırak"> 
+          {/* <CustomTooltip title="Araç İpuçlarını Etkinleştir/Devre Dışı Bırak"> 
             <FormControlLabel
               control={
                 <Switch
@@ -126,7 +126,7 @@ const Header = () => {
               }
               labelPlacement="start"
             />
-          </CustomTooltip>
+          </CustomTooltip> */}
 
           <Profile />
         </Stack>

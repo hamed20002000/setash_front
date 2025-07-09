@@ -18,7 +18,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // ای�
 
 type Props = {
   openModal: boolean;
-  userIdToDelete: number | null;
+  userIdToDelete: string | null;
   onClose: () => void;
   onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;

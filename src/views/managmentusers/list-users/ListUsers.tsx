@@ -86,6 +86,7 @@ const ListUsers = () => {
 
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null);
+  // const [userIdToDelete, setUserIdToDelete] = useState<string | null>(null);
 
   const [openRoleModal, setOpenRoleModal] = useState(false);
   const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<number | null>(null);
@@ -136,6 +137,7 @@ const ListUsers = () => {
   const handleClickOpenDeleteModal = () => {
     if (selectedUserForMenu) {
       setUserIdToDelete(selectedUserForMenu.id);
+      // setUserIdToDelete(selectedUserForMenu.username);
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
@@ -434,7 +436,7 @@ const ListUsers = () => {
         "Authorization": `Bearer ${authToken}`
       }
     }).then((result) => {
-      if (result.data.httpStatusCode === 200) {
+      if (result.data.httpStatusCode === 200) {debugger
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
           username: item.username,
@@ -748,6 +750,9 @@ const ListUsers = () => {
                   <Typography variant="h6">Kullanıcı Adı</Typography>
                 </TableCell>
                 <TableCell>
+                  <Typography variant="h6">Rolleri Listele</Typography>
+                </TableCell>
+                <TableCell>
                   <Typography variant="h6">Oluşturulma Tarihi</Typography>
                 </TableCell>
                 <TableCell>
@@ -770,6 +775,31 @@ const ListUsers = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="h6">{row.username}</Typography>
+                    </TableCell>
+                    <TableCell>
+                     
+
+                      {row.roles && row.roles.length > 0 ? (
+                          row.roles.map((role, index) => (
+                            <Chip
+                              key={role.id || index} 
+                              label={role.name}
+                              size="small"
+                              sx={{ mr: 0.5, mb: 0.5 }}
+                            />
+                          ))
+                        ) : (
+                           <Chip
+                              label="Rol Yok"
+                              size="small"
+                              sx={{ mr: 0.5, mb: 0.5,
+                                backgroundColor:(theme) => theme.palette.error.dark,
+                                color:(theme) => theme.palette.error.contrastText
+                               }}
+                            />
+                          // <Typography variant="h6" color="textSecondary">Rol Yok</Typography>
+                      )}
+              
                     </TableCell>
                     <TableCell>
                       <Typography variant="h6">{formatDate(row.createAt)}</Typography>
@@ -815,7 +845,6 @@ const ListUsers = () => {
                           'aria-labelledby': `basic-button-${selectedUserForMenu?.id}`,
                         }}
                       >
-                        {/* Tooltip برای آیتم‌های منو */}
                         {selectedUserForMenu?.recordStatus === 0 ? (
                           <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
                             <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>

@@ -1,32 +1,27 @@
-import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback } from 'react'; // useCallback اضافه شد
 
-// تعریف نوع برای رول کاربر
+// ... (بقیه interface ها مانند UserRole, JwtPayload, AuthContextType)
 interface UserRole {
   name: string;
-  // اگر ID هم از توکن می‌آید، می‌توانید اینجا اضافه کنید
-  // id?: number;
 }
 
-// تعریف نوع برای Payload توکن JWT
 interface JwtPayload {
   username?: string;
-  role?: string | string[]; // می تواند یک رشته یا آرایه ای از رشته ها باشد
-  // سایر فیلدهای توکن
+  role?: string | string[];
 }
 
-// تعریف نوع برای مقادیر Context
 interface AuthContextType {
   username: string;
   userRoles: UserRole[];
   activeRoleName: string | null;
   updateActiveRole: (newRoleName: string) => void;
-  // می توانید لودینگ یا ارور احراز هویت را هم اینجا اضافه کنید
+  loadAuthData: () => void; // **اضافه شد: تابعی برای بارگذاری مجدد داده های احراز هویت**
 }
 
-// مقدار پیش‌فرض Context
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// تابع Decode کردن توکن JWT (می‌توانید آن را از utils/authUtils.ts ایمپورت کنید)
+// ... (تابع decodeJwtToken بدون تغییر)
 const decodeJwtToken = (token: string): JwtPayload | null => {
   try {
     const base64Url = token.split('.')[1];
@@ -46,6 +41,7 @@ const decodeJwtToken = (token: string): JwtPayload | null => {
   }
 };
 
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -55,57 +51,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [activeRoleName, setActiveRoleName] = useState<string | null>(null);
 
-  // useEffect برای بارگذاری اولیه اطلاعات از توکن
-  useEffect(() => {
-    const loadAuthData = () => {
-      const authToken = localStorage.getItem('authToken');
-      if (authToken) {
-        const decodedToken = decodeJwtToken(authToken);
-        if (decodedToken) {debugger
-          setUsername(decodedToken.username || 'Kullanıcı');
+  // **تابع loadAuthData با useCallback برای پایداری**
+  const loadAuthData = useCallback(() => {
+    const authToken = localStorage.getItem('authToken');
+    if (authToken) {
+      const decodedToken = decodeJwtToken(authToken);
+      if (decodedToken) {
+        setUsername(decodedToken.username || 'Kullanıcı');
 
-          let roles: UserRole[] = [];
-          if (Array.isArray(decodedToken.role)) {
-            roles = decodedToken.role.map((roleName: string) => ({ name: roleName }));
-          } else if (typeof decodedToken.role === 'string') {
-            roles = [{ name: decodedToken.role }];
-          }
-          setUserRoles(roles);
+        let roles: UserRole[] = [];
+        if (Array.isArray(decodedToken.role)) {
+          roles = decodedToken.role.map((roleName: string) => ({ name: roleName }));
+        } else if (typeof decodedToken.role === 'string') {
+          roles = [{ name: decodedToken.role }];
+        }
+        setUserRoles(roles);
 
-          // بارگذاری رول فعال از localStorage
-          const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
-          if (savedActiveRoleName && roles.some(r => r.name === savedActiveRoleName)) {
-            setActiveRoleName(savedActiveRoleName);
-          } else if (roles.length > 0) {
-            setActiveRoleName(roles[0].name);
-            localStorage.setItem('activeUserRoleName', roles[0].name);
-          } else {
-            setActiveRoleName('Rol Yok');
-          }
+        const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
+        if (savedActiveRoleName && roles.some(r => r.name === savedActiveRoleName)) {
+          setActiveRoleName(savedActiveRoleName);
+        } else if (roles.length > 0) {
+          setActiveRoleName(roles[0].name);
+          localStorage.setItem('activeUserRoleName', roles[0].name);
+        } else {
+          setActiveRoleName('Rol Yok');
         }
       } else {
         setUsername('Guest');
         setUserRoles([]);
         setActiveRoleName('Rol Yok');
-        localStorage.removeItem('activeUserRoleName'); // مطمئن شوید پاک شده
+        localStorage.removeItem('activeUserRoleName');
+        localStorage.removeItem('authToken');
       }
-    };
+    } else {
+      setUsername('Guest');
+      setUserRoles([]);
+      setActiveRoleName('Rol Yok');
+      localStorage.removeItem('activeUserRoleName');
+    }
+  }, []); // [] به این معنی است که loadAuthData فقط یک بار در زمان mount ساخته می‌شود
 
-    loadAuthData();
+  // useEffect برای بارگذاری اولیه و تنظیم شنونده رویداد storage
+  useEffect(() => {
+    loadAuthData(); // بارگذاری اولیه
 
-    // اگر می‌خواهید با تغییر localStorage در تب‌های دیگر، این کامپوننت هم رفرش شود
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'authToken' || event.key === 'activeUserRoleName') {
         loadAuthData();
       }
     };
+
     window.addEventListener('storage', handleStorageChange);
+
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [loadAuthData]); // loadAuthData به عنوان dependency اضافه شد
 
-  // تابعی برای به‌روزرسانی رول فعال (از طریق Context)
   const updateActiveRole = (newRoleName: string) => {
     setActiveRoleName(newRoleName);
     localStorage.setItem('activeUserRoleName', newRoleName);
@@ -116,6 +118,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     userRoles,
     activeRoleName,
     updateActiveRole,
+    loadAuthData, // **اضافه شد به Context Value**
   };
 
   return (
@@ -125,7 +128,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   );
 };
 
-// هوک سفارشی برای استفاده از AuthContext
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

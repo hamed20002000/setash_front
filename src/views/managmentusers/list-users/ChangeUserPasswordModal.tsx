@@ -88,10 +88,10 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
         }
       );
 
-      if (response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201) {
+      if (response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201) {debugger
         // اگر سرور پسورد جدید رو برمی‌گردونه، از اون استفاده کن
         // در غیر این صورت، ما خودمان یک پسورد تصادفی تولید می‌کنیم.
-        const newRandomPassword = response.data.data?.newPassword || generateRandomPassword();
+        const newRandomPassword = response.data.data;
         setGeneratedPassword(newRandomPassword);
         setStep('generate'); // به مرحله تولید و نمایش پسورد برو
         showAlert('Şifre sıfırlama talebi gönderildi.', 'info'); // پیغام اولیه
