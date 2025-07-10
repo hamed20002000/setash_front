@@ -69,27 +69,35 @@ const Menuitems: MenuitemsType[] = [
   },
   {
     id: uniqueId(),
-    title: 'kategori',
-    // **آیکون مرتبط با دسته‌بندی**
+    title: 'kategori Listele',
     icon: IconCategory,
     chipColor: 'secondary',
     href: '/baseinfo/list-categories',
   },
   {
     id: uniqueId(),
-    title: 'birim',
-    // **آیکون مرتبط با واحد**
+    title: 'birim Listele',
     icon: IconBuilding,
     chipColor: 'secondary',
-    href: '/baseinfo/list-units', // توجه: مسیر این آیتم همچنان list-roles است، اگر اشتباه است آن را اصلاح کنید.
+    href: '/baseinfo/list-units',
   },
   {
     id: uniqueId(),
-    title: 'öğe',
-    // **آیکون مرتبط با آیتم**
+    title: 'öğe Listele',
     icon: IconPackage,
     chipColor: 'secondary',
-    href: '/baseinfo/list-items', // توجه: مسیر این آیتم همچنان list-users است، اگر اشتباه است آن را اصلاح کنید.
+    href: '/baseinfo/list-items',    
+  },
+  {
+    navlabel: true,
+    subheader: 'Müzayede',
+  },
+  {
+    id: uniqueId(),
+    title: 'Müzayede Listele',
+    icon: IconCategory,
+    chipColor: 'secondary',
+    href: '/auction/list-auction',
   },
 
 ];

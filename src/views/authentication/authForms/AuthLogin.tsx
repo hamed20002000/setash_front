@@ -122,7 +122,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         debugger
         if (token) {
           localStorage.setItem('authToken', token); // ذخیره توکن
-          console.log('Giriş başarılı, token kaydedildi:', token);
+          
            loadAuthData(); 
           showAlert('Giriş başarılı!', 'success');
 
@@ -138,7 +138,6 @@ const AuthLogin = ({ title, subtext }: loginType) => {
       }
 
     } catch (err: any) {
-      console.error('Giriş hatası:', err);
       // پیام خطا ممکن است در err.response.data.message باشد اگر خطا از سمت سرور باشد
       const errorMessage = err.response?.data?.message || err.message || 'Giriş sırasında beklenmeyen bir hata oluştu.';
       showAlert(errorMessage, 'error');
