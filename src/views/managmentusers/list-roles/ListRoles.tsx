@@ -4,28 +4,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  TableContainer,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
-  Typography,
-  Chip,
-  Menu,
-  MenuItem,
-  IconButton,
-  ListItemIcon,
-  Box,
-  Stack,
-  Grid,
-  Button,
-  Alert,
-  TablePagination,
-  TextField,
-  InputAdornment,
+  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
+  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   CircularProgress,
+  ToggleButtonGroup, ToggleButton as MuiToggleButton,
+  ToggleButton, // اضافه شد: برای فیلتر وضعیت
 } from '@mui/material';
+import { styled, useTheme } from '@mui/material/styles'; // **برای StyledToggleButton**
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -39,17 +25,50 @@ import ListSystemOperationModal from './ListSystemOperationModal';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 interface RowType {
   id: number;
   status: string;
   name: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi (یا askıda olması)
+  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
   createAt: string;
 }
 
 const initialRows: RowType[] = [];
+
+// **ToggleButton سفارشی با استایل‌های شرطی (کپی از ListUnit.tsx)**
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+  '&.Mui-selected': {
+    color: 'white',
+    ...(value === 'all' && selected && {
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': {
+        backgroundColor: theme.palette.primary.dark,
+      },
+    }),
+    ...(value === 'active' && selected && {
+      backgroundColor: theme.palette.success.main,
+      '&:hover': {
+        backgroundColor: theme.palette.success.dark,
+      },
+    }),
+    ...(value === 'inactive' && selected && {
+      backgroundColor: theme.palette.error.main,
+      '&:hover': {
+        backgroundColor: theme.palette.error.dark,
+      },
+    }),
+  },
+  '&:not(.Mui-selected)': {
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
+    '&:hover': {
+        backgroundColor: theme.palette.action.hover,
+    },
+  },
+}));
+
 
 const SystemRole = () => {
   const navigate = useNavigate();
@@ -79,8 +98,10 @@ const SystemRole = () => {
 
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
 
-  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
   const { isTooltipGloballyEnabled } = useTooltip();
+
+  // --- State جدید برای فیلتر وضعیت ---
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
@@ -351,7 +372,7 @@ const SystemRole = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error fetching Roles list:", e);
-        showAlert('Rol listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        showAlert('Rol listesi alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
       }
     });
   }
@@ -359,6 +380,17 @@ const SystemRole = () => {
   useEffect(() => {
     getListRole();
   }, []);
+
+  // --- هندلر تغییر فیلتر وضعیت ---
+  const handleStatusFilterChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newFilter: 'all' | 'active' | 'inactive' | null,
+  ) => {
+    if (newFilter !== null) {
+      setStatusFilter(newFilter);
+      setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
+    }
+  };
 
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
@@ -374,9 +406,15 @@ const SystemRole = () => {
     setPage(0);
   };
 
-  const filteredRoles = rolesList.filter(role =>
-    role.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // فیلتر کردن رول‌ها بر اساس جستجو و وضعیت
+  const filteredRoles = rolesList.filter(role => {
+    const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && role.recordStatus === 0) ||
+      (statusFilter === 'inactive' && role.recordStatus === 1);
+    return matchesSearch && matchesStatus;
+  });
 
   const paginatedRoles = filteredRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -408,7 +446,6 @@ const SystemRole = () => {
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>
-                  {/* **Tooltip برای دکمه ویرایش (Düzenlemek)** */}
                   <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili rolü güncelleyin" : ""}>
                     <Button
                       variant="contained"
@@ -417,11 +454,10 @@ const SystemRole = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
-                  {/* **Tooltip برای دکمه انصراف (İptal Et)** */}
                   <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni rol moduna dön" : ""}>
                     <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
                       İptal Et
@@ -430,7 +466,6 @@ const SystemRole = () => {
                 </>
               ) : (
                 <>
-                  {/* **Tooltip برای دکمه ثبت جدید (Yeni Rol Ekle)** */}
                   <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir rol ekle" : ""}>
                     <Button
                       variant="contained"
@@ -439,7 +474,7 @@ const SystemRole = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Yeni Rol Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -458,20 +493,98 @@ const SystemRole = () => {
       </div>
       <BlankCard>
         <Box sx={{ p: 2 }}>
-          <TextField
-            label="Rol Ara"
-            variant="outlined"
-            fullWidth
-            value={searchTerm}
-            onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <IconSearch size={20} />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={8}>
+              <TextField
+                label="Rol Ara"
+                variant="outlined"
+                fullWidth
+                value={searchTerm}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconSearch size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            {/* --- فیلتر وضعیت --- */}
+            <Grid item xs={12} sm={6} md={4}>
+              <ToggleButtonGroup
+                value={statusFilter}
+                exclusive
+                onChange={handleStatusFilterChange}
+                aria-label="Status filter"
+                fullWidth
+              >
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}>
+                  <ToggleButton
+                    value="all"
+                    aria-label="all roles"
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.primary.main,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.primary.dark,
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Tümü
+                  </ToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}>
+                  <ToggleButton
+                    value="active"
+                    aria-label="active roles"
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.success.main,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.success.dark,
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Aktif
+                  </ToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}>
+                  <ToggleButton
+                    value="inactive"
+                    aria-label="inactive roles"
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.error.main,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.error.dark,
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Etkin Değil
+                  </ToggleButton>
+                </CustomTooltip>
+              </ToggleButtonGroup>
+            </Grid>
+          </Grid>
         </Box>
         <TableContainer>
           <Table aria-label="simple table">

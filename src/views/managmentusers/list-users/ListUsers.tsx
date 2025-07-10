@@ -9,6 +9,8 @@ import {
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
   TextField, CircularProgress, FormControl, InputLabel, Select, OutlinedInput,
   CardMedia, FormControlLabel, ListItemText,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -114,6 +116,7 @@ const ListUsers = () => {
   // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
   const { isTooltipGloballyEnabled } = useTooltip();
 
+const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
   const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
@@ -496,6 +499,17 @@ const ListUsers = () => {
     getListRoles();
   }, []);
 
+  
+    const handleStatusFilterChange = (
+      event: React.MouseEvent<HTMLElement>,
+      newFilter: 'all' | 'active' | 'inactive' | null,
+    ) => {
+      if (newFilter !== null) {
+        setStatusFilter(newFilter);
+        setPage(0);
+      }
+    };
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -510,11 +524,16 @@ const ListUsers = () => {
     setPage(0);
   };
 
-  const filteredUsers = usersList.filter(user =>
-    user.username.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+   const filteredAndStatusUsers = usersList.filter(lists => {
+    const matchesSearch = lists.username.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' || // اگر فیلتر 'all' بود، همه را نشان بده
+      (statusFilter === 'active' && lists.recordStatus === 0) || // اگر 'active' بود، فقط recordStatus 0 را نشان بده
+      (statusFilter === 'inactive' && lists.recordStatus === 1); // اگر 'inactive' بود، فقط recordStatus 1 را نشان بده
+    return matchesSearch && matchesStatus; // هر دو شرط باید برقرار باشند
+  });
 
-  const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedUsers = filteredAndStatusUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <>
@@ -684,7 +703,7 @@ const ListUsers = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Kullanıcıyı Güncelle'}
                     </Button>
                   </CustomTooltip>
@@ -721,24 +740,99 @@ const ListUsers = () => {
       </div>
 
       <BlankCard>
-        <Box sx={{ p: 2 }}>
-          <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı adına göre ara" : ""}>
-            <TextField
-              label="Kullanıcı Ara"
-              variant="outlined"
-              fullWidth
-              value={searchTerm}
-              onChange={handleSearchChange}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <IconSearch size={20} />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </CustomTooltip>
-        </Box>
+         <Box sx={{ p: 2 }}>
+                  <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={6} md={8}>
+                      <TextField
+                        label="Birim Ara"
+                        variant="outlined"
+                        fullWidth
+                        value={searchTerm}
+                        onChange={handleSearchChange}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <IconSearch size={20} />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <ToggleButtonGroup
+                        value={statusFilter}
+                        exclusive
+                        onChange={handleStatusFilterChange}
+                        aria-label="Status filter" // aria-label را بهبود دادم
+                        fullWidth
+                      >
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm birimleri göster" : ""}>
+                          <ToggleButton
+                            value="all"
+                            aria-label="all units"
+                            sx={{
+                              '&.Mui-selected': { // استایل برای حالت انتخاب شده
+                                backgroundColor: (theme) => theme.palette.primary.main + ' !important', // رنگ آبی برای All
+                                color: 'white !important',
+                                '&:hover': {
+                                  backgroundColor: (theme) => theme.palette.primary.dark + ' !important',
+                                },
+                              },
+                              '&:not(.Mui-selected)': { // استایل برای حالت انتخاب نشده
+                                color: (theme) => theme.palette.text.primary,
+                                borderColor: (theme) => theme.palette.divider,
+                              },
+                            }}
+                          >
+                            Tümü
+                          </ToggleButton>
+                        </CustomTooltip>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif birimleri göster" : ""}>
+                          <ToggleButton
+                            value="active"
+                            aria-label="active units"
+                            sx={{
+                              '&.Mui-selected': {
+                                backgroundColor: (theme) => theme.palette.success.main + ' !important', // رنگ سبز برای Aktif
+                                color: 'white !important',
+                                '&:hover': {
+                                  backgroundColor: (theme) => theme.palette.success.dark + ' !important',
+                                },
+                              },
+                              '&:not(.Mui-selected)': {
+                                color: (theme) => theme.palette.text.primary,
+                                borderColor: (theme) => theme.palette.divider,
+                              },
+                            }}
+                          >
+                            Aktif
+                          </ToggleButton>
+                        </CustomTooltip>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif birimleri göster" : ""}>
+                          <ToggleButton
+                            value="inactive"
+                            aria-label="inactive units"
+                            sx={{
+                              '&.Mui-selected': {
+                                backgroundColor: (theme) => theme.palette.error.main + ' !important', // رنگ قرمز برای Etkin Değil
+                                color: 'white !important',
+                                '&:hover': {
+                                  backgroundColor: (theme) => theme.palette.error.dark + ' !important',
+                                },
+                              },
+                              '&:not(.Mui-selected)': {
+                                color: (theme) => theme.palette.text.primary,
+                                borderColor: (theme) => theme.palette.divider,
+                              },
+                            }}
+                          >
+                            Etkin Değil
+                          </ToggleButton>
+                        </CustomTooltip>
+                      </ToggleButtonGroup>
+                    </Grid>
+                  </Grid>
+                </Box>
         <TableContainer>
           <Table aria-label="user table">
             <TableHead>
@@ -928,7 +1022,7 @@ const ListUsers = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredUsers.length}
+          count={filteredAndStatusUsers.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

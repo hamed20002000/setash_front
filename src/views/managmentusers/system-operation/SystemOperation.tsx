@@ -6,9 +6,12 @@ import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
-  Stack, Grid, Button, Alert, TablePagination, TextField,
-  InputAdornment, CircularProgress,
+  Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
+  CircularProgress,
+  ToggleButtonGroup, ToggleButton as MuiToggleButton,
+  ToggleButton, // اضافه شد: برای فیلتر وضعیت
 } from '@mui/material';
+import { styled, useTheme } from '@mui/material/styles'; // **برای StyledToggleButton**
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -21,17 +24,50 @@ import DeleteSystemOperation from './DeleteSystemOperation';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // ایمپورت CustomTooltip
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 interface RowType {
   id: number;
   status: string;
   name: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = askıda olması
+  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
   createAt: string;
 }
 
 const initialRows: RowType[] = [];
+
+// **ToggleButton سفارشی با استایل‌های شرطی (کپی از ListUnit.tsx)**
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+  '&.Mui-selected': {
+    color: 'white',
+    ...(value === 'all' && selected && {
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': {
+        backgroundColor: theme.palette.primary.dark,
+      },
+    }),
+    ...(value === 'active' && selected && {
+      backgroundColor: theme.palette.success.main,
+      '&:hover': {
+        backgroundColor: theme.palette.success.dark,
+      },
+    }),
+    ...(value === 'inactive' && selected && {
+      backgroundColor: theme.palette.error.main,
+      '&:hover': {
+        backgroundColor: theme.palette.error.dark,
+      },
+    }),
+  },
+  '&:not(.Mui-selected)': {
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
+    '&:hover': {
+        backgroundColor: theme.palette.action.hover,
+    },
+  },
+}));
+
 
 const SystemOperation = () => {
   const navigate = useNavigate();
@@ -58,7 +94,10 @@ const SystemOperation = () => {
 
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
 
-  const { isTooltipGloballyEnabled } = useTooltip(); // استفاده از useTooltip
+  const { isTooltipGloballyEnabled } = useTooltip();
+
+  // --- State جدید برای فیلتر وضعیت ---
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all'); // 'all', 'active', 'inactive'
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
@@ -198,7 +237,7 @@ const SystemOperation = () => {
       }
     } catch (e: any) {
       console.error("Error updating operation:", e);
-      showAlert(e.response?.data?.message || 'İşlem güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(e.response?.data?.message || 'İşlem güncellenirken bir hata oluştu, lütfen tekrar deneyین.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -298,7 +337,7 @@ const SystemOperation = () => {
           name: item.name,
           recordStatus: item.recordStatus,
           createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
         }));
         const sortedData = formattedData.sort((a: RowType, b: RowType) => {
           const dateA = new Date(a.createAt);
@@ -325,6 +364,18 @@ const SystemOperation = () => {
     getListOperation();
   }, []);
 
+  // --- هندلر تغییر فیلتر وضعیت ---
+  const handleStatusFilterChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newFilter: 'all' | 'active' | 'inactive' | null,
+  ) => {
+    if (newFilter !== null) {
+      setStatusFilter(newFilter);
+      setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
+    }
+  };
+
+
   const handleChangePage = (event: unknown, newPage: number) => {
     setPage(newPage);
   };
@@ -339,11 +390,17 @@ const SystemOperation = () => {
     setPage(0);
   };
 
-  const filteredOperations = operationsList.filter(operation =>
-    operation.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // فیلتر کردن عملیات‌ها بر اساس جستجو و وضعیت
+  const filteredAndStatusOperations = operationsList.filter(operation => {
+    const matchesSearch = operation.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' || // اگر فیلتر 'all' بود، همه را نشان بده
+      (statusFilter === 'active' && operation.recordStatus === 0) || // اگر 'active' بود، فقط recordStatus 0 را نشان بده
+      (statusFilter === 'inactive' && operation.recordStatus === 1); // اگر 'inactive' بود، فقط recordStatus 1 را نشان بده
+    return matchesSearch && matchesStatus; // هر دو شرط باید برقرار باشند
+  });
 
-  const paginatedOperations = filteredOperations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedOperations = filteredAndStatusOperations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
   return (
@@ -381,7 +438,7 @@ const SystemOperation = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -401,7 +458,7 @@ const SystemOperation = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Yeni İşlem Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -420,20 +477,98 @@ const SystemOperation = () => {
       </div>
       <BlankCard>
         <Box sx={{ p: 2 }}>
-          <TextField
-            label="Operasyon Ara"
-            variant="outlined"
-            fullWidth
-            value={searchTerm}
-            onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <IconSearch size={20} />
-                </InputAdornment>
-              ),
-            }}
-          />
+          <Grid container spacing={2} alignItems="center"> {/* **Grid container برای جستجو و فیلتر** */}
+            <Grid item xs={12} sm={6} md={8}> {/* **فضای بیشتر برای TextField جستجو** */}
+              <TextField
+                label="Operasyon Ara"
+                variant="outlined"
+                fullWidth
+                value={searchTerm}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconSearch size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            {/* --- فیلتر وضعیت --- */}
+            <Grid item xs={12} sm={6} md={4}> {/* **فضای برای ToggleButtonGroup** */}
+              <ToggleButtonGroup
+                value={statusFilter}
+                exclusive
+                onChange={handleStatusFilterChange}
+                aria-label="Status filter"
+                fullWidth
+              >
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm operasyonları göster" : ""}>
+                  <ToggleButton
+                    value="all"
+                    aria-label="all operations"
+                    sx={{ // **استایل دهی برای نمایش رنگ آبی در حالت انتخاب شده**
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.primary.main,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.primary.dark,
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Tümü
+                  </ToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif operasyonları göster" : ""}>
+                  <ToggleButton
+                    value="active"
+                    aria-label="active operations"
+                    sx={{ // **استایل دهی برای نمایش رنگ سبز در حالت انتخاب شده**
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.success.main,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.success.dark,
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Aktif
+                  </ToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif operasyonları göster" : ""}>
+                  <ToggleButton
+                    value="inactive"
+                    aria-label="inactive operations"
+                    sx={{ // **استایل دهی برای نمایش رنگ قرمز در حالت انتخاب شده**
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.error.main,
+                        color: 'white',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.error.dark,
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Etkin Değil
+                  </ToggleButton>
+                </CustomTooltip>
+              </ToggleButtonGroup>
+            </Grid>
+          </Grid>
         </Box>
         <TableContainer>
           <Table aria-label="simple table">
@@ -489,7 +624,6 @@ const SystemOperation = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {/* Tooltip for IconButtons within Menu (optional, but good for consistency) */}
                       <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                         <IconButton
                           id={`basic-button-${row.id}`}
@@ -564,7 +698,7 @@ const SystemOperation = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredOperations.length}
+          count={filteredAndStatusOperations.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

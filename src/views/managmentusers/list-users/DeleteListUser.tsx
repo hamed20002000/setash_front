@@ -10,15 +10,15 @@ import {
   CircularProgress,
   Tooltip, // ایمپورت Tooltip
 } from '@mui/material';
-import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
+import axios from 'axios';
 import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // ایمپورت useTooltip و CustomTooltip
 
 type Props = {
   openModal: boolean;
-  userIdToDelete: string | null;
+  userIdToDelete: number | null;
   onClose: () => void;
   onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -107,7 +107,7 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
             >
               {loading ? (
                 <>
-                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                  <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'
