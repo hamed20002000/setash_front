@@ -1,0 +1,631 @@
+// ListAuction.tsx
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
+  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
+  CircularProgress,
+  ToggleButtonGroup, ToggleButton as MuiToggleButton, // برای فیلتر
+} from '@mui/material';
+import { styled, useTheme } from '@mui/material/styles'; // برای StyledToggleButton
+
+import BoltIcon from '@mui/icons-material/Bolt';
+import BlankCard from '../../components/shared/BlankCard';
+import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
+import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/icons-react'; // IconPlus برای دکمه "ثبت جزئیات"
+import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
+import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
+import DeleteAuction from './DeleteAuction'; // کامپوننت حذف (باید ایجاد شود)
+import axios from 'axios';
+import server from '../../assets/address.json';
+
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+
+// تعریف نوع برای مزایده (Auction)
+interface AuctionType {
+  id: number;
+  title: string; // نام یا عنوان مزایده
+  createAt: string;
+  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
+  status: string; // وضعیت متنی
+}
+
+// **داده‌های ساختگی برای تست**
+const MOCK_AUCTIONS: AuctionType[] = [
+  { id: 1, title: 'Yaz Sezonu İndirimleri', createAt: '2024-06-01T10:00:00.000Z', recordStatus: 0, status: 'Aktif' },
+  { id: 2, title: 'Elektronik Müzayede', createAt: '2024-06-10T11:30:00.000Z', recordStatus: 0, status: 'Aktif' },
+  { id: 3, title: 'Antika Koleksiyonu', createAt: '2024-06-15T14:00:00.000Z', recordStatus: 1, status: 'Etkin değil' },
+  { id: 4, title: 'Araç İhaleleri', createAt: '2024-06-20T09:00:00.000Z', recordStatus: 0, status: 'Aktif' },
+];
+
+const formatDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  } catch (e) {
+    console.error("Error formatting date:", e);
+    return "Geçersiz Tarih";
+  }
+};
+
+// **StyledToggleButton از SystemRole.tsx کپی شده است**
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+  '&.Mui-selected': {
+    color: 'white',
+    ...(value === 'all' && selected && {
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': { backgroundColor: theme.palette.primary.dark },
+    }),
+    ...(value === 'active' && selected && {
+      backgroundColor: theme.palette.success.main,
+      '&:hover': { backgroundColor: theme.palette.success.dark },
+    }),
+    ...(value === 'inactive' && selected && {
+      backgroundColor: theme.palette.error.main,
+      '&:hover': { backgroundColor: theme.palette.error.dark },
+    }),
+  },
+  '&:not(.Mui-selected)': {
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
+    '&:hover': { backgroundColor: theme.palette.action.hover },
+  },
+}));
+
+
+const ListAuction = () => {
+  const navigate = useNavigate();
+
+  const [title, setTitle] = useState<string>(''); // نام یا عنوان مزایده
+  const [auctionsList, setAuctionsList] = useState<AuctionType[]>(MOCK_AUCTIONS);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [originalTitle, setOriginalTitle] = useState<string>('');
+
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
+
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedRowForMenu, setSelectedRowForMenu] = useState<AuctionType | null>(null);
+
+  const openMenu = Boolean(anchorEl);
+
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [auctionIdToDelete, setAuctionIdToDelete] = useState<number | null>(null);
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const [loadingButton, setLoadingButton] = useState<boolean>(false);
+
+  const { isTooltipGloballyEnabled } = useTooltip();
+
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+
+  const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: AuctionType) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedRowForMenu(row);
+  };
+
+  const handleCloseMenu = () => {
+    setAnchorEl(null);
+    setSelectedRowForMenu(null);
+  };
+
+  const handleClickOpenDeleteModal = () => {
+    if (selectedRowForMenu) {
+      setAuctionIdToDelete(selectedRowForMenu.id);
+      setOpenDeleteModal(true);
+    }
+    handleCloseMenu();
+  };
+
+  const handleClickCloseDeleteModal = () => {
+    setOpenDeleteModal(false);
+    setAuctionIdToDelete(null);
+    getListAuction(); // رفرش لیست مزایده‌ها
+  };
+
+  const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    setAlertMessage(message);
+    setAlertSeverity(severity);
+  };
+
+  const clearAlert = () => {
+    setAlertMessage(null);
+  };
+
+  const handleEditClick = () => {
+    if (selectedRowForMenu) {
+      setTitle(selectedRowForMenu.title);
+      setOriginalTitle(selectedRowForMenu.title);
+      setEditingId(selectedRowForMenu.id);
+    }
+    handleCloseMenu();
+    clearAlert();
+  };
+
+  const handleCancelEdit = () => {
+    resetFormAndState();
+    clearAlert();
+  };
+
+  // --- تابع ایجاد مزایده جدید ---
+  const insertAuction = async () => {
+    if (!title.trim()) {
+      showAlert('Başlık boş olamaz!', 'warning');
+      return;
+    }
+    clearAlert();
+    setLoadingButton(true);
+
+    try {
+      const newAuctionId = MOCK_AUCTIONS.length > 0 ? Math.max(...MOCK_AUCTIONS.map(a => a.id)) + 1 : 1;
+      const newAuction: AuctionType = {
+        id: newAuctionId,
+        title: title,
+        createAt: new Date().toISOString(),
+        recordStatus: 0,
+        status: 'Aktif',
+      };
+
+      MOCK_AUCTIONS.push(newAuction); // به لیست اصلی mock اضافه کن
+
+      showAlert('Yeni müzayede başarıyla eklendi!', 'success');
+      resetFormAndState();
+      getListAuction(); // رفرش لیست مزایده‌ها
+    } catch (e: any) {
+      console.error("Error inserting auction:", e);
+      showAlert(e.response?.data?.message || 'Müzayede eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      setLoadingButton(false);
+    }
+  };
+
+  // --- تابع ویرایش مزایده ---
+  const editAuction = async () => {
+    if (editingId === null) return;
+    if (!title.trim()) {
+      showAlert('Başlık boş olamaz!', 'warning');
+      return;
+    }
+    clearAlert();
+
+    if (title === originalTitle) {
+      showAlert('Başlıkta herhangi bir değişiklik yapmadınız.', 'info');
+      resetFormAndState();
+      return;
+    }
+
+    setLoadingButton(true);
+    try {
+      const index = MOCK_AUCTIONS.findIndex(a => a.id === editingId);
+      if (index !== -1) {
+        MOCK_AUCTIONS[index] = { ...MOCK_AUCTIONS[index], title: title };
+      }
+      showAlert('Müzayede başarıyla güncellendi!', 'success');
+      resetFormAndState();
+      getListAuction(); // رفرش لیست مزایده‌ها
+    } catch (e: any) {
+      console.error("Error updating auction:", e);
+      showAlert(e.response?.data?.message || 'Müzayede güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      setLoadingButton(false);
+    }
+  }
+
+  // --- تابع تغییر وضعیت مزایده (فعال/غیرفعال) ---
+  const sendStatusUpdate = async (id: number, statusValue: number) => {
+    clearAlert();
+    try {
+      const index = MOCK_AUCTIONS.findIndex(a => a.id === id);
+      if (index !== -1) {
+        const newStatusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Etkin değil' : 'Silindi';
+        MOCK_AUCTIONS[index] = { ...MOCK_AUCTIONS[index], recordStatus: statusValue, status: newStatusText };
+      }
+      const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+      showAlert(`Müzayede başarıyla ${statusText} olarak ayarlandı!`, 'success');
+      getListAuction(); // رفرش لیست
+    } catch (e: any) {
+      console.error("Error updating status:", e);
+      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      handleCloseMenu();
+    }
+  };
+
+  const handleSetActive = () => {
+    if (selectedRowForMenu) {
+      sendStatusUpdate(selectedRowForMenu.id, 0); // 0 برای Aktif
+    }
+  };
+
+  const handleSetInactive = () => {
+    if (selectedRowForMenu) {
+      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 برای Etkin değil
+    }
+  };
+
+  const resetFormAndState = () => {
+    setTitle('');
+    setEditingId(null);
+    setOriginalTitle('');
+  };
+
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return "Geçersiz Tarih";
+    }
+  };
+
+  // --- تابع اصلی دریافت لیست مزایده‌ها (حالا از Mock Data استفاده می‌کند) ---
+  function getListAuction() {
+    const sortedData = [...MOCK_AUCTIONS].sort((a, b) => {
+      const dateA = new Date(a.createAt);
+      const dateB = new Date(b.createAt);
+      return dateB.getTime() - dateA.getTime(); // جدیدترین تاریخ اول
+    });
+    setAuctionsList(sortedData);
+    setPage(0); // همیشه به صفحه اول برو
+    setSearchTerm(''); // جستجو را هم ریست کن
+    setStatusFilter('all'); // فیلتر وضعیت را هم ریست کن
+  }
+
+
+  useEffect(() => {
+    getListAuction(); // در ابتدا، لیست مزایده‌ها را لود کن
+  }, []);
+
+  // --- هندلر تغییر فیلتر وضعیت ---
+  const handleStatusFilterChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newFilter: 'all' | 'active' | 'inactive' | null,
+  ) => {
+    if (newFilter !== null) {
+      setStatusFilter(newFilter);
+      setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
+    }
+  };
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+    setPage(0);
+  };
+
+  // فیلتر کردن مزایده‌ها بر اساس جستجو و وضعیت
+  const filteredAndStatusAuctions = auctionsList.filter(auction => {
+    const matchesSearch = auction.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && auction.recordStatus === 0) ||
+      (statusFilter === 'inactive' && auction.recordStatus === 1);
+    return matchesSearch && matchesStatus;
+  });
+
+  const paginatedAuctions = filteredAndStatusAuctions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+
+  // --- تابع برای رفتن به صفحه جزئیات مزایده ---
+  const handleGoToDetails = (auctionId: number) => {
+    navigate(`/auction/auction-details/${auctionId}`); 
+  };
+
+
+  return (
+    <>
+      <div style={{
+        borderBottom: "1px solid",
+        margin: "10px 0 30px 0",
+        padding: "10px 15px 30px 15px"
+      }}>
+        <Grid container spacing={1}>
+          <Grid item xs={12} sm={1} display="flex" alignItems="center">
+            <CustomFormLabel htmlFor="auction-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+              Başlık
+            </CustomFormLabel>
+          </Grid>
+          <Grid item xs={12} sm={7}>
+            <CustomTextField
+              id="auction-title"
+              placeholder="Müzayede Başlığı"
+              fullWidth
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </Grid>
+          <Grid item xs={12} sm={1}></Grid>
+          <Grid item xs={12} sm={3}>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              {editingId !== null ? (
+                <>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili müzayedeyi güncelleyin" : ""}>
+                    <Button
+                      variant="contained"
+                      color="info"
+                      onClick={editAuction}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Düzenlemek'}
+                    </Button>
+                  </CustomTooltip>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni müzayede moduna dön" : ""}>
+                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                      İptal Et
+                    </Button>
+                  </CustomTooltip>
+                </>
+              ) : (
+                <>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir müzayede ekle" : ""}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={insertAuction}
+                      disabled={loadingButton}
+                    >
+                      {loadingButton ? <>
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                      </> : 'Yeni Müzayede Ekle'}
+                    </Button>
+                  </CustomTooltip>
+                </>
+              )}
+            </Stack>
+          </Grid>
+        </Grid>
+        {alertMessage && (
+          <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+            <Alert severity={alertSeverity} onClose={clearAlert}>
+              {alertMessage}
+            </Alert>
+          </Stack>
+        )}
+      </div>
+      <BlankCard>
+        <Box sx={{ p: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={8}>
+              <TextField
+                label="Müzayede Ara"
+                variant="outlined"
+                fullWidth
+                value={searchTerm}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconSearch size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            {/* --- فیلتر وضعیت --- */}
+            <Grid item xs={12} sm={6} md={4}>
+              <ToggleButtonGroup
+                value={statusFilter}
+                exclusive
+                onChange={handleStatusFilterChange}
+                aria-label="Status filter"
+                fullWidth
+              >
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm müzayedeleri göster" : ""}>
+                  <StyledToggleButton
+                    value="all"
+                    aria-label="all auctions"
+                  >
+                    Tümü
+                  </StyledToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif müzayedeleri göster" : ""}>
+                  <StyledToggleButton
+                    value="active"
+                    aria-label="active auctions"
+                  >
+                    Aktif
+                  </StyledToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif müzayedeleri göster" : ""}>
+                  <StyledToggleButton
+                    value="inactive"
+                    aria-label="inactive auctions"
+                  >
+                    Etkin Değil
+                  </StyledToggleButton>
+                </CustomTooltip>
+              </ToggleButtonGroup>
+            </Grid>
+          </Grid>
+        </Box>
+        <TableContainer>
+          <Table aria-label="auction table">
+            <TableHead>
+              <TableRow>
+                <TableCell>
+                  <Typography variant="h6">Başlık</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="h6">Durum</Typography>
+                </TableCell>
+                <TableCell>
+                  <Typography variant="h6">Detaylar</Typography> {/* ستون جدید */}
+                </TableCell>
+                <TableCell></TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginatedAuctions.length > 0 ? (
+                paginatedAuctions.map((row) => (
+                  <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Box>
+                          <Typography variant="h6">{row.title}</Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" alignItems="center" spacing={2}>
+                        <Box>
+                          <Typography variant="h6">{formatDate(row.createAt)}</Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={row.status}
+                        sx={{
+                          backgroundColor:
+                            row.recordStatus === 2
+                              ? (theme) => theme.palette.primary.light
+                              : row.recordStatus === 1
+                                ? (theme) => theme.palette.error.light
+                                : (theme) => theme.palette.success.light,
+                          color:
+                            row.recordStatus === 2
+                              ? (theme) => theme.palette.primary.main
+                              : row.recordStatus === 1
+                                ? (theme) => theme.palette.error.main
+                                : (theme) => theme.palette.success.main,
+                        }}
+                      />
+                    </TableCell>
+                    {/* ستون "ثبت جزئیات" */}
+                    <TableCell>
+                      <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.title}" detaylarını kaydet/gör` : ""}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleGoToDetails(row.id)}
+                          startIcon={<IconPlus size={18} />}
+                        >
+                          Detaylar
+                        </Button>
+                      </CustomTooltip>
+                    </TableCell>
+                    <TableCell>
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                        <IconButton
+                          id={`basic-button-${row.id}`}
+                          aria-controls={openMenu ? 'basic-menu' : undefined}
+                          aria-haspopup="true"
+                          aria-expanded={openMenu ? 'true' : undefined}
+                          onClick={(event) => handleClickMenu(event, row)}
+                        >
+                          <IconDots width={18} />
+                        </IconButton>
+                      </CustomTooltip>
+                      <Menu
+                        id="basic-menu"
+                        anchorEl={anchorEl}
+                        open={openMenu}
+                        onClose={handleCloseMenu}
+                        MenuListProps={{
+                          'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
+                        }}
+                      >
+                        {selectedRowForMenu?.recordStatus === 0 ? (
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi pasif yap" : ""}>
+                            <MenuItem onClick={handleSetInactive}>
+                              <ListItemIcon>
+                                <DoNotDisturbOnRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Etkin değil
+                            </MenuItem>
+                          </CustomTooltip>
+                        ) : (
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi aktif yap" : ""}>
+                            <MenuItem onClick={handleSetActive}>
+                              <ListItemIcon>
+                                <DoneRoundedIcon width={18} />
+                              </ListItemIcon>
+                              Aktif
+                            </MenuItem>
+                          </CustomTooltip>
+                        )}
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi düzenle" : ""}>
+                          <MenuItem onClick={handleEditClick}>
+                            <ListItemIcon>
+                              <IconEdit width={18} />
+                            </ListItemIcon>
+                            Düzenlemek
+                          </MenuItem>
+                        </CustomTooltip>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi sil" : ""}>
+                          <MenuItem onClick={handleClickOpenDeleteModal}>
+                            <ListItemIcon>
+                              <IconTrash width={18} />
+                            </ListItemIcon>
+                            Silmek
+                          </MenuItem>
+                        </CustomTooltip>
+                      </Menu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} align="center"> 
+                    <Typography variant="subtitle1" color="textSecondary">
+                      Hiç müzayede bulunamadı.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={filteredAndStatusAuctions.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Satır başına düşen:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
+        />
+      </BlankCard>
+
+      <DeleteAuction
+        openModal={openDeleteModal}
+        onClose={handleClickCloseDeleteModal}
+        auctionIdToDelete={auctionIdToDelete}
+        onDeleteSuccess={getListAuction}
+        showAlert={showAlert}
+      />
+    </>
+  );
+};
+
+export default ListAuction;
