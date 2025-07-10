@@ -15,11 +15,14 @@ interface MenuitemsType {
   external?: boolean;
 }
 import {
-  
   IconDashboard,
   IconApps,
   IconUserCircle,
-  IconCircles
+  IconCircles,
+  // **آیکون‌های جدید برای بخش "temel bilgi"**
+  IconCategory, // برای kategori (دسته‌بندی)
+  IconBuilding, // برای birim (واحد)
+  IconPackage,  // برای öğe (آیتم)
 } from '@tabler/icons-react';
 
 const Menuitems: MenuitemsType[] = [
@@ -50,7 +53,6 @@ const Menuitems: MenuitemsType[] = [
     id: uniqueId(),
     title: 'Rolleri Listele',
     icon: IconCircles,
-    // chip: '2',
     chipColor: 'secondary',
     href: '/managmentusers/list-roles',
   },
@@ -58,9 +60,36 @@ const Menuitems: MenuitemsType[] = [
     id: uniqueId(),
     title: 'Kullanıcıları Listele',
     icon: IconUserCircle,
-    // chip: '2',
     chipColor: 'secondary',
     href: '/managmentusers/list-users',
+  },
+  {
+    navlabel: true,
+    subheader: 'temel bilgi',
+  },
+  {
+    id: uniqueId(),
+    title: 'kategori',
+    // **آیکون مرتبط با دسته‌بندی**
+    icon: IconCategory,
+    chipColor: 'secondary',
+    href: '/baseinfo/list-categories',
+  },
+  {
+    id: uniqueId(),
+    title: 'birim',
+    // **آیکون مرتبط با واحد**
+    icon: IconBuilding,
+    chipColor: 'secondary',
+    href: '/baseinfo/list-units', // توجه: مسیر این آیتم همچنان list-roles است، اگر اشتباه است آن را اصلاح کنید.
+  },
+  {
+    id: uniqueId(),
+    title: 'öğe',
+    // **آیکون مرتبط با آیتم**
+    icon: IconPackage,
+    chipColor: 'secondary',
+    href: '/baseinfo/list-items', // توجه: مسیر این آیتم همچنان list-users است، اگر اشتباه است آن را اصلاح کنید.
   },
 
 ];

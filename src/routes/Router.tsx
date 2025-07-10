@@ -42,6 +42,9 @@ const Email = Loadable(lazy(() => import('../views/apps/email/Email')));
 const SystemOperation=Loadable(lazy(()=> import('../views/managmentusers/system-operation/SystemOperation')));
 const ListRoles=Loadable(lazy(()=> import('../views/managmentusers/list-roles/ListRoles')));
 const ListUsers=Loadable(lazy(()=> import('../views/managmentusers/list-users/ListUsers')));
+const ListCategory=Loadable(lazy(()=> import('../views/baseinfo/category/ListCategory')));
+const ListUnit=Loadable(lazy(()=> import('../views/baseinfo/unit/ListUnit')));
+const ListItem=Loadable(lazy(()=> import('../views/baseinfo/item/ListItem')));
 
 // ui components
 const MuiAlert = Loadable(lazy(() => import('../views/ui-components/MuiAlert')));
@@ -136,6 +139,9 @@ const Router = [
       { path: '/managmentusers/system-operation', element: <SystemOperation /> },
       { path: '/managmentusers/list-roles', element: <ListRoles /> },
       { path: '/managmentusers/list-users', element: <ListUsers /> },
+      { path: '/baseinfo/list-categories', element: <ListCategory /> },
+      { path: '/baseinfo/list-units', element: <ListUnit /> },
+      { path: '/baseinfo/list-items', element: <ListItem /> },
 
 
 
