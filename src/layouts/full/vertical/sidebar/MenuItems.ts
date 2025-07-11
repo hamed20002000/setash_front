@@ -69,14 +69,14 @@ const Menuitems: MenuitemsType[] = [
   },
   {
     id: uniqueId(),
-    title: 'kategori Listele',
+    title: 'Kategori Listele',
     icon: IconCategory,
     chipColor: 'secondary',
     href: '/baseinfo/list-categories',
   },
   {
     id: uniqueId(),
-    title: 'birim Listele',
+    title: 'Birim Listele',
     icon: IconBuilding,
     chipColor: 'secondary',
     href: '/baseinfo/list-units',

@@ -1162,7 +1162,7 @@ debugger
                       {row.description.length > 50 && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                           <Button size="small" onClick={() => handleOpenDescriptionModal(row.description)} sx={{ p: 0, minWidth: 'auto' }}>
-                            Görüş
+                            Görüntüle
                           </Button>
                         </CustomTooltip>
                       )}

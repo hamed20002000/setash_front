@@ -37,7 +37,7 @@ interface AuctionType {
 // **داده‌های ساختگی برای تست**
 const MOCK_AUCTIONS: AuctionType[] = [
   { id: 1, title: 'Yaz Sezonu İndirimleri', createAt: '2024-06-01T10:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 2, title: 'Elektronik Müzayede', createAt: '2024-06-10T11:30:00.000Z', recordStatus: 0, status: 'Aktif' },
+  { id: 2, title: 'Elektronik ihale', createAt: '2024-06-10T11:30:00.000Z', recordStatus: 0, status: 'Aktif' },
   { id: 3, title: 'Antika Koleksiyonu', createAt: '2024-06-15T14:00:00.000Z', recordStatus: 1, status: 'Etkin değil' },
   { id: 4, title: 'Araç İhaleleri', createAt: '2024-06-20T09:00:00.000Z', recordStatus: 0, status: 'Aktif' },
 ];
@@ -179,12 +179,12 @@ const ListAuction = () => {
 
       MOCK_AUCTIONS.push(newAuction); // به لیست اصلی mock اضافه کن
 
-      showAlert('Yeni müzayede başarıyla eklendi!', 'success');
+      showAlert('Yeni ihale başarıyla eklendi!', 'success');
       resetFormAndState();
       getListAuction(); // رفرش لیست مزایده‌ها
     } catch (e: any) {
       console.error("Error inserting auction:", e);
-      showAlert(e.response?.data?.message || 'Müzayede eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(e.response?.data?.message || 'ihale eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -211,12 +211,12 @@ const ListAuction = () => {
       if (index !== -1) {
         MOCK_AUCTIONS[index] = { ...MOCK_AUCTIONS[index], title: title };
       }
-      showAlert('Müzayede başarıyla güncellendi!', 'success');
+      showAlert('ihale başarıyla güncellendi!', 'success');
       resetFormAndState();
       getListAuction(); // رفرش لیست مزایده‌ها
     } catch (e: any) {
       console.error("Error updating auction:", e);
-      showAlert(e.response?.data?.message || 'Müzayede güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(e.response?.data?.message || 'ihale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -232,7 +232,7 @@ const ListAuction = () => {
         MOCK_AUCTIONS[index] = { ...MOCK_AUCTIONS[index], recordStatus: statusValue, status: newStatusText };
       }
       const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-      showAlert(`Müzayede başarıyla ${statusText} olarak ayarlandı!`, 'success');
+      showAlert(`ihale başarıyla ${statusText} olarak ayarlandı!`, 'success');
       getListAuction(); // رفرش لیست
     } catch (e: any) {
       console.error("Error updating status:", e);
@@ -351,7 +351,7 @@ const ListAuction = () => {
           <Grid item xs={12} sm={7}>
             <CustomTextField
               id="auction-title"
-              placeholder="Müzayede Başlığı"
+              placeholder="İhale Başlığı"
               fullWidth
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -362,7 +362,7 @@ const ListAuction = () => {
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili müzayedeyi güncelleyin" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili ihale güncelleyin" : ""}>
                     <Button
                       variant="contained"
                       color="info"
@@ -374,7 +374,7 @@ const ListAuction = () => {
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni müzayede moduna dön" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni ihale moduna dön" : ""}>
                     <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
                       İptal Et
                     </Button>
@@ -382,7 +382,7 @@ const ListAuction = () => {
                 </>
               ) : (
                 <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir müzayede ekle" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir ihale ekle" : ""}>
                     <Button
                       variant="contained"
                       color="success"
@@ -391,7 +391,7 @@ const ListAuction = () => {
                     >
                       {loadingButton ? <>
                         <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
-                      </> : 'Yeni Müzayede Ekle'}
+                      </> : 'Yeni İhale Ekle'}
                     </Button>
                   </CustomTooltip>
                 </>
@@ -412,7 +412,7 @@ const ListAuction = () => {
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={8}>
               <TextField
-                label="Müzayede Ara"
+                label="İhale Ara"
                 variant="outlined"
                 fullWidth
                 value={searchTerm}
@@ -435,7 +435,7 @@ const ListAuction = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm müzayedeleri göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaler göster" : ""}>
                   <StyledToggleButton
                     value="all"
                     aria-label="all auctions"
@@ -443,7 +443,7 @@ const ListAuction = () => {
                     Tümü
                   </StyledToggleButton>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif müzayedeleri göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaler göster" : ""}>
                   <StyledToggleButton
                     value="active"
                     aria-label="active auctions"
@@ -451,7 +451,7 @@ const ListAuction = () => {
                     Aktif
                   </StyledToggleButton>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif müzayedeleri göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaler göster" : ""}>
                   <StyledToggleButton
                     value="inactive"
                     aria-label="inactive auctions"
@@ -554,7 +554,7 @@ const ListAuction = () => {
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi pasif yap" : ""}>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -563,7 +563,7 @@ const ListAuction = () => {
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi aktif yap" : ""}>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -572,7 +572,7 @@ const ListAuction = () => {
                             </MenuItem>
                           </CustomTooltip>
                         )}
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi düzenle" : ""}>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale düzenle" : ""}>
                           <MenuItem onClick={handleEditClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -580,7 +580,7 @@ const ListAuction = () => {
                             Düzenlemek
                           </MenuItem>
                         </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu müzayedeyi sil" : ""}>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale sil" : ""}>
                           <MenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -596,7 +596,7 @@ const ListAuction = () => {
                 <TableRow>
                   <TableCell colSpan={5} align="center"> 
                     <Typography variant="subtitle1" color="textSecondary">
-                      Hiç müzayede bulunamadı.
+                      Hiç ihale bulunamadı.
                     </Typography>
                   </TableCell>
                 </TableRow>
