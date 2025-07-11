@@ -106,7 +106,7 @@ const DeleteUnit = ({ openModal, unitIdToDelete, onClose, onDeleteSuccess, showA
             >
               {loading ? (
                 <>
-                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                  <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

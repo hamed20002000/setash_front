@@ -33,13 +33,7 @@ interface UnitType {
   status: string; // وضعیت متنی
 }
 
-const MOCK_UNITS: UnitType[] = [
-  { id: 1, name: 'Adet', createAt: '2024-01-01T10:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 2, name: 'Kilogram', createAt: '2024-01-05T11:30:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 3, name: 'Litre', createAt: '2024-01-10T14:00:00.000Z', recordStatus: 1, status: 'Etkin değil' },
-  { id: 4, name: 'Metre', createAt: '2024-01-12T09:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 5, name: 'Kutu', createAt: '2024-01-18T16:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-];
+const MOCK_UNITS: UnitType[] = [];
 
 const ListUnit = () => {
   const navigate = useNavigate();
@@ -119,87 +113,142 @@ const ListUnit = () => {
     clearAlert();
   };
 
-  const insertUnit = async () => {
-    if (!name.trim()) {
-      showAlert('İsim boş olamaz!', 'warning');
-      return;
-    }
-    clearAlert();
-    setLoadingButton(true);
+   const insertUnit = async () => {
+      if (!name.trim()) {
+        showAlert('İsim boş olamaz!', 'warning');
+        return;
+      }
+      clearAlert();
+      const authToken = localStorage.getItem('authToken');
+  
+      if (!authToken) {
+        console.warn("No auth token found, redirecting to login.");
+        navigate("/");
+        return;
+      }
+  
+      setLoadingButton(true);
+      try {
+        const response = await axios.post(
+          server.baseurl + server.baseinfo + "create-item-unit",
+          { title:name },
+          {
+            headers: {
+              "Accept": "application/json",
+              'Content-Type': 'application/json',
+              "Authorization": `Bearer ${authToken}`
+            }
+          }
+        );
+        if (response.data.httpStatusCode === 201) {
+          showAlert('Yeni işlem başarıyla eklendi!', 'success');
+          resetFormAndState();
+          getListUnit();
+        } else {
+          showAlert(response.data.message || 'Yeni işlem eklenirken bir hata oluştu.', 'error');
+        }
+      } catch (e: any) {
+        console.error("Error inserting operation:", e);
+        showAlert(e.response?.data?.message || 'İşlem eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      } finally {
+        setLoadingButton(false);
+      }
+    };
+  
 
-    try {
-      const newUnitId = MOCK_UNITS.length > 0 ? Math.max(...MOCK_UNITS.map(u => u.id)) + 1 : 1;
-      const newUnit: UnitType = {
-        id: newUnitId,
-        name: name,
-        createAt: new Date().toISOString(),
-        recordStatus: 0,
-        status: 'Aktif',
-      };
-
-      MOCK_UNITS.push(newUnit);
-
-      showAlert('Yeni birim başarıyla eklendi!', 'success');
-      resetFormAndState();
-      getListUnit();
-    } catch (e: any) {
-      console.error("Error inserting unit:", e);
-      showAlert('Birim eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-    } finally {
-      setLoadingButton(false);
-    }
-  };
 
   const editUnit = async () => {
-    if (editingId === null) return;
-    if (!name.trim()) {
-      showAlert('İsim boş olamaz!', 'warning');
+      if (editingId === null) return;
+      if (!name.trim()) {
+        showAlert('İsim boş olamaz!', 'warning');
+        return;
+      }
+      clearAlert();
+  
+      if (name === originalName) {
+        showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
+        resetFormAndState();
+        return;
+      }
+  
+      const authToken = localStorage.getItem('authToken');
+  
+      if (!authToken) {
+        showAlert('Lütfen giriş yapın.', 'warning');
+        navigate("/");
+        return;
+      }
+  
+      setLoadingButton(true);
+      try {
+        const response = await axios.put(
+          server.baseurl + server.baseinfo + "update-item-unit",
+          { id: Number(editingId), newTitle: name },
+          {
+            headers: {
+              "Accept": "application/json",
+              "Authorization": `Bearer ${authToken}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        if (response.data.httpStatusCode === 200) {
+          showAlert('İşlem başarıyla güncellendi!', 'success');
+          setUnitsList(prevList =>
+            prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
+          );
+          resetFormAndState();
+          getListUnit();
+        } else {
+          showAlert(response.data.message || 'İşlem güncellenirken bir hata oluştu.', 'error');
+        }
+      } catch (e: any) {
+        console.error("Error updating operation:", e);
+        showAlert(e.response?.data?.message || 'İşlem güncellenirken bir hata oluştu, lütfen tekrar deneyین.', 'error');
+      } finally {
+        setLoadingButton(false);
+      }
+    }
+
+ 
+ const sendStatusUpdate = async (id: number, statusValue: number) => {
+    clearAlert();
+      debugger
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      showAlert('Lütfen giriş yapın.', 'warning');
+      navigate("/");
       return;
     }
-    clearAlert();
-
-    if (name === originalName) {
-      showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
-      resetFormAndState();
-      return;
-    }
-
-    setLoadingButton(true);
     try {
-      const index = MOCK_UNITS.findIndex(u => u.id === editingId);
-      if (index !== -1) {
-        MOCK_UNITS[index] = { ...MOCK_UNITS[index], name: name };
-      }
-      showAlert('Birim başarıyla güncellendi!', 'success');
-      resetFormAndState();
-      getListUnit();
-    } catch (e: any) {
-      console.error("Error updating unit:", e);
-      showAlert('Birim güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-    } finally {
-      setLoadingButton(false);
-    }
-  }
+      const response = await axios.put(
+        server.baseurl + server.baseinfo + "update-item-unit",
+        { id: Number(id), recordStatus: statusValue },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-  const sendStatusUpdate = async (id: number, statusValue: number) => {
-    clearAlert();
-    try {
-      const index = MOCK_UNITS.findIndex(u => u.id === id);
-      if (index !== -1) {
-        const newStatusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Etkin değil' : 'Silindi';
-        MOCK_UNITS[index] = { ...MOCK_UNITS[index], recordStatus: statusValue, status: newStatusText };
+      if (response.data.httpStatusCode === 200) {
+        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        showAlert(`İşlem başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        getListUnit();
+        resetFormAndState();
+      } else {
+        showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
-      const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-      showAlert(`Birim başarıyla ${statusText} olarak ayarlandı!`, 'success');
-      getListUnit();
     } catch (e: any) {
       console.error("Error updating status:", e);
-      showAlert('Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
     }
   };
-
   const handleSetActive = () => {
     if (selectedRowForMenu) {
       sendStatusUpdate(selectedRowForMenu.id, 0); // 0 برای Aktif
@@ -231,18 +280,53 @@ const ListUnit = () => {
     }
   };
 
+  
+
   function getListUnit() {
-    const sortedData = [...MOCK_UNITS].sort((a, b) => {
-      const dateA = new Date(a.createAt);
-      const dateB = new Date(b.createAt);
-      return dateB.getTime() - dateA.getTime();
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
+      return;
+    }
+
+    axios.request({
+      baseURL: server.baseurl + server.baseinfo + "get-item-units",
+      method: "get",
+      headers: {
+        "Accept": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      }
+    }).then((result) => {
+      if (result.data.httpStatusCode === 200) {
+        const formattedData = result.data.data.map((item: any) => ({
+          id: item.id,
+          name: item.title,
+          recordStatus: item.recordStatus,
+          createAt: item.createAt,
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
+        }));
+        const sortedData = formattedData.sort((a: UnitType, b: UnitType) => {
+          const dateA = new Date(a.createAt);
+          const dateB = new Date(b.createAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+        setUnitsList(sortedData as UnitType[]);
+      } else {
+        showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
+      }
+    }).catch((e) => {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error fetching operations list:", e);
+        showAlert('Operasyon listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     });
-    setUnitsList(sortedData);
-    setPage(0);
-    setSearchTerm('');
   }
-
-
   useEffect(() => {
     getListUnit();
   }, []);
@@ -318,7 +402,7 @@ const ListUnit = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -338,7 +422,7 @@ const ListUnit = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Yeni Birim Ekle'}
                     </Button>
                   </CustomTooltip>
