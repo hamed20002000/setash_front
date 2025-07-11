@@ -83,18 +83,18 @@ const Menuitems: MenuitemsType[] = [
   },
   {
     id: uniqueId(),
-    title: 'öğe Listele',
+    title: 'Ürün Listele',
     icon: IconPackage,
     chipColor: 'secondary',
     href: '/baseinfo/list-items',    
   },
   {
     navlabel: true,
-    subheader: 'Müzayede',
+    subheader: 'İhale',
   },
   {
     id: uniqueId(),
-    title: 'Müzayede Listele',
+    title: 'İhale Listele',
     icon: IconCategory,
     chipColor: 'secondary',
     href: '/auction/list-auction',

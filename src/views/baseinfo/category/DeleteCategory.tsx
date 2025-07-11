@@ -10,7 +10,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
-  categoryIdToDelete: number | null; // ID دسته‌بندی برای حذف
+  categoryIdToDelete: string | null; // ID دسته‌بندی برای حذف
   onClose: () => void;
   onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -39,7 +39,7 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
       // **نکته:** آدرس API حذف دسته‌بندی و نحوه ارسال ID
       // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-category/{id})
       const response = await axios.delete(
-        `${server.baseurl}${server.user}delete-category/${categoryIdToDelete}`,
+        `${server.baseurl}${server.baseinfo}delete-category/${Number(categoryIdToDelete)}`,
         {
           headers: {
             "Accept": "application/json",
@@ -98,7 +98,7 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
             >
               {loading ? (
                 <>
-                  <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                  <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

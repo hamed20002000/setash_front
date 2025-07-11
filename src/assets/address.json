@@ -3,5 +3,6 @@
     "admin": "api/Admin/",
     "login": "api/auth/",
     "user": "api/users/",
+    "baseinfo": "api/baseinfo/",
     "company": "Setash"
 }
