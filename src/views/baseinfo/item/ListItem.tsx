@@ -20,7 +20,7 @@ import { styled, useTheme } from '@mui/material/styles';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
-import BoltIcon from 'assets/images/profile/user-d.svg';
+import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
@@ -38,76 +38,70 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 
 interface ItemType {
-  id: number;
+  id: string;
   name: string;
-  unitId: number;
-  unitName?: string;
-  categoryId: number;
-  categoryName?: string;
-  abbreviation: string;
   description: string;
+  abbreviation: string;
+  recordStatus: number;
   createAt: string;
-  recordStatus?: number;
-  status: string;
+  category: {
+    id: string;
+    name: string;
+    depth: number;
+    createAt: string;
+    recordStatus: number;
+  };
+  unit: {
+    id: string;
+    title: string;
+    recordStatus: number;
+    createAt: string;
+  };
+  status?: string;
 }
 
 interface UnitOptionType {
-  id: number;
-  name: string;
+  id: string;
+  title: string;
 }
 
 interface CategoryOptionType {
-  id: number;
+  id: string;
   name: string;
-  parentId?: number | null;
+  parentId?: string | null;
+  depth: number;
+  categories?: CategoryOptionType[];
+}
+
+interface FlatCategoryType {
+  id: string;
+  name: string;
+  parentId: string | null;
   depth: number;
 }
 
-const MOCK_ITEMS: ItemType[] = [
-  { id: 1, name: 'Akıllı Telefon X', unitId: 1, unitName: 'Adet', categoryId: 101111, categoryName: 'Samsung Android', abbreviation: 'SPHX', description: '<p>Bu, en yeni akıllı telefon modelidir. Harika özelliklere sahiptir. Uzun açıklama deneme amacıyla yazılmıştır ve iki satırdan uzun olacaktır. Bu metin, içeriğin kesilip üç nokta ile gösterilip daha sonra tam olarak gösterilebilmesi için yeterince uzun olmalıdır.</p><p>Devamı burada...</p><p>Daha fazla bilgi.</p>', createAt: '2024-06-15T10:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 2, name: 'T-Shirt (Pamuk)', unitId: 1, unitName: 'Adet', categoryId: 201, categoryName: 'Erkek Giyim', abbreviation: 'TSRT', description: '<p>Yüksek kaliteli pamuklu tişört. Her mevsim giyilebilir.</p>', createAt: '2024-06-10T11:30:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 3, name: '1 Lt Süt', unitId: 3, unitName: 'Litre', categoryId: 3, categoryName: 'Ev ve Yaşam', abbreviation: 'MILK', description: '<p>Taze ve doğal süt.</p>', createAt: '2024-06-05T14:00:00.000Z', recordStatus: 1, status: 'Etkin değil' },
-];
 
-const MOCK_UNIT_OPTIONS: UnitOptionType[] = [
-  { id: 1, name: 'Adet' },
-  { id: 2, name: 'Kilogram' },
-  { id: 3, name: 'Litre' },
-  { id: 4, name: 'Metre' },
-  { id: 5, name: 'Kutu' },
-  { id: 6, name: 'Mililitre' },
-  { id: 7, name: 'Gram' },
-  { id: 8, name: 'Ton' },
-  { id: 9, name: 'Paket' },
-  { id: 10, name: 'Düzine' },
-];
+const flattenCategories = (nestedCategories: CategoryOptionType[]): FlatCategoryType[] => {
+  const flatList: FlatCategoryType[] = [];
 
-const MOCK_ALL_CATEGORIES: CategoryOptionType[] = [
-  { id: 1, name: 'Elektronik', depth: 0, parentId: null },
-  { id: 2, name: 'Giyim', depth: 0, parentId: null },
-  { id: 3, name: 'Ev ve Yaşam', depth: 0, parentId: null },
+  const traverse = (categories: CategoryOptionType[]) => {
+    categories.forEach(cat => {
+      flatList.push({
+        id: cat.id,
+        name: cat.name,
+        parentId: cat.parentId || null,
+        depth: cat.depth,
+      });
 
-  { id: 101, name: 'Cep Telefonları', depth: 1, parentId: 1 },
-  { id: 102, name: 'Bilgisayarlar', depth: 1, parentId: 1 },
-  { id: 103, name: 'Televizyonlar', depth: 1, parentId: 1 },
+      if (cat.categories && cat.categories.length > 0) {
+        traverse(cat.categories);
+      }
+    });
+  };
 
-  { id: 1011, name: 'Akıllı Telefonlar', depth: 2, parentId: 101 },
-  { id: 1012, name: 'Tuşlu Telefonlar', depth: 2, parentId: 101 },
-
-  { id: 10111, name: 'Android Telefonlar', depth: 3, parentId: 1011 },
-  { id: 10112, name: 'iOS Telefonlar', depth: 3, parentId: 1011 },
-
-  { id: 101111, name: 'Samsung Android', depth: 4, parentId: 10111 },
-  { id: 101112, name: 'Xiaomi Android', depth: 4, parentId: 10111 },
-  { id: 101113, name: 'Google Pixel', depth: 4, parentId: 10111 },
-
-  { id: 1011111, name: 'Galaxy S Series', depth: 5, parentId: 101111 },
-  { id: 1011112, name: 'Galaxy A Series', depth: 5, parentId: 101111 },
-
-  { id: 10111111, name: 'Galaxy S25', depth: 6, parentId: 1011111 },
-  { id: 10111112, name: 'Galaxy S25 Ultra', depth: 6, parentId: 1011111 },
-  { id: 101111111, name: 'Galaxy S25 5G', depth: 7, parentId: 10111111 },
-];
+  traverse(nestedCategories);
+  return flatList;
+};
 
 
 const formatDate = (dateString: string): string => {
@@ -147,14 +141,14 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 }));
 
 interface CategoryNode {
-  id: number;
+  id: string;
   name: string;
-  parentId: number | null;
+  parentId: string | null;
   depth: number;
   children: CategoryNode[];
 }
 
-const buildCategoryTreeForSelect = (categories: CategoryOptionType[], searchTerm: string, parentId: number | null = null): CategoryNode[] => {
+const buildCategoryTreeForSelect = (categories: FlatCategoryType[], searchTerm: string, parentId: string | null = null): CategoryNode[] => {
   const lowerCaseSearchTerm = searchTerm.toLowerCase();
 
   const currentLevelCategories = categories.filter(cat =>
@@ -181,8 +175,8 @@ const buildCategoryTreeForSelect = (categories: CategoryOptionType[], searchTerm
 
 interface CategoryTreeSelectMenuItemProps {
   node: CategoryNode;
-  onToggleSelection: (categoryId: number, isChecked: boolean) => void;
-  selectedId: number | null;
+  onToggleSelection: (categoryId: string, isChecked: boolean) => void;
+  selectedId: string | null;
   onCloseParentSelect: () => void;
 }
 
@@ -194,7 +188,7 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
     event.stopPropagation();
     const newCheckedState = event.target.checked;
     onToggleSelection(node.id, newCheckedState);
-    if (newCheckedState) { // Only close if the item is being selected
+    if (newCheckedState) {
       onCloseParentSelect();
     }
   };
@@ -206,10 +200,9 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
 
   const handleMenuItemClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Toggle selection when MenuItem itself is clicked
     const newCheckedState = !isChecked;
     onToggleSelection(node.id, newCheckedState);
-    if (newCheckedState) { // Only close if the item is being selected
+    if (newCheckedState) {
       onCloseParentSelect();
     }
   };
@@ -277,17 +270,19 @@ const ListItemComponent = () => {
   const navigate = useNavigate();
 
   const [name, setName] = useState<string>('');
-  const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<number[]>([]);
-  const [selectedCategoryNames, setSelectedCategoryNames] = useState<string[]>([]);
-  const [isCategorySelectOpen, setIsCategorySelectOpen] = useState(false); // New state to control Select open/close
+  const [originalName, setOriginalName] = useState<string>('');
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  const [isCategorySelectOpen, setIsCategorySelectOpen] = useState(false);
 
   const [abbreviation, setAbbreviation] = useState<string>('');
   const [description, setDescription] = useState<string>('');
 
-  const [unitOptions, setUnitOptions] = useState<UnitOptionType[]>(MOCK_UNIT_OPTIONS);
-  const [itemsList, setItemsList] = useState<ItemType[]>(MOCK_ITEMS);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [unitOptions, setUnitOptions] = useState<UnitOptionType[]>([]);
+  const [allCategoriesFlat, setAllCategoriesFlat] = useState<FlatCategoryType[]>([]);
+  const [itemsList, setItemsList] = useState<ItemType[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [originalItemData, setOriginalItemData] = useState<ItemType | null>(null);
 
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -306,6 +301,10 @@ const ListItemComponent = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
+  const [loadingUnits, setLoadingUnits] = useState<boolean>(false);
+  const [loadingCategories, setLoadingCategories] = useState<boolean>(false);
+  const [loadingItems, setLoadingItems] = useState<boolean>(false);
+
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -316,7 +315,6 @@ const ListItemComponent = () => {
 
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
-  const [allCategoriesFlat] = useState<CategoryOptionType[]>(MOCK_ALL_CATEGORIES);
 
 
   const categoryTreeForSelect = useMemo(() => {
@@ -324,19 +322,19 @@ const ListItemComponent = () => {
   }, [allCategoriesFlat, categorySearchTerm]);
 
 
-  const handleToggleCategorySelection = useCallback((categoryId: number, isChecked: boolean) => {
+  const handleToggleCategorySelection = useCallback((categoryId: string, isChecked: boolean) => {
     if (isChecked) {
-      setSelectedCategoryIds([categoryId]);
+      setSelectedCategoryId(categoryId);
+      const selectedCat = allCategoriesFlat.find(cat => cat.id === categoryId);
+      setSelectedCategoryName(selectedCat ? selectedCat.name : null);
     } else {
-      setSelectedCategoryIds([]);
+      setSelectedCategoryId(null);
+      setSelectedCategoryName(null);
     }
-    const newSelectedName = MOCK_ALL_CATEGORIES.find(cat => cat.id === categoryId)?.name || '';
-    setSelectedCategoryNames(isChecked ? [newSelectedName] : []);
-  }, []);
+  }, [allCategoriesFlat]);
 
-  // Function to close the Select Category
   const handleCloseCategorySelect = () => {
-    setIsCategorySelectOpen(false); // Set the state to close the Select
+    setIsCategorySelectOpen(false);
   };
 
 
@@ -376,8 +374,8 @@ const ListItemComponent = () => {
   const resetFormAndState = () => {
     setName('');
     setSelectedUnitId(null);
-    setSelectedCategoryIds([]);
-    setSelectedCategoryNames([]);
+    setSelectedCategoryId(null);
+    setSelectedCategoryName(null);
     setAbbreviation('');
     setDescription('');
     setEditingId(null);
@@ -390,10 +388,10 @@ const ListItemComponent = () => {
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
-      setSelectedUnitId(selectedRowForMenu.unitId);
-      setSelectedCategoryIds([selectedRowForMenu.categoryId]);
-      setSelectedCategoryNames([selectedRowForMenu.categoryName || '']);
-
+      setOriginalName(selectedRowForMenu.name);
+      setSelectedUnitId(selectedRowForMenu.unit.id);
+      setSelectedCategoryId(selectedRowForMenu.category.id);
+      setSelectedCategoryName(selectedRowForMenu.category.name);
       setAbbreviation(selectedRowForMenu.abbreviation);
       setDescription(selectedRowForMenu.description);
       setEditingId(selectedRowForMenu.id);
@@ -409,7 +407,7 @@ const ListItemComponent = () => {
   };
 
   const insertItem = async () => {
-    if (!name.trim() || selectedUnitId === null || selectedCategoryIds.length === 0 || !abbreviation.trim() || !description.trim()) {
+    if (!name.trim() || selectedUnitId === null || selectedCategoryId === null || !abbreviation.trim() || !description.trim()) {
       showAlert('Tüm zorunlu alanları doldurun!', 'warning');
       return;
     }
@@ -420,40 +418,56 @@ const ListItemComponent = () => {
     clearAlert();
     setLoadingButton(true);
 
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+      navigate("/");
+      showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      setLoadingButton(false);
+      return;
+    }
+debugger
     try {
-      const newItemId = MOCK_ITEMS.length > 0 ? Math.max(...MOCK_ITEMS.map(i => i.id)) + 1 : 1;
-      const newUnitName = unitOptions.find(u => u.id === selectedUnitId)?.name || 'Bilinmiyor';
-      const newCategoryName = MOCK_ALL_CATEGORIES.find(c => c.id === selectedCategoryIds[0])?.name || 'Bilinmiyor';
+      const response = await axios.post(server.baseurl + server.baseinfo + "create-item", // API endpoint for creation
+        {
+          name,
+          description,
+          abbreviation,
+          categoryId: Number(selectedCategoryId), // Use selectedCategoryId
+          itemUnitId: Number(selectedUnitId) // Use selectedUnitId, renamed as per API spec
+        },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        }
+      );
 
-      const newItem: ItemType = {
-        id: newItemId,
-        name: name,
-        unitId: selectedUnitId,
-        unitName: newUnitName,
-        categoryId: selectedCategoryIds[0],
-        categoryName: newCategoryName,
-        abbreviation: abbreviation,
-        description: description,
-        createAt: new Date().toISOString(),
-        recordStatus: 0,
-        status: 'Aktif',
-      };
+      if (response.data && response.data.success) {
+        showAlert('Yeni ürün başarıyla eklendi!', 'success');
+        resetFormAndState();
+        getListItem(); // Refresh list after successful creation
+      } else {
+        showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');
+      }
 
-      MOCK_ITEMS.push(newItem);
-      showAlert('Yeni ürün başarıyla eklendi!', 'success');
-      resetFormAndState();
-      getListItem();
     } catch (e: any) {
-      console.error("Error inserting item:", e);
-      showAlert('Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error inserting item:", e);
+        showAlert('Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     } finally {
       setLoadingButton(false);
     }
   };
 
   const editItem = async () => {
-    if (editingId === null || originalItemData === null) return;
-    if (!name.trim() || selectedUnitId === null || selectedCategoryIds.length === 0 || !abbreviation.trim() || !description.trim()) {
+    if (!name.trim() || selectedUnitId === null || selectedCategoryId === null || !abbreviation.trim() || !description.trim()) {
       showAlert('Tüm zorunlu alanları doldurun!', 'warning');
       return;
     }
@@ -461,65 +475,106 @@ const ListItemComponent = () => {
       showAlert('Kısaltma 4 karakter olmalıdır!', 'warning');
       return;
     }
+    if (name === originalName) {
+        showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
+        resetFormAndState();
+        return;
+      }
     clearAlert();
+    setLoadingButton(true);
 
-    const isChanged = (
-      name !== originalItemData.name ||
-      selectedUnitId !== originalItemData.unitId ||
-      selectedCategoryIds[0] !== originalItemData.categoryId ||
-      abbreviation !== originalItemData.abbreviation ||
-      description !== originalItemData.description
-    );
-
-    if (!isChanged) {
-      showAlert('Herhangi bir değişiklik yapmadınız.', 'info');
-      resetFormAndState();
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+      navigate("/");
+      showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      setLoadingButton(false);
       return;
     }
-
-    setLoadingButton(true);
+debugger
     try {
-      const index = MOCK_ITEMS.findIndex(i => i.id === editingId);
-      if (index !== -1) {
-        const updatedUnitName = unitOptions.find(u => u.id === selectedUnitId)?.name || 'Bilinmiyor';
-        const updatedCategoryName = MOCK_ALL_CATEGORIES.find(c => c.id === selectedCategoryIds[0])?.name || 'Bilinmiyor';
+      const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // API endpoint for creation
+        {
+          id: Number(editingId),
+          newName:name,
+          description,
+          abbreviation,
+          categoryId: Number(selectedCategoryId), // Use selectedCategoryId
+          itemUnitId: Number(selectedUnitId) // Use selectedUnitId, renamed as per API spec
+        },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        }
+      );
 
-        MOCK_ITEMS[index] = {
-          ...MOCK_ITEMS[index],
-          name: name,
-          unitId: selectedUnitId,
-          unitName: updatedUnitName,
-          categoryId: selectedCategoryIds[0],
-          categoryName: updatedCategoryName,
-          abbreviation: abbreviation,
-          description: description,
-        };
+      if (response.data && response.data.success) {
+        showAlert('Yeni ürün başarıyla eklendi!', 'success');
+        resetFormAndState();
+        getListItem(); // Refresh list after successful creation
+      } else {
+        showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');
       }
-      showAlert('Ürün başarıyla güncellendi!', 'success');
-      resetFormAndState();
-      getListItem();
+
     } catch (e: any) {
-      console.error("Error updating item:", e);
-      showAlert('Ürün güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.log("Error inserting item:", e);
+        showAlert('Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     } finally {
       setLoadingButton(false);
     }
   };
 
-  const sendStatusUpdate = async (id: number, statusValue: number) => {
+  const sendStatusUpdate = async (id: string, statusValue: number) => {
     clearAlert();
+
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+      navigate("/");
+      showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      return;
+    }
+    debugger
     try {
-      const index = MOCK_ITEMS.findIndex(i => i.id === id);
-      if (index !== -1) {
-        const newStatusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Etkin değil' : 'Silindi';
-        MOCK_ITEMS[index] = { ...MOCK_ITEMS[index], recordStatus: statusValue, status: newStatusText };
+      // Replace with actual API call to update item status
+      const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // Assuming update status endpoint
+        {
+          id:Number(id),
+          recordStatus: statusValue
+        },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        }
+      );
+
+      if (response.data && response.data.success) {
+        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        showAlert(`Ürün başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        getListItem();
+      } else {
+        showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
-      const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-      showAlert(`Ürün başarıyla ${statusText} olarak ayarlandı!`, 'success');
-      getListItem();
+
     } catch (e: any) {
-      console.error("Error updating status:", e);
-      showAlert('Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error updating status:", e);
+        showAlert('Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     } finally {
       handleCloseMenu();
     }
@@ -537,19 +592,154 @@ const ListItemComponent = () => {
     }
   };
 
-  const getListItem = () => {
-    const sortedData = [...MOCK_ITEMS].sort((a, b) => {
-      const dateA = new Date(a.createAt);
-      const dateB = new Date(b.createAt);
-      return dateB.getTime() - dateA.getTime();
-    });
-    setItemsList(sortedData);
-    setPage(0);
-    setSearchTerm('');
-    setStatusFilter('all');
+  const getUnitOptions = async () => {
+    setLoadingUnits(true);
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+      navigate("/");
+      showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      setLoadingUnits(false);
+      return;
+    }
+    try {
+      const response = await axios.get(server.baseurl + server.baseinfo + "get-item-units", {
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
+      if (response.data && response.data.success) {
+        setUnitOptions(response.data.data.map((unit: any) => ({
+          id: unit.id,
+          title: unit.title
+        })));
+      } else {
+        console.error("Failed to fetch units:", response.data.message);
+        showAlert('Birimler yüklenirken hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error fetching units:", e);
+        showAlert('Birimler sunucudan alınamadı.', 'error');
+      }
+    } finally {
+      setLoadingUnits(false);
+    }
+  };
+
+  const getAllCategories = async () => {
+    setLoadingCategories(true);
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+      navigate("/");
+      showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      setLoadingCategories(false);
+      return;
+    }
+    try {
+      const response = await axios.get(server.baseurl + server.baseinfo + "get-categories", {
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
+      if (response.data && response.data.success) {
+        const flattened = flattenCategories(response.data.data);
+        setAllCategoriesFlat(flattened);
+      } else {
+        console.error("Failed to fetch categories:", response.data.message);
+        showAlert('Kategoriler yüklenirken hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error fetching categories:", e);
+        showAlert('Kategoriler sunucudan alınamadı.', 'error');
+      }
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+
+  const getListItem = async () => {
+    setLoadingItems(true);
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+      navigate("/");
+      showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      setLoadingItems(false);
+      return;
+    }
+    try {
+      const response = await axios.get(server.baseurl + server.baseinfo + "get-item", {
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
+      if (response.data && response.data.success) {
+        const processedData = response.data.data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          abbreviation: item.abbreviation,
+          recordStatus: item.recordStatus,
+          createAt: item.createAt,
+          category: {
+            id: item.category.id,
+            name: item.category.name,
+            depth: item.category.depth,
+            createAt: item.category.createAt,
+            recordStatus: item.category.recordStatus,
+          },
+          unit: {
+            id: item.unit.id,
+            title: item.unit.title,
+            recordStatus: item.unit.recordStatus,
+            createAt: item.unit.createAt,
+          },
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+        }));
+        setItemsList(processedData.sort((a: ItemType, b: ItemType) => {
+          const dateA = new Date(a.createAt);
+          const dateB = new Date(b.createAt);
+          return dateB.getTime() - dateA.getTime();
+        }));
+      } else {
+        console.error("Failed to fetch items:", response.data.message);
+        showAlert('Ürünler yüklenmedi.', 'error');
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkinز yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error fetching items:", e);
+        showAlert('Ürünler sunucudan alınamadı', 'error');
+      }
+    } finally {
+      setLoadingItems(false);
+      setPage(0);
+      setSearchTerm('');
+      setStatusFilter('all');
+    }
   };
 
   useEffect(() => {
+    getUnitOptions();
+    getAllCategories();
     getListItem();
   }, []);
 
@@ -582,7 +772,7 @@ const ListItemComponent = () => {
   };
 
   const filteredUnitOptions = unitOptions.filter(unit =>
-    unit.name.toLowerCase().includes(unitSearchTerm.toLowerCase())
+    unit.title.toLowerCase().includes(unitSearchTerm.toLowerCase())
   );
 
   const handleCategorySearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -593,8 +783,8 @@ const ListItemComponent = () => {
   const filteredAndStatusItems = itemsList.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.abbreviation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.unitName?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (item.categoryName?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+      item.unit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'active' && item.recordStatus === 0) ||
@@ -646,13 +836,13 @@ const ListItemComponent = () => {
                 id="select-unit"
                 value={selectedUnitId || ''}
                 label="Birim Seçin"
-                onChange={(e) => setSelectedUnitId(Number(e.target.value))}
+                onChange={(e) => setSelectedUnitId(e.target.value as string)}
                 MenuProps={{
                   sx: { maxHeight: 300 },
                 }}
                 renderValue={(selected: any) => {
                   const unit = unitOptions.find(u => u.id === selected);
-                  return unit ? unit.name : '';
+                  return unit ? unit.title : '';
                 }}
                 onClose={() => setUnitSearchTerm('')}
               >
@@ -673,10 +863,14 @@ const ListItemComponent = () => {
                     ),
                   }}
                 />
-                {filteredUnitOptions.length > 0 ? (
+                {loadingUnits ? (
+                  <MuiMenuItem disabled>
+                    <CircularProgress size={20} /> Yükleniyor...
+                  </MuiMenuItem>
+                ) : filteredUnitOptions.length > 0 ? (
                   filteredUnitOptions.map((unit) => (
                     <MuiMenuItem key={unit.id} value={unit.id}>
-                      {unit.name}
+                      {unit.title}
                     </MuiMenuItem>
                   ))
                 ) : (
@@ -695,25 +889,23 @@ const ListItemComponent = () => {
               <Select
                 labelId="select-category-label"
                 id="select-category"
-                value={selectedCategoryIds[0] || ''}
-                open={isCategorySelectOpen} // Control open state
+                value={selectedCategoryId || ''}
+                open={isCategorySelectOpen}
                 onOpen={() => setIsCategorySelectOpen(true)}
-                onClose={handleCloseCategorySelect} // Close handler
+                onClose={handleCloseCategorySelect}
                 onChange={(event) => {
-                  const newValue = Number(event.target.value);
+                  const newValue = event.target.value as string;
                   handleToggleCategorySelection(newValue, true);
-                  // The Select component will close itself because its value has effectively changed
-                  // and we are also manually closing it via state.
                 }}
                 renderValue={(selected: any) => {
-                  const category = MOCK_ALL_CATEGORIES.find(cat => cat.id === selected);
+                  const category = allCategoriesFlat.find(cat => cat.id === selected);
                   return category ? category.name : '';
                 }}
                 MenuProps={{
                   sx: { maxHeight: 400 },
                   onClose: () => {
                     setCategorySearchTerm('');
-                    setIsCategorySelectOpen(false); // Ensure select closes on menu close
+                    setIsCategorySelectOpen(false);
                   },
                 }}
               >
@@ -737,14 +929,18 @@ const ListItemComponent = () => {
                 />
 
                 {/* Display category tree */}
-                {categoryTreeForSelect.length > 0 ? (
+                {loadingCategories ? (
+                  <MuiMenuItem disabled>
+                    <CircularProgress size={20} /> Yükleniyor...
+                  </MuiMenuItem>
+                ) : categoryTreeForSelect.length > 0 ? (
                   categoryTreeForSelect.map((node) => (
                     <CategoryTreeSelectMenuItem
                       key={node.id}
                       node={node}
                       onToggleSelection={handleToggleCategorySelection}
-                      selectedId={selectedCategoryIds[0] || null}
-                      onCloseParentSelect={handleCloseCategorySelect} // Pass close function to children
+                      selectedId={selectedCategoryId}
+                      onCloseParentSelect={handleCloseCategorySelect}
                     />
                   ))
                 ) : (
@@ -806,7 +1002,7 @@ const ListItemComponent = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -826,7 +1022,7 @@ const ListItemComponent = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
                       </> : 'Yeni Ürün Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -928,17 +1124,26 @@ const ListItemComponent = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedItems.length > 0 ? (
+              {loadingItems ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <CircularProgress />
+                    <Typography variant="subtitle1" color="textSecondary">
+                      محصولات در حال بارگیری هستند...
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : paginatedItems.length > 0 ? (
                 paginatedItems.map((row) => (
                   <TableRow key={row.id} sx={{ '&:last-child td': { border: 0 } }}>
                     <TableCell>
                       <Typography variant="h6">{row.name}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body1">{row.unitName}</Typography>
+                      <Typography variant="body1">{row.unit.title}</Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body1">{row.categoryName}</Typography>
+                      <Typography variant="body1">{row.category.name}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1">{row.abbreviation}</Typography>

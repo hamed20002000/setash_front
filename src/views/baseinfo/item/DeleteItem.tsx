@@ -47,7 +47,7 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
       // **نکته:** آدرس API حذف آیتم و نحوه ارسال ID
       // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-item/{id})
       const response = await axios.delete(
-        `${server.baseurl}${server.user}delete-item/${itemIdToDelete}`,
+        `${server.baseurl}${server.baseinfo}delete-item/${itemIdToDelete}`,
         {
           headers: {
             "Accept": "application/json",
