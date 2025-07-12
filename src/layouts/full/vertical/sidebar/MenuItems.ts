@@ -19,10 +19,9 @@ import {
   IconApps,
   IconUserCircle,
   IconCircles,
-  // **آیکون‌های جدید برای بخش "temel bilgi"**
-  IconCategory, // برای kategori (دسته‌بندی)
-  IconBuilding, // برای birim (واحد)
-  IconPackage,  // برای öğe (آیتم)
+  IconCategory,
+  IconBuilding, 
+  IconPackage,  
 } from '@tabler/icons-react';
 
 const Menuitems: MenuitemsType[] = [

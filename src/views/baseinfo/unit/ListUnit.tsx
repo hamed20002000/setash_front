@@ -7,7 +7,7 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  CircularProgress,
+  // CircularProgress,
   ToggleButtonGroup, ToggleButton,
 } from '@mui/material';
 
@@ -332,16 +332,21 @@ const ListUnit = () => {
   }, []);
 
   const handleStatusFilterChange = (
+    
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
     if (newFilter !== null) {
+      console.log(event)
       setStatusFilter(newFilter);
       setPage(0);
     }
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+ const handleChangePage = (
+    event: unknown, 
+    newPage: number) => {
+      console.log(event)
     setPage(newPage);
   };
 
@@ -386,7 +391,7 @@ const ListUnit = () => {
               placeholder="Birim Adı"
               fullWidth
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -402,7 +407,7 @@ const ListUnit = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -422,7 +427,7 @@ const ListUnit = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Yeni Birim Ekle'}
                     </Button>
                   </CustomTooltip>

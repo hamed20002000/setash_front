@@ -87,11 +87,12 @@ const NavCollapse = ({
       color: pathname.includes(menu.href) || open ? 'white' : theme.palette.primary.main,
     },
     color:
-      open && level < 2
+     open && level < 2
         ? 'white'
-        : `inherit` && level > 1 && open
-        ? theme.palette.primary.main
-        : theme.palette.text.secondary,
+        : (level > 1 && open
+          ? theme.palette.primary.main
+          : 'inherit' 
+        ),
     borderRadius: `${customizer.borderRadius}px`,
   }));
 

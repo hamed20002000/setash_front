@@ -53,7 +53,7 @@ import {
   IconUserPlus,
   IconRotate,
   IconBox,
-  IconShoppingCart,
+  // IconShoppingCart,
   IconAperture,
   IconLayout,
   IconSettings,

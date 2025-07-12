@@ -1,10 +1,14 @@
-import React, { useEffect } from 'react'; // useEffect اضافه شد
-import { Box, Avatar, Typography, IconButton, Tooltip, useMediaQuery } from '@mui/material';
+// import React, { useEffect } from 'react';
+import { Box, Avatar, Typography, IconButton, 
+  // Tooltip, 
+  useMediaQuery } from '@mui/material';
 import { useSelector } from 'src/store/Store';
 import img1 from 'src/assets/images/profile/user-d1.svg';
 import { IconPower } from '@tabler/icons-react';
 import { AppState } from 'src/store/Store';
-import { Link, useNavigate } from 'react-router-dom'; // useNavigate اضافه شد
+import { 
+  // Link, 
+  useNavigate } from 'react-router-dom'; // useNavigate اضافه شد
 
 import { useAuth } from 'src/context/AuthContext'; // **ایمپورت useAuth**
 import { CustomTooltip, useTooltip } from 'src/context/TooltipContext'; // **ایمپورت CustomTooltip و useTooltip**
@@ -17,7 +21,10 @@ export const Profile = () => {
   const navigate = useNavigate(); // هوک navigate برای ریدایرکت پس از خروج
 
   // **استفاده از useAuth برای دسترسی به مقادیر Context**
-  const { username, activeRoleName, updateActiveRole } = useAuth();
+  const { username, activeRoleName
+    // ,
+    //  updateActiveRole
+     } = useAuth();
   // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip سراسری**
   const { isTooltipGloballyEnabled } = useTooltip();
 

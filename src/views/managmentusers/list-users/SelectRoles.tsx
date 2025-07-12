@@ -5,8 +5,6 @@ import Box from '@mui/material/Box';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 
-import BlankCard from '../../../components/shared/BlankCard';
-
 const SelectRoles = () => {
    const [checked, setChecked] = React.useState([true, false]);
 

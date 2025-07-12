@@ -1,19 +1,11 @@
 import {
-  IconHome,
-  IconPoint,
-  IconApps,
-  IconClipboard,
-  IconFileDescription,
-  IconBorderAll,
-  IconZoomCode,
-  IconRotate,
-  IconUserPlus,
-  IconLogin,
-  IconAlertCircle,
-  IconSettings,
   IconDashboard,
-    IconUserCircle,
-    IconCircles
+  IconApps,
+  IconUserCircle,
+  IconCircles,
+  IconCategory,
+  IconBuilding, 
+  IconPackage,  
 } from '@tabler/icons-react';
 import { uniqueId } from 'lodash';
 
@@ -21,7 +13,7 @@ const Menuitems = [
   {
     id: uniqueId(),
     title: 'Gösterge Paneli',
-    icon: IconHome,
+    icon: IconDashboard,
     href: '/dashboards/',
     children: [
       {
@@ -60,6 +52,50 @@ const Menuitems = [
         chipColor: 'secondary',
         href: '/managmentusers/list-users',
       },
+    ],
+  },
+  {
+    id: uniqueId(),
+    title: 'temel bilgi',
+    icon: IconApps,
+    href: '/baseinfo/',
+    children: [
+      {
+        id: uniqueId(),
+        title: 'Kategori Listele',
+        icon: IconCategory,
+        chipColor: 'secondary',
+        href: '/baseinfo/list-categories',
+      },
+      {
+        id: uniqueId(),
+        title: 'Birim Listele',
+        icon: IconBuilding,
+        chipColor: 'secondary',
+        href: '/baseinfo/list-units',
+      },
+      {
+        id: uniqueId(),
+        title: 'Ürün Listele',
+        icon: IconPackage,
+        chipColor: 'secondary',
+        href: '/baseinfo/list-items',
+      },
+    ],
+  },
+  {
+    id: uniqueId(),
+    title: 'İhale',
+    icon: IconApps,
+    href: '/auction/',
+    children: [
+      {
+        id: uniqueId(),
+        title: 'İhale Listele',
+        icon: IconCategory,
+        chipColor: 'secondary',
+        href: '/auction/list-auction',
+      }
     ],
   },
 

@@ -15,13 +15,13 @@ import {
 import { useSelector, useDispatch } from 'src/store/Store';
 import { toggleMobileSidebar } from 'src/store/customizer/CustomizerSlice';
 import { IconMenu2 } from '@tabler/icons-react';
-import Notifications from 'src/layouts/full/vertical/header/Notification';
-import Cart from 'src/layouts/full/vertical/header/Cart';
+// import Notifications from 'src/layouts/full/vertical/header/Notification';
+// import Cart from 'src/layouts/full/vertical/header/Cart';
 import Profile from 'src/layouts/full/vertical/header/Profile';
 import Search from 'src/layouts/full/vertical/header/Search';
-import Language from 'src/layouts/full/vertical/header/Language';
-import Navigation from 'src/layouts/full/vertical/header/Navigation';
-import Logo from 'src/layouts/full/shared/logo/Logo';
+// import Language from 'src/layouts/full/vertical/header/Language';
+// import Navigation from 'src/layouts/full/vertical/header/Navigation';
+// import Logo from 'src/layouts/full/shared/logo/Logo';
 import { AppState } from 'src/store/Store';
 
 const Header = () => {

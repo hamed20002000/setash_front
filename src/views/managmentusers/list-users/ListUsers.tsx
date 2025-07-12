@@ -7,7 +7,9 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
-  TextField, CircularProgress, FormControl, InputLabel, Select, OutlinedInput,
+  TextField, 
+  // CircularProgress,
+  FormControl, InputLabel, Select, OutlinedInput,
   CardMedia, FormControlLabel, ListItemText,
   ToggleButton,
   ToggleButtonGroup,
@@ -17,8 +19,7 @@ import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
-  IconDots, IconEdit, IconPlus, IconTrash, IconEye, IconEyeOff, IconKey,
-  IconUserCheck, IconUsersGroup, IconLock, IconSearch,
+  IconDots, IconEdit, IconTrash, IconEye, IconEyeOff, IconKey, IconUsersGroup, IconLock, IconSearch,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -77,7 +78,6 @@ const ListUsers = () => {
 
   const [usersList, setUsersList] = useState<UserType[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
-  const [originalUsername, setOriginalUsername] = useState<string>('');
 
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -92,7 +92,7 @@ const ListUsers = () => {
 
   const [openRoleModal, setOpenRoleModal] = useState(false);
   const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<number | null>(null);
-  const [userRolesForModal, setUserRolesForModal] = useState<number[]>([]);
+  
 
   const [openOperationsModal, setOpenOperationsModal] = useState(false);
   const [userIdForOperationsSelection, setUserIdForOperationsSelection] = useState<number | null>(null);
@@ -163,7 +163,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
   const handleClickCloseRoleModal = () => {
     setOpenRoleModal(false);
     setUserIdForRoleSelection(null);
-    setUserRolesForModal([]);
+    // setUserRolesForModal([]);
     getListUsers();
   };
 
@@ -239,7 +239,6 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
     setProfileImageUrl(DEFAULT_IMAGE_URL);
     setGenerateRandomPassword(false);
     setEditingUserId(null);
-    setOriginalUsername('');
     clearAlert();
 
     setTimeout(() => {
@@ -252,7 +251,6 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
   const handleEditItemClick = () => {
     if (selectedUserForMenu) {
       setUsername(selectedUserForMenu.username);
-      setOriginalUsername(selectedUserForMenu.username);
       setEditingUserId(selectedUserForMenu.id);
 
       setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
@@ -505,12 +503,14 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
       newFilter: 'all' | 'active' | 'inactive' | null,
     ) => {
       if (newFilter !== null) {
+      console.log(event)
         setStatusFilter(newFilter);
         setPage(0);
       }
     };
 
   const handleChangePage = (event: unknown, newPage: number) => {
+      console.log(event)
     setPage(newPage);
   };
 
@@ -554,7 +554,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                     placeholder="Kullanıcı Adı"
                     fullWidth
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
                     inputProps={{ autocomplete: 'off' }}
                     ref={usernameFieldRef}
                   />
@@ -572,7 +572,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                         placeholder="Şifre"
                         fullWidth
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                         disabled={generateRandomPassword}
                         inputProps={{ autocomplete: 'new-password' }}
                         ref={passwordFieldRef}
@@ -604,7 +604,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                         placeholder="Şifreyi Tekrarla"
                         fullWidth
                         value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
                         disabled={generateRandomPassword}
                         error={password !== confirmPassword && confirmPassword !== ''}
                         helperText={password !== confirmPassword && confirmPassword !== '' ? 'Şifreler eşleşmiyor!' : ''}
@@ -703,7 +703,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Kullanıcıyı Güncelle'}
                     </Button>
                   </CustomTooltip>
@@ -722,7 +722,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                     disabled={loadingButton}
                   >
                     {loadingButton ? <>
-                      <BoltIcon sx={{ mr: 1 }} /> Beklemek....
+                       <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                     </> : 'Yeni Kullanıcı Ekle'}
                   </Button>
                 </CustomTooltip>

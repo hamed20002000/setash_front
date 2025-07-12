@@ -7,11 +7,12 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  CircularProgress,
-  ToggleButtonGroup, ToggleButton as MuiToggleButton,
+  // CircularProgress,
+  ToggleButtonGroup, 
+  // ToggleButton as MuiToggleButton,
   ToggleButton, // اضافه شد: برای فیلتر وضعیت
 } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles'; // **برای StyledToggleButton**
+// import { styled } from '@mui/material/styles'; 
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -37,36 +38,36 @@ interface RowType {
 const initialRows: RowType[] = [];
 
 // **ToggleButton سفارشی با استایل‌های شرطی (کپی از ListUnit.tsx)**
-const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
-  '&.Mui-selected': {
-    color: 'white',
-    ...(value === 'all' && selected && {
-      backgroundColor: theme.palette.primary.main,
-      '&:hover': {
-        backgroundColor: theme.palette.primary.dark,
-      },
-    }),
-    ...(value === 'active' && selected && {
-      backgroundColor: theme.palette.success.main,
-      '&:hover': {
-        backgroundColor: theme.palette.success.dark,
-      },
-    }),
-    ...(value === 'inactive' && selected && {
-      backgroundColor: theme.palette.error.main,
-      '&:hover': {
-        backgroundColor: theme.palette.error.dark,
-      },
-    }),
-  },
-  '&:not(.Mui-selected)': {
-    color: theme.palette.text.primary,
-    borderColor: theme.palette.divider,
-    '&:hover': {
-        backgroundColor: theme.palette.action.hover,
-    },
-  },
-}));
+// const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+//   '&.Mui-selected': {
+//     color: 'white',
+//     ...(value === 'all' && selected && {
+//       backgroundColor: theme.palette.primary.main,
+//       '&:hover': {
+//         backgroundColor: theme.palette.primary.dark,
+//       },
+//     }),
+//     ...(value === 'active' && selected && {
+//       backgroundColor: theme.palette.success.main,
+//       '&:hover': {
+//         backgroundColor: theme.palette.success.dark,
+//       },
+//     }),
+//     ...(value === 'inactive' && selected && {
+//       backgroundColor: theme.palette.error.main,
+//       '&:hover': {
+//         backgroundColor: theme.palette.error.dark,
+//       },
+//     }),
+//   },
+//   '&:not(.Mui-selected)': {
+//     color: theme.palette.text.primary,
+//     borderColor: theme.palette.divider,
+//     '&:hover': {
+//         backgroundColor: theme.palette.action.hover,
+//     },
+//   },
+// }));
 
 
 const SystemOperation = () => {
@@ -370,13 +371,14 @@ const SystemOperation = () => {
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
     if (newFilter !== null) {
+      console.log(event)
       setStatusFilter(newFilter);
-      setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
+      setPage(0);
     }
   };
 
-
   const handleChangePage = (event: unknown, newPage: number) => {
+      console.log(event)
     setPage(newPage);
   };
 
@@ -422,7 +424,7 @@ const SystemOperation = () => {
               placeholder="İsim İşlemi"
               fullWidth
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -438,7 +440,7 @@ const SystemOperation = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -458,7 +460,7 @@ const SystemOperation = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Yeni İşlem Ekle'}
                     </Button>
                   </CustomTooltip>

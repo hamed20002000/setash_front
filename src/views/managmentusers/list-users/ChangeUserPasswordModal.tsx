@@ -1,5 +1,5 @@
 // ChangeUserPasswordModal.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -12,15 +12,13 @@ import {
   InputAdornment,
   CircularProgress,
   Typography,
-  Tooltip,
-  Box, // برای Tooltip
+  Box, 
 } from '@mui/material';
-import BoltIcon from '@mui/icons-material/Bolt';
-import { IconCopy, IconBrandWhatsapp } from '@tabler/icons-react'; // آیکون‌های جدید: کپی و واتساپ
+import { IconCopy, IconBrandWhatsapp } from '@tabler/icons-react';
 import axios from 'axios';
-import server from '../../../assets/address.json';
+import server from 'src/assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // برای Tooltip سراسری
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; 
 
 type Props = {
   openModal: boolean;
@@ -36,16 +34,6 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
   const [copySuccess, setCopySuccess] = useState<boolean>(false); // برای پیغام کپی موفقیت آمیز
 
   const { isTooltipGloballyEnabled } = useTooltip(); // برای Tooltip سراسری
-
-  // تابع تولید رمز عبور تصادفی
-  const generateRandomPassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-    let randomPass = '';
-    for (let i = 0; i < 12; i++) { // مثلاً رمز عبور 12 کاراکتری
-      randomPass += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return randomPass;
-  };
 
   // ریست کردن state هنگام باز شدن مودال
   useEffect(() => {
@@ -194,7 +182,7 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
             <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi sıfırlayıp yeni bir şifre oluştur" : ""}>
               <Button onClick={handleConfirmReset} color="primary" variant="contained" disabled={loading}>
                 {loading ? <>
-                <BoltIcon sx={{ mr: 1 }} /> Beklemek....
+                <CircularProgress sx={{ mr: 1 }} /> Beklemek....
               </>: 'Evet, Sıfırla'}
               </Button>
             </CustomTooltip>

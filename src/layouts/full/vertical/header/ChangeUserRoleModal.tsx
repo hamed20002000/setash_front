@@ -1,5 +1,5 @@
 // ChangeUserRoleModal.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,31 +14,9 @@ import {
   Select,
   MenuItem,
 } from '@mui/material';
-// axios و server.ts در اینجا استفاده نمی‌شوند ولی برای جلوگیری از خطا نگه داشته شده‌اند
-import axios from 'axios';
-import server from 'src/assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; 
 
-// تابع decodeJwtToken را از Header.tsx یا utils/authUtils.ts ایمپورت کنید
-const decodeJwtToken = (token: string) => {
-  try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map(function (c) {
-          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        })
-        .join(''),
-    );
-    return JSON.parse(jsonPayload);
-  } catch (e) {
-    console.error("Error decoding JWT token:", e);
-    return null;
-  }
-};
 
 interface UserRole {
   name: string;

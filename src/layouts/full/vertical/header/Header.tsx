@@ -2,19 +2,23 @@ import React from 'react'; // useState و useEffect دیگر مستقیم در �
 import {
   IconButton, Box, AppBar, useMediaQuery, Toolbar, styled, Stack,
   Button,
-  FormControlLabel, Switch,
+  // FormControlLabel, Switch,
   Alert,
 } from '@mui/material';
 
 import { useSelector, useDispatch } from 'src/store/Store';
 import { toggleSidebar, toggleMobileSidebar } from 'src/store/customizer/CustomizerSlice';
-import { IconMenu2, IconUserShield, IconInfoSquare } from '@tabler/icons-react';
+import { IconMenu2, IconUserShield,
+  //  IconInfoSquare 
+  } from '@tabler/icons-react';
 import Profile from './Profile';
 import Search from './Search';
 import { AppState } from 'src/store/Store';
 
 import { useAuth } from '../../../../context/AuthContext';
-import { useTooltip, CustomTooltip } from '../../../../context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { 
+  // useTooltip, 
+  CustomTooltip } from '../../../../context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
 import ChangeUserRoleModal from './ChangeUserRoleModal';
 
 const Header = () => {
@@ -24,7 +28,7 @@ const Header = () => {
   const dispatch = useDispatch();
 
   const { userRoles, activeRoleName, updateActiveRole } = useAuth();
-  const { isTooltipGloballyEnabled, toggleTooltipGlobal } = useTooltip(); // **استفاده از useTooltip**
+  // const { isTooltipGloballyEnabled, toggleTooltipGlobal } = useTooltip();
 
   const [openRoleSelectionModal, setOpenRoleSelectionModal] = React.useState(false); // از React.useState استفاده کنید
   // const [isTooltipGloballyEnabled, setIsTooltipGloballyEnabled] = useState(true); // این state حذف می‌شود
@@ -55,9 +59,9 @@ const Header = () => {
     setOpenRoleSelectionModal(false);
   };
 
-  const handleTooltipToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
-    toggleTooltipGlobal(event.target.checked); // **فراخوانی تابع از Context**
-  };
+  // const handleTooltipToggle = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   toggleTooltipGlobal(event.target.checked); 
+  // };
 
 
   const AppBarStyled = styled(AppBar)(({ theme }) => ({

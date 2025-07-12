@@ -5,17 +5,18 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  Typography, Chip, Menu, 
+  // MenuItem,
+   IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
   TextField, CircularProgress, FormControl, InputLabel, Select,
   MenuItem as MuiMenuItem,
-  OutlinedInput,
   ToggleButtonGroup, ToggleButton as MuiToggleButton,
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  List, ListItem as MuiListItem,
+  List,
   ListItemText,
 } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -25,8 +26,7 @@ import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
-  IconDots, IconEdit, IconTrash, IconSearch, IconArrowsMaximize,
-  IconCategory, IconChevronRight, IconChevronDown,
+  IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -273,7 +273,6 @@ const ListItemComponent = () => {
   const [originalName, setOriginalName] = useState<string>('');
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [isCategorySelectOpen, setIsCategorySelectOpen] = useState(false);
 
   const [abbreviation, setAbbreviation] = useState<string>('');
@@ -283,7 +282,6 @@ const ListItemComponent = () => {
   const [allCategoriesFlat, setAllCategoriesFlat] = useState<FlatCategoryType[]>([]);
   const [itemsList, setItemsList] = useState<ItemType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [originalItemData, setOriginalItemData] = useState<ItemType | null>(null);
 
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -325,11 +323,9 @@ const ListItemComponent = () => {
   const handleToggleCategorySelection = useCallback((categoryId: string, isChecked: boolean) => {
     if (isChecked) {
       setSelectedCategoryId(categoryId);
-      const selectedCat = allCategoriesFlat.find(cat => cat.id === categoryId);
-      setSelectedCategoryName(selectedCat ? selectedCat.name : null);
+      // const selectedCat = allCategoriesFlat.find(cat => cat.id === categoryId);
     } else {
       setSelectedCategoryId(null);
-      setSelectedCategoryName(null);
     }
   }, [allCategoriesFlat]);
 
@@ -348,13 +344,16 @@ const ListItemComponent = () => {
     setSelectedRowForMenu(null);
   };
 
+ 
+
   const handleClickOpenDeleteModal = () => {
     if (selectedRowForMenu) {
-      setItemIdToDelete(selectedRowForMenu.id);
+      setItemIdToDelete(Number(selectedRowForMenu.id));
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
   };
+
 
   const handleClickCloseDeleteModal = () => {
     setOpenDeleteModal(false);
@@ -375,11 +374,9 @@ const ListItemComponent = () => {
     setName('');
     setSelectedUnitId(null);
     setSelectedCategoryId(null);
-    setSelectedCategoryName(null);
     setAbbreviation('');
     setDescription('');
     setEditingId(null);
-    setOriginalItemData(null);
     setUnitSearchTerm('');
     setCategorySearchTerm('');
     clearAlert();
@@ -391,11 +388,9 @@ const ListItemComponent = () => {
       setOriginalName(selectedRowForMenu.name);
       setSelectedUnitId(selectedRowForMenu.unit.id);
       setSelectedCategoryId(selectedRowForMenu.category.id);
-      setSelectedCategoryName(selectedRowForMenu.category.name);
       setAbbreviation(selectedRowForMenu.abbreviation);
       setDescription(selectedRowForMenu.description);
       setEditingId(selectedRowForMenu.id);
-      setOriginalItemData(selectedRowForMenu);
     }
     handleCloseMenu();
     clearAlert();
@@ -747,13 +742,17 @@ debugger
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
+      console.log(event)
     if (newFilter !== null) {
       setStatusFilter(newFilter);
       setPage(0);
     }
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (
+    event: unknown, 
+    newPage: number) => {
+      console.log(event)
     setPage(newPage);
   };
 
@@ -822,7 +821,7 @@ debugger
               placeholder="Ürün Adı"
               fullWidth
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             />
           </Grid>
           {/* Unit Selection (with search) */}
@@ -959,7 +958,7 @@ debugger
                 placeholder="Kısaltma"
                 fullWidth
                 value={abbreviation}
-                onChange={(e) => setAbbreviation(e.target.value.substring(0, 4))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAbbreviation(e.target.value.substring(0, 4))}
                 inputProps={{ maxLength: 4 }}
               />
             </CustomTooltip>
@@ -1002,7 +1001,7 @@ debugger
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -1022,7 +1021,7 @@ debugger
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Yeni Ürün Ekle'}
                     </Button>
                   </CustomTooltip>

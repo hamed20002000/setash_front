@@ -7,10 +7,10 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  CircularProgress,
+  // CircularProgress,
   ToggleButtonGroup, ToggleButton as MuiToggleButton, // برای فیلتر
 } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles'; // برای StyledToggleButton
+import { styled} from '@mui/material/styles'; // برای StyledToggleButton
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../components/shared/BlankCard';
@@ -20,8 +20,8 @@ import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/ico
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteAuction from './DeleteAuction'; // کامپوننت حذف (باید ایجاد شود)
-import axios from 'axios';
-import server from '../../assets/address.json';
+// import axios from 'axios';
+// import server from '../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
@@ -42,18 +42,18 @@ const MOCK_AUCTIONS: AuctionType[] = [
   { id: 4, title: 'Araç İhaleleri', createAt: '2024-06-20T09:00:00.000Z', recordStatus: 0, status: 'Aktif' },
 ];
 
-const formatDate = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch (e) {
-    console.error("Error formatting date:", e);
-    return "Geçersiz Tarih";
-  }
-};
+// const formatDate = (dateString: string): string => {
+//   try {
+//     const date = new Date(dateString);
+//     const year = date.getFullYear();
+//     const month = String(date.getMonth() + 1).padStart(2, '0');
+//     const day = String(date.getDate()).padStart(2, '0');
+//     return `${year}-${month}-${day}`;
+//   } catch (e) {
+//     console.error("Error formatting date:", e);
+//     return "Geçersiz Tarih";
+//   }
+// };
 
 // **StyledToggleButton از SystemRole.tsx کپی شده است**
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -296,13 +296,18 @@ const ListAuction = () => {
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
+    
+      console.log(event)
     if (newFilter !== null) {
       setStatusFilter(newFilter);
       setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
     }
   };
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (
+    event: unknown, 
+    newPage: number) => {
+      console.log(event)
     setPage(newPage);
   };
 
@@ -354,7 +359,7 @@ const ListAuction = () => {
               placeholder="İhale Başlığı"
               fullWidth
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -370,7 +375,7 @@ const ListAuction = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -390,7 +395,7 @@ const ListAuction = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Yeni İhale Ekle'}
                     </Button>
                   </CustomTooltip>

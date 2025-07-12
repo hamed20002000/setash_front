@@ -214,7 +214,6 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
           <Typography ml={2} flex={1} variant="h6" component="div">
             Kullanıcı için Rolleri Seçin
           </Typography>
-          {/* **Tooltip برای دکمه ذخیره (Kaydet)** */}
           <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolleri kaydet" : ""}>
             <Button autoFocus color="inherit" onClick={handleSaveRoles} disabled={loading || saving}>
               {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}

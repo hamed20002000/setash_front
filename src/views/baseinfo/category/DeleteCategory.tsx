@@ -1,7 +1,9 @@
 // DeleteCategory.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material';
+import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+  //  CircularProgress
+   } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
@@ -98,7 +100,7 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
             >
               {loading ? (
                 <>
-                  <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

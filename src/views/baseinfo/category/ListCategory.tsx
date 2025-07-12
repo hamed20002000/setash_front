@@ -29,7 +29,7 @@ import {
   ToggleButtonGroup,
   ToggleButton as MuiToggleButton,
 } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles';
+import { styled} from '@mui/material/styles';
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -53,7 +53,7 @@ interface ApiCategoryType {
   recordStatus: number;
   createAt: string;
   parentId: string | null;
-  categories: ApiCategoryType[]; // Nested categories
+  categories?: ApiCategoryType[]; 
 }
 
 interface CategoryType {
@@ -115,7 +115,6 @@ const ListCategory = () => {
   const [displayedCategories, setDisplayedCategories] = useState<CategoryType[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingParentId, setEditingParentId] = useState<string | null>(null);
-  const [originalName, setOriginalName] = useState<string>('');
 
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -231,7 +230,6 @@ const ListCategory = () => {
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
-      setOriginalName(selectedRowForMenu.name);
       setEditingId(selectedRowForMenu.id);
       setEditingParentId(selectedRowForMenu.parentId);
     }
@@ -363,12 +361,6 @@ const ListCategory = () => {
     }
     clearAlert();
 
-    // اگر نام تغییر نکرده باشد، نیازی به ارسال درخواست نیست
-    // if (name === originalName && selectedRowForMenu.parentId === editingParentId) {
-    //   showAlert('İsimde veya üst kategoride bir değişiklik yapmadınız.', 'info');
-    //   resetFormAndState();
-    //   return;
-    // }
 
     setLoadingButton(true);
     const authToken = localStorage.getItem('authToken');
@@ -484,7 +476,7 @@ const ListCategory = () => {
     setName('');
     setEditingId(null);
     setEditingParentId(null); // اضافه شده
-    setOriginalName('');
+   
   };
 
   const formatDate = (dateString: string): string => {
@@ -575,6 +567,8 @@ const ListCategory = () => {
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
+    
+      console.log(event)
     if (newFilter !== null) {
       setStatusFilter(newFilter);
       setPage(0);
@@ -582,7 +576,10 @@ const ListCategory = () => {
   };
 
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = (
+    event: unknown, 
+    newPage: number) => {
+      console.log(event)
     setPage(newPage);
   };
 
@@ -605,7 +602,6 @@ const ListCategory = () => {
     }
 
     const firstItem = breadcrumbPath[0];
-    const lastItem = breadcrumbPath[breadcrumbPath.length - 1];
 
     const middlePart = breadcrumbPath.slice(breadcrumbPath.length - (MAX_BREADCRUMB_ITEMS - 2));
 
@@ -648,11 +644,11 @@ const ListCategory = () => {
               )}
             </React.Fragment>
           ))}
-          {currentParentCategory && (
+          {/* {currentParentCategory && (
             <Typography variant="body2" color="textSecondary" sx={{ ml: 2 }}>
               Alt kategori ekleniyor: "{currentParentCategory.name}" ({currentParentCategory.depth + 1}. Seviye)
             </Typography>
-          )}
+          )} */}
         </Paper>
 
         <Grid container spacing={1}>
@@ -667,7 +663,7 @@ const ListCategory = () => {
               placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
               fullWidth
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -683,7 +679,7 @@ const ListCategory = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -703,7 +699,7 @@ const ListCategory = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                       </> : (currentParentCategory ? 'Alt Kategori Ekle' : 'Yeni Kategori Ekle')}
                     </Button>
                   </CustomTooltip>
@@ -840,7 +836,7 @@ const ListCategory = () => {
                       <TableCell>
                         <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.name}" için alt kategori ekle/gör` : ""}>
 
-                          {findCategoryById(rawApiCategories, row.id)?.categories?.length > 0 ? (
+                          {(findCategoryById(rawApiCategories, row.id)?.categories || []).length > 0 ? (
                             <Button
                               variant="outlined"
                               size="small"

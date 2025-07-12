@@ -2,23 +2,23 @@
 // @ts-ignore
 import React from 'react';
 import DashboardCard from '../../shared/DashboardCard';
-import {
-  Timeline,
-  TimelineItem,
-  TimelineOppositeContent,
-  TimelineSeparator,
-  TimelineDot,
-  TimelineConnector,
-  TimelineContent,
-  timelineOppositeContentClasses,
-} from '@mui/lab';
-import { Link, Typography } from '@mui/material';
+// import {
+//   Timeline,
+//   TimelineItem,
+//   TimelineOppositeContent,
+//   TimelineSeparator,
+//   TimelineDot,
+//   TimelineConnector,
+//   TimelineContent,
+//   timelineOppositeContentClasses,
+// } from '@mui/lab';
+// import { Link, Typography } from '@mui/material';
 
 const RecentTransactions = () => {
   return (
     <DashboardCard title="Recent Transactions">
-      <>
-        <Timeline
+     
+        {/* <Timeline
           className="theme-timeline"
           nonce={undefined}
           onResize={undefined}
@@ -94,8 +94,7 @@ const RecentTransactions = () => {
             </TimelineSeparator>
             <TimelineContent>Payment Done</TimelineContent>
           </TimelineItem>
-        </Timeline>
-      </>
+        </Timeline> */}
     </DashboardCard>
   );
 };

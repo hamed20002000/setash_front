@@ -1,25 +1,28 @@
 // AuctionDetails.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useRef, useCallback, useMemo, ChangeEvent } from 'react';
+import { useParams, 
+  // useNavigate
+ } from 'react-router-dom';
 import {
-  Box, Typography, Grid, Button, Alert, Stack, CircularProgress,
-  Paper, TextField, InputAdornment, FormControl, InputLabel, Select, MenuItem as MuiMenuItem,
+  Box, Typography, Grid, Button, Alert, Stack, 
+  // CircularProgress,
+  Paper, TextField, InputAdornment, FormControl,  Select, MenuItem as MuiMenuItem,
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Menu, IconButton, ListItemIcon,
+  IconButton, SelectChangeEvent
 } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
 
+import BoltIcon from '@mui/icons-material/Bolt';
 // Icons
 import {
-  IconUpload, IconTable, IconPlus, IconSearch, IconX, IconDots,
-  IconEdit, IconTrash, IconCalculator,
+  IconUpload,IconPlus, IconSearch,
+  IconEdit, IconTrash, 
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 
-import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
 import BlankCard from 'src/components/shared/BlankCard';
 import "./style.css"
@@ -52,10 +55,10 @@ interface AuctionDetailRow {
 }
 
 // گزینه‌های واحد اندازه‌گیری
-const MOCK_UNIT_OPTIONS = [
-  { id: 1, name: 'Adet' }, { id: 2, name: 'Metre' }, { id: 3, name: 'Kilogram' }, { id: 4, name: 'Litre' },
-  { id: 5, name: 'Kutu' }, { id: 6, name: 'Paket' },
-];
+// const MOCK_UNIT_OPTIONS = [
+//   { id: 1, name: 'Adet' }, { id: 2, name: 'Metre' }, { id: 3, name: 'Kilogram' }, { id: 4, name: 'Litre' },
+//   { id: 5, name: 'Kutu' }, { id: 6, name: 'Paket' },
+// ];
 
 // گزینه‌های GRUP KODU
 const MOCK_GRUP_KODU_OPTIONS = [
@@ -80,7 +83,7 @@ const MOCK_BIRIM_FIYAT_OPTIONS = [
 
 const AuctionDetails = () => {
   const { auctionId } = useParams<{ auctionId: string }>();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const { isTooltipGloballyEnabled } = useTooltip();
   const theme = useTheme();
 
@@ -102,6 +105,8 @@ const AuctionDetails = () => {
     demontaj: 0,
     demontajdanMontaj: 0,
   });
+
+  
 
   const [birimFiyatMalzemeNew, setBirimFiyatMalzemeNew] = useState<number>(0);
   const [birimFiyatMontajNew, setBirimFiyatMontajNew] = useState<number>(0);
@@ -160,7 +165,8 @@ const AuctionDetails = () => {
         const workbook = XLSX.read(data, { type: 'array' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const json = XLSX.utils.sheet_to_to_json(worksheet);
+        // const json = XLSX.utils.sheet_to_to_json(worksheet);
+        const json = XLSX.utils.sheet_to_json(worksheet);
 
         const processedData: AuctionDetailRow[] = json.map((row: any, index: number) => {
           const unitName = row['ÖLÇÜ BİRİMİ'] || '';
@@ -205,8 +211,8 @@ const AuctionDetails = () => {
     }
   };
 
-  const handleNewRecordInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+ const handleNewRecordInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
+   const { name, value } = e.target;
 
     setNewRecordRow(prev => {
       const updatedPrev = {
@@ -234,26 +240,26 @@ const AuctionDetails = () => {
     // Only proceed if newRecordRow is initialized
     if (newRecordRow) {
       // Create a temporary object to hold the latest values for calculation
-      const tempNewRecordRow = {
-        ...newRecordRow,
-        malzemeGDZ: newRecordRow.malzemeGDZ,
-        malzemeYuklenici: newRecordRow.malzemeYuklenici,
-        demontaj: newRecordRow.demontaj,
-        demontajdanMontaj: newRecordRow.demontajdanMontaj,
-      };
+      // const tempNewRecordRow = {
+      //   ...newRecordRow,
+      //   malzemeGDZ: newRecordRow.malzemeGDZ,
+      //   malzemeYuklenici: newRecordRow.malzemeYuklenici,
+      //   demontaj: newRecordRow.demontaj,
+      //   demontajdanMontaj: newRecordRow.demontajdanMontaj,
+      // };
 
       // Find the unit prices based on the selected `olcuBrimi` or use the manually entered ones
-      const selectedUnitRates = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === tempNewRecordRow.olcuBrimi);
+      // const selectedUnitRates = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === tempNewRecordRow.olcuBrimi);
 
       // Recalculate montaj
-      const calculatedMontaj = tempNewRecordRow.malzemeGDZ + tempNewRecordRow.malzemeYuklenici;
+      // const calculatedMontaj = tempNewRecordRow.malzemeGDZ + tempNewRecordRow.malzemeYuklenici;
 
       // Recalculate 'toplam' fields using the current state of quantities and unit prices
       // Ensure to use the current state of birimFiyatNew values for calculation
-      const calculatedToplamMalzeme = (tempNewRecordRow.malzemeYuklenici || 0) * (birimFiyatMalzemeNew || 0);
-      const calculatedToplamMontaj = (calculatedMontaj || 0) * (birimFiyatMontajNew || 0);
-      const calculatedToplamDemontaj = (tempNewRecordRow.demontaj || 0) * (birimFiyatDemontajNew || 0);
-      const calculatedToplamDemontajdanMontaj = (tempNewRecordRow.demontajdanMontaj || 0) * (birimFiyatDemontajMontajNew || 0);
+      // const calculatedToplamMalzeme = (tempNewRecordRow.malzemeYuklenici || 0) * (birimFiyatMalzemeNew || 0);
+      // const calculatedToplamMontaj = (calculatedMontaj || 0) * (birimFiyatMontajNew || 0);
+      // const calculatedToplamDemontaj = (tempNewRecordRow.demontaj || 0) * (birimFiyatDemontajNew || 0);
+      // const calculatedToplamDemontajdanMontaj = (tempNewRecordRow.demontajdanMontaj || 0) * (birimFiyatDemontajMontajNew || 0);
 
       // We don't directly update newRecordRow here, as that would cause an infinite loop.
       // The calculations are performed to drive the display in the table cell directly.
@@ -271,7 +277,7 @@ const AuctionDetails = () => {
 
     const newId = gridData.length > 0 ? Math.max(...gridData.map(row => row.id)) + 1 : 1;
 
-    const birimFiyatRow = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === newRecordRow.olcuBrimi);
+    // const birimFiyatRow = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === newRecordRow.olcuBrimi);
 
     const newRow: AuctionDetailRow = {
       id: newId,
@@ -324,46 +330,93 @@ const AuctionDetails = () => {
     }
   };
 
-  const handleEditRowInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setEditingRowData(prev => {
-      if (!prev) return null;
+  // const handleEditRowInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  //   const { name, value } = e.target;
+  //   setEditingRowData(prev => {
+  //     if (!prev) return null;
 
-      const updatedData = { ...prev };
-      // Convert value to number if it's a numeric field
-      updatedData[name as keyof AuctionDetailRow] = (
-        name === 'siraNo' ||
-        name === 'malzemeGDZ' ||
-        name === 'malzemeYuklenici' ||
-        name === 'demontaj' ||
-        name === 'demontajdanMontaj' ||
-        name.startsWith('birimFiyat')
-      ) ? Number(value) : value;
+  //     const updatedData = { ...prev };
+  //     // Convert value to number if it's a numeric field
+  //     updatedData[name as keyof AuctionDetailRow] = (
+  //       name === 'siraNo' ||
+  //       name === 'malzemeGDZ' ||
+  //       name === 'malzemeYuklenici' ||
+  //       name === 'demontaj' ||
+  //       name === 'demontajdanMontaj' ||
+  //       name.startsWith('birimFiyat')
+  //     ) ? Number(value) : value;
 
 
-      // Recalculate montaj if malzemeGDZ or malzemeYuklenici changes
-      if (name === 'malzemeGDZ' || name === 'malzemeYuklenici') {
-        updatedData.montaj = (updatedData.malzemeGDZ || 0) + (updatedData.malzemeYuklenici || 0);
-      }
+  //     // Recalculate montaj if malzemeGDZ or malzemeYuklenici changes
+  //     if (name === 'malzemeGDZ' || name === 'malzemeYuklenici') {
+  //       updatedData.montaj = (updatedData.malzemeGDZ || 0) + (updatedData.malzemeYuklenici || 0);
+  //     }
 
-      // Recalculate birimFiyat based on olcuBrimi if it changes
-      if (name === 'olcuBrimi') {
-        const selectedUnitRates = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === (value as string));
-        updatedData.birimFiyatMalzeme = selectedUnitRates?.malzeme || 0;
-        updatedData.birimFiyatMontaj = selectedUnitRates?.montaj || 0;
-        updatedData.birimFiyatDemontaj = selectedUnitRates?.demontaj || 0;
-        updatedData.birimFiyatDemontajMontaj = selectedUnitRates?.demontajdanMontaj || 0;
-      }
+  //     // Recalculate birimFiyat based on olcuBrimi if it changes
+  //     if (name === 'olcuBrimi') {
+  //       const selectedUnitRates = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === (value as string));
+  //       updatedData.birimFiyatMalzeme = selectedUnitRates?.malzeme || 0;
+  //       updatedData.birimFiyatMontaj = selectedUnitRates?.montaj || 0;
+  //       updatedData.birimFiyatDemontaj = selectedUnitRates?.demontaj || 0;
+  //       updatedData.birimFiyatDemontajMontaj = selectedUnitRates?.demontajdanMontaj || 0;
+  //     }
       
-      // Recalculate all 'toplam' fields
-      updatedData.toplamMalzeme = (updatedData.malzemeYuklenici || 0) * (updatedData.birimFiyatMalzeme || 0);
-      updatedData.toplamMontaj = (updatedData.montaj || 0) * (updatedData.birimFiyatMontaj || 0);
-      updatedData.toplamDemontaj = (updatedData.demontaj || 0) * (updatedData.birimFiyatDemontaj || 0);
-      updatedData.toplamDemontajdanMontaj = (updatedData.demontajdanMontaj || 0) * (updatedData.birimFiyatDemontajMontaj || 0);
+  //     // Recalculate all 'toplam' fields
+  //     updatedData.toplamMalzeme = (updatedData.malzemeYuklenici || 0) * (updatedData.birimFiyatMalzeme || 0);
+  //     updatedData.toplamMontaj = (updatedData.montaj || 0) * (updatedData.birimFiyatMontaj || 0);
+  //     updatedData.toplamDemontaj = (updatedData.demontaj || 0) * (updatedData.birimFiyatDemontaj || 0);
+  //     updatedData.toplamDemontajdanMontaj = (updatedData.demontajdanMontaj || 0) * (updatedData.birimFiyatDemontajMontaj || 0);
 
-      return updatedData;
-    });
-  };
+  //     return updatedData;
+  //   });
+  // };
+  const handleEditRowInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
+  const { name, value } = e.target; // name: string, value: string
+
+  setEditingRowData(prev => {
+    if (!prev) return null;
+
+    const updatedData: AuctionDetailRow = { ...prev }; // نوع را مشخص کنید
+
+    // تعیین اینکه آیا فیلد فعلی باید به عدد تبدیل شود یا نه
+    const isNumericField = (fieldName: string) => {
+      const numericFieldsList = ['siraNo', 'malzemeGDZ', 'malzemeYuklenici', 'demontaj', 'demontajdanMontaj'];
+      return numericFieldsList.includes(fieldName) || fieldName.startsWith('birimFiyat');
+    };
+
+    if (isNumericField(name)) {
+      // اگر فیلد عددی است، آن را به Number تبدیل کن
+      (updatedData as any)[name] = Number(value); // استفاده از as any موقتی، توضیح پایین
+    } else {
+      // در غیر این صورت (فیلد متنی)، مقدار رشته‌ای را اختصاص بده
+      (updatedData as any)[name] = value; // استفاده از as any موقتی
+    }
+
+    // --- منطق Recalculate (بدون تغییر) ---
+    // Recalculate montaj if malzemeGDZ or malzemeYuklenici changes
+    if (name === 'malzemeGDZ' || name === 'malzemeYuklenici') {
+      updatedData.montaj = (updatedData.malzemeGDZ || 0) + (updatedData.malzemeYuklenici || 0);
+    }
+
+    // Recalculate birimFiyat based on olcuBrimi if it changes
+    // توجه: olcuBrimi باید یک string باشد و value هم string است.
+    if (name === 'olcuBrimi') {
+      const selectedUnitRates = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === (value as string));
+      updatedData.birimFiyatMalzeme = selectedUnitRates?.malzeme || 0;
+      updatedData.birimFiyatMontaj = selectedUnitRates?.montaj || 0;
+      updatedData.birimFiyatDemontaj = selectedUnitRates?.demontaj || 0;
+      updatedData.birimFiyatDemontajMontaj = selectedUnitRates?.demontajdanMontaj || 0;
+    }
+    
+    // Recalculate all 'toplam' fields
+    updatedData.toplamMalzeme = (updatedData.malzemeYuklenici || 0) * (updatedData.birimFiyatMalzeme || 0);
+    updatedData.toplamMontaj = (updatedData.montaj || 0) * (updatedData.birimFiyatMontaj || 0);
+    updatedData.toplamDemontaj = (updatedData.demontaj || 0) * (updatedData.birimFiyatDemontaj || 0);
+    updatedData.toplamDemontajdanMontaj = (updatedData.demontajdanMontaj || 0) * (updatedData.birimFiyatDemontajMontaj || 0);
+
+    return updatedData;
+  });
+};
 
   const handleUpdateGridRow = () => {
     if (!editingRowId || !editingRowData) return;
@@ -424,11 +477,11 @@ const AuctionDetails = () => {
   }, [gridData]);
 
   // --- سایر محاسبات Toplam (اختیاری) ---
-  const totalMalzemeGDZ = useMemo(() => gridData.reduce((sum, row) => sum + row.malzemeGDZ, 0), [gridData]);
-  const totalMalzemeYuklenici = useMemo(() => gridData.reduce((sum, row) => sum + row.malzemeYuklenici, 0), [gridData]);
-  const totalMontaj = useMemo(() => gridData.reduce((sum, row) => sum + row.montaj, 0), [gridData]);
-  const totalDemontaj = useMemo(() => gridData.reduce((sum, row) => sum + row.demontaj, 0), [gridData]);
-  const totalDemontajdanMontaj = useMemo(() => gridData.reduce((sum, row) => sum + row.demontajdanMontaj, 0), [gridData]);
+  // const totalMalzemeGDZ = useMemo(() => gridData.reduce((sum, row) => sum + row.malzemeGDZ, 0), [gridData]);
+  // const totalMalzemeYuklenici = useMemo(() => gridData.reduce((sum, row) => sum + row.malzemeYuklenici, 0), [gridData]);
+  // const totalMontaj = useMemo(() => gridData.reduce((sum, row) => sum + row.montaj, 0), [gridData]);
+  // const totalDemontaj = useMemo(() => gridData.reduce((sum, row) => sum + row.demontaj, 0), [gridData]);
+  // const totalDemontajdanMontaj = useMemo(() => gridData.reduce((sum, row) => sum + row.demontajdanMontaj, 0), [gridData]);
 
 
   return (
@@ -474,7 +527,7 @@ const AuctionDetails = () => {
         </Typography>
         {loading && (
           <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
-            <CircularProgress size={20} sx={{ mr: 1 }} />
+            <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} />
             <Typography>Yükleniyor...</Typography>
           </Box>
         )}
@@ -553,9 +606,11 @@ const AuctionDetails = () => {
                       <Select
                         id="new-grupKodu"
                         name="grupKodu"
-                        value={newRecordRow.grupKodu}
+                        value={newRecordRow.grupKodu || ''}
                         onChange={handleNewRecordInputChange}
                         displayEmpty
+                         renderValue={(selected) => selected ? selected : "Grup Kodu Seçiniz"}
+                        inputProps={{ 'aria-label': 'Select Grup Kodu' }}
                         MenuProps={{
                           sx: { maxHeight: 300 },
                           disableRestoreFocus: true,
@@ -664,7 +719,7 @@ const AuctionDetails = () => {
                       type="number"
                       size="small"
                       value={birimFiyatMalzemeNew}
-                      onChange={(e) => setBirimFiyatMalzemeNew(Number(e.target.value))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirimFiyatMalzemeNew(Number(e.target.value))}
                       sx={{ width: 70 }}
                     />
                   </TableCell>
@@ -675,7 +730,7 @@ const AuctionDetails = () => {
                       type="number"
                       size="small"
                       value={birimFiyatMontajNew}
-                      onChange={(e) => setBirimFiyatMontajNew(Number(e.target.value))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirimFiyatMontajNew(Number(e.target.value))}
                       sx={{ width: 70 }}
                     />
                   </TableCell>
@@ -686,7 +741,7 @@ const AuctionDetails = () => {
                       type="number"
                       size="small"
                       value={birimFiyatDemontajNew}
-                      onChange={(e) => setBirimFiyatDemontajNew(Number(e.target.value))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirimFiyatDemontajNew(Number(e.target.value))}
                       sx={{ width: 70 }}
                     />
                   </TableCell>
@@ -697,7 +752,7 @@ const AuctionDetails = () => {
                       type="number"
                       size="small"
                       value={birimFiyatDemontajMontajNew}
-                      onChange={(e) => setBirimFiyatDemontajMontajNew(Number(e.target.value))}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBirimFiyatDemontajMontajNew(Number(e.target.value))}
                       sx={{ width: 70 }}
                     />
                   </TableCell>
@@ -749,7 +804,8 @@ const AuctionDetails = () => {
                         {editingRowId === row.id ? (
                           <FormControl fullWidth size="small">
                             <Select
-                              value={editingRowData?.grupKodu}
+                              // value={editingRowData?.grupKodu}
+                              value={editingRowData?.grupKodu || ''}
                               name="grupKodu"
                               onChange={handleEditRowInputChange}
                               displayEmpty
@@ -945,12 +1001,12 @@ const AuctionDetails = () => {
                             <>
                               <CustomTooltip title={isTooltipGloballyEnabled ? "Girişi güncelle" : ""}>
                                 <IconButton size="small" color="primary" onClick={handleUpdateGridRow}>
-                                  <DoneRoundedIcon size={20} />
+                                  <DoneRoundedIcon sx={{ fontSize: 20 }} />
                                 </IconButton>
                               </CustomTooltip>
                               <CustomTooltip title={isTooltipGloballyEnabled ? "Düzenlemeyi iptal et" : ""}>
                                 <IconButton size="small" color="secondary" onClick={handleCancelEditGridRow}>
-                                  <DoNotDisturbOnRoundedIcon size={20} />
+                                  <DoNotDisturbOnRoundedIcon sx={{ fontSize: 20 }} />
                                 </IconButton>
                               </CustomTooltip>
                             </>

@@ -170,7 +170,7 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
 
     try {
       const response = await axios.post(
-        `${server.baseurl}${server.user}assign-user-operations/${userId}`, // آدرس API اختصاص به کاربر
+        `${server.baseurl}${server.user}assign-user-operations`, // آدرس API اختصاص به کاربر
         { UserId: userId, operationIds: selectedOperationIds },
         {
           headers: {

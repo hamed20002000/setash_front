@@ -1,5 +1,5 @@
 // DeleteListUser.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Button,
   Dialog,
@@ -7,8 +7,7 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  CircularProgress,
-  Tooltip, // ایمپورت Tooltip
+  // CircularProgress
 } from '@mui/material';
 import BoltIcon from '@mui/icons-material/Bolt';
 import axios from 'axios';
@@ -107,7 +106,7 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
             >
               {loading ? (
                 <>
-                  <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

@@ -1,5 +1,5 @@
 // DeleteAuction.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -7,8 +7,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogActions,
-  CircularProgress,
+  DialogActions
+  // CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -106,7 +106,7 @@ const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess,
             >
               {loading ? (
                 <>
-                  <BoltIcon size={20} color="inherit" sx={{ mr: 1 }} /> Beklemek....
+                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....                 
                 </>
               ) : (
                 'Silmek'

@@ -10,9 +10,8 @@ import {
   IconButton,
   Alert,
 } from '@mui/material';
-import { Link, useNavigate } from 'react-router-dom';
+import {  useNavigate } from 'react-router-dom';
 import BoltIcon from '@mui/icons-material/Bolt';
-import ConstructionIcon from '@mui/icons-material/Construction';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { styled, keyframes } from '@mui/system';
@@ -178,7 +177,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
               variant="outlined"
               fullWidth
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
             />
           </Box>
           <Box>
@@ -189,7 +188,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
               variant="outlined"
               fullWidth
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               InputProps={{
               
                 endAdornment: (
