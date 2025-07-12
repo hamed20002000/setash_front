@@ -7,21 +7,23 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  // CircularProgress,
-  ToggleButtonGroup, ToggleButton as MuiToggleButton, // برای فیلتر
+  ToggleButtonGroup, ToggleButton as MuiToggleButton,CircularProgress
 } from '@mui/material';
-import { styled} from '@mui/material/styles'; // برای StyledToggleButton
+import { styled } from '@mui/material/styles';
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../components/shared/BlankCard';
 import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/icons-react'; // IconPlus برای دکمه "ثبت جزئیات"
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import DeleteAuction from './DeleteAuction'; // کامپوننت حذف (باید ایجاد شود)
-// import axios from 'axios';
-// import server from '../../assets/address.json';
+import DeleteAuction from './DeleteAuction';
+
+// --- Imports for API Call ---
+import axios from 'axios';
+import server from '../../assets/address.json';
+// --- End Imports for API Call ---
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
@@ -34,26 +36,12 @@ interface AuctionType {
   status: string; // وضعیت متنی
 }
 
-// **داده‌های ساختگی برای تست**
-const MOCK_AUCTIONS: AuctionType[] = [
-  { id: 1, title: 'Yaz Sezonu İndirimleri', createAt: '2024-06-01T10:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 2, title: 'Elektronik ihale', createAt: '2024-06-10T11:30:00.000Z', recordStatus: 0, status: 'Aktif' },
-  { id: 3, title: 'Antika Koleksiyonu', createAt: '2024-06-15T14:00:00.000Z', recordStatus: 1, status: 'Etkin değil' },
-  { id: 4, title: 'Araç İhaleleri', createAt: '2024-06-20T09:00:00.000Z', recordStatus: 0, status: 'Aktif' },
-];
-
-// const formatDate = (dateString: string): string => {
-//   try {
-//     const date = new Date(dateString);
-//     const year = date.getFullYear();
-//     const month = String(date.getMonth() + 1).padStart(2, '0');
-//     const day = String(date.getDate()).padStart(2, '0');
-//     return `${year}-${month}-${day}`;
-//   } catch (e) {
-//     console.error("Error formatting date:", e);
-//     return "Geçersiz Tarih";
-//   }
-// };
+// جدید: تعریف رابط برای پاسخ API get-tenders
+// interface GetTendersApiResponse {
+//   httpStatusCode: number;
+//   data: AuctionType[]; 
+//   message?: string;
+// }
 
 // **StyledToggleButton از SystemRole.tsx کپی شده است**
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -84,7 +72,7 @@ const ListAuction = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState<string>(''); // نام یا عنوان مزایده
-  const [auctionsList, setAuctionsList] = useState<AuctionType[]>(MOCK_AUCTIONS);
+  const [auctionsList, setAuctionsList] = useState<AuctionType[]>([]); // تغییر به آرایه خالی برای داده‌های واقعی
   const [editingId, setEditingId] = useState<number | null>(null);
   const [originalTitle, setOriginalTitle] = useState<string>('');
 
@@ -104,6 +92,7 @@ const ListAuction = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
+  const [loadingData, setLoadingData] = useState<boolean>(true); // اضافه شده برای نمایش لودینگ کلی
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -131,7 +120,7 @@ const ListAuction = () => {
   const handleClickCloseDeleteModal = () => {
     setOpenDeleteModal(false);
     setAuctionIdToDelete(null);
-    getListAuction(); // رفرش لیست مزایده‌ها
+    getListAuction(); // رفرش لیست مزایده‌ها بعد از حذف
   };
 
   const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -158,39 +147,50 @@ const ListAuction = () => {
     clearAlert();
   };
 
-  // --- تابع ایجاد مزایده جدید ---
-  const insertAuction = async () => {
+  // --- تابع ایجاد مزایده جدید (با mock data - باید به API متصل شود) ---
+  
+ const insertAuction = async () => {
     if (!title.trim()) {
-      showAlert('Başlık boş olamaz!', 'warning');
+      showAlert('İsim boş olamaz!', 'warning');
       return;
     }
     clearAlert();
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
+      return;
+    }
+
     setLoadingButton(true);
-
     try {
-      const newAuctionId = MOCK_AUCTIONS.length > 0 ? Math.max(...MOCK_AUCTIONS.map(a => a.id)) + 1 : 1;
-      const newAuction: AuctionType = {
-        id: newAuctionId,
-        title: title,
-        createAt: new Date().toISOString(),
-        recordStatus: 0,
-        status: 'Aktif',
-      };
-
-      MOCK_AUCTIONS.push(newAuction); // به لیست اصلی mock اضافه کن
-
-      showAlert('Yeni ihale başarıyla eklendi!', 'success');
-      resetFormAndState();
-      getListAuction(); // رفرش لیست مزایده‌ها
+      const response = await axios.post(
+        server.baseurl + server.initialoperations + "create-tender",
+        { title,details:[] },
+        {
+          headers: {
+            "Accept": "application/json",
+            'Content-Type': 'application/json',
+            "Authorization": `Bearer ${authToken}`
+          }
+        }
+      );
+      if (response.data.httpStatusCode === 201) {
+        showAlert('Yeni işlem başarıyla eklendi!', 'success');
+        resetFormAndState();
+        getListAuction();
+      } else {
+        showAlert(response.data.message || 'Yeni işlem eklenirken bir hata oluştu.', 'error');
+      }
     } catch (e: any) {
-      console.error("Error inserting auction:", e);
-      showAlert(e.response?.data?.message || 'ihale eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      console.error("Error inserting operation:", e);
+      showAlert(e.response?.data?.message || 'İşlem eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   };
-
-  // --- تابع ویرایش مزایده ---
+  // --- تابع ویرایش مزایده (با mock data - باید به API متصل شود) ---
   const editAuction = async () => {
     if (editingId === null) return;
     if (!title.trim()) {
@@ -207,13 +207,20 @@ const ListAuction = () => {
 
     setLoadingButton(true);
     try {
-      const index = MOCK_AUCTIONS.findIndex(a => a.id === editingId);
-      if (index !== -1) {
-        MOCK_AUCTIONS[index] = { ...MOCK_AUCTIONS[index], title: title };
-      }
+      // این بخش باید با فراخوانی API واقعی جایگزین شود
+      // مثال:
+      // const response = await axios.put(server.baseurl + server.initialoperations + `update-tender/${editingId}`, { title }, {
+      //   headers: { "Authorization": `Bearer ${localStorage.getItem('authToken')}` }
+      // });
+      // if (response.data.httpStatusCode === 200) { ... }
+
+      setAuctionsList(prev => prev.map(a => 
+        a.id === editingId ? { ...a, title: title } : a
+      ));
+
       showAlert('ihale başarıyla güncellendi!', 'success');
       resetFormAndState();
-      getListAuction(); // رفرش لیست مزایده‌ها
+      // getListAuction(); // در صورت استفاده از API واقعی، بعد از موفقیت فراخوانی شود
     } catch (e: any) {
       console.error("Error updating auction:", e);
       showAlert(e.response?.data?.message || 'ihale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
@@ -222,18 +229,28 @@ const ListAuction = () => {
     }
   }
 
-  // --- تابع تغییر وضعیت مزایده (فعال/غیرفعال) ---
+  // --- تابع تغییر وضعیت مزایده (فعال/غیرفعال) (با mock data - باید به API متصل شود) ---
   const sendStatusUpdate = async (id: number, statusValue: number) => {
     clearAlert();
     try {
-      const index = MOCK_AUCTIONS.findIndex(a => a.id === id);
-      if (index !== -1) {
-        const newStatusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Etkin değil' : 'Silindi';
-        MOCK_AUCTIONS[index] = { ...MOCK_AUCTIONS[index], recordStatus: statusValue, status: newStatusText };
-      }
+      // این بخش باید با فراخوانی API واقعی جایگزین شود
+      // مثال:
+      // const response = await axios.put(server.baseurl + server.initialoperations + `update-tender-status/${id}`, { status: statusValue }, {
+      //   headers: { "Authorization": `Bearer ${localStorage.getItem('authToken')}` }
+      // });
+      // if (response.data.httpStatusCode === 200) { ... }
+
+      setAuctionsList(prev => prev.map(a => {
+        if (a.id === id) {
+          const newStatusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Etkin değil' : 'Silindi';
+          return { ...a, recordStatus: statusValue, status: newStatusText };
+        }
+        return a;
+      }));
+
       const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
       showAlert(`ihale başarıyla ${statusText} olarak ayarlandı!`, 'success');
-      getListAuction(); // رفرش لیست
+      // getListAuction(); // در صورت استفاده از API واقعی، بعد از موفقیت فراخوانی شود
     } catch (e: any) {
       console.error("Error updating status:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
@@ -273,17 +290,55 @@ const ListAuction = () => {
     }
   };
 
-  // --- تابع اصلی دریافت لیست مزایده‌ها (حالا از Mock Data استفاده می‌کند) ---
-  function getListAuction() {
-    const sortedData = [...MOCK_AUCTIONS].sort((a, b) => {
-      const dateA = new Date(a.createAt);
-      const dateB = new Date(b.createAt);
-      return dateB.getTime() - dateA.getTime(); // جدیدترین تاریخ اول
+  // --- تابع اصلی دریافت لیست مزایده‌ها از API واقعی ---
+ 
+function getListAuction() {
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
+      return;
+    }
+
+    axios.request({
+      baseURL: server.baseurl + server.initialoperations + "get-tenders",
+      method: "get",
+      headers: {
+        "Accept": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      }
+    }).then((result) => {
+      if (result.data.httpStatusCode === 200) {
+        const formattedData = result.data.data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          recordStatus: item.recordStatus,
+          createAt: item.createAt,
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
+        }));
+        const sortedData = formattedData.sort((a: AuctionType, b: AuctionType) => {
+          const dateA = new Date(a.createAt);
+          const dateB = new Date(b.createAt);
+          return dateB.getTime() - dateA.getTime();
+        });
+        setAuctionsList(sortedData as AuctionType[]);
+        setLoadingData(false)
+      } else {
+        showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
+        setLoadingData(false)
+      }
+    }).catch((e) => {
+     
+       if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("İhale listesi getirilirken hata oluştu:", e);
+        showAlert('İhale listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     });
-    setAuctionsList(sortedData);
-    setPage(0); // همیشه به صفحه اول برو
-    setSearchTerm(''); // جستجو را هم ریست کن
-    setStatusFilter('all'); // فیلتر وضعیت را هم ریست کن
   }
 
 
@@ -296,8 +351,7 @@ const ListAuction = () => {
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
-    
-      console.log(event)
+     console.log(event) // حذف شد چون در production به این log نیازی نیست
     if (newFilter !== null) {
       setStatusFilter(newFilter);
       setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
@@ -305,9 +359,9 @@ const ListAuction = () => {
   };
 
   const handleChangePage = (
-    event: unknown, 
+    event: unknown,
     newPage: number) => {
-      console.log(event)
+     console.log(event) // حذف شد
     setPage(newPage);
   };
 
@@ -336,7 +390,7 @@ const ListAuction = () => {
 
   // --- تابع برای رفتن به صفحه جزئیات مزایده ---
   const handleGoToDetails = (auctionId: number) => {
-    navigate(`/auction/auction-details/${auctionId}`); 
+    navigate(`/auction/auction-details/${auctionId}`);
   };
 
 
@@ -468,147 +522,155 @@ const ListAuction = () => {
             </Grid>
           </Grid>
         </Box>
-        <TableContainer>
-          <Table aria-label="auction table">
-            <TableHead>
-              <TableRow>
-                <TableCell>
-                  <Typography variant="h6">Başlık</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="h6">Durum</Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="h6">Detaylar</Typography> {/* ستون جدید */}
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedAuctions.length > 0 ? (
-                paginatedAuctions.map((row) => (
-                  <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="h6">{row.title}</Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="h6">{formatDate(row.createAt)}</Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.status}
-                        sx={{
-                          backgroundColor:
-                            row.recordStatus === 2
-                              ? (theme) => theme.palette.primary.light
-                              : row.recordStatus === 1
-                                ? (theme) => theme.palette.error.light
-                                : (theme) => theme.palette.success.light,
-                          color:
-                            row.recordStatus === 2
-                              ? (theme) => theme.palette.primary.main
-                              : row.recordStatus === 1
-                                ? (theme) => theme.palette.error.main
-                                : (theme) => theme.palette.success.main,
-                        }}
-                      />
-                    </TableCell>
-                    {/* ستون "ثبت جزئیات" */}
-                    <TableCell>
-                      <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.title}" detaylarını kaydet/gör` : ""}>
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          onClick={() => handleGoToDetails(row.id)}
-                          startIcon={<IconPlus size={18} />}
+        {loadingData ? ( // نمایش لودینگ کلی
+          <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
+            <CircularProgress />
+            <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Yükleniyor...</Typography>
+          </Stack>
+        ) : (
+          <TableContainer>
+            <Table aria-label="auction table">
+              <TableHead>
+                <TableRow>
+                  <TableCell>
+                    <Typography variant="h6">Başlık</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="h6">Durum</Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="h6">Detaylar</Typography>
+                  </TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {paginatedAuctions.length > 0 ? (
+                  paginatedAuctions.map((row) => (
+                    <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Box>
+                            <Typography variant="h6">{row.title}</Typography>
+                          </Box>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          <Box>
+                            <Typography variant="h6">{formatDate(row.createAt)}</Typography>
+                          </Box>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={row.status}
+                          sx={{
+                            backgroundColor:
+                              row.recordStatus === 2
+                                ? (theme) => theme.palette.primary.light
+                                : row.recordStatus === 1
+                                  ? (theme) => theme.palette.error.light
+                                  : (theme) => theme.palette.success.light,
+                            color:
+                              row.recordStatus === 2
+                                ? (theme) => theme.palette.primary.main
+                                : row.recordStatus === 1
+                                  ? (theme) => theme.palette.error.main
+                                  : (theme) => theme.palette.success.main,
+                          }}
+                        />
+                      </TableCell>
+                      {/* ستون "ثبت جزئیات" */}
+                      <TableCell>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.title}" detaylarını kaydet/gör` : ""}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleGoToDetails(row.id)}
+                            startIcon={<IconPlus size={18} />}
+                          >
+                            Detaylar
+                          </Button>
+                        </CustomTooltip>
+                      </TableCell>
+                      <TableCell>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                          <IconButton
+                            id={`basic-button-${row.id}`}
+                            aria-controls={openMenu ? 'basic-menu' : undefined}
+                            aria-haspopup="true"
+                            aria-expanded={openMenu ? 'true' : undefined}
+                            onClick={(event) => handleClickMenu(event, row)}
+                          >
+                            <IconDots width={18} />
+                          </IconButton>
+                        </CustomTooltip>
+                        <Menu
+                          id="basic-menu"
+                          anchorEl={anchorEl}
+                          open={openMenu}
+                          onClose={handleCloseMenu}
+                          MenuListProps={{
+                            'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
+                          }}
                         >
-                          Detaylar
-                        </Button>
-                      </CustomTooltip>
-                    </TableCell>
-                    <TableCell>
-                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                        <IconButton
-                          id={`basic-button-${row.id}`}
-                          aria-controls={openMenu ? 'basic-menu' : undefined}
-                          aria-haspopup="true"
-                          aria-expanded={openMenu ? 'true' : undefined}
-                          onClick={(event) => handleClickMenu(event, row)}
-                        >
-                          <IconDots width={18} />
-                        </IconButton>
-                      </CustomTooltip>
-                      <Menu
-                        id="basic-menu"
-                        anchorEl={anchorEl}
-                        open={openMenu}
-                        onClose={handleCloseMenu}
-                        MenuListProps={{
-                          'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
-                        }}
-                      >
-                        {selectedRowForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale pasif yap" : ""}>
-                            <MenuItem onClick={handleSetInactive}>
+                          {selectedRowForMenu?.recordStatus === 0 ? (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale pasif yap" : ""}>
+                              <MenuItem onClick={handleSetInactive}>
+                                <ListItemIcon>
+                                  <DoNotDisturbOnRoundedIcon width={18} />
+                                </ListItemIcon>
+                                Etkin değil
+                              </MenuItem>
+                            </CustomTooltip>
+                          ) : (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale aktif yap" : ""}>
+                              <MenuItem onClick={handleSetActive}>
+                                <ListItemIcon>
+                                  <DoneRoundedIcon width={18} />
+                                </ListItemIcon>
+                                Aktif
+                              </MenuItem>
+                            </CustomTooltip>
+                          )}
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale düzenle" : ""}>
+                            <MenuItem onClick={handleEditClick}>
                               <ListItemIcon>
-                                <DoNotDisturbOnRoundedIcon width={18} />
+                                <IconEdit width={18} />
                               </ListItemIcon>
-                              Etkin değil
+                              Düzenlemek
                             </MenuItem>
                           </CustomTooltip>
-                        ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale aktif yap" : ""}>
-                            <MenuItem onClick={handleSetActive}>
+                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale sil" : ""}>
+                            <MenuItem onClick={handleClickOpenDeleteModal}>
                               <ListItemIcon>
-                                <DoneRoundedIcon width={18} />
+                                <IconTrash width={18} />
                               </ListItemIcon>
-                              Aktif
+                              Silmek
                             </MenuItem>
                           </CustomTooltip>
-                        )}
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale düzenle" : ""}>
-                          <MenuItem onClick={handleEditClick}>
-                            <ListItemIcon>
-                              <IconEdit width={18} />
-                            </ListItemIcon>
-                            Düzenlemek
-                          </MenuItem>
-                        </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale sil" : ""}>
-                          <MenuItem onClick={handleClickOpenDeleteModal}>
-                            <ListItemIcon>
-                              <IconTrash width={18} />
-                            </ListItemIcon>
-                            Silmek
-                          </MenuItem>
-                        </CustomTooltip>
-                      </Menu>
+                        </Menu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography variant="subtitle1" color="textSecondary">
+                        Hiç ihale bulunamadı.
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={5} align="center"> 
-                    <Typography variant="subtitle1" color="textSecondary">
-                      Hiç ihale bulunamadı.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"

@@ -4,5 +4,6 @@
     "login": "api/auth/",
     "user": "api/users/",
     "baseinfo": "api/baseinfo/",
+    "initialoperations":"api/initial-operations/",
     "company": "Setash"
 }
