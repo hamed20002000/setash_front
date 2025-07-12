@@ -47,7 +47,7 @@ const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess,
       // **نکته:** آدرس API حذف مزایده و نحوه ارسال ID
       // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-auction/{id})
       const response = await axios.delete(
-        `${server.baseurl}${server.user}delete-auction/${auctionIdToDelete}`,
+        `${server.baseurl}${server.initialoperations}delete-tender/${auctionIdToDelete}`,
         {
           headers: {
             "Accept": "application/json",
