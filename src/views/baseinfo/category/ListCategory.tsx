@@ -1,7 +1,7 @@
 // ListCategory.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react"; // Add useRef here
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer,
@@ -28,8 +28,9 @@ import {
   Paper,
   ToggleButtonGroup,
   ToggleButton as MuiToggleButton,
+  TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
-import { styled} from '@mui/material/styles';
+import { styled } from '@mui/material/styles';
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -53,7 +54,7 @@ interface ApiCategoryType {
   recordStatus: number;
   createAt: string;
   parentId: string | null;
-  categories?: ApiCategoryType[]; 
+  categories?: ApiCategoryType[];
 }
 
 interface CategoryType {
@@ -104,6 +105,60 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
   },
 }));
 
+// --- Helper functions for sorting, reused from previous components ---
+// Define a new type for the sortable keys
+type SortableCategoryKeys = keyof CategoryType; // Here, all direct properties of CategoryType are sortable
+
+const descendingComparator = <T, Key extends keyof T>(
+  a: T,
+  b: T,
+  orderBy: Key,
+): number => {
+  const valA = a[orderBy];
+  const valB = b[orderBy];
+
+  if (valB === undefined || valB === null) {
+    return (valA === undefined || valA === null) ? 0 : -1;
+  }
+  if (valA === undefined || valA === null) {
+    return 1;
+  }
+
+  if (typeof valB === 'string' && typeof valA === 'string') {
+    return valB.localeCompare(valA);
+  }
+  if (typeof valB === 'number' && typeof valA === 'number') {
+    return valB - valA;
+  }
+  if (String(valB) < String(valA)) {
+    return -1;
+  }
+  if (String(valB) > String(valA)) {
+    return 1;
+  }
+  return 0;
+};
+
+const getComparator = (
+  order: 'asc' | 'desc',
+  orderBy: SortableCategoryKeys,
+): (a: CategoryType, b: CategoryType) => number => {
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
+};
+
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+  const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+  stabilizedThis.sort((a, b) => {
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1];
+  });
+  return stabilizedThis.map((el) => el[0]);
+};
+// --- End of Helper functions for sorting ---
+
 
 const ListCategory = () => {
   const navigate = useNavigate();
@@ -146,6 +201,18 @@ const ListCategory = () => {
   const MAX_BREADCRUMB_ITEMS = 4;
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // ✅ Added: State for sorting
+  const [orderBy, setOrderBy] = useState<SortableCategoryKeys>('createAt'); // Default sort column
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
+
+  // ✅ Added: Ref for the category name input field
+  const categoryNameInputRef = useRef<HTMLInputElement>(null);
+
+  // **State جدید برای مدیریت خطای ورودی نام**
+  const [nameError, setNameError] = useState<boolean>(false);
+  const [nameHelperText, setNameHelperText] = useState<string>('');
+
 
   // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
   const findCategoryById = useCallback((categories: ApiCategoryType[], id: string): ApiCategoryType | undefined => {
@@ -227,11 +294,33 @@ const ListCategory = () => {
     setAlertMessage(null);
   };
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+    };
+  }, [alertMessage]);
+
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setEditingId(selectedRowForMenu.id);
       setEditingParentId(selectedRowForMenu.parentId);
+
+      // **پاک کردن وضعیت خطاها هنگام ویرایش**
+      setNameError(false);
+      setNameHelperText('');
+
+      // ✅ Added: Scroll to the category name input and focus
+      setTimeout(() => {
+        categoryNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        categoryNameInputRef.current?.focus();
+      }, 100); // Small delay to ensure DOM update
     }
     handleCloseMenu();
     clearAlert();
@@ -240,6 +329,9 @@ const ListCategory = () => {
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
+    // **پاک کردن وضعیت خطاها**
+    setNameError(false);
+    setNameHelperText('');
   };
 
   // --- توابع فراخوانی API ---
@@ -267,7 +359,6 @@ const ListCategory = () => {
 
       if (response.data.httpStatusCode === 200) {
         setRawApiCategories(response.data.data); // ذخیره داده‌های خام و Nested
-
         return true;
       } else {
         showAlert(response.data.message || 'Kategoriler yüklenirken bir hata oluştu.', 'error');
@@ -291,9 +382,14 @@ const ListCategory = () => {
 
   const insertCategory = async () => {
     if (!name.trim()) {
+      setNameError(true); // تنظیم وضعیت خطا به true
+      setNameHelperText('Kategori adı boş bırakılamaz!'); // تنظیم پیام کمکی
       showAlert('İsim boş bırakılamaz!', 'warning');
       return;
     }
+    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
+    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+
     clearAlert();
     setLoadingButton(true);
 
@@ -306,13 +402,13 @@ const ListCategory = () => {
 
     try {
       // تعیین عمق و parentId دسته‌بندی جدید
-      // const categoryDepth = currentParentCategory ? currentParentCategory.depth + 1 : 0;
-      const categoryParentId = currentParentCategory ? currentParentCategory.id : 0;
+      const categoryParentId = currentParentCategory ? currentParentCategory.id : null; // ParentId should be null for top-level categories
 
       // داده‌هایی که باید به API ارسال شوند
       const newCategoryData = {
         name: name,
-        parentId: categoryParentId
+        // API expects `parentId` as number if it's not null, or 0 if it's null (or simply omit)
+        parentId: categoryParentId ? Number(categoryParentId) : null // Ensure parentId is number or null
       };
       debugger
       // فراخوانی API برای ایجاد دسته‌بندی جدید
@@ -351,16 +447,17 @@ const ListCategory = () => {
 
 
   const editCategory = async () => {
-    // اطمینان از اینکه یک آیتم برای ویرایش انتخاب شده است
-    // if (!editingId || !selectedRowForMenu) return;
-
     // بررسی خالی نبودن نام جدید
     if (!name.trim()) {
+      setNameError(true); // تنظیم وضعیت خطا به true
+      setNameHelperText('Kategori adı boş bırakılamaz!'); // تنظیم پیام کمکی
       showAlert('İsim boş bırakılamaz!', 'warning');
       return;
     }
-    clearAlert();
+    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
+    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
 
+    clearAlert();
 
     setLoadingButton(true);
     const authToken = localStorage.getItem('authToken');
@@ -377,13 +474,13 @@ const ListCategory = () => {
       const updateData = {
         id: Number(editingId), // ID دسته بندی مورد نظر برای بروزرسانی
         newname: name, // نام جدید
-        parentId: editingParentId // ParentId فعلی که در آن نمایش داده می‌شود
+        parentId: editingParentId ? Number(editingParentId) : null // ParentId را به number یا null تبدیل می‌کنیم
       };
 
       // فراخوانی API برای بروزرسانی دسته بندی
       const response = await axios.request({
         baseURL: server.baseurl + server.baseinfo + "update-category", // آدرس API جدید
-        method: "put", // یا "post" بسته به نوع درخواست API شما
+        method: "put",
         headers: {
           "Accept": "application/json",
           "Authorization": `Bearer ${authToken}`,
@@ -476,7 +573,9 @@ const ListCategory = () => {
     setName('');
     setEditingId(null);
     setEditingParentId(null); // اضافه شده
-   
+    // **پاک کردن وضعیت خطاها**
+    setNameError(false);
+    setNameHelperText('');
   };
 
   const formatDate = (dateString: string): string => {
@@ -495,19 +594,17 @@ const ListCategory = () => {
   // این `useEffect` فقط در زمان mount شدن کامپوننت فراخوانی اولیه را انجام می‌دهد.
   useEffect(() => {
     const initFetch = async () => {
-      // فقط یک بار داده‌های خام را از API می‌گیریم.
       await fetchCategories();
     };
     initFetch();
-  }, []); // بدون وابستگی برای اجرای فقط یک بار
+  }, []); // بدون وابندگی برای اجرای فقط یک بار
 
   // این `useEffect` زمانی اجرا می‌شود که `rawApiCategories` (داده‌های اصلی) یا فیلترها تغییر کنند.
-  // این از چرخه‌ی بی‌پایان جلوگیری می‌کند.
   useEffect(() => {
-    // دسته‌بندی‌های مستقیم والد فعلی را از `rawApiCategories` استخراج کن.
+    // 1. Get direct children of the current parent
     const directChildren = getDirectChildrenOfParent(rawApiCategories, currentParentCategory?.id || null);
 
-    // سپس این زیرمجموعه‌ها را بر اساس جستجو و وضعیت فیلتر کن.
+    // 2. Filter these children by search term and status
     const filteredBySearchAndStatus = directChildren.filter(category => {
       const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
@@ -517,16 +614,13 @@ const ListCategory = () => {
       return matchesSearch && matchesStatus;
     });
 
-    // مرتب‌سازی بر اساس تاریخ ایجاد (جدیدترین اول)
-    const sortedData = [...filteredBySearchAndStatus].sort((a, b) => {
-      const dateA = new Date(a.createAt);
-      const dateB = new Date(b.createAt);
-      return dateB.getTime() - dateA.getTime();
-    });
+    // 3. Apply sorting to the filtered data
+    // The previous sorting by createAt (newest first) is now replaced by the dynamic sort
+    const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
 
-    setDisplayedCategories(sortedData);
-    setPage(0); // بازگشت به صفحه اول هنگام تغییر فیلتر یا داده
-  }, [rawApiCategories, currentParentCategory, searchTerm, statusFilter, getDirectChildrenOfParent]);
+    setDisplayedCategories(sortedData); // Set the sorted and filtered data
+    setPage(0); // Reset to first page when filters or data change
+  }, [rawApiCategories, currentParentCategory, searchTerm, statusFilter, getDirectChildrenOfParent, order, orderBy]); // Added order and orderBy dependencies
 
 
   const handleEnterSubcategories = (category: CategoryType) => {
@@ -536,10 +630,9 @@ const ListCategory = () => {
     const lastItem = newPath[newPath.length - 1];
     // اگر آخرین آیتم breadcrumb همان دسته‌بندی نیست، آن را اضافه کن.
     if (lastItem.id !== category.id) {
-        newPath.push({ id: category.id, name: category.name, depth: category.depth });
+      newPath.push({ id: category.id, name: category.name, depth: category.depth });
     }
     setBreadcrumbPath(newPath);
-    // نیازی به فراخوانی getListCategory نیست، useEffect بالا خودش با تغییر currentParentCategory بروزرسانی می‌کند.
   };
 
   const handleBreadcrumbClick = (item: BreadcrumbItem) => {
@@ -551,15 +644,14 @@ const ListCategory = () => {
     // پیدا کردن شیء کامل دسته‌بندی برای تنظیم currentParentCategory
     const selectedCategory = item.id === null ? null : findCategoryById(rawApiCategories, item.id);
     setCurrentParentCategory(selectedCategory ? {
-        id: selectedCategory.id,
-        name: selectedCategory.name,
-        createAt: selectedCategory.createAt,
-        recordStatus: selectedCategory.recordStatus,
-        status: selectedCategory.recordStatus === 0 ? 'Aktif' : selectedCategory.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
-        parentId: selectedCategory.parentId,
-        depth: selectedCategory.depth,
+      id: selectedCategory.id,
+      name: selectedCategory.name,
+      createAt: selectedCategory.createAt,
+      recordStatus: selectedCategory.recordStatus,
+      status: selectedCategory.recordStatus === 0 ? 'Aktif' : selectedCategory.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+      parentId: selectedCategory.parentId,
+      depth: selectedCategory.depth,
     } : null);
-    // نیازی به فراخوانی getListCategory نیست، useEffect بالا خودش با تغییر currentParentCategory بروزرسانی می‌کند.
   };
 
 
@@ -567,19 +659,26 @@ const ListCategory = () => {
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
-    
-      console.log(event)
+    console.log(event)
     if (newFilter !== null) {
       setStatusFilter(newFilter);
       setPage(0);
     }
   };
 
+  // ✅ Added: Handler for changing sort order
+  const handleRequestSort = (property: SortableCategoryKeys) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // Reset to first page when sort changes
+  };
+
 
   const handleChangePage = (
-    event: unknown, 
+    event: unknown,
     newPage: number) => {
-      console.log(event)
+    console.log(event)
     setPage(newPage);
   };
 
@@ -593,7 +692,7 @@ const ListCategory = () => {
     setPage(0);
   };
 
-  // `filteredAndStatusCategories` اکنون مستقیماً از `displayedCategories` استفاده می‌کند که قبلاً فیلتر و مرتب شده‌اند.
+  // `paginatedCategories` now uses `displayedCategories` which are already filtered and sorted.
   const paginatedCategories = displayedCategories.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const getFormattedBreadcrumbPath = () => {
@@ -623,34 +722,30 @@ const ListCategory = () => {
         padding: "10px 15px 30px 15px"
       }}>
         {/* Breadcrumb Box */}
-        <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-          {formattedBreadcrumb.map((item, index) => (
-            <React.Fragment key={`${item.id}-${item.name}-${index}`}>
-              {item.name === '...' ? (
-                <Typography variant="h6" sx={{ mx: 0.5 }}>...</Typography>
-              ) : (
-                <Button
-                  variant={index === formattedBreadcrumb.length - 1 ? "contained" : "text"}
-                  onClick={() => handleBreadcrumbClick(item)}
-                  color={index === formattedBreadcrumb.length - 1 ? "primary" : "inherit"}
-                  size="small"
-                  sx={{ mx: 0.5 }}
-                >
-                  {item.name}
-                </Button>
-              )}
-              {index < formattedBreadcrumb.length - 1 && (
-                <IconChevronRight size={16} style={{ margin: '0 4px' }} />
-              )}
-            </React.Fragment>
-          ))}
-          {/* {currentParentCategory && (
-            <Typography variant="body2" color="textSecondary" sx={{ ml: 2 }}>
-              Alt kategori ekleniyor: "{currentParentCategory.name}" ({currentParentCategory.depth + 1}. Seviye)
-            </Typography>
-          )} */}
-        </Paper>
-
+        {breadcrumbPath.length > 1 && (
+          <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+            {formattedBreadcrumb.map((item, index) => (
+              <React.Fragment key={`${item.id}-${item.name}-${index}`}>
+                {item.name === '...' ? (
+                  <Typography variant="h6" sx={{ mx: 0.5 }}>...</Typography>
+                ) : (
+                  <Button
+                    variant={index === formattedBreadcrumb.length - 1 ? "contained" : "text"}
+                    onClick={() => handleBreadcrumbClick(item)}
+                    color={index === formattedBreadcrumb.length - 1 ? "primary" : "inherit"}
+                    size="small"
+                    sx={{ mx: 0.5 }}
+                  >
+                    {item.name}
+                  </Button>
+                )}
+                {index < formattedBreadcrumb.length - 1 && (
+                  <IconChevronRight size={16} style={{ margin: '0 4px' }} />
+                )}
+              </React.Fragment>
+            ))}
+          </Paper>
+        )}
         <Grid container spacing={1}>
           <Grid item xs={12} sm={1} display="flex" alignItems="center">
             <CustomFormLabel htmlFor="category-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
@@ -663,7 +758,16 @@ const ListCategory = () => {
               placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
               fullWidth
               value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) { // اگر قبلاً خطا وجود داشته و کاربر شروع به تایپ کرده است
+                  setNameError(false); // خطا را پاک کنید
+                  setNameHelperText(''); // پیام کمکی را پاک کنید
+                }
+              }}
+              inputRef={categoryNameInputRef}
+              error={nameError}
+              helperText={nameHelperText} 
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -679,7 +783,7 @@ const ListCategory = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -699,7 +803,7 @@ const ListCategory = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : (currentParentCategory ? 'Alt Kategori Ekle' : 'Yeni Kategori Ekle')}
                     </Button>
                   </CustomTooltip>
@@ -779,19 +883,40 @@ const ListCategory = () => {
             </Box>
           ) : (
             <Table aria-label="category table">
-              <TableHead>
+              <TableHead style={{ background: "#f1f1f1" }}>
                 <TableRow>
                   <TableCell>
-                    <Typography variant="h6">İsim</Typography>
+                    {/* Sortable Column: İsim (Name) */}
+                    <TableSortLabel
+                      active={orderBy === 'name'}
+                      direction={orderBy === 'name' ? order : 'asc'}
+                      onClick={() => handleRequestSort('name')}
+                    >
+                      <Typography variant="h6">İsim</Typography>
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                    {/* Sortable Column: Oluşturulma Tarihi (Creation Date) */}
+                    <TableSortLabel
+                      active={orderBy === 'createAt'}
+                      direction={orderBy === 'createAt' ? order : 'asc'}
+                      onClick={() => handleRequestSort('createAt')}
+                    >
+                      <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="h6">Durum</Typography>
+                    {/* Sortable Column: Durum (Status) */}
+                    <TableSortLabel
+                      active={orderBy === 'status'}
+                      direction={orderBy === 'status' ? order : 'asc'}
+                      onClick={() => handleRequestSort('status')}
+                    >
+                      <Typography variant="h6">Durum</Typography>
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="h6">Alt Kategori</Typography>
+                    <Typography variant="h6">Alt Kategori</Typography> {/* This column is for navigation, not direct sort */}
                   </TableCell>
                   <TableCell></TableCell>
                 </TableRow>
@@ -879,7 +1004,8 @@ const ListCategory = () => {
                           }}
                         >
                           {selectedRowForMenu?.recordStatus === 0 ? (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu kategoriyi pasif yap" : ""}>
+                            <CustomTooltip placement="left"
+                              title={isTooltipGloballyEnabled ? "Bu kategoriyi pasif yap" : ""}>
                               <MenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
@@ -888,7 +1014,8 @@ const ListCategory = () => {
                               </MenuItem>
                             </CustomTooltip>
                           ) : (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu kategoriyi aktif yap" : ""}>
+                            <CustomTooltip placement="left"
+                              title={isTooltipGloballyEnabled ? "Bu kategoriyi aktif yap" : ""}>
                               <MenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
@@ -897,7 +1024,8 @@ const ListCategory = () => {
                               </MenuItem>
                             </CustomTooltip>
                           )}
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
                             <MenuItem onClick={handleEditClick}>
                               <ListItemIcon>
                                 <IconEdit width={18} />
@@ -905,7 +1033,8 @@ const ListCategory = () => {
                               Düzenlemek
                             </MenuItem>
                           </CustomTooltip>
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
                             <MenuItem onClick={handleClickOpenDeleteModal}>
                               <ListItemIcon>
                                 <IconTrash width={18} />
@@ -933,7 +1062,6 @@ const ListCategory = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          // Corrected line 922: Removed the problematic comment part
           count={displayedCategories.length}
           rowsPerPage={rowsPerPage}
           page={page}

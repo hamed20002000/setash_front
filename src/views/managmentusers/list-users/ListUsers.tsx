@@ -7,12 +7,12 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
-  TextField, 
-  // CircularProgress,
+  TextField,
   FormControl, InputLabel, Select, OutlinedInput,
   CardMedia, FormControlLabel, ListItemText,
   ToggleButton,
   ToggleButtonGroup,
+  TableSortLabel, // ✅ اضافه شد: برای آیکون‌های مرتب‌سازی
 } from '@mui/material';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -31,14 +31,14 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 import imagedefault from '../../../assets/images/profile/user-d.svg';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 interface UserType {
   id: number;
   username: string;
   email?: string;
-  status: string;
-  recordStatus: number;
+  status: string; // این برای نمایش وضعیت string استفاده می‌شود
+  recordStatus: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
   createAt: string;
   imageUrl?: string;
   roles: { id: number; name: string }[];
@@ -64,6 +64,61 @@ const formatDate = (dateString: string): string => {
 
 const DEFAULT_IMAGE_URL = imagedefault;
 
+// توابع کمکی برای مرتب‌سازی (همانند فایل‌های قبلی)
+// این توابع بهتر است در یک فایل utility جداگانه قرار گیرند اگر در چندین کامپوننت استفاده می‌شوند.
+const descendingComparator = <T, Key extends keyof T>(
+  a: T,
+  b: T,
+  orderBy: Key,
+): number => {
+  const valA = a[orderBy];
+  const valB = b[orderBy];
+
+  // Handle undefined/null values by pushing them to the end (or beginning) of the sort order
+  if (valB === undefined || valB === null) {
+    return valA === undefined || valA === null ? 0 : -1;
+  }
+  if (valA === undefined || valA === null) {
+    return 1;
+  }
+
+  // Specific handling for string and number types
+  if (typeof valB === 'string' && typeof valA === 'string') {
+    return valB.localeCompare(valA);
+  }
+  if (typeof valB === 'number' && typeof valA === 'number') {
+    return valB - valA;
+  }
+  // Fallback to string comparison for other types or mixed types
+  if (String(valB) < String(valA)) {
+    return -1;
+  }
+  if (String(valB) > String(valA)) {
+    return 1;
+  }
+  return 0;
+};
+
+const getComparator = <Key extends keyof UserType>( // اینجا UserType را استفاده می‌کنیم
+  order: 'asc' | 'desc',
+  orderBy: Key,
+): (a: UserType, b: UserType) => number => { // و اینجا UserType
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
+};
+
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+  const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+  stabilizedThis.sort((a, b) => {
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1];
+  });
+  return stabilizedThis.map((el) => el[0]);
+};
+
+
 const ListUsers = () => {
   const navigate = useNavigate();
 
@@ -88,11 +143,9 @@ const ListUsers = () => {
 
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null);
-  // const [userIdToDelete, setUserIdToDelete] = useState<string | null>(null);
 
   const [openRoleModal, setOpenRoleModal] = useState(false);
   const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<number | null>(null);
-  
 
   const [openOperationsModal, setOpenOperationsModal] = useState(false);
   const [userIdForOperationsSelection, setUserIdForOperationsSelection] = useState<number | null>(null);
@@ -113,12 +166,24 @@ const ListUsers = () => {
   const passwordFieldRef = useRef<HTMLInputElement>(null);
   const confirmPasswordFieldRef = useRef<HTMLInputElement>(null);
 
-  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
   const { isTooltipGloballyEnabled } = useTooltip();
 
-const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+  // ✅ اضافه شد: وضعیت برای مرتب‌سازی
+  const [orderBy, setOrderBy] = useState<keyof UserType>('createAt'); // ستون پیش‌فرض برای مرتب‌سازی
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // جهت پیش‌فرض مرتب‌سازی
+
+  // **State های جدید برای مدیریت خطاهای ورودی**
+  const [usernameError, setUsernameError] = useState<boolean>(false);
+  const [usernameHelperText, setUsernameHelperText] = useState<string>('');
+  const [passwordError, setPasswordError] = useState<boolean>(false);
+  const [passwordHelperText, setPasswordHelperText] = useState<string>('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState<boolean>(false);
+  const [confirmPasswordHelperText, setConfirmPasswordHelperText] = useState<string>('');
+
+
+  const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => { debugger
     setAlertMessage(message);
     setAlertSeverity(severity);
   };
@@ -126,6 +191,19 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
   const clearAlert = () => {
     setAlertMessage(null);
   };
+
+  // useEffect برای بستن خودکار Alert
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // پاک کردن تایمر در صورت unmount شدن کامپوننت یا تغییر alertMessage
+    };
+  }, [alertMessage]);
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, user: UserType) => {
     setAnchorEl(event.currentTarget);
@@ -140,7 +218,6 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
   const handleClickOpenDeleteModal = () => {
     if (selectedUserForMenu) {
       setUserIdToDelete(selectedUserForMenu.id);
-      // setUserIdToDelete(selectedUserForMenu.username);
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
@@ -163,7 +240,6 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
   const handleClickCloseRoleModal = () => {
     setOpenRoleModal(false);
     setUserIdForRoleSelection(null);
-    // setUserRolesForModal([]);
     getListUsers();
   };
 
@@ -196,9 +272,13 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
 
   const generateRandomPass = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+    const num ='0123456789';
     let newPass = '';
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 10; i++) {
       newPass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    for(let j=0;j<2;j++){
+      newPass += num.charAt(Math.floor(Math.random() * num.length));
     }
     setPassword(newPass);
     setConfirmPassword(newPass);
@@ -208,6 +288,10 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
     setGenerateRandomPassword(event.target.checked);
     if (event.target.checked) {
       generateRandomPass();
+      setPasswordError(false); // Clear password error when generating random
+      setPasswordHelperText('');
+      setConfirmPasswordError(false); // Clear confirm password error
+      setConfirmPasswordHelperText('');
     } else {
       setPassword('');
       setConfirmPassword('');
@@ -241,6 +325,14 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
     setEditingUserId(null);
     clearAlert();
 
+    // **پاک کردن وضعیت خطاها**
+    setUsernameError(false);
+    setUsernameHelperText('');
+    setPasswordError(false);
+    setPasswordHelperText('');
+    setConfirmPasswordError(false);
+    setConfirmPasswordHelperText('');
+
     setTimeout(() => {
       if (usernameFieldRef.current) usernameFieldRef.current.value = '';
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
@@ -256,30 +348,89 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
       setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
       setProfileImageBase64('');
 
+      // در حالت ویرایش، فیلدهای رمز عبور خالی می‌شوند و چک‌باکس تصادفی غیرفعال می‌شود
       setPassword('');
       setConfirmPassword('');
       setGenerateRandomPassword(false);
-      setSelectedRoles([]);
+
+      // نقش‌های فعلی کاربر را انتخاب می‌کند
+      const currentRoleIds = selectedUserForMenu.roles.map(role => role.id);
+      setSelectedRoles(currentRoleIds);
     }
     handleCloseMenu();
     clearAlert();
 
+    // **پاک کردن وضعیت خطاها هنگام ویرایش**
+    setUsernameError(false);
+    setUsernameHelperText('');
+    setPasswordError(false);
+    setPasswordHelperText('');
+    setConfirmPasswordError(false);
+    setConfirmPasswordHelperText('');
+
+
     setTimeout(() => {
+      // ✅ اضافه شد: اسکرول به کادر ویرایش نام کاربری و فوکوس بر روی آن
+      usernameFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      usernameFieldRef.current?.focus();
+
+      // مطمئن شوید که فیلدهای رمز عبور خالی هستند، حتی اگر رفرنس آنها بلافاصله آماده نباشد
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
       if (confirmPasswordFieldRef.current) confirmPasswordFieldRef.current.value = '';
-    }, 0);
+    }, 100); // تاخیر اندکی برای اطمینان از رندر شدن DOM
   };
 
 
   const insertUser = async () => {
-    if (!username.trim() || !password.trim() || !confirmPassword.trim()) {
+    // **اعتبارسنجی فیلد نام کاربری**
+    if (!username.trim()) {
+      setUsernameError(true);
+      setUsernameHelperText('Kullanıcı adı boş bırakılamaz.');
       showAlert('Tüm zorunlu alanları doldurun!', 'warning');
       return;
+    } else {
+      setUsernameError(false);
+      setUsernameHelperText('');
     }
-    if (password !== confirmPassword) {
-      showAlert('Şifreler eşleşmiyor!', 'error');
-      return;
+
+    // **اعتبارسنجی فیلدهای رمز عبور (فقط برای حالت افزودن کاربر جدید)**
+    if (editingUserId === null) {
+      if (!password.trim()) {
+        setPasswordError(true);
+        setPasswordHelperText('Şifre boş bırakılamaz.');
+        showAlert('Tüm zorunlu alanları doldurun!', 'warning');
+        return;
+      } else {
+        setPasswordError(false);
+        setPasswordHelperText('');
+      }
+
+      if (!confirmPassword.trim()) {
+        setConfirmPasswordError(true);
+        setConfirmPasswordHelperText('Şifre tekrarı boş bırakılamaz.');
+        showAlert('Tüm zorunlu alanları doldurun!', 'warning');
+        return;
+      } else {
+        setConfirmPasswordError(false);
+        setConfirmPasswordHelperText('');
+      }
+
+      if (password !== confirmPassword) {
+        setPasswordError(true);
+        setConfirmPasswordError(true);
+        setPasswordHelperText('Şifreler eşleşmiyor!');
+        setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
+        showAlert('Şifreler eşleşmiyor!', 'error');
+        return;
+      } else {
+        setPasswordError(false);
+        setPasswordHelperText('');
+        setConfirmPasswordError(false);
+        setConfirmPasswordHelperText('');
+      }
     }
+
+
     clearAlert();
 
     const authToken = localStorage.getItem('authToken');
@@ -320,6 +471,11 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
         showAlert(response.data.message || 'Yeni kullanıcı eklenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error inserting user:", e);
       showAlert(e.response?.data?.message || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -329,10 +485,17 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
 
   const editUser = async () => {
     if (editingUserId === null) return;
+    // **اعتبارسنجی فیلد نام کاربری برای ویرایش**
     if (!username.trim()) {
+      setUsernameError(true);
+      setUsernameHelperText('Kullanıcı adı boş olamaz!');
       showAlert('Kullanıcı adı boş olamaz!', 'warning');
       return;
+    } else {
+      setUsernameError(false);
+      setUsernameHelperText('');
     }
+
     clearAlert();
 
     const authToken = localStorage.getItem('authToken');
@@ -380,6 +543,11 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
         showAlert(response.data.message || 'Kullanıcı güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating user:", e);
       showAlert(e.response?.data?.message || 'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -410,12 +578,17 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
 
       if (response.data.httpStatusCode === 200) {
         const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-        showAlert(`Kullanıcı başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListUsers();
+        showAlert(`Kullanıcı başarıyla ${statusText} olarak ayarlandı!`, 'success');
       } else {
         showAlert(response.data.message || 'Kullanıcı durumu güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating user status:", e);
       showAlert(e.response?.data?.message || 'Kullanıcı durumu güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -437,22 +610,19 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
         "Authorization": `Bearer ${authToken}`
       }
     }).then((result) => {
-      if (result.data.httpStatusCode === 200) {debugger
+      if (result.data.httpStatusCode === 200) {
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
           username: item.username,
           createAt: item.createAt,
-          recordStatus: item.recordStatus,
+          // اطمینان از اینکه recordStatus همیشه یک عدد است.
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
           imageUrl: item.imageSrc || DEFAULT_IMAGE_URL,
           roles: item.roles || [],
         }));
-        const sortedData = formattedData.sort((a: UserType, b: UserType) => {
-          const dateA = new Date(a.createAt);
-          const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime();
-        });
-        setUsersList(sortedData as UserType[]);
+        // حذف مرتب‌سازی اولیه از اینجا، زیرا مرتب‌سازی نهایی پایین‌تر انجام می‌شود.
+        setUsersList(formattedData as UserType[]);
       } else {
         showAlert(result.data.message || 'Kullanıcı listesi alınırken bir hata oluştu.', 'error');
       }
@@ -488,7 +658,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
       }
     } catch (e: any) {
       console.error("Error fetching roles:", e);
-      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
+      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     }
   };
 
@@ -497,20 +667,20 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
     getListRoles();
   }, []);
 
-  
-    const handleStatusFilterChange = (
-      event: React.MouseEvent<HTMLElement>,
-      newFilter: 'all' | 'active' | 'inactive' | null,
-    ) => {
-      if (newFilter !== null) {
+
+  const handleStatusFilterChange = (
+    event: React.MouseEvent<HTMLElement>,
+    newFilter: 'all' | 'active' | 'inactive' | null,
+  ) => {
+    if (newFilter !== null) {
       console.log(event)
-        setStatusFilter(newFilter);
-        setPage(0);
-      }
-    };
+      setStatusFilter(newFilter);
+      setPage(0);
+    }
+  };
 
   const handleChangePage = (event: unknown, newPage: number) => {
-      console.log(event)
+    console.log(event)
     setPage(newPage);
   };
 
@@ -524,16 +694,28 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
     setPage(0);
   };
 
-   const filteredAndStatusUsers = usersList.filter(lists => {
-    const matchesSearch = lists.username.toLowerCase().includes(searchTerm.toLowerCase());
+  // ✅ اضافه شد: هندلر برای تغییر مرتب‌سازی
+  const handleRequestSort = (property: keyof UserType) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // هنگام تغییر مرتب‌سازی، به صفحه اول برگرد
+  };
+
+
+  const filteredUsers = usersList.filter(user => {
+    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      statusFilter === 'all' || // اگر فیلتر 'all' بود، همه را نشان بده
-      (statusFilter === 'active' && lists.recordStatus === 0) || // اگر 'active' بود، فقط recordStatus 0 را نشان بده
-      (statusFilter === 'inactive' && lists.recordStatus === 1); // اگر 'inactive' بود، فقط recordStatus 1 را نشان بده
-    return matchesSearch && matchesStatus; // هر دو شرط باید برقرار باشند
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && user.recordStatus === 0) ||
+      (statusFilter === 'inactive' && user.recordStatus === 1);
+    return matchesSearch && matchesStatus;
   });
 
-  const paginatedUsers = filteredAndStatusUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // ✅ اعمال مرتب‌سازی بر روی داده‌های فیلتر شده
+  const sortedAndFilteredUsers = stableSort(filteredUsers, getComparator(order, orderBy));
+
+  const paginatedUsers = sortedAndFilteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
     <>
@@ -554,9 +736,17 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                     placeholder="Kullanıcı Adı"
                     fullWidth
                     value={username}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                      setUsername(e.target.value);
+                      if (usernameError && e.target.value.trim()) { // اگر قبلاً خطا وجود داشته و کاربر شروع به تایپ کرده است
+                        setUsernameError(false); // خطا را پاک کنید
+                        setUsernameHelperText(''); // پیام کمکی را پاک کنید
+                      }
+                    }}
                     inputProps={{ autocomplete: 'off' }}
-                    ref={usernameFieldRef}
+                    inputRef={usernameFieldRef}
+                    error={usernameError}
+                    helperText={usernameHelperText} 
                   />
                 </CustomTooltip>
               </Grid>
@@ -572,10 +762,25 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                         placeholder="Şifre"
                         fullWidth
                         value={password}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setPassword(e.target.value);
+                          if (passwordError && e.target.value.trim()) {
+                            setPasswordError(false);
+                            setPasswordHelperText('');
+                          }
+                          if (e.target.value !== confirmPassword && confirmPassword.trim() !== '') {
+                            setConfirmPasswordError(true);
+                            setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
+                          } else if (e.target.value === confirmPassword && confirmPassword.trim() !== '') {
+                            setConfirmPasswordError(false);
+                            setConfirmPasswordHelperText('');
+                          }
+                        }}
                         disabled={generateRandomPassword}
                         inputProps={{ autocomplete: 'new-password' }}
-                        ref={passwordFieldRef}
+                        inputRef={passwordFieldRef}
+                        error={passwordError} 
+                        helperText={passwordHelperText} 
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -604,12 +809,25 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                         placeholder="Şifreyi Tekrarla"
                         fullWidth
                         value={confirmPassword}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          setConfirmPassword(e.target.value);
+                          if (confirmPasswordError && e.target.value.trim()) {
+                            setConfirmPasswordError(false);
+                            setConfirmPasswordHelperText('');
+                          }
+                          if (e.target.value !== password && password.trim() !== '') {
+                            setPasswordError(true);
+                            setPasswordHelperText('Şifreler eşleşmiyor!');
+                          } else if (e.target.value === password && password.trim() !== '') {
+                            setPasswordError(false);
+                            setPasswordHelperText('');
+                          }
+                        }}
                         disabled={generateRandomPassword}
-                        error={password !== confirmPassword && confirmPassword !== ''}
-                        helperText={password !== confirmPassword && confirmPassword !== '' ? 'Şifreler eşleşmiyor!' : ''}
+                        error={confirmPasswordError || (password !== confirmPassword && confirmPassword.trim() !== '')}
+                        helperText={confirmPasswordHelperText || (password !== confirmPassword && confirmPassword.trim() !== '' ? 'Şifreler eşleşmiyor!' : '')}
                         inputProps={{ autocomplete: 'new-password' }}
-                        ref={confirmPasswordFieldRef}
+                        inputRef={confirmPasswordFieldRef}
                       />
                     </CustomTooltip>
                   </Grid>
@@ -703,7 +921,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Kullanıcıyı Güncelle'}
                     </Button>
                   </CustomTooltip>
@@ -722,13 +940,14 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                     disabled={loadingButton}
                   >
                     {loadingButton ? <>
-                       <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                      <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                     </> : 'Yeni Kullanıcı Ekle'}
                   </Button>
                 </CustomTooltip>
               )}
             </Stack>
           </Grid>
+
         </Grid>
         {alertMessage && (
           <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
@@ -740,117 +959,138 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
       </div>
 
       <BlankCard>
-         <Box sx={{ p: 2 }}>
-                  <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={6} md={8}>
-                      <TextField
-                        label="Birim Ara"
-                        variant="outlined"
-                        fullWidth
-                        value={searchTerm}
-                        onChange={handleSearchChange}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <IconSearch size={20} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <ToggleButtonGroup
-                        value={statusFilter}
-                        exclusive
-                        onChange={handleStatusFilterChange}
-                        aria-label="Status filter" // aria-label را بهبود دادم
-                        fullWidth
-                      >
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm birimleri göster" : ""}>
-                          <ToggleButton
-                            value="all"
-                            aria-label="all units"
-                            sx={{
-                              '&.Mui-selected': { // استایل برای حالت انتخاب شده
-                                backgroundColor: (theme) => theme.palette.primary.main + ' !important', // رنگ آبی برای All
-                                color: 'white !important',
-                                '&:hover': {
-                                  backgroundColor: (theme) => theme.palette.primary.dark + ' !important',
-                                },
-                              },
-                              '&:not(.Mui-selected)': { // استایل برای حالت انتخاب نشده
-                                color: (theme) => theme.palette.text.primary,
-                                borderColor: (theme) => theme.palette.divider,
-                              },
-                            }}
-                          >
-                            Tümü
-                          </ToggleButton>
-                        </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif birimleri göster" : ""}>
-                          <ToggleButton
-                            value="active"
-                            aria-label="active units"
-                            sx={{
-                              '&.Mui-selected': {
-                                backgroundColor: (theme) => theme.palette.success.main + ' !important', // رنگ سبز برای Aktif
-                                color: 'white !important',
-                                '&:hover': {
-                                  backgroundColor: (theme) => theme.palette.success.dark + ' !important',
-                                },
-                              },
-                              '&:not(.Mui-selected)': {
-                                color: (theme) => theme.palette.text.primary,
-                                borderColor: (theme) => theme.palette.divider,
-                              },
-                            }}
-                          >
-                            Aktif
-                          </ToggleButton>
-                        </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif birimleri göster" : ""}>
-                          <ToggleButton
-                            value="inactive"
-                            aria-label="inactive units"
-                            sx={{
-                              '&.Mui-selected': {
-                                backgroundColor: (theme) => theme.palette.error.main + ' !important', // رنگ قرمز برای Etkin Değil
-                                color: 'white !important',
-                                '&:hover': {
-                                  backgroundColor: (theme) => theme.palette.error.dark + ' !important',
-                                },
-                              },
-                              '&:not(.Mui-selected)': {
-                                color: (theme) => theme.palette.text.primary,
-                                borderColor: (theme) => theme.palette.divider,
-                              },
-                            }}
-                          >
-                            Etkin Değil
-                          </ToggleButton>
-                        </CustomTooltip>
-                      </ToggleButtonGroup>
-                    </Grid>
-                  </Grid>
-                </Box>
+        <Box sx={{ p: 2 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={8}>
+              <TextField
+                label="Birim Ara"
+                variant="outlined"
+                fullWidth
+                value={searchTerm}
+                onChange={handleSearchChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconSearch size={20} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={4}>
+              <ToggleButtonGroup
+                value={statusFilter}
+                exclusive
+                onChange={handleStatusFilterChange}
+                aria-label="Status filter"
+                fullWidth
+              >
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm birimleri göster" : ""}>
+                  <ToggleButton
+                    value="all"
+                    aria-label="all units"
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.primary.main + ' !important',
+                        color: 'white !important',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.primary.dark + ' !important',
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Tümü
+                  </ToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif birimleri göster" : ""}>
+                  <ToggleButton
+                    value="active"
+                    aria-label="active units"
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.success.main + ' !important',
+                        color: 'white !important',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.success.dark + ' !important',
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Aktif
+                  </ToggleButton>
+                </CustomTooltip>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif birimleri göster" : ""}>
+                  <ToggleButton
+                    value="inactive"
+                    aria-label="inactive units"
+                    sx={{
+                      '&.Mui-selected': {
+                        backgroundColor: (theme) => theme.palette.error.main + ' !important',
+                        color: 'white !important',
+                        '&:hover': {
+                          backgroundColor: (theme) => theme.palette.error.dark + ' !important',
+                        },
+                      },
+                      '&:not(.Mui-selected)': {
+                        color: (theme) => theme.palette.text.primary,
+                        borderColor: (theme) => theme.palette.divider,
+                      },
+                    }}
+                  >
+                    Etkin Değil
+                  </ToggleButton>
+                </CustomTooltip>
+              </ToggleButtonGroup>
+            </Grid>
+          </Grid>
+        </Box>
         <TableContainer>
           <Table aria-label="user table">
-            <TableHead>
+            <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
                 <TableCell>
                   <Typography variant="h6">Resim</Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Kullanıcı Adı</Typography>
+                  {/* ✅ اضافه شد: TableSortLabel برای ستون Kullanıcı Adı */}
+                  <TableSortLabel
+                    active={orderBy === 'username'}
+                    direction={orderBy === 'username' ? order : 'asc'}
+                    onClick={() => handleRequestSort('username')}
+                  >
+                    <Typography variant="h6">Kullanıcı Adı</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
                   <Typography variant="h6">Rolleri Listele</Typography>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  {/* ✅ اضافه شد: TableSortLabel برای ستون Oluşturulma Tarihi */}
+                  <TableSortLabel
+                    active={orderBy === 'createAt'}
+                    direction={orderBy === 'createAt' ? order : 'asc'}
+                    onClick={() => handleRequestSort('createAt')}
+                  >
+                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Durum</Typography>
+                  {/* ✅ اضافه شد: TableSortLabel برای ستون Durum */}
+                  <TableSortLabel
+                    active={orderBy === 'status'}
+                    direction={orderBy === 'status' ? order : 'asc'}
+                    onClick={() => handleRequestSort('status')}
+                  >
+                    <Typography variant="h6">Durum</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>
@@ -871,29 +1111,26 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                       <Typography variant="h6">{row.username}</Typography>
                     </TableCell>
                     <TableCell>
-                     
-
                       {row.roles && row.roles.length > 0 ? (
-                          row.roles.map((role, index) => (
-                            <Chip
-                              key={role.id || index} 
-                              label={role.name}
-                              size="small"
-                              sx={{ mr: 0.5, mb: 0.5 }}
-                            />
-                          ))
-                        ) : (
-                           <Chip
-                              label="Rol Yok"
-                              size="small"
-                              sx={{ mr: 0.5, mb: 0.5,
-                                backgroundColor:(theme) => theme.palette.error.dark,
-                                color:(theme) => theme.palette.error.contrastText
-                               }}
-                            />
-                          // <Typography variant="h6" color="textSecondary">Rol Yok</Typography>
+                        row.roles.map((role, index) => (
+                          <Chip
+                            key={role.id || index}
+                            label={role.name}
+                            size="small"
+                            sx={{ mr: 0.5, mb: 0.5 }}
+                          />
+                        ))
+                      ) : (
+                        <Chip
+                          label="Rol Yok"
+                          size="small"
+                          sx={{
+                            mr: 0.5, mb: 0.5,
+                            backgroundColor: (theme) => theme.palette.error.dark,
+                            color: (theme) => theme.palette.error.contrastText
+                          }}
+                        />
                       )}
-              
                     </TableCell>
                     <TableCell>
                       <Typography variant="h6">{formatDate(row.createAt)}</Typography>
@@ -918,7 +1155,6 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                       />
                     </TableCell>
                     <TableCell>
-                      {/* Tooltip برای IconButton منوی سطر */}
                       <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                         <IconButton
                           id={`basic-button-${row.id}`}
@@ -940,7 +1176,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                         }}
                       >
                         {selectedUserForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
                             <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -949,7 +1186,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
                             <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -959,7 +1197,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                           </CustomTooltip>
                         )}
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının şifresini değiştir" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Kullanıcının şifresini değiştir" : ""}>
                           <MenuItem onClick={handleClickOpenChangePasswordModal}>
                             <ListItemIcon>
                               <IconKey width={18} />
@@ -968,7 +1207,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                           </MenuItem>
                         </CustomTooltip>
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini yönet" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Kullanıcının rollerini yönet" : ""}>
                           <MenuItem onClick={handleClickOpenRoleModal}>
                             <ListItemIcon>
                               <IconUsersGroup width={18} />
@@ -977,7 +1217,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                           </MenuItem>
                         </CustomTooltip>
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının operasyonlarını yönet" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Kullanıcının operasyonlarını yönet" : ""}>
                           <MenuItem onClick={handleClickOpenOperationsModal}>
                             <ListItemIcon>
                               <IconLock width={18} />
@@ -986,7 +1227,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                           </MenuItem>
                         </CustomTooltip>
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı bilgilerini düzenle" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Kullanıcı bilgilerini düzenle" : ""}>
                           <MenuItem onClick={handleEditItemClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -995,7 +1237,8 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                           </MenuItem>
                         </CustomTooltip>
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcıyı sil" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Kullanıcıyı sil" : ""}>
                           <MenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -1009,7 +1252,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} align="center">
+                  <TableCell colSpan={6} align="center"> {/* اینجا تعداد ستون‌ها را به 6 تغییر دادم */}
                     <Typography variant="subtitle1" color="textSecondary">
                       Hiç kullanıcı bulunamadı.
                     </Typography>
@@ -1022,7 +1265,7 @@ const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>(
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredAndStatusUsers.length}
+          count={sortedAndFilteredUsers.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

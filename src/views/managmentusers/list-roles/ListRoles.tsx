@@ -1,15 +1,15 @@
 // SystemRole.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react"; // useRef را اضافه کنید
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  // CircularProgress,
   ToggleButtonGroup,
-  ToggleButton, // اضافه شد: برای فیلتر وضعیت
+  ToggleButton,
+  TableSortLabel, // برای آیکون‌های مرتب‌سازی
 } from '@mui/material';
 
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -35,6 +35,59 @@ interface RowType {
 }
 
 const initialRows: RowType[] = [];
+
+// Helper functions for sorting - placed outside the component for reusability
+// توابع کمکی برای مرتب‌سازی - خارج از کامپوننت برای قابلیت استفاده مجدد
+const descendingComparator = <T, Key extends keyof T>(
+  a: T,
+  b: T,
+  orderBy: Key,
+): number => {
+  const valA = a[orderBy];
+  const valB = b[orderBy];
+
+  if (valB === undefined || valB === null) {
+    return valA === undefined || valA === null ? 0 : -1;
+  }
+  if (valA === undefined || valA === null) {
+    return 1;
+  }
+
+  if (typeof valB === 'string' && typeof valA === 'string') {
+    return valB.localeCompare(valA);
+  }
+  if (typeof valB === 'number' && typeof valA === 'number') {
+    return valB - valA;
+  }
+  // Fallback for other types or mixed types
+  if (String(valB) < String(valA)) {
+    return -1;
+  }
+  if (String(valB) > String(valA)) {
+    return 1;
+  }
+  return 0;
+};
+
+const getComparator = <Key extends keyof RowType>(
+  order: 'asc' | 'desc',
+  orderBy: Key,
+): (a: RowType, b: RowType) => number => {
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
+};
+
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+  const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+  stabilizedThis.sort((a, b) => {
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1];
+  });
+  return stabilizedThis.map((el) => el[0]);
+};
+
 
 const SystemRole = () => {
   const navigate = useNavigate();
@@ -66,9 +119,19 @@ const SystemRole = () => {
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
-  // --- State جدید برای فیلتر وضعیت ---
+  // State برای فیلتر وضعیت
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
+  // State برای مرتب‌سازی
+  const [orderBy, setOrderBy] = useState<keyof RowType>('createAt'); // ستون پیش‌فرض برای مرتب‌سازی
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // جهت پیش‌فرض مرتب‌سازی
+
+  // ✅ اضافه شد: Ref برای کادر ویرایش
+  const editFieldRef = useRef<HTMLInputElement>(null);
+
+  // **State جدید برای مدیریت خطای ورودی**
+  const [nameError, setNameError] = useState<boolean>(false);
+  const [nameHelperText, setNameHelperText] = useState<string>('');
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
     setAnchorEl(event.currentTarget);
@@ -103,26 +166,54 @@ const SystemRole = () => {
     setAlertMessage(null);
   };
 
+  // useEffect برای بستن خودکار Alert
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // پاک کردن تایمر در صورت unmount شدن کامپوننت یا تغییر alertMessage
+    };
+  }, [alertMessage]);
+
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setOriginalName(selectedRowForMenu.name);
       setEditingId(selectedRowForMenu.id);
+      // ✅ اضافه شد: اسکرول به کادر ویرایش
+      // از setTimeout استفاده می‌کنیم تا مطمئن شویم DOM قبل از اسکرول به‌روز شده است
+      setTimeout(() => {
+        editFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        editFieldRef.current?.focus(); // فوکوس روی فیلد
+      }, 100);
     }
     handleCloseMenu();
     clearAlert();
+    setNameError(false); // پاک کردن خطای ورودی هنگام ویرایش
+    setNameHelperText(''); // پاک کردن پیام کمکی هنگام ویرایش
   };
 
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
+    setNameError(false); // پاک کردن خطای ورودی
+    setNameHelperText(''); // پاک کردن پیام کمکی
   };
 
   const insertRole = async () => {
     if (!name.trim()) {
+      setNameError(true); // تنظیم وضعیت خطا به true
+      setNameHelperText('Rol ismi boş bırakılamaz.'); // تنظیم پیام کمکی
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
+    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
+    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+
     clearAlert();
     const authToken = localStorage.getItem('authToken');
 
@@ -153,6 +244,11 @@ const SystemRole = () => {
         showAlert(response.data.message || 'Yeni rol eklenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error inserting Role:", e);
       showAlert(e.response?.data?.message || 'Rol eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -163,9 +259,14 @@ const SystemRole = () => {
   const editRole = async () => {
     if (editingId === null) return;
     if (!name.trim()) {
+      setNameError(true); // تنظیم وضعیت خطا به true
+      setNameHelperText('Rol ismi boş bırakılamaz.'); // تنظیم پیام کمکی
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
+    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
+    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+    
     clearAlert();
 
     if (name === originalName) {
@@ -206,6 +307,11 @@ const SystemRole = () => {
         showAlert(response.data.message || 'Rol güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating Role:", e);
       showAlert(e.response?.data?.message || 'Rol güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -213,9 +319,7 @@ const SystemRole = () => {
     }
   }
 
-  const sendStatusUpdate = async (
-    // id: number, 
-    currentName: string, statusValue: number) => {
+  const sendStatusUpdate = async (currentName: string, statusValue: number) => {
     clearAlert();
 
     const authToken = localStorage.getItem('authToken');
@@ -247,6 +351,11 @@ const SystemRole = () => {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating status:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -256,17 +365,13 @@ const SystemRole = () => {
 
   const handleSetActive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(
-        // selectedRowForMenu.id,
-         selectedRowForMenu.name, 0);
+      sendStatusUpdate(selectedRowForMenu.name, 0);
     }
   };
 
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(
-        // selectedRowForMenu.id,
-         selectedRowForMenu.name, 1);
+      sendStatusUpdate(selectedRowForMenu.name, 1);
     }
   };
 
@@ -274,6 +379,8 @@ const SystemRole = () => {
     setName('');
     setEditingId(null);
     setOriginalName('');
+    setNameError(false); // پاک کردن خطای ورودی
+    setNameHelperText(''); // پاک کردن پیام کمکی
   };
 
   const formatDate = (dateString: string): string => {
@@ -324,16 +431,13 @@ const SystemRole = () => {
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
           name: item.name,
-          recordStatus: item.recordStatus,
+          // اطمینان از اینکه recordStatus همیشه یک عدد است.
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
           createAt: item.createAt,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
         }));
-        const sortedData = formattedData.sort((a: RowType, b: RowType) => {
-          const dateA = new Date(a.createAt);
-          const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime();
-        });
-        setRolesList(sortedData as RowType[]);
+        // مرتب‌سازی اولیه از اینجا حذف شد، زیرا مرتب‌سازی نهایی پایین‌تر انجام می‌شود.
+        setRolesList(formattedData as RowType[]);
       } else {
         showAlert(result.data.message || 'Rol listesi alınırken bir hata oluştu.', 'error');
       }
@@ -344,7 +448,7 @@ const SystemRole = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error fetching Roles list:", e);
-        showAlert('Rol listesi alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
+        showAlert('Rol listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     });
   }
@@ -353,7 +457,7 @@ const SystemRole = () => {
     getListRole();
   }, []);
 
-  // --- هندلر تغییر فیلتر وضعیت ---
+  // هندلر تغییر فیلتر وضعیت
   const handleStatusFilterChange = (
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
@@ -366,7 +470,7 @@ const SystemRole = () => {
   };
 
   const handleChangePage = (event: unknown, newPage: number) => {
-      console.log(event)
+    console.log(event)
     setPage(newPage);
   };
 
@@ -380,6 +484,15 @@ const SystemRole = () => {
     setPage(0);
   };
 
+  // هندلر برای تغییر مرتب‌سازی
+  const handleRequestSort = (property: keyof RowType) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // هنگام تغییر مرتب‌سازی، به صفحه اول برگرد
+  };
+
+
   // فیلتر کردن رول‌ها بر اساس جستجو و وضعیت
   const filteredRoles = rolesList.filter(role => {
     const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
@@ -390,7 +503,10 @@ const SystemRole = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const paginatedRoles = filteredRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // اعمال مرتب‌سازی بر روی داده‌های فیلتر شده
+  const sortedAndFilteredRoles = stableSort(filteredRoles, getComparator(order, orderBy));
+
+  const paginatedRoles = sortedAndFilteredRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
   return (
@@ -409,10 +525,19 @@ const SystemRole = () => {
           <Grid item xs={12} sm={7}>
             <CustomTextField
               id="name"
-              placeholder="İsim Rol"
+              placeholder="Rol İsim"
               fullWidth
               value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) { // اگر قبلاً خطا وجود داشته و کاربر شروع به تایپ کرده است
+                  setNameError(false); // خطا را پاک کنید
+                  setNameHelperText(''); // پیام کمکی را پاک کنید
+                }
+              }}
+              inputRef={editFieldRef}
+              error={nameError} 
+              helperText={nameHelperText} 
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -428,7 +553,7 @@ const SystemRole = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -448,7 +573,7 @@ const SystemRole = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Yeni Rol Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -484,7 +609,7 @@ const SystemRole = () => {
                 }}
               />
             </Grid>
-            {/* --- فیلتر وضعیت --- */}
+            {/* فیلتر وضعیت */}
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -562,16 +687,34 @@ const SystemRole = () => {
         </Box>
         <TableContainer>
           <Table aria-label="simple table">
-            <TableHead>
+            <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
                 <TableCell>
-                  <Typography variant="h6">İsim</Typography>
+                  <TableSortLabel
+                    active={orderBy === 'name'}
+                    direction={orderBy === 'name' ? order : 'asc'}
+                    onClick={() => handleRequestSort('name')}
+                  >
+                    <Typography variant="h6">İsim</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  <TableSortLabel
+                    active={orderBy === 'createAt'}
+                    direction={orderBy === 'createAt' ? order : 'asc'}
+                    onClick={() => handleRequestSort('createAt')}
+                  >
+                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Durum</Typography>
+                  <TableSortLabel
+                    active={orderBy === 'status'}
+                    direction={orderBy === 'status' ? order : 'asc'}
+                    onClick={() => handleRequestSort('status')}
+                  >
+                    <Typography variant="h6">Durum</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>
@@ -614,7 +757,6 @@ const SystemRole = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      {/* Tooltip for IconButtons within Menu (optional, but good for consistency) */}
                       <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                         <IconButton
                           id={`basic-button-${row.id}`}
@@ -636,7 +778,8 @@ const SystemRole = () => {
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -645,7 +788,8 @@ const SystemRole = () => {
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -655,15 +799,17 @@ const SystemRole = () => {
                           </CustomTooltip>
                         )}
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
                           <MenuItem onClick={handleClickOpenOperationModal}>
                             <ListItemIcon>
                               <IconPlus width={18} />
                             </ListItemIcon>
-                            İşlemi Seçin
+                            Operasyon Seçin
                           </MenuItem>
                         </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
                           <MenuItem onClick={handleEditClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -671,7 +817,8 @@ const SystemRole = () => {
                             Düzenlemek
                           </MenuItem>
                         </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
                           <MenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -698,7 +845,7 @@ const SystemRole = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredRoles.length}
+          count={sortedAndFilteredRoles.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

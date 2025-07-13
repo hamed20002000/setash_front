@@ -1,13 +1,14 @@
-// ListAuction.tsx
+// ListTender.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react"; // Added useRef here
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  ToggleButtonGroup, ToggleButton as MuiToggleButton,CircularProgress
+  ToggleButtonGroup, ToggleButton as MuiToggleButton, CircularProgress,
+  TableSortLabel // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -18,7 +19,7 @@ import CustomTextField from '../../components/forms/theme-elements/CustomTextFie
 import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import DeleteAuction from './DeleteAuction';
+import DeleteTender from './DeleteTender';
 
 // --- Imports for API Call ---
 import axios from 'axios';
@@ -27,21 +28,14 @@ import server from '../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// تعریف نوع برای مزایده (Auction)
-interface AuctionType {
+// تعریف نوع برای مزایده (Tender)
+interface TenderType {
   id: number;
   title: string; // نام یا عنوان مزایده
   createAt: string;
   recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
   status: string; // وضعیت متنی
 }
-
-// جدید: تعریف رابط برای پاسخ API get-tenders
-// interface GetTendersApiResponse {
-//   httpStatusCode: number;
-//   data: AuctionType[]; 
-//   message?: string;
-// }
 
 // **StyledToggleButton از SystemRole.tsx کپی شده است**
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -67,12 +61,65 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
   },
 }));
 
+// --- Helper functions for sorting (reused from previous components) ---
+type SortableTenderKeys = keyof TenderType; // In this case, all direct properties are sortable
 
-const ListAuction = () => {
+const descendingComparator = <T, Key extends keyof T>(
+  a: T,
+  b: T,
+  orderBy: Key,
+): number => {
+  const valA = a[orderBy];
+  const valB = b[orderBy];
+
+  if (valB === undefined || valB === null) {
+    return (valA === undefined || valA === null) ? 0 : -1;
+  }
+  if (valA === undefined || valA === null) {
+    return 1;
+  }
+
+  if (typeof valB === 'string' && typeof valA === 'string') {
+    return valB.localeCompare(valA);
+  }
+  if (typeof valB === 'number' && typeof valA === 'number') {
+    return valB - valA;
+  }
+  if (String(valB) < String(valA)) {
+    return -1;
+  }
+  if (String(valB) > String(valA)) {
+    return 1;
+  }
+  return 0;
+};
+
+const getComparator = (
+  order: 'asc' | 'desc',
+  orderBy: SortableTenderKeys,
+): (a: TenderType, b: TenderType) => number => {
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
+};
+
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+  const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+  stabilizedThis.sort((a, b) => {
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1];
+  });
+  return stabilizedThis.map((el) => el[0]);
+};
+// --- End of Helper functions for sorting ---
+
+
+const ListTender = () => {
   const navigate = useNavigate();
 
   const [title, setTitle] = useState<string>(''); // نام یا عنوان مزایده
-  const [auctionsList, setAuctionsList] = useState<AuctionType[]>([]); // تغییر به آرایه خالی برای داده‌های واقعی
+  const [tendersList, setTendersList] = useState<TenderType[]>([]); // تغییر به آرایه خالی برای داده‌های واقعی
   const [editingId, setEditingId] = useState<number | null>(null);
   const [originalTitle, setOriginalTitle] = useState<string>('');
 
@@ -80,12 +127,12 @@ const ListAuction = () => {
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedRowForMenu, setSelectedRowForMenu] = useState<AuctionType | null>(null);
+  const [selectedRowForMenu, setSelectedRowForMenu] = useState<TenderType | null>(null);
 
   const openMenu = Boolean(anchorEl);
 
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [auctionIdToDelete, setAuctionIdToDelete] = useState<number | null>(null);
+  const [tenderIdToDelete, setTenderIdToDelete] = useState<number | null>(null);
 
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -98,8 +145,19 @@ const ListAuction = () => {
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
+  // ✅ Added: State for sorting
+  const [orderBy, setOrderBy] = useState<SortableTenderKeys>('createAt'); // Default sort column
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
 
-  const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: AuctionType) => {
+  // ✅ Added: Ref for the tender title input field
+  const tenderTitleInputRef = useRef<HTMLInputElement>(null);
+
+  // **New states for input validation error**
+  const [titleError, setTitleError] = useState<boolean>(false);
+  const [titleHelperText, setTitleHelperText] = useState<string>('');
+
+
+  const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TenderType) => {
     setAnchorEl(event.currentTarget);
     setSelectedRowForMenu(row);
   };
@@ -111,7 +169,7 @@ const ListAuction = () => {
 
   const handleClickOpenDeleteModal = () => {
     if (selectedRowForMenu) {
-      setAuctionIdToDelete(selectedRowForMenu.id);
+      setTenderIdToDelete(selectedRowForMenu.id);
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
@@ -119,8 +177,8 @@ const ListAuction = () => {
 
   const handleClickCloseDeleteModal = () => {
     setOpenDeleteModal(false);
-    setAuctionIdToDelete(null);
-    getListAuction(); // رفرش لیست مزایده‌ها بعد از حذف
+    setTenderIdToDelete(null);
+    getListTender(); // رفرش لیست مزایده‌ها بعد از حذف
   };
 
   const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -132,11 +190,33 @@ const ListAuction = () => {
     setAlertMessage(null);
   };
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+    };
+  }, [alertMessage]);
+
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setTitle(selectedRowForMenu.title);
       setOriginalTitle(selectedRowForMenu.title);
       setEditingId(selectedRowForMenu.id);
+
+      // **Clear input validation errors when editing**
+      setTitleError(false);
+      setTitleHelperText('');
+
+      // ✅ Added: Scroll to the tender title input and focus
+      setTimeout(() => {
+        tenderTitleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        tenderTitleInputRef.current?.focus();
+      }, 100); // Small delay to ensure DOM update
     }
     handleCloseMenu();
     clearAlert();
@@ -145,15 +225,22 @@ const ListAuction = () => {
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
+    // **Clear input validation errors**
+    setTitleError(false);
+    setTitleHelperText('');
   };
 
-  // --- تابع ایجاد مزایده جدید (با mock data - باید به API متصل شود) ---
-  
- const insertAuction = async () => {
+  // --- تابع ایجاد مزایده جدید ---
+  const insertTender = async () => {
     if (!title.trim()) {
+      setTitleError(true); // Set error state to true
+      setTitleHelperText('Başlık boş olamaz!'); // Set helper text
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
+    setTitleError(false); // Clear error if valid
+    setTitleHelperText(''); // Clear helper text if valid
+
     clearAlert();
     const authToken = localStorage.getItem('authToken');
 
@@ -167,7 +254,7 @@ const ListAuction = () => {
     try {
       const response = await axios.post(
         server.baseurl + server.initialoperations + "create-tender",
-        { title,details:[] },
+        { title, details: [] },
         {
           headers: {
             "Accept": "application/json",
@@ -177,26 +264,37 @@ const ListAuction = () => {
         }
       );
       if (response.data.httpStatusCode === 201) {
-        showAlert('Yeni işlem başarıyla eklendi!', 'success');
+        showAlert('Yeni ihale başarıyla eklendi!', 'success');
         resetFormAndState();
-        getListAuction();
+        getListTender();
       } else {
-        showAlert(response.data.message || 'Yeni işlem eklenirken bir hata oluştu.', 'error');
+        showAlert(response.data.message || 'Yeni ihale eklenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.error("Error inserting operation:", e);
-      showAlert(e.response?.data?.message || 'İşlem eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
+      console.error("Error inserting tender:", e);
+      showAlert(e.response?.data?.message || 'İhale eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   };
-  // --- تابع ویرایش مزایده (با mock data - باید به API متصل شود) ---
-  const editAuction = async () => {
+
+  // --- تابع ویرایش مزایده ---
+  const editTender = async () => {
     if (editingId === null) return;
     if (!title.trim()) {
+      setTitleError(true); // Set error state to true
+      setTitleHelperText('Başlık boş olamaz!'); // Set helper text
       showAlert('Başlık boş olamaz!', 'warning');
       return;
     }
+    setTitleError(false); // Clear error if valid
+    setTitleHelperText(''); // Clear helper text if valid
+
     clearAlert();
 
     if (title === originalTitle) {
@@ -207,51 +305,75 @@ const ListAuction = () => {
 
     setLoadingButton(true);
     try {
-      // این بخش باید با فراخوانی API واقعی جایگزین شود
-      // مثال:
-      // const response = await axios.put(server.baseurl + server.initialoperations + `update-tender/${editingId}`, { title }, {
-      //   headers: { "Authorization": `Bearer ${localStorage.getItem('authToken')}` }
-      // });
-      // if (response.data.httpStatusCode === 200) { ... }
+      // Replace with actual API call
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        showAlert('Lütfen giriş yapın.', 'warning');
+        navigate("/");
+        return;
+      }
+      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender",
+        { id: editingId, newTitle: title }, {
+        headers: {
+          "Accept": "application/json",
+          'Content-Type': 'application/json',
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
 
-      setAuctionsList(prev => prev.map(a => 
-        a.id === editingId ? { ...a, title: title } : a
-      ));
-
-      showAlert('ihale başarıyla güncellendi!', 'success');
-      resetFormAndState();
-      // getListAuction(); // در صورت استفاده از API واقعی، بعد از موفقیت فراخوانی شود
+      if (response.data.httpStatusCode === 200) {
+        showAlert('İhale başarıyla güncellendi!', 'success');
+        resetFormAndState();
+        getListTender(); // Refresh list after actual API success
+      } else {
+        showAlert(response.data.message || 'İhale güncellenirken bir hata oluştu.', 'error');
+      }
     } catch (e: any) {
-      console.error("Error updating auction:", e);
-      showAlert(e.response?.data?.message || 'ihale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
+      console.error("Error updating tender:", e);
+      showAlert(e.response?.data?.message || 'İhale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   }
 
-  // --- تابع تغییر وضعیت مزایده (فعال/غیرفعال) (با mock data - باید به API متصل شود) ---
+  // --- تابع تغییر وضعیت مزایده (فعال/غیرفعال) ---
   const sendStatusUpdate = async (id: number, statusValue: number) => {
     clearAlert();
     try {
-      // این بخش باید با فراخوانی API واقعی جایگزین شود
-      // مثال:
-      // const response = await axios.put(server.baseurl + server.initialoperations + `update-tender-status/${id}`, { status: statusValue }, {
-      //   headers: { "Authorization": `Bearer ${localStorage.getItem('authToken')}` }
-      // });
-      // if (response.data.httpStatusCode === 200) { ... }
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        showAlert('Lütfen giriş yapın.', 'warning');
+        navigate("/");
+        return;
+      }
 
-      setAuctionsList(prev => prev.map(a => {
-        if (a.id === id) {
-          const newStatusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Etkin değil' : 'Silindi';
-          return { ...a, recordStatus: statusValue, status: newStatusText };
+      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender",
+        { id: id, recordStatus: statusValue }, {
+        headers: {
+          "Accept": "application/json",
+          'Content-Type': 'application/json',
+          "Authorization": `Bearer ${authToken}`
         }
-        return a;
-      }));
+      });
 
-      const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-      showAlert(`ihale başarıyla ${statusText} olarak ayarlandı!`, 'success');
-      // getListAuction(); // در صورت استفاده از API واقعی، بعد از موفقیت فراخوانی شود
+      if (response.data.httpStatusCode === 200) {
+        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        showAlert(`İhale başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        getListTender(); // Refresh list after actual API success
+      } else {
+        showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+      }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating status:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -261,13 +383,13 @@ const ListAuction = () => {
 
   const handleSetActive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 0); // 0 برای Aktif
+      sendStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
     }
   };
 
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 برای Etkin değil
+      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Etkin değil
     }
   };
 
@@ -275,6 +397,9 @@ const ListAuction = () => {
     setTitle('');
     setEditingId(null);
     setOriginalTitle('');
+    // **Clear input validation errors**
+    setTitleError(false);
+    setTitleHelperText('');
   };
 
   const formatDate = (dateString: string): string => {
@@ -291,13 +416,14 @@ const ListAuction = () => {
   };
 
   // --- تابع اصلی دریافت لیست مزایده‌ها از API واقعی ---
- 
-function getListAuction() {
+  function getListTender() {
+    setLoadingData(true); // Start loading
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
       console.warn("No auth token found, redirecting to login.");
       navigate("/");
+      setLoadingData(false); // Stop loading if no token
       return;
     }
 
@@ -315,22 +441,17 @@ function getListAuction() {
           title: item.title,
           recordStatus: item.recordStatus,
           createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
         }));
-        const sortedData = formattedData.sort((a: AuctionType, b: AuctionType) => {
-          const dateA = new Date(a.createAt);
-          const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime();
-        });
-        setAuctionsList(sortedData as AuctionType[]);
+        // Removed initial sorting here, as it will be handled by the new sorting logic
+        setTendersList(formattedData as TenderType[]);
         setLoadingData(false)
       } else {
-        showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
+        showAlert(result.data.message || 'İhale listesi alınırken bir hata oluştu.', 'error');
         setLoadingData(false)
       }
     }).catch((e) => {
-     
-       if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -338,12 +459,13 @@ function getListAuction() {
         console.error("İhale listesi getirilirken hata oluştu:", e);
         showAlert('İhale listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
+      setLoadingData(false); // Stop loading on error
     });
   }
 
 
   useEffect(() => {
-    getListAuction(); // در ابتدا، لیست مزایده‌ها را لود کن
+    getListTender(); // در ابتدا، لیست مزایده‌ها را لود کن
   }, []);
 
   // --- هندلر تغییر فیلتر وضعیت ---
@@ -351,17 +473,25 @@ function getListAuction() {
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
-     console.log(event) // حذف شد چون در production به این log نیازی نیست
     if (newFilter !== null) {
+      console.log(event)
       setStatusFilter(newFilter);
       setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
     }
   };
 
+  // ✅ Added: Handler for changing sort order
+  const handleRequestSort = (property: SortableTenderKeys) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // Reset to first page when sort changes
+  };
+
   const handleChangePage = (
     event: unknown,
     newPage: number) => {
-     console.log(event) // حذف شد
+    console.log(event)
     setPage(newPage);
   };
 
@@ -375,22 +505,25 @@ function getListAuction() {
     setPage(0);
   };
 
-  // فیلتر کردن مزایده‌ها بر اساس جستجو و وضعیت
-  const filteredAndStatusAuctions = auctionsList.filter(auction => {
-    const matchesSearch = auction.title.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filter tenders based on search and status
+  const filteredTenders = tendersList.filter(tender => {
+    const matchesSearch = tender.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === 'all' ||
-      (statusFilter === 'active' && auction.recordStatus === 0) ||
-      (statusFilter === 'inactive' && auction.recordStatus === 1);
+      (statusFilter === 'active' && tender.recordStatus === 0) ||
+      (statusFilter === 'inactive' && tender.recordStatus === 1);
     return matchesSearch && matchesStatus;
   });
 
-  const paginatedAuctions = filteredAndStatusAuctions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // ✅ Apply sorting to filtered data
+  const sortedAndFilteredTenders = stableSort(filteredTenders, getComparator(order, orderBy));
+
+  const paginatedTenders = sortedAndFilteredTenders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
   // --- تابع برای رفتن به صفحه جزئیات مزایده ---
-  const handleGoToDetails = (auctionId: number) => {
-    navigate(`/auction/auction-details/${auctionId}`);
+  const handleGoToDetails = (tenderId: number) => {
+    navigate(`/tender/tender-details/${tenderId}`);
   };
 
 
@@ -403,17 +536,26 @@ function getListAuction() {
       }}>
         <Grid container spacing={1}>
           <Grid item xs={12} sm={1} display="flex" alignItems="center">
-            <CustomFormLabel htmlFor="auction-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+            <CustomFormLabel htmlFor="tender-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
               Başlık
             </CustomFormLabel>
           </Grid>
           <Grid item xs={12} sm={7}>
             <CustomTextField
-              id="auction-title"
+              id="tender-title"
               placeholder="İhale Başlığı"
               fullWidth
               value={title}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setTitle(e.target.value);
+                if (titleError && e.target.value.trim()) { // If there was a previous error and user starts typing
+                  setTitleError(false); // Clear the error
+                  setTitleHelperText(''); // Clear the helper text
+                }
+              }}
+              inputRef={tenderTitleInputRef}
+              error={titleError} 
+              helperText={titleHelperText} 
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -425,11 +567,11 @@ function getListAuction() {
                     <Button
                       variant="contained"
                       color="info"
-                      onClick={editAuction}
+                      onClick={editTender}
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -445,11 +587,11 @@ function getListAuction() {
                     <Button
                       variant="contained"
                       color="success"
-                      onClick={insertAuction}
+                      onClick={insertTender}
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Yeni İhale Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -485,7 +627,7 @@ function getListAuction() {
                 }}
               />
             </Grid>
-            {/* --- فیلتر وضعیت --- */}
+            {/* Status Filter */}
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -497,7 +639,7 @@ function getListAuction() {
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaler göster" : ""}>
                   <StyledToggleButton
                     value="all"
-                    aria-label="all auctions"
+                    aria-label="all tenders"
                   >
                     Tümü
                   </StyledToggleButton>
@@ -505,7 +647,7 @@ function getListAuction() {
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaler göster" : ""}>
                   <StyledToggleButton
                     value="active"
-                    aria-label="active auctions"
+                    aria-label="active tenders"
                   >
                     Aktif
                   </StyledToggleButton>
@@ -513,7 +655,7 @@ function getListAuction() {
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaler göster" : ""}>
                   <StyledToggleButton
                     value="inactive"
-                    aria-label="inactive auctions"
+                    aria-label="inactive tenders"
                   >
                     Etkin Değil
                   </StyledToggleButton>
@@ -529,17 +671,38 @@ function getListAuction() {
           </Stack>
         ) : (
           <TableContainer>
-            <Table aria-label="auction table">
-              <TableHead>
+            <Table aria-label="tender table">
+              <TableHead style={{ background: "#f1f1f1" }}>
                 <TableRow>
                   <TableCell>
-                    <Typography variant="h6">Başlık</Typography>
+                    {/* Sortable Column: Başlık (Title) */}
+                    <TableSortLabel
+                      active={orderBy === 'title'}
+                      direction={orderBy === 'title' ? order : 'asc'}
+                      onClick={() => handleRequestSort('title')}
+                    >
+                      <Typography variant="h6">Başlık</Typography>
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                    {/* Sortable Column: Oluşturulma Tarihi (Creation Date) */}
+                    <TableSortLabel
+                      active={orderBy === 'createAt'}
+                      direction={orderBy === 'createAt' ? order : 'asc'}
+                      onClick={() => handleRequestSort('createAt')}
+                    >
+                      <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="h6">Durum</Typography>
+                    {/* Sortable Column: Durum (Status) */}
+                    <TableSortLabel
+                      active={orderBy === 'status'}
+                      direction={orderBy === 'status' ? order : 'asc'}
+                      onClick={() => handleRequestSort('status')}
+                    >
+                      <Typography variant="h6">Durum</Typography>
+                    </TableSortLabel>
                   </TableCell>
                   <TableCell>
                     <Typography variant="h6">Detaylar</Typography>
@@ -548,8 +711,8 @@ function getListAuction() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {paginatedAuctions.length > 0 ? (
-                  paginatedAuctions.map((row) => (
+                {paginatedTenders.length > 0 ? (
+                  paginatedTenders.map((row) => (
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                       <TableCell>
                         <Stack direction="row" alignItems="center" spacing={2}>
@@ -619,7 +782,8 @@ function getListAuction() {
                           }}
                         >
                           {selectedRowForMenu?.recordStatus === 0 ? (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale pasif yap" : ""}>
+                            <CustomTooltip placement="left"
+                              title={isTooltipGloballyEnabled ? "Bu ihale pasif yap" : ""}>
                               <MenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
@@ -628,7 +792,8 @@ function getListAuction() {
                               </MenuItem>
                             </CustomTooltip>
                           ) : (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale aktif yap" : ""}>
+                            <CustomTooltip placement="left"
+                              title={isTooltipGloballyEnabled ? "Bu ihale aktif yap" : ""}>
                               <MenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
@@ -637,7 +802,8 @@ function getListAuction() {
                               </MenuItem>
                             </CustomTooltip>
                           )}
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale düzenle" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu ihale düzenle" : ""}>
                             <MenuItem onClick={handleEditClick}>
                               <ListItemIcon>
                                 <IconEdit width={18} />
@@ -645,7 +811,8 @@ function getListAuction() {
                               Düzenlemek
                             </MenuItem>
                           </CustomTooltip>
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale sil" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu ihale sil" : ""}>
                             <MenuItem onClick={handleClickOpenDeleteModal}>
                               <ListItemIcon>
                                 <IconTrash width={18} />
@@ -674,7 +841,7 @@ function getListAuction() {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredAndStatusAuctions.length}
+          count={sortedAndFilteredTenders.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}
@@ -684,15 +851,15 @@ function getListAuction() {
         />
       </BlankCard>
 
-      <DeleteAuction
+      <DeleteTender
         openModal={openDeleteModal}
         onClose={handleClickCloseDeleteModal}
-        auctionIdToDelete={auctionIdToDelete}
-        onDeleteSuccess={getListAuction}
+        tenderIdToDelete={tenderIdToDelete}
+        onDeleteSuccess={getListTender}
         showAlert={showAlert}
       />
     </>
   );
 };
 
-export default ListAuction;
+export default ListTender;

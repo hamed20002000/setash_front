@@ -86,9 +86,10 @@ debugger
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            Eğer silerseniz, geri almanın bir yolu yoktur.
-            Kaydı silmek istediğinizden eminseniz, **Silmek** düğmesine tıklayın.
-          </DialogContentText>
+                      Eğer silerseniz, geri almanın bir yolu yoktur.
+                      Kaydı silmek istediğinizden eminseniz, 
+                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
+                    </DialogContentText>
         </DialogContent>
         <DialogActions>
           <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>

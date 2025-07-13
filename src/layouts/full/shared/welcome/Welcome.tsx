@@ -32,6 +32,7 @@ const Welcome = () => {
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         autoHideDuration={6000}
         onClose={handleClose}
+        style={{top:"10%"}}
       >
         <Alert
           onClose={handleClose}

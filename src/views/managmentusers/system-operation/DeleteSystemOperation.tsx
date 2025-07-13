@@ -46,7 +46,7 @@ const DeleteSystemOperation = ({ openModal, rowIdToDelete, onClose, onDeleteSucc
       navigate("/");
       return;
     }
-
+debugger
     setLoading(true);
     try {
       const response = await axios.delete(
@@ -91,9 +91,10 @@ const DeleteSystemOperation = ({ openModal, rowIdToDelete, onClose, onDeleteSucc
           {"Bu kaydı silmek istediğinizden emin misiniz?"}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="alert-dialog-description">
+           <DialogContentText id="alert-dialog-description">
             Eğer silerseniz, geri almanın bir yolu yoktur.
-            Kaydı silmek istediğinizden eminseniz, **Silmek** düğmesine tıklayın.
+            Kaydı silmek istediğinizden eminseniz, 
+            <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
           </DialogContentText>
         </DialogContent>
         <DialogActions>

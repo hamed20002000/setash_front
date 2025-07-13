@@ -215,7 +215,7 @@ const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAle
             </IconButton>
           </CustomTooltip>
           <Typography ml={2} flex={1} variant="h6" component="div">
-            Rol için İşlemleri Seçin
+            Rol için Operasyonları Seçin
           </Typography>
           {/* **Tooltip برای دکمه ذخیره (Kaydet)** */}
           <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen operasyonları kaydet" : ""}>

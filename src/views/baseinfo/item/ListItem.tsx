@@ -5,9 +5,8 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from "react"
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Typography, Chip, Menu, 
-  // MenuItem,
-   IconButton, ListItemIcon, Box,
+  Typography, Chip, Menu,
+  IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
   TextField, CircularProgress, FormControl, InputLabel, Select,
   MenuItem as MuiMenuItem,
@@ -15,6 +14,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   List,
   ListItemText,
+  TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -57,7 +57,7 @@ interface ItemType {
     recordStatus: number;
     createAt: string;
   };
-  status?: string;
+  status?: string; // This property is derived, ensure it can be sorted if needed
 }
 
 interface UnitOptionType {
@@ -265,6 +265,76 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
   );
 };
 
+type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title';
+
+const descendingComparator = <T,>(
+  a: T,
+  b: T,
+  orderBy: SortableItemKeys, // Use the new SortableItemKeys type
+): number => {
+  let valA: any;
+  let valB: any;
+
+  // Logic to handle nested property access
+  if (orderBy === 'category.name') {
+    valA = (a as ItemType).category?.name;
+    valB = (b as ItemType).category?.name;
+  } else if (orderBy === 'unit.title') {
+    valA = (a as ItemType).unit?.title;
+    valB = (b as ItemType).unit?.title;
+  } else {
+    // For top-level properties, use direct access
+    valA = a[orderBy as keyof T]; // Cast orderBy back to keyof T for direct access
+    valB = b[orderBy as keyof T];
+  }
+
+  // Handle undefined or null values first.
+  if (valB === undefined || valB === null) {
+    return (valA === undefined || valA === null) ? 0 : -1;
+  }
+  if (valA === undefined || valA === null) {
+    return 1;
+  }
+
+  // Perform comparison based on the actual type of the values.
+  if (typeof valB === 'string' && typeof valA === 'string') {
+    return valB.localeCompare(valA);
+  }
+  if (typeof valB === 'number' && typeof valA === 'number') {
+    return valB - valA;
+  }
+
+  // Fallback to string comparison for other types or mixed types
+  if (String(valB) < String(valA)) {
+    return -1;
+  }
+  if (String(valB) > String(valA)) {
+    return 1;
+  }
+  return 0;
+};
+
+// getComparator needs to be updated to use the new SortableItemKeys
+const getComparator = (
+  order: 'asc' | 'desc',
+  orderBy: SortableItemKeys, // Use SortableItemKeys here
+): (a: ItemType, b: ItemType) => number => {
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
+};
+
+// stableSort remains largely the same, as it's a generic utility
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+  const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+  stabilizedThis.sort((a, b) => {
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1]; // Maintain stable sort for equal elements
+  });
+  return stabilizedThis.map((el) => el[0]);
+};
+
 
 const ListItemComponent = () => {
   const navigate = useNavigate();
@@ -313,6 +383,25 @@ const ListItemComponent = () => {
 
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  // type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title'; // This is already defined outside
+  // ✅ Added: State for sorting
+  const [orderBy, setOrderBy] = useState<SortableItemKeys>('createAt'); // Use the new type here
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+
+  // ✅ Added: Ref for the item name input field
+  const itemNameInputRef = useRef<HTMLInputElement>(null);
+
+  // **New states for input validation errors**
+  const [nameError, setNameError] = useState<boolean>(false);
+  const [nameHelperText, setNameHelperText] = useState<string>('');
+  const [unitIdError, setUnitIdError] = useState<boolean>(false);
+  const [unitIdHelperText, setUnitIdHelperText] = useState<string>('');
+  const [categoryIdError, setCategoryIdError] = useState<boolean>(false);
+  const [categoryIdHelperText, setCategoryIdHelperText] = useState<string>('');
+  const [abbreviationError, setAbbreviationError] = useState<boolean>(false);
+  const [abbreviationHelperText, setAbbreviationHelperText] = useState<string>('');
+  const [descriptionError, setDescriptionError] = useState<boolean>(false);
+  const [descriptionHelperText, setDescriptionHelperText] = useState<string>('');
 
 
   const categoryTreeForSelect = useMemo(() => {
@@ -323,7 +412,9 @@ const ListItemComponent = () => {
   const handleToggleCategorySelection = useCallback((categoryId: string, isChecked: boolean) => {
     if (isChecked) {
       setSelectedCategoryId(categoryId);
-      // const selectedCat = allCategoriesFlat.find(cat => cat.id === categoryId);
+      // Clear error when a category is selected
+      setCategoryIdError(false);
+      setCategoryIdHelperText('');
     } else {
       setSelectedCategoryId(null);
     }
@@ -344,7 +435,7 @@ const ListItemComponent = () => {
     setSelectedRowForMenu(null);
   };
 
- 
+
 
   const handleClickOpenDeleteModal = () => {
     if (selectedRowForMenu) {
@@ -370,6 +461,18 @@ const ListItemComponent = () => {
     setAlertMessage(null);
   };
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+    };
+  }, [alertMessage]);
+
   const resetFormAndState = () => {
     setName('');
     setSelectedUnitId(null);
@@ -380,6 +483,18 @@ const ListItemComponent = () => {
     setUnitSearchTerm('');
     setCategorySearchTerm('');
     clearAlert();
+
+    // **Clear all validation error states**
+    setNameError(false);
+    setNameHelperText('');
+    setUnitIdError(false);
+    setUnitIdHelperText('');
+    setCategoryIdError(false);
+    setCategoryIdHelperText('');
+    setAbbreviationError(false);
+    setAbbreviationHelperText('');
+    setDescriptionError(false);
+    setDescriptionHelperText('');
   };
 
   const handleEditClick = () => {
@@ -391,6 +506,24 @@ const ListItemComponent = () => {
       setAbbreviation(selectedRowForMenu.abbreviation);
       setDescription(selectedRowForMenu.description);
       setEditingId(selectedRowForMenu.id);
+
+      // **Clear all validation error states when editing**
+      setNameError(false);
+      setNameHelperText('');
+      setUnitIdError(false);
+      setUnitIdHelperText('');
+      setCategoryIdError(false);
+      setCategoryIdHelperText('');
+      setAbbreviationError(false);
+      setAbbreviationHelperText('');
+      setDescriptionError(false);
+      setDescriptionHelperText('');
+
+      // ✅ Added: Scroll to the item name input and focus
+      setTimeout(() => {
+        itemNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        itemNameInputRef.current?.focus();
+      }, 100); // Small delay to ensure DOM update
     }
     handleCloseMenu();
     clearAlert();
@@ -402,14 +535,68 @@ const ListItemComponent = () => {
   };
 
   const insertItem = async () => {
-    if (!name.trim() || selectedUnitId === null || selectedCategoryId === null || !abbreviation.trim() || !description.trim()) {
-      showAlert('Tüm zorunlu alanları doldurun!', 'warning');
+    let hasError = false;
+
+    // Validate Name
+    if (!name.trim()) {
+      setNameError(true);
+      setNameHelperText('Ürün adı boş bırakılamaz!');
+      hasError = true;
+    } else {
+      setNameError(false);
+      setNameHelperText('');
+    }
+
+    // Validate Unit
+    if (selectedUnitId === null) {
+      setUnitIdError(true);
+      setUnitIdHelperText('Birim seçilmelidir!');
+      hasError = true;
+    } else {
+      setUnitIdError(false);
+      setUnitIdHelperText('');
+    }
+
+    // Validate Category
+    if (selectedCategoryId === null) {
+      setCategoryIdError(true);
+      setCategoryIdHelperText('Kategori seçilmelidir!');
+      hasError = true;
+    } else {
+      setCategoryIdError(false);
+      setCategoryIdHelperText('');
+    }
+
+    // Validate Abbreviation
+    if (!abbreviation.trim()) {
+      setAbbreviationError(true);
+      setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
+      hasError = true;
+    } else if (abbreviation.length !== 4) {
+      setAbbreviationError(true);
+      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
+      hasError = true;
+    } else {
+      setAbbreviationError(false);
+      setAbbreviationHelperText('');
+    }
+
+    // Validate Description
+    // if (!description.trim() || description === '<p><br></p>') { // Check for empty or just a line break from Quill
+    //   setDescriptionError(true);
+    //   setDescriptionHelperText('Açıklama boş bırakılamaz!');
+    //   hasError = true;
+    // } else {
+    //   setDescriptionError(false);
+    //   setDescriptionHelperText('');
+    // }
+
+
+    if (hasError) {
+      showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
-    if (abbreviation.length !== 4) {
-      showAlert('Kısaltma 4 karakter olmalıdır!', 'warning');
-      return;
-    }
+
     clearAlert();
     setLoadingButton(true);
 
@@ -421,7 +608,7 @@ const ListItemComponent = () => {
       setLoadingButton(false);
       return;
     }
-debugger
+    debugger
     try {
       const response = await axios.post(server.baseurl + server.baseinfo + "create-item", // API endpoint for creation
         {
@@ -434,6 +621,7 @@ debugger
         {
           headers: {
             "Accept": "application/json",
+            'Content-Type': 'application/json',
             "Authorization": `Bearer ${authToken}`
           }
         }
@@ -454,7 +642,7 @@ debugger
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error inserting item:", e);
-        showAlert('Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        showAlert(e.response?.data?.message || 'Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     } finally {
       setLoadingButton(false);
@@ -462,19 +650,73 @@ debugger
   };
 
   const editItem = async () => {
-    if (!name.trim() || selectedUnitId === null || selectedCategoryId === null || !abbreviation.trim() || !description.trim()) {
-      showAlert('Tüm zorunlu alanları doldurun!', 'warning');
+    let hasError = false;
+
+    // Validate Name
+    if (!name.trim()) {
+      setNameError(true);
+      setNameHelperText('Ürün adı boş bırakılamaz!');
+      hasError = true;
+    } else {
+      setNameError(false);
+      setNameHelperText('');
+    }
+
+    // Validate Unit
+    if (selectedUnitId === null) {
+      setUnitIdError(true);
+      setUnitIdHelperText('Birim seçilmelidir!');
+      hasError = true;
+    } else {
+      setUnitIdError(false);
+      setUnitIdHelperText('');
+    }
+
+    // Validate Category
+    if (selectedCategoryId === null) {
+      setCategoryIdError(true);
+      setCategoryIdHelperText('Kategori seçilmelidir!');
+      hasError = true;
+    } else {
+      setCategoryIdError(false);
+      setCategoryIdHelperText('');
+    }
+
+    // Validate Abbreviation
+    if (!abbreviation.trim()) {
+      setAbbreviationError(true);
+      setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
+      hasError = true;
+    } else if (abbreviation.length !== 4) {
+      setAbbreviationError(true);
+      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
+      hasError = true;
+    } else {
+      setAbbreviationError(false);
+      setAbbreviationHelperText('');
+    }
+
+    // Validate Description
+    // if (!description.trim() || description === '<p><br></p>') {
+    //   setDescriptionError(true);
+    //   setDescriptionHelperText('Açıklama boş bırakılamaz!');
+    //   hasError = true;
+    // } else {
+    //   setDescriptionError(false);
+    //   setDescriptionHelperText('');
+    // }
+
+    if (hasError) {
+      showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
-    if (abbreviation.length !== 4) {
-      showAlert('Kısaltma 4 karakter olmalıdır!', 'warning');
+
+    if (name === originalName && selectedUnitId === selectedRowForMenu?.unit.id && selectedCategoryId === selectedRowForMenu?.category.id && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description) {
+      showAlert('Herhangi bir değişiklik yapmadınız.', 'info');
+      resetFormAndState();
       return;
     }
-    if (name === originalName) {
-        showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
-        resetFormAndState();
-        return;
-      }
+
     clearAlert();
     setLoadingButton(true);
 
@@ -486,12 +728,12 @@ debugger
       setLoadingButton(false);
       return;
     }
-debugger
+    debugger
     try {
       const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // API endpoint for creation
         {
           id: Number(editingId),
-          newName:name,
+          newName: name,
           description,
           abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
@@ -506,11 +748,11 @@ debugger
       );
 
       if (response.data && response.data.success) {
-        showAlert('Yeni ürün başarıyla eklendi!', 'success');
+        showAlert('Ürün başarıyla güncellendi!', 'success');
         resetFormAndState();
         getListItem(); // Refresh list after successful creation
       } else {
-        showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');
+        showAlert(response.data.message || 'Ürün güncellenirken bir hata oluştu.', 'error');
       }
 
     } catch (e: any) {
@@ -520,7 +762,7 @@ debugger
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.log("Error inserting item:", e);
-        showAlert('Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        showAlert(e.response?.data?.message || 'Ürün güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     } finally {
       setLoadingButton(false);
@@ -542,7 +784,7 @@ debugger
       // Replace with actual API call to update item status
       const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // Assuming update status endpoint
         {
-          id:Number(id),
+          id: Number(id),
           recordStatus: statusValue
         },
         {
@@ -568,7 +810,7 @@ debugger
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error updating status:", e);
-        showAlert('Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     } finally {
       handleCloseMenu();
@@ -689,28 +931,30 @@ debugger
           name: item.name,
           description: item.description,
           abbreviation: item.abbreviation,
-          recordStatus: item.recordStatus,
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0, // Provide a default
+
           createAt: item.createAt,
           category: {
             id: item.category.id,
             name: item.category.name,
             depth: item.category.depth,
             createAt: item.category.createAt,
-            recordStatus: item.category.recordStatus,
+            // recordStatus: item.category.recordStatus,
+            recordStatus: item.category.recordStatus !== undefined && item.category.recordStatus !== null ? item.category.recordStatus : 0, // Provide a default
+
           },
           unit: {
             id: item.unit.id,
             title: item.unit.title,
-            recordStatus: item.unit.recordStatus,
+            // recordStatus: item.unit.recordStatus,
+            recordStatus: item.unit.recordStatus !== undefined && item.unit.recordStatus !== null ? item.unit.recordStatus : 0, // Provide a default
+
             createAt: item.unit.createAt,
           },
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
         }));
-        setItemsList(processedData.sort((a: ItemType, b: ItemType) => {
-          const dateA = new Date(a.createAt);
-          const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime();
-        }));
+        // Removed initial sorting here, as it will be handled by the new sorting logic
+        setItemsList(processedData as ItemType[]);
       } else {
         console.error("Failed to fetch items:", response.data.message);
         showAlert('Ürünler yüklenmedi.', 'error');
@@ -719,7 +963,7 @@ debugger
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkinز yok. Lütfen tekrar giriş yapın.', 'error');
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error fetching items:", e);
         showAlert('Ürünler sunucudan alınamadı', 'error');
@@ -742,7 +986,7 @@ debugger
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
-      console.log(event)
+    console.log(event)
     if (newFilter !== null) {
       setStatusFilter(newFilter);
       setPage(0);
@@ -750,9 +994,9 @@ debugger
   };
 
   const handleChangePage = (
-    event: unknown, 
+    event: unknown,
     newPage: number) => {
-      console.log(event)
+    console.log(event)
     setPage(newPage);
   };
 
@@ -778,8 +1022,16 @@ debugger
     setCategorySearchTerm(event.target.value);
   };
 
+  // ✅ Added: Handler for changing sort order
+  const handleRequestSort = (property: keyof ItemType | 'category.name' | 'unit.title') => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // Reset to first page when sort changes
+  };
 
-  const filteredAndStatusItems = itemsList.filter(item => {
+
+  const filteredItems = itemsList.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.abbreviation.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.unit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -791,7 +1043,9 @@ debugger
     return matchesSearch && matchesStatus;
   });
 
-  const paginatedItems = filteredAndStatusItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const sortedAndFilteredItems = stableSort(filteredItems, getComparator(order, orderBy));
+
+  const paginatedItems = sortedAndFilteredItems.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
   const handleOpenDescriptionModal = (descriptionContent: string) => {
@@ -821,21 +1075,36 @@ debugger
               placeholder="Ürün Adı"
               fullWidth
               value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
+                  setNameError(false); // Clear the error
+                  setNameHelperText(''); // Clear the helper text
+                }
+              }}
+              inputRef={itemNameInputRef}
+              error={nameError}
+              helperText={nameHelperText}
             />
           </Grid>
           {/* Unit Selection (with search) */}
           <Grid item xs={12} md={6}>
             <CustomFormLabel htmlFor="select-unit">Birim</CustomFormLabel>
             {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
-            <FormControl fullWidth>
+            <FormControl fullWidth error={unitIdError}> 
               <InputLabel id="select-unit-label">Birim Seçin</InputLabel>
               <Select
                 labelId="select-unit-label"
                 id="select-unit"
                 value={selectedUnitId || ''}
                 label="Birim Seçin"
-                onChange={(e) => setSelectedUnitId(e.target.value as string)}
+                onChange={(e) => {
+                  setSelectedUnitId(e.target.value as string);
+                  if (unitIdError) { // Clear error when a unit is selected
+                    setUnitIdError(false);
+                    setUnitIdHelperText('');
+                  }
+                }}
                 MenuProps={{
                   sx: { maxHeight: 300 },
                 }}
@@ -876,6 +1145,7 @@ debugger
                   <MuiMenuItem disabled>Hiç birim bulunamadı.</MuiMenuItem>
                 )}
               </Select>
+              {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>} {/* **Display helper text** */}
             </FormControl>
             {/* </CustomTooltip> */}
           </Grid>
@@ -883,7 +1153,7 @@ debugger
           <Grid item xs={12} md={6}>
             <CustomFormLabel htmlFor="select-category">Kategori</CustomFormLabel>
             {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Kategorileri seçmek için tıklayın" : ""}> */}
-            <FormControl fullWidth>
+            <FormControl fullWidth error={categoryIdError}> {/* **Added error prop to FormControl** */}
               <InputLabel id="select-category-label">Kategori Seçin</InputLabel>
               <Select
                 labelId="select-category-label"
@@ -895,6 +1165,7 @@ debugger
                 onChange={(event) => {
                   const newValue = event.target.value as string;
                   handleToggleCategorySelection(newValue, true);
+                  // Error clearing for category is handled inside handleToggleCategorySelection via useCallback
                 }}
                 renderValue={(selected: any) => {
                   const category = allCategoriesFlat.find(cat => cat.id === selected);
@@ -946,6 +1217,7 @@ debugger
                   <MuiMenuItem disabled>Hiç kategori bulunamadı.</MuiMenuItem>
                 )}
               </Select>
+              {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{categoryIdHelperText}</Typography>} {/* **Display helper text** */}
             </FormControl>
             {/* </CustomTooltip> */}
           </Grid>
@@ -958,8 +1230,16 @@ debugger
                 placeholder="Kısaltma"
                 fullWidth
                 value={abbreviation}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAbbreviation(e.target.value.substring(0, 4))}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setAbbreviation(e.target.value.substring(0, 4));
+                  if (abbreviationError && e.target.value.trim() && e.target.value.length === 4) {
+                    setAbbreviationError(false);
+                    setAbbreviationHelperText('');
+                  }
+                }}
                 inputProps={{ maxLength: 4 }}
+                error={abbreviationError} 
+                helperText={abbreviationHelperText} 
               />
             </CustomTooltip>
           </Grid>
@@ -969,7 +1249,13 @@ debugger
             <ReactQuill
               theme="snow"
               value={description}
-              onChange={setDescription}
+              onChange={(value) => {
+                setDescription(value);
+                if (descriptionError && value.trim() && value !== '<p><br></p>') {
+                  setDescriptionError(false);
+                  setDescriptionHelperText('');
+                }
+              }}
               placeholder="Ürün açıklamasını girin..."
               modules={{
                 toolbar: [
@@ -984,8 +1270,10 @@ debugger
                 'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
                 'list', 'bullet', 'link', 'image'
               ]}
-              style={{ height: '150px', marginBottom: '40px' }}
+              style={{ height: '150px', marginBottom: '40px', border: descriptionError ? '1px solid red' : undefined }} // **Apply red border for description error**
             />
+            {descriptionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{descriptionHelperText}</Typography>} {/* **Display helper text** */}
+
           </Grid>
 
           {/* Form Buttons */}
@@ -1001,7 +1289,7 @@ debugger
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -1021,7 +1309,7 @@ debugger
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Yeni Ürün Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -1096,28 +1384,70 @@ debugger
         </Box>
         <TableContainer>
           <Table aria-label="item table">
-            <TableHead>
+            <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
                 <TableCell>
-                  <Typography variant="h6">Ürün Adı</Typography>
+                  {/* Sortable Column: Ürün Adı */}
+                  <TableSortLabel
+                    active={orderBy === 'name'}
+                    direction={orderBy === 'name' ? order : 'asc'}
+                    onClick={() => handleRequestSort('name')}
+                  >
+                    <Typography variant="h6">Ürün Adı</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Birim</Typography>
+                  {/* Sortable Column: Birim */}
+                  <TableSortLabel
+                    active={orderBy === 'unit.title'} // Sorting by nested property 'unit.title'
+                    direction={orderBy === 'unit.title' ? order : 'asc'}
+                    onClick={() => handleRequestSort('unit.title')}
+                  >
+                    <Typography variant="h6">Birim</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Kategori</Typography>
+                  {/* Sortable Column: Kategori */}
+                  <TableSortLabel
+                    active={orderBy === 'category.name'} // Sorting by nested property 'category.name'
+                    direction={orderBy === 'category.name' ? order : 'asc'}
+                    onClick={() => handleRequestSort('category.name')}
+                  >
+                    <Typography variant="h6">Kategori</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Kısaltma</Typography>
+                  {/* Sortable Column: Kısaltma */}
+                  <TableSortLabel
+                    active={orderBy === 'abbreviation'}
+                    direction={orderBy === 'abbreviation' ? order : 'asc'}
+                    onClick={() => handleRequestSort('abbreviation')}
+                  >
+                    <Typography variant="h6">Kısaltma</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Açıklama</Typography>
+                  <Typography variant="h6">Açıklama</Typography> {/* Description is not easily sortable */}
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  {/* Sortable Column: Oluşturulma Tarihi */}
+                  <TableSortLabel
+                    active={orderBy === 'createAt'}
+                    direction={orderBy === 'createAt' ? order : 'asc'}
+                    onClick={() => handleRequestSort('createAt')}
+                  >
+                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Durum</Typography>
+                  {/* Sortable Column: Durum */}
+                  <TableSortLabel
+                    active={orderBy === 'status'}
+                    direction={orderBy === 'status' ? order : 'asc'}
+                    onClick={() => handleRequestSort('status')}
+                  >
+                    <Typography variant="h6">Durum</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>
@@ -1128,7 +1458,7 @@ debugger
                   <TableCell colSpan={8} align="center">
                     <CircularProgress />
                     <Typography variant="subtitle1" color="textSecondary">
-                      محصولات در حال بارگیری هستند...
+                      Ürünler yükleniyor...
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -1210,7 +1540,8 @@ debugger
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ürünü pasif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu ürünü pasif yap" : ""}>
                             <MuiMenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -1219,7 +1550,8 @@ debugger
                             </MuiMenuItem>
                           </CustomTooltip>
                         ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ürünü aktif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu ürünü aktif yap" : ""}>
                             <MuiMenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -1228,7 +1560,8 @@ debugger
                             </MuiMenuItem>
                           </CustomTooltip>
                         )}
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ürünü düzenle" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu ürünü düzenle" : ""}>
                           <MuiMenuItem onClick={handleEditClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -1236,7 +1569,8 @@ debugger
                             Düzenlemek
                           </MuiMenuItem>
                         </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ürünü sil" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu ürünü sil" : ""}>
                           <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -1263,7 +1597,7 @@ debugger
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredAndStatusItems.length}
+          count={sortedAndFilteredItems.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

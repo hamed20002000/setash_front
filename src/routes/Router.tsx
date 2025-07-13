@@ -45,8 +45,8 @@ const ListUsers=Loadable(lazy(()=> import('../views/managmentusers/list-users/Li
 const ListCategory=Loadable(lazy(()=> import('../views/baseinfo/category/ListCategory')));
 const ListUnit=Loadable(lazy(()=> import('../views/baseinfo/unit/ListUnit')));
 const ListItem=Loadable(lazy(()=> import('../views/baseinfo/item/ListItem')));
-const ListAuction=Loadable(lazy(()=> import('../views/auction/ListAuction')));
-const AuctionDetails=Loadable(lazy(()=> import('../views/auction/AuctionDetails')));
+const ListAuction=Loadable(lazy(()=> import('../views/tender/ListTender')));
+const AuctionDetails=Loadable(lazy(()=> import('../views/tender/TenderDetails')));
 
 // ui components
 const MuiAlert = Loadable(lazy(() => import('../views/ui-components/MuiAlert')));
@@ -144,8 +144,8 @@ const Router = [
       { path: '/baseinfo/list-categories', element: <ListCategory /> },
       { path: '/baseinfo/list-units', element: <ListUnit /> },
       { path: '/baseinfo/list-items', element: <ListItem /> },
-      { path: '/auction/list-auction', element: <ListAuction /> },
-      { path: '/auction/auction-details/:auctionId', element: <AuctionDetails /> },
+      { path: '/tender/list-tender', element: <ListAuction /> },
+      { path: '/tender/tender-details/:auctionId', element: <AuctionDetails /> },
 
 
 

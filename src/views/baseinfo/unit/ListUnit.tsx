@@ -1,14 +1,14 @@
 // ListUnit.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react"; // Added useRef here
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  // CircularProgress,
   ToggleButtonGroup, ToggleButton,
+  TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
 
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -34,6 +34,61 @@ interface UnitType {
 }
 
 const MOCK_UNITS: UnitType[] = [];
+
+// Helper functions for sorting - placed outside the component for reusability
+// توابع کمکی برای مرتب‌سازی - خارج از کامپوننت برای قابلیت استفاده مجدد
+const descendingComparator = <T, Key extends keyof T>(
+  a: T,
+  b: T,
+  orderBy: Key,
+): number => {
+  const valA = a[orderBy];
+  const valB = b[orderBy];
+
+  // Handle undefined/null values by pushing them to the end (or beginning) of the sort order
+  if (valB === undefined || valB === null) {
+    return valA === undefined || valA === null ? 0 : -1;
+  }
+  if (valA === undefined || valA === null) {
+    return 1;
+  }
+
+  // Specific handling for string and number types
+  if (typeof valB === 'string' && typeof valA === 'string') {
+    return valB.localeCompare(valA);
+  }
+  if (typeof valB === 'number' && typeof valA === 'number') {
+    return valB - valA;
+  }
+  // Fallback to string comparison for other types or mixed types
+  if (String(valB) < String(valA)) {
+    return -1;
+  }
+  if (String(valB) > String(valA)) {
+    return 1;
+  }
+  return 0;
+};
+
+const getComparator = <Key extends keyof UnitType>( // Here, we use UnitType
+  order: 'asc' | 'desc',
+  orderBy: Key,
+): (a: UnitType, b: UnitType) => number => { // And here, UnitType
+  return order === 'desc'
+    ? (a, b) => descendingComparator(a, b, orderBy)
+    : (a, b) => -descendingComparator(a, b, orderBy);
+};
+
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+  const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+  stabilizedThis.sort((a, b) => {
+    const order = comparator(a[0], b[0]);
+    if (order !== 0) return order;
+    return a[1] - b[1];
+  });
+  return stabilizedThis.map((el) => el[0]);
+};
+
 
 const ListUnit = () => {
   const navigate = useNavigate();
@@ -63,6 +118,17 @@ const ListUnit = () => {
   const { isTooltipGloballyEnabled } = useTooltip();
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  // ✅ Added: State for sorting
+  const [orderBy, setOrderBy] = useState<keyof UnitType>('createAt'); // Default sort column
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
+
+  // ✅ Added: Ref for the unit name input field
+  const unitNameInputRef = useRef<HTMLInputElement>(null);
+
+  // **New states for input validation error**
+  const [nameError, setNameError] = useState<boolean>(false);
+  const [nameHelperText, setNameHelperText] = useState<string>('');
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: UnitType) => {
@@ -98,11 +164,34 @@ const ListUnit = () => {
     setAlertMessage(null);
   };
 
+  // useEffect for auto-closing Alert
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+    };
+  }, [alertMessage]);
+
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setOriginalName(selectedRowForMenu.name);
       setEditingId(selectedRowForMenu.id);
+
+      // **Clear input validation errors when editing**
+      setNameError(false);
+      setNameHelperText('');
+
+      // ✅ Added: Scroll to the unit name input and focus
+      setTimeout(() => {
+        unitNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        unitNameInputRef.current?.focus();
+      }, 100); // Small delay to ensure DOM update
     }
     handleCloseMenu();
     clearAlert();
@@ -111,109 +200,131 @@ const ListUnit = () => {
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
+    // **Clear input validation errors**
+    setNameError(false);
+    setNameHelperText('');
   };
 
-   const insertUnit = async () => {
-      if (!name.trim()) {
-        showAlert('İsim boş olamaz!', 'warning');
-        return;
-      }
-      clearAlert();
-      const authToken = localStorage.getItem('authToken');
-  
-      if (!authToken) {
-        console.warn("No auth token found, redirecting to login.");
-        navigate("/");
-        return;
-      }
-  
-      setLoadingButton(true);
-      try {
-        const response = await axios.post(
-          server.baseurl + server.baseinfo + "create-item-unit",
-          { title:name },
-          {
-            headers: {
-              "Accept": "application/json",
-              'Content-Type': 'application/json',
-              "Authorization": `Bearer ${authToken}`
-            }
+  const insertUnit = async () => {
+    if (!name.trim()) {
+      setNameError(true); // Set error state to true
+      setNameHelperText('Birim adı boş olamaz!'); // Set helper text
+      showAlert('İsim boş olamaz!', 'warning');
+      return;
+    }
+    setNameError(false); // Clear error if valid
+    setNameHelperText(''); // Clear helper text if valid
+
+    clearAlert();
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
+      return;
+    }
+
+    setLoadingButton(true);
+    try {
+      const response = await axios.post(
+        server.baseurl + server.baseinfo + "create-item-unit",
+        { title: name },
+        {
+          headers: {
+            "Accept": "application/json",
+            'Content-Type': 'application/json',
+            "Authorization": `Bearer ${authToken}`
           }
-        );
-        if (response.data.httpStatusCode === 201) {
-          showAlert('Yeni işlem başarıyla eklendi!', 'success');
-          resetFormAndState();
-          getListUnit();
-        } else {
-          showAlert(response.data.message || 'Yeni işlem eklenirken bir hata oluştu.', 'error');
         }
-      } catch (e: any) {
-        console.error("Error inserting operation:", e);
-        showAlert(e.response?.data?.message || 'İşlem eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-      } finally {
-        setLoadingButton(false);
+      );
+      if (response.data.httpStatusCode === 201) {
+        showAlert('Yeni birim başarıyla eklendi!', 'success');
+        resetFormAndState();
+        getListUnit();
+      } else {
+        showAlert(response.data.message || 'Yeni birim eklenirken bir hata oluştu.', 'error');
       }
-    };
-  
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
+      console.error("Error inserting unit:", e);
+      showAlert(e.response?.data?.message || 'Birim eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      setLoadingButton(false);
+    }
+  };
 
 
   const editUnit = async () => {
-      if (editingId === null) return;
-      if (!name.trim()) {
-        showAlert('İsim boş olamaz!', 'warning');
-        return;
-      }
-      clearAlert();
-  
-      if (name === originalName) {
-        showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
-        resetFormAndState();
-        return;
-      }
-  
-      const authToken = localStorage.getItem('authToken');
-  
-      if (!authToken) {
-        showAlert('Lütfen giriş yapın.', 'warning');
-        navigate("/");
-        return;
-      }
-  
-      setLoadingButton(true);
-      try {
-        const response = await axios.put(
-          server.baseurl + server.baseinfo + "update-item-unit",
-          { id: Number(editingId), newTitle: name },
-          {
-            headers: {
-              "Accept": "application/json",
-              "Authorization": `Bearer ${authToken}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        if (response.data.httpStatusCode === 200) {
-          showAlert('İşlem başarıyla güncellendi!', 'success');
-          setUnitsList(prevList =>
-            prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
-          );
-          resetFormAndState();
-          getListUnit();
-        } else {
-          showAlert(response.data.message || 'İşlem güncellenirken bir hata oluştu.', 'error');
-        }
-      } catch (e: any) {
-        console.error("Error updating operation:", e);
-        showAlert(e.response?.data?.message || 'İşlem güncellenirken bir hata oluştu, lütfen tekrar deneyین.', 'error');
-      } finally {
-        setLoadingButton(false);
-      }
+    if (editingId === null) return;
+    if (!name.trim()) {
+      setNameError(true); // Set error state to true
+      setNameHelperText('Birim adı boş olamaz!'); // Set helper text
+      showAlert('İsim boş olamaz!', 'warning');
+      return;
+    }
+    setNameError(false); // Clear error if valid
+    setNameHelperText(''); // Clear helper text if valid
+
+    clearAlert();
+
+    if (name === originalName) {
+      showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
+      resetFormAndState();
+      return;
     }
 
- 
- const sendStatusUpdate = async (id: number, statusValue: number) => {
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      showAlert('Lütfen giriş yapın.', 'warning');
+      navigate("/");
+      return;
+    }
+
+    setLoadingButton(true);
+    try {
+      const response = await axios.put(
+        server.baseurl + server.baseinfo + "update-item-unit",
+        { id: Number(editingId), newTitle: name },
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      if (response.data.httpStatusCode === 200) {
+        showAlert('Birim başarıyla güncellendi!', 'success');
+        setUnitsList(prevList =>
+          prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
+        );
+        resetFormAndState();
+        getListUnit();
+      } else {
+        showAlert(response.data.message || 'Birim güncellenirken bir hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
+      console.error("Error updating unit:", e);
+      showAlert(e.response?.data?.message || 'Birim güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      setLoadingButton(false);
+    }
+  }
+
+
+  const sendStatusUpdate = async (id: number, statusValue: number) => {
     clearAlert();
-      debugger
+    debugger
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
@@ -236,13 +347,18 @@ const ListUnit = () => {
 
       if (response.data.httpStatusCode === 200) {
         const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-        showAlert(`İşlem başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        showAlert(`Birim başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListUnit();
         resetFormAndState();
       } else {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating status:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -251,13 +367,13 @@ const ListUnit = () => {
   };
   const handleSetActive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 0); // 0 برای Aktif
+      sendStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
     }
   };
 
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 برای Etkin değil
+      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Etkin değil
     }
   };
 
@@ -265,8 +381,12 @@ const ListUnit = () => {
     setName('');
     setEditingId(null);
     setOriginalName('');
+    // **Clear input validation errors**
+    setNameError(false);
+    setNameHelperText('');
   };
 
+  // already defined, moved to top for clarity
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -280,7 +400,6 @@ const ListUnit = () => {
     }
   };
 
-  
 
   function getListUnit() {
     const authToken = localStorage.getItem('authToken');
@@ -302,17 +421,13 @@ const ListUnit = () => {
       if (result.data.httpStatusCode === 200) {
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
-          name: item.title,
+          name: item.title, // Assuming 'title' from API corresponds to 'name' in UnitType
           recordStatus: item.recordStatus,
           createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
         }));
-        const sortedData = formattedData.sort((a: UnitType, b: UnitType) => {
-          const dateA = new Date(a.createAt);
-          const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime();
-        });
-        setUnitsList(sortedData as UnitType[]);
+        // Removed initial sorting here, as it will be handled by the new sorting logic
+        setUnitsList(formattedData as UnitType[]);
       } else {
         showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
       }
@@ -332,7 +447,6 @@ const ListUnit = () => {
   }, []);
 
   const handleStatusFilterChange = (
-    
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
@@ -343,10 +457,10 @@ const ListUnit = () => {
     }
   };
 
- const handleChangePage = (
-    event: unknown, 
+  const handleChangePage = (
+    event: unknown,
     newPage: number) => {
-      console.log(event)
+    console.log(event)
     setPage(newPage);
   };
 
@@ -360,7 +474,15 @@ const ListUnit = () => {
     setPage(0);
   };
 
-  const filteredAndStatusUnits = unitsList.filter(unit => {
+  // ✅ Added: Handler for changing sort order
+  const handleRequestSort = (property: keyof UnitType) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // Reset to first page when sort changes
+  };
+
+  const filteredUnits = unitsList.filter(unit => {
     const matchesSearch = unit.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === 'all' ||
@@ -369,7 +491,10 @@ const ListUnit = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const paginatedUnits = filteredAndStatusUnits.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // ✅ Apply sorting to filtered data
+  const sortedAndFilteredUnits = stableSort(filteredUnits, getComparator(order, orderBy));
+
+  const paginatedUnits = sortedAndFilteredUnits.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
   return (
@@ -391,7 +516,16 @@ const ListUnit = () => {
               placeholder="Birim Adı"
               fullWidth
               value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
+                  setNameError(false); // Clear the error
+                  setNameHelperText(''); // Clear the helper text
+                }
+              }}
+              inputRef={unitNameInputRef}
+              error={nameError}
+              helperText={nameHelperText}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -407,7 +541,7 @@ const ListUnit = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -427,7 +561,7 @@ const ListUnit = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Yeni Birim Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -468,7 +602,7 @@ const ListUnit = () => {
                 value={statusFilter}
                 exclusive
                 onChange={handleStatusFilterChange}
-                aria-label="Status filter" // aria-label را بهبود دادم
+                aria-label="Status filter"
                 fullWidth
               >
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm birimleri göster" : ""}>
@@ -476,14 +610,14 @@ const ListUnit = () => {
                     value="all"
                     aria-label="all units"
                     sx={{
-                      '&.Mui-selected': { // استایل برای حالت انتخاب شده
-                        backgroundColor: (theme) => theme.palette.primary.main + ' !important', // رنگ آبی برای All
+                      '&.Mui-selected': { // Style for selected state
+                        backgroundColor: (theme) => theme.palette.primary.main + ' !important', // Blue for All
                         color: 'white !important',
                         '&:hover': {
                           backgroundColor: (theme) => theme.palette.primary.dark + ' !important',
                         },
                       },
-                      '&:not(.Mui-selected)': { // استایل برای حالت انتخاب نشده
+                      '&:not(.Mui-selected)': { // Style for unselected state
                         color: (theme) => theme.palette.text.primary,
                         borderColor: (theme) => theme.palette.divider,
                       },
@@ -498,7 +632,7 @@ const ListUnit = () => {
                     aria-label="active units"
                     sx={{
                       '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.success.main + ' !important', // رنگ سبز برای Aktif
+                        backgroundColor: (theme) => theme.palette.success.main + ' !important', // Green for Aktif
                         color: 'white !important',
                         '&:hover': {
                           backgroundColor: (theme) => theme.palette.success.dark + ' !important',
@@ -519,7 +653,7 @@ const ListUnit = () => {
                     aria-label="inactive units"
                     sx={{
                       '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.error.main + ' !important', // رنگ قرمز برای Etkin Değil
+                        backgroundColor: (theme) => theme.palette.error.main + ' !important', // Red for Etkin Değil
                         color: 'white !important',
                         '&:hover': {
                           backgroundColor: (theme) => theme.palette.error.dark + ' !important',
@@ -540,16 +674,37 @@ const ListUnit = () => {
         </Box>
         <TableContainer>
           <Table aria-label="unit table">
-            <TableHead>
+            <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
                 <TableCell>
-                  <Typography variant="h6">İsim</Typography>
+                  {/* ✅ Added: TableSortLabel for 'İsim' (Name) column */}
+                  <TableSortLabel
+                    active={orderBy === 'name'}
+                    direction={orderBy === 'name' ? order : 'asc'}
+                    onClick={() => handleRequestSort('name')}
+                  >
+                    <Typography variant="h6">İsim</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  {/* ✅ Added: TableSortLabel for 'Oluşturulma Tarihi' (Creation Date) column */}
+                  <TableSortLabel
+                    active={orderBy === 'createAt'}
+                    direction={orderBy === 'createAt' ? order : 'asc'}
+                    onClick={() => handleRequestSort('createAt')}
+                  >
+                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Durum</Typography>
+                  {/* ✅ Added: TableSortLabel for 'Durum' (Status) column */}
+                  <TableSortLabel
+                    active={orderBy === 'status'}
+                    direction={orderBy === 'status' ? order : 'asc'}
+                    onClick={() => handleRequestSort('status')}
+                  >
+                    <Typography variant="h6">Durum</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>
@@ -613,7 +768,8 @@ const ListUnit = () => {
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu birimi pasif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu birimi pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -622,7 +778,8 @@ const ListUnit = () => {
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu birimi aktif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu birimi aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -631,7 +788,8 @@ const ListUnit = () => {
                             </MenuItem>
                           </CustomTooltip>
                         )}
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu birimi düzenle" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu birimi düzenle" : ""}>
                           <MenuItem onClick={handleEditClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -639,7 +797,8 @@ const ListUnit = () => {
                             Düzenlemek
                           </MenuItem>
                         </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu birimi sil" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu birimi sil" : ""}>
                           <MenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -666,7 +825,7 @@ const ListUnit = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredAndStatusUnits.length}
+          count={sortedAndFilteredUnits.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

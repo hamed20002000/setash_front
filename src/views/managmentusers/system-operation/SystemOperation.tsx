@@ -1,18 +1,19 @@
 // SystemOperation.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react"; // useRef را اضافه کنید
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   // CircularProgress,
-  ToggleButtonGroup, 
+  ToggleButtonGroup,
   // ToggleButton as MuiToggleButton,
   ToggleButton, // اضافه شد: برای فیلتر وضعیت
+  TableSortLabel, // ✅ اضافه شد: برای آیکون‌های مرتب‌سازی
 } from '@mui/material';
-// import { styled } from '@mui/material/styles'; 
+// import { styled } from '@mui/material/styles';
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -39,34 +40,34 @@ const initialRows: RowType[] = [];
 
 // **ToggleButton سفارشی با استایل‌های شرطی (کپی از ListUnit.tsx)**
 // const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
-//   '&.Mui-selected': {
-//     color: 'white',
-//     ...(value === 'all' && selected && {
-//       backgroundColor: theme.palette.primary.main,
-//       '&:hover': {
-//         backgroundColor: theme.palette.primary.dark,
-//       },
-//     }),
-//     ...(value === 'active' && selected && {
-//       backgroundColor: theme.palette.success.main,
-//       '&:hover': {
-//         backgroundColor: theme.palette.success.dark,
-//       },
-//     }),
-//     ...(value === 'inactive' && selected && {
-//       backgroundColor: theme.palette.error.main,
-//       '&:hover': {
-//         backgroundColor: theme.palette.error.dark,
-//       },
-//     }),
-//   },
-//   '&:not(.Mui-selected)': {
-//     color: theme.palette.text.primary,
-//     borderColor: theme.palette.divider,
-//     '&:hover': {
-//         backgroundColor: theme.palette.action.hover,
-//     },
-//   },
+//     '&.Mui-selected': {
+// //      color: 'white',
+// //      ...(value === 'all' && selected && {
+// //        backgroundColor: theme.palette.primary.main,
+// //        '&:hover': {
+// //          backgroundColor: theme.palette.primary.dark,
+// //        },
+// //      }),
+// //      ...(value === 'active' && selected && {
+// //        backgroundColor: theme.palette.success.main,
+// //        '&:hover': {
+// //          backgroundColor: theme.palette.success.dark,
+// //        },
+// //      }),
+// //      ...(value === 'inactive' && selected && {
+// //        backgroundColor: theme.palette.error.main,
+// //        '&:hover': {
+// //          backgroundColor: theme.palette.error.dark,
+// //        },
+// //      }),
+// //    },
+// //    '&:not(.Mui-selected)': {
+// //      color: theme.palette.text.primary,
+// //      borderColor: theme.palette.divider,
+// //      '&:hover': {
+// //          backgroundColor: theme.palette.action.hover,
+// //      },
+// //    },
 // }));
 
 
@@ -100,6 +101,16 @@ const SystemOperation = () => {
   // --- State جدید برای فیلتر وضعیت ---
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all'); // 'all', 'active', 'inactive'
 
+  // ✅ اضافه شد: وضعیت برای مرتب‌سازی
+  const [orderBy, setOrderBy] = useState<keyof RowType>('createAt'); // ستون پیش‌فرض برای مرتب‌سازی
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // جهت پیش‌فرض مرتب‌سازی
+
+  // ✅ اضافه شد: Ref برای کادر ویرایش
+  const editFieldRef = useRef<HTMLInputElement>(null);
+
+  // **State جدید برای مدیریت خطای ورودی**
+  const [nameError, setNameError] = useState<boolean>(false);
+  const [nameHelperText, setNameHelperText] = useState<string>('');
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
     setAnchorEl(event.currentTarget);
@@ -128,17 +139,35 @@ const SystemOperation = () => {
   const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
     setAlertSeverity(severity);
+
   };
 
   const clearAlert = () => {
     setAlertMessage(null);
   };
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+    };
+  }, [alertMessage]);
 
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setOriginalName(selectedRowForMenu.name);
       setEditingId(selectedRowForMenu.id);
+      // ✅ اضافه شد: اسکرول به کادر ویرایش
+      // از setTimeout استفاده می‌کنیم تا مطمئن شویم DOM قبل از اسکرول به‌روز شده است
+      setTimeout(() => {
+        editFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        editFieldRef.current?.focus(); // فوکوس روی فیلد
+      }, 100);
     }
     handleCloseMenu();
     clearAlert();
@@ -147,13 +176,20 @@ const SystemOperation = () => {
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
+    setNameError(false); // پاک کردن خطای ورودی
+    setNameHelperText(''); // پاک کردن پیام کمکی
   };
 
   const insertOperation = async () => {
     if (!name.trim()) {
+      setNameError(true); // تنظیم وضعیت خطا به true
+      setNameHelperText('Operasyon ismi boş bırakılamaz.'); // تنظیم پیام کمکی
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
+    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
+    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+
     clearAlert();
     const authToken = localStorage.getItem('authToken');
 
@@ -184,6 +220,11 @@ const SystemOperation = () => {
         showAlert(response.data.message || 'Yeni işlem eklenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error inserting operation:", e);
       showAlert(e.response?.data?.message || 'İşlem eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -194,9 +235,14 @@ const SystemOperation = () => {
   const editOperation = async () => {
     if (editingId === null) return;
     if (!name.trim()) {
+      setNameError(true); // تنظیم وضعیت خطا به true
+      setNameHelperText('Operasyon ismi boş bırakılamaz.'); // تنظیم پیام کمکی
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
+    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
+    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+
     clearAlert();
 
     if (name === originalName) {
@@ -237,6 +283,11 @@ const SystemOperation = () => {
         showAlert(response.data.message || 'İşlem güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating operation:", e);
       showAlert(e.response?.data?.message || 'İşlem güncellenirken bir hata oluştu, lütfen tekrar deneyین.', 'error');
     } finally {
@@ -276,6 +327,11 @@ const SystemOperation = () => {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
       console.error("Error updating status:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
@@ -299,6 +355,8 @@ const SystemOperation = () => {
     setName('');
     setEditingId(null);
     setOriginalName('');
+    setNameError(false); // پاک کردن خطای ورودی
+    setNameHelperText(''); // پاک کردن پیام کمکی
   };
 
   const formatDate = (dateString: string): string => {
@@ -336,16 +394,17 @@ const SystemOperation = () => {
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
           name: item.name,
-          recordStatus: item.recordStatus,
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
           createAt: item.createAt,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
         }));
-        const sortedData = formattedData.sort((a: RowType, b: RowType) => {
-          const dateA = new Date(a.createAt);
-          const dateB = new Date(b.createAt);
-          return dateB.getTime() - dateA.getTime();
-        });
-        setOperationsList(sortedData as RowType[]);
+        // ✅ حذف مرتب‌سازی اولیه از اینجا، زیرا مرتب‌سازی نهایی پایین‌تر انجام می‌شود.
+        // const sortedData = formattedData.sort((a: RowType, b: RowType) => {
+        //    const dateA = new Date(a.createAt);
+        //    const dateB = new Date(b.createAt);
+        //    return dateB.getTime() - dateA.getTime();
+        // });
+        setOperationsList(formattedData as RowType[]); // ✅ داده‌ها را بدون مرتب‌سازی اولیه ذخیره می‌کنیم
       } else {
         showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
       }
@@ -378,7 +437,7 @@ const SystemOperation = () => {
   };
 
   const handleChangePage = (event: unknown, newPage: number) => {
-      console.log(event)
+    console.log(event)
     setPage(newPage);
   };
 
@@ -392,17 +451,90 @@ const SystemOperation = () => {
     setPage(0);
   };
 
+  // ✅ اضافه شد: هندلر برای تغییر مرتب‌سازی
+  const handleRequestSort = (property: keyof RowType) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+    setPage(0); // هنگام تغییر مرتب‌سازی، به صفحه اول برگرد
+  };
+
+  // ✅ اضافه شد: تابع کمکی برای مرتب‌سازی
+  const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+    const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
+    stabilizedThis.sort((a, b) => {
+      const order = comparator(a[0], b[0]);
+      if (order !== 0) return order;
+      return a[1] - b[1];
+    });
+    return stabilizedThis.map((el) => el[0]);
+  };
+
+  // ✅ اضافه شد: تابع برای مقایسه عناصر برای مرتب‌سازی
+  const getComparator = <Key extends keyof RowType>( // Key را به keyof RowType محدود کنید
+    order: 'asc' | 'desc',
+    orderBy: Key,
+  ): (a: RowType, b: RowType) => number => { // پارامترها و بازگشتی تابع را به RowType تغییر دهید
+    return order === 'desc'
+      ? (a, b) => descendingComparator(a, b, orderBy)
+      : (a, b) => -descendingComparator(a, b, orderBy);
+  };
+
+  // ✅ اضافه شد: تابع کمکی برای مرتب‌سازی نزولی
+  const descendingComparator = <T, Key extends keyof T>(
+    a: T,
+    b: T,
+    orderBy: Key,
+  ): number => {
+    const valA = a[orderBy];
+    const valB = b[orderBy];
+
+    // برای مقایسه امن، مقادیر undefined/null را به یک مقدار قابل مقایسه تبدیل می‌کنیم.
+    // برای رشته‌ها، می‌توانید از یک رشته خالی یا 'zzz' استفاده کنید.
+    // برای اعداد، از 0 یا یک عدد خیلی بزرگ/کوچک استفاده کنید.
+    // در اینجا، ما یک رویکرد کلی را در نظر می‌گیریم:
+    // اگر یکی از مقادیر undefined/null باشد، آن را به سمت انتهایی (یا ابتدایی) ترتیب هل می‌دهیم.
+
+    if (valB === undefined || valB === null) {
+      return valA === undefined || valA === null ? 0 : -1; // اگر B تعریف نشده باشد، A بزرگتر است (در نزولی جلوتر می‌آید)
+    }
+    if (valA === undefined || valA === null) {
+      return 1; // اگر A تعریف نشده باشد، B بزرگتر است (در نزولی جلوتر می‌آید)
+    }
+
+    // مقایسه بر اساس نوع (فرض بر این است که رشته یا عدد هستند)
+    if (typeof valB === 'string' && typeof valA === 'string') {
+      return valB.localeCompare(valA); // برای رشته‌ها
+    }
+    if (typeof valB === 'number' && typeof valA === 'number') {
+      return valB - valA; // برای اعداد
+    }
+    // بازگشت به حالت پیش‌فرض برای انواع دیگر یا در صورت عدم موفقیت مقایسه
+    // این یک تبدیل ضمنی به رشته است که ممکن است همیشه ایده‌آل نباشد اما خطا را رفع می‌کند.
+    if (String(valB) < String(valA)) {
+      return -1;
+    }
+    if (String(valB) > String(valA)) {
+      return 1;
+    }
+    return 0;
+  };
+
+
+
   // فیلتر کردن عملیات‌ها بر اساس جستجو و وضعیت
-  const filteredAndStatusOperations = operationsList.filter(operation => {
+  const filteredOperations = operationsList.filter(operation => {
     const matchesSearch = operation.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
-      statusFilter === 'all' || // اگر فیلتر 'all' بود، همه را نشان بده
-      (statusFilter === 'active' && operation.recordStatus === 0) || // اگر 'active' بود، فقط recordStatus 0 را نشان بده
-      (statusFilter === 'inactive' && operation.recordStatus === 1); // اگر 'inactive' بود، فقط recordStatus 1 را نشان بده
-    return matchesSearch && matchesStatus; // هر دو شرط باید برقرار باشند
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && operation.recordStatus === 0) ||
+      (statusFilter === 'inactive' && operation.recordStatus === 1);
+    return matchesSearch && matchesStatus;
   });
 
-  const paginatedOperations = filteredAndStatusOperations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const sortedAndFilteredOperations = stableSort(filteredOperations, getComparator(order, orderBy));
+
+  const paginatedOperations = sortedAndFilteredOperations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
   return (
@@ -421,10 +553,19 @@ const SystemOperation = () => {
           <Grid item xs={12} sm={7}>
             <CustomTextField
               id="name"
-              placeholder="İsim İşlemi"
+              placeholder="Operasyon İsmi"
               fullWidth
               value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) { // اگر قبلاً خطا وجود داشته و کاربر شروع به تایپ کرده است
+                  setNameError(false); // خطا را پاک کنید
+                  setNameHelperText(''); // پیام کمکی را پاک کنید
+                }
+              }}
+              inputRef={editFieldRef}
+              error={nameError} 
+              helperText={nameHelperText} 
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -440,7 +581,7 @@ const SystemOperation = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
@@ -460,8 +601,8 @@ const SystemOperation = () => {
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                         <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
-                      </> : 'Yeni İşlem Ekle'}
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                      </> : 'Yeni Operasyon Ekle'}
                     </Button>
                   </CustomTooltip>
                 </>
@@ -574,16 +715,37 @@ const SystemOperation = () => {
         </Box>
         <TableContainer>
           <Table aria-label="simple table">
-            <TableHead>
+            <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
                 <TableCell>
-                  <Typography variant="h6">İsim</Typography>
+                  {/* ✅ اضافه شد: TableSortLabel برای ستون نام */}
+                  <TableSortLabel
+                    active={orderBy === 'name'}
+                    direction={orderBy === 'name' ? order : 'asc'}
+                    onClick={() => handleRequestSort('name')}
+                  >
+                    <Typography variant="h6">İsim</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  {/* ✅ اضافه شد: TableSortLabel برای ستون تاریخ ایجاد */}
+                  <TableSortLabel
+                    active={orderBy === 'createAt'}
+                    direction={orderBy === 'createAt' ? order : 'asc'}
+                    onClick={() => handleRequestSort('createAt')}
+                  >
+                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Durum</Typography>
+                  {/* ✅ اضافه شد: TableSortLabel برای ستون وضعیت */}
+                  <TableSortLabel
+                    active={orderBy === 'status'}
+                    direction={orderBy === 'status' ? order : 'asc'}
+                    onClick={() => handleRequestSort('status')}
+                  >
+                    <Typography variant="h6">Durum</Typography>
+                  </TableSortLabel>
                 </TableCell>
                 <TableCell></TableCell>
               </TableRow>
@@ -647,7 +809,8 @@ const SystemOperation = () => {
                         }}
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu pasif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu operasyonu pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -656,7 +819,8 @@ const SystemOperation = () => {
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
-                          <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu aktif yap" : ""}>
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu operasyonu aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -665,7 +829,8 @@ const SystemOperation = () => {
                             </MenuItem>
                           </CustomTooltip>
                         )}
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu düzenle" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu operasyonu düzenle" : ""}>
                           <MenuItem onClick={handleEditClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -673,7 +838,8 @@ const SystemOperation = () => {
                             Düzenlemek
                           </MenuItem>
                         </CustomTooltip>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Bu operasyonu sil" : ""}>
+                        <CustomTooltip placement="left"
+                          title={isTooltipGloballyEnabled ? "Bu operasyonu sil" : ""}>
                           <MenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -700,7 +866,7 @@ const SystemOperation = () => {
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
-          count={filteredAndStatusOperations.length}
+          count={sortedAndFilteredOperations.length} // اینجا از filteredOperations استفاده کنید تا مرتب‌سازی در تعداد کلی تاثیر نگذارد
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

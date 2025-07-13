@@ -1,4 +1,4 @@
-// DeleteAuction.tsx
+// DeleteTender.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
@@ -18,20 +18,20 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
-  auctionIdToDelete: number | null; // ID مزایده برای حذف
+  tenderIdToDelete: number | null; // ID مزایده برای حذف
   onClose: () => void;
   onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
 
-  const handleDeleteAuction = async () => {
-    if (auctionIdToDelete === null) {
-      showAlert('Silinecek müzayede seçilmedi.', 'warning');
+  const handleDeleteTender = async () => {
+    if (tenderIdToDelete === null) {
+      showAlert('Silinecek ihale seçilmedi.', 'warning');
       onClose();
       return;
     }
@@ -45,9 +45,9 @@ const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess,
     setLoading(true);
     try {
       // **نکته:** آدرس API حذف مزایده و نحوه ارسال ID
-      // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-auction/{id})
+      // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-tender/{id})
       const response = await axios.delete(
-        `${server.baseurl}${server.initialoperations}delete-tender/${auctionIdToDelete}`,
+        `${server.baseurl}${server.initialoperations}delete-tender/${tenderIdToDelete}`,
         {
           headers: {
             "Accept": "application/json",
@@ -64,7 +64,7 @@ const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess,
         showAlert(response.data.message || 'Müzayede silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.error("Error deleting auction:", e);
+      console.error("Error deleting tender:", e);
       const errorMessage = e.response?.data?.message || 'Müzayede silinirken bir hata oluştu, lütfen tekrar deneyin.';
       showAlert(errorMessage, 'error');
       if (e.response && e.response.status === 401) {
@@ -84,23 +84,24 @@ const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess,
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description">
         <DialogTitle id="alert-dialog-title">
-          {"Bu müzayedeyi silmek istediğinizden emin misiniz?"}
+          {"Bu ihaleyi silmek istediğinizden emin misiniz?"}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="alert-dialog-description">
+         <DialogContentText id="alert-dialog-description">
             Eğer silerseniz, geri almanın bir yolu yoktur.
-            Kaydı silmek istediğinizden eminseniz, **Silmek** düğmesine tıklayın.
+            Kaydı silmek istediğinizden eminseniz, 
+            <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
             <Button onClick={onClose} disabled={loading}>İptal et</Button>
           </CustomTooltip>
-          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen müzayedeyi sil" : ""}>
+          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen ihaleyi sil" : ""}>
             <Button
               color="error"
               variant="contained"
-              onClick={handleDeleteAuction}
+              onClick={handleDeleteTender}
               autoFocus
               disabled={loading}
             >
@@ -119,4 +120,4 @@ const DeleteAuction = ({ openModal, auctionIdToDelete, onClose, onDeleteSuccess,
   );
 }
 
-export default DeleteAuction;
+export default DeleteTender;

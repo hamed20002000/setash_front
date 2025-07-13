@@ -1,5 +1,6 @@
 // DeleteListUser.tsx
 import { useState } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -24,6 +25,7 @@ type Props = {
 };
 
 const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
 
   // استفاده از useTooltip برای دسترسی به وضعیت Tooltip
@@ -38,10 +40,11 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
 
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
-      showAlert('Lütfen giriş yapın.', 'warning');
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
       return;
     }
-
+debugger
     setLoading(true);
     try {
       const response = await axios.delete(
@@ -67,7 +70,8 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
       showAlert(errorMessage, 'error');
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
-        // در اینجا می‌توانید یک ریدایرکت سراسری به صفحه لاگین داشته باشید.
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
     } finally {
       setLoading(false);
@@ -86,9 +90,10 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            Eğer silerseniz, geri almanın bir yolu yoktur.
-            Kayıtı silmek istediğinizden eminseniz, **Silmek** düğmesine tıklayın.
-          </DialogContentText>
+                      Eğer silerseniz, geri almanın bir yolu yoktur.
+                      Kaydı silmek istediğinizden eminseniz, 
+                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
+                    </DialogContentText>
         </DialogContent>
         <DialogActions>
           {/* **Tooltip برای دکمه "İptal Et"** */}

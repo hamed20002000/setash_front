@@ -136,9 +136,10 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         throw new Error(errorMessage);
       }
 
-    } catch (err: any) {
-      // پیام خطا ممکن است در err.response.data.message باشد اگر خطا از سمت سرور باشد
-      const errorMessage = err.response?.data?.message || err.message || 'Giriş sırasında beklenmeyen bir hata oluştu.';
+    } catch (err: any) {debugger
+      
+      const errorMessage = (err.response?.data?.message=="Username or Password is not corrected!"?"Şifre veya Kullanıcı Adı yanlış!":"")
+       || (err.message=="Request failed with status code 400"?"Kullanıcı adınızı veya şifrenizi girin.":"") || 'Giriş sırasında beklenmeyen bir hata oluştu.';
       showAlert(errorMessage, 'error');
     } finally {
       setLoading(false);

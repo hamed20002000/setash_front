@@ -1,4 +1,4 @@
-// AuctionDetails.tsx
+// TenderDetails.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import React, { useEffect, useState, useRef, useCallback, useMemo, ChangeEvent } from 'react';
@@ -32,7 +32,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import * as XLSX from 'xlsx';
 
 // --- Data Interfaces ---
-interface AuctionDetailRow {
+interface TenderDetailRow {
   id: number;
   siraNo: number; // Sıra No (شماره ردیف)
   grupKodu: string; // GRUP KODU - جدید
@@ -81,22 +81,22 @@ const MOCK_BIRIM_FIYAT_OPTIONS = [
 ];
 
 
-const AuctionDetails = () => {
-  const { auctionId } = useParams<{ auctionId: string }>();
+const TenderDetails = () => {
+  const { tenderId } = useParams<{ tenderId: string }>();
   // const navigate = useNavigate();
   const { isTooltipGloballyEnabled } = useTooltip();
   const theme = useTheme();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [auctionTitle, setAuctionTitle] = useState<string>('Müzayede Yükleniyor...');
-  const [gridData, setGridData] = useState<AuctionDetailRow[]>([]);
+  const [tenderTitle, setTenderTitle] = useState<string>('Müzayede Yükleniyor...');
+  const [gridData, setGridData] = useState<TenderDetailRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
   // State for the new record entry row (which will be sticky at the top)
-  const [newRecordRow, setNewRecordRow] = useState<Omit<AuctionDetailRow, 'id' | 'montaj' | 'toplamMalzeme' | 'toplamMontaj' | 'toplamDemontaj' | 'toplamDemontajdanMontaj' | 'birimFiyatMalzeme' | 'birimFiyatMontaj' | 'birimFiyatDemontaj' | 'birimFiyatDemontajMontaj'>>({
+  const [newRecordRow, setNewRecordRow] = useState<Omit<TenderDetailRow, 'id' | 'montaj' | 'toplamMalzeme' | 'toplamMontaj' | 'toplamDemontaj' | 'toplamDemontajdanMontaj' | 'birimFiyatMalzeme' | 'birimFiyatMontaj' | 'birimFiyatDemontaj' | 'birimFiyatDemontajMontaj'>>({
     siraNo: 0,
     grupKodu: '',
     olcuBrimi: '',
@@ -115,7 +115,7 @@ const AuctionDetails = () => {
 
   // State for the row being edited in the main table
   const [editingRowId, setEditingRowId] = useState<number | null>(null);
-  const [editingRowData, setEditingRowData] = useState<AuctionDetailRow | null>(null);
+  const [editingRowData, setEditingRowData] = useState<TenderDetailRow | null>(null);
 
 
   // State for GRUP KODU search (for the new record row)
@@ -129,14 +129,14 @@ const AuctionDetails = () => {
   const clearAlert = () => setAlertMessage(null);
 
   useEffect(() => {
-    if (auctionId) {
+    if (tenderId) {
       setLoading(true);
       setTimeout(() => {
-        setAuctionTitle(`Müzayede: #${auctionId} - Örnek Başlık`);
+        setTenderTitle(`Müzayede: #${tenderId} - Örnek Başlık`);
         setLoading(false);
       }, 1000);
     }
-  }, [auctionId]);
+  }, [tenderId]);
 
   // Update Birim Fiyat for new record row based on Olcu Birimi
   useEffect(() => {
@@ -168,7 +168,7 @@ const AuctionDetails = () => {
         // const json = XLSX.utils.sheet_to_to_json(worksheet);
         const json = XLSX.utils.sheet_to_json(worksheet);
 
-        const processedData: AuctionDetailRow[] = json.map((row: any, index: number) => {
+        const processedData: TenderDetailRow[] = json.map((row: any, index: number) => {
           const unitName = row['ÖLÇÜ BİRİMİ'] || '';
           const birimFiyatRow = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === unitName);
 
@@ -279,7 +279,7 @@ const AuctionDetails = () => {
 
     // const birimFiyatRow = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === newRecordRow.olcuBrimi);
 
-    const newRow: AuctionDetailRow = {
+    const newRow: TenderDetailRow = {
       id: newId,
       ...newRecordRow,
       montaj: newRecordRow.malzemeGDZ + newRecordRow.malzemeYuklenici,
@@ -337,7 +337,7 @@ const AuctionDetails = () => {
 
   //     const updatedData = { ...prev };
   //     // Convert value to number if it's a numeric field
-  //     updatedData[name as keyof AuctionDetailRow] = (
+  //     updatedData[name as keyof TenderDetailRow] = (
   //       name === 'siraNo' ||
   //       name === 'malzemeGDZ' ||
   //       name === 'malzemeYuklenici' ||
@@ -376,7 +376,7 @@ const AuctionDetails = () => {
   setEditingRowData(prev => {
     if (!prev) return null;
 
-    const updatedData: AuctionDetailRow = { ...prev }; // نوع را مشخص کنید
+    const updatedData: TenderDetailRow = { ...prev }; // نوع را مشخص کنید
 
     // تعیین اینکه آیا فیلد فعلی باید به عدد تبدیل شود یا نه
     const isNumericField = (fieldName: string) => {
@@ -487,7 +487,7 @@ const AuctionDetails = () => {
   return (
     <Box sx={{ p: 3 }} >
       <Typography variant="h4" gutterBottom>
-        {auctionTitle}
+        {tenderTitle}
       </Typography>
       <Typography variant="h6" color="textSecondary" gutterBottom>
         Müzayede Detayları
@@ -537,7 +537,7 @@ const AuctionDetails = () => {
       <BlankCard>
         <Box sx={{ overflowX: 'auto', width: '100%' }}>
           <TableContainer sx={{ maxHeight: 600 }}>
-            <Table stickyHeader aria-label="auction details table" sx={{ minWidth: 2000 }}>
+            <Table stickyHeader aria-label="tender details table" sx={{ minWidth: 2000 }}>
               <TableHead>
                 <TableRow>
                   {/* Fixed Columns Header */}
@@ -598,7 +598,7 @@ const AuctionDetails = () => {
                       size="small"
                       value={newRecordRow.siraNo}
                       onChange={handleNewRecordInputChange}
-                      sx={{ width: 50 }}
+                      sx={{ width: 60 }}
                     />
                   </TableCell>
                   <TableCell sx={{ position: 'sticky', left: 80, zIndex: 3, backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider }}>
@@ -793,7 +793,7 @@ const AuctionDetails = () => {
                             value={editingRowData?.siraNo}
                             name="siraNo"
                             onChange={handleEditRowInputChange}
-                            sx={{ width: 50 }}
+                            sx={{ width: 60 }}
                           />
                         ) : (
                           row.siraNo
@@ -1075,4 +1075,4 @@ const AuctionDetails = () => {
   );
 };
 
-export default AuctionDetails;
+export default TenderDetails;

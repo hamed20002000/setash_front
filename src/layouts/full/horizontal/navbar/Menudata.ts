@@ -87,14 +87,14 @@ const Menuitems = [
     id: uniqueId(),
     title: 'İhale',
     icon: IconApps,
-    href: '/auction/',
+    href: '/tender/',
     children: [
       {
         id: uniqueId(),
         title: 'İhale Listele',
         icon: IconCategory,
         chipColor: 'secondary',
-        href: '/auction/list-auction',
+        href: '/tender/list-tender',
       }
     ],
   },

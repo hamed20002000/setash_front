@@ -126,7 +126,8 @@ const Profile = () => {
         
         {userRoles.length > 1 && (
           <Box mt={2}>
-            <CustomTooltip title={isTooltipGloballyEnabled ? "Aktif rolünüzü değiştirin" : ""}> 
+            <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Aktif rolünüzü değiştirin" : ""}> 
               
               <Button
                 variant="outlined"
@@ -142,7 +143,8 @@ const Profile = () => {
         )}
 
         <Box mt={2}>
-          <CustomTooltip title={isTooltipGloballyEnabled ? "Hesaptan çıkış yapın" : ""}> 
+          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Hesaptan çıkış yapın" : ""}> 
             
             <Button variant="outlined" color="primary" onClick={handleLogout} fullWidth>
               Çıkış Yap
