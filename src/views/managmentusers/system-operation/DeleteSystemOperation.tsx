@@ -67,9 +67,9 @@ debugger
         showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.error("Error deleting operation:", e);
-      const errorMessage = e.response?.data?.message || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
+      const errorMessage = (e.response?.data?.message=="Internal server error"?"Bu işlem bir rol veya kullanıcı için kullanılmıştır ve silinemez.":"") || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
+      showAlert(errorMessage, 'error');      
+        onClose();
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");

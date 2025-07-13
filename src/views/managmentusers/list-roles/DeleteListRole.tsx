@@ -71,9 +71,9 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
         showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.error("Error deleting role:", e);
-      const errorMessage = e.response?.data?.message || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
+       const errorMessage = (e.response?.data?.message=="Internal server error"?"Bu rol bir kullanıcıya atanmıştır ve silinemez.":"") || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
+      showAlert(errorMessage, 'error');      
+        onClose();
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");

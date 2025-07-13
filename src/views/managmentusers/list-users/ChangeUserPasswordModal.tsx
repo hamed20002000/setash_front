@@ -12,13 +12,13 @@ import {
   InputAdornment,
   CircularProgress,
   Typography,
-  Box, 
+  Box,
 } from '@mui/material';
-import { IconCopy, IconBrandWhatsapp } from '@tabler/icons-react';
+import { IconCopy, IconBrandWhatsapp, IconChecks } from '@tabler/icons-react'; // ✅ Import IconCheck or IconChecks for the double-tick
 import axios from 'axios';
 import server from 'src/assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; 
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
@@ -31,7 +31,9 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
   const [step, setStep] = useState<'confirm' | 'generate'>('confirm'); // مرحله فعلی مودال
   const [generatedPassword, setGeneratedPassword] = useState<string>(''); // رمز عبور تولید شده
   const [loading, setLoading] = useState<boolean>(false); // برای لودینگ دکمه‌ها
-  const [copySuccess, setCopySuccess] = useState<boolean>(false); // برای پیغام کپی موفقیت آمیز
+  // const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  // ✅ اضافه شد: وضعیت جدید برای مدیریت نمایش آیکون کپی
+  const [copyIconState, setCopyIconState] = useState<'copy' | 'copied'>('copy'); // 'copy' برای IconCopy و 'copied' برای IconChecks
 
   const { isTooltipGloballyEnabled } = useTooltip(); // برای Tooltip سراسری
 
@@ -41,9 +43,23 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
       setStep('confirm');
       setGeneratedPassword('');
       setLoading(false);
-      setCopySuccess(false);
+      // setCopySuccess(false);
+      setCopyIconState('copy'); // ✅ ریست کردن وضعیت آیکون کپی
     }
   }, [openModal]);
+
+  // ✅ useEffect برای مدیریت تایمر بازگشت آیکون کپی
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (openModal && copyIconState === 'copied') {
+      timer = setTimeout(() => {
+        setCopyIconState('copy'); // بازگشت به حالت کپی
+      }, 10000); // 10 ثانیه
+    }
+    return () => {
+      clearTimeout(timer); // پاک کردن تایمر در صورت بسته شدن مودال یا تغییر وضعیت
+    };
+  }, [openModal, copyIconState]);
 
 
   // --- مرحله تأیید ---
@@ -102,9 +118,10 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
   const handleCopyPassword = () => {
     navigator.clipboard.writeText(generatedPassword)
       .then(() => {
-        setCopySuccess(true);
+        // setCopySuccess(true);
+        setCopyIconState('copied'); // ✅ تغییر وضعیت آیکون به "کپی شد"
         showAlert('Şifre panoya kopyalandı!', 'success');
-        setTimeout(() => setCopySuccess(false), 2000); // پیغام بعد از 2 ثانیه محو شود
+        // setTimeout(() => setCopySuccess(false), 2000); // ❌ این خط دیگر نیازی نیست، چون useEffect بالا این کار را انجام می‌دهد
       })
       .catch(err => {
         console.error('Şifre kopyalanamadı:', err);
@@ -146,9 +163,9 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
                 readOnly: true, // فقط خواندنی
                 endAdornment: (
                   <InputAdornment position="end">
-                    <CustomTooltip title={isTooltipGloballyEnabled ? (copySuccess ? "Kopyalandı!" : "Panoya Kopyala") : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? (copyIconState === 'copied' ? "Kopyalandı!" : "Panoya Kopyala") : ""}> 
                       <IconButton onClick={handleCopyPassword} edge="end" disabled={loading}>
-                        <IconCopy size={20} />
+                        {copyIconState === 'copied' ? <IconChecks size={20} color="green" /> : <IconCopy size={20} />} 
                       </IconButton>
                     </CustomTooltip>
                   </InputAdornment>
@@ -182,8 +199,8 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
             <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi sıfırlayıp yeni bir şifre oluştur" : ""}>
               <Button onClick={handleConfirmReset} color="primary" variant="contained" disabled={loading}>
                 {loading ? <>
-                <CircularProgress sx={{ mr: 1 }} /> Beklemek....
-              </>: 'Evet, Sıfırla'}
+                  <CircularProgress sx={{ mr: 1 }} /> Beklemek....
+                </> : 'Evet, Sıfırla'}
               </Button>
             </CustomTooltip>
           </>

@@ -177,6 +177,8 @@ const ListUsers = () => {
   // **State های جدید برای مدیریت خطاهای ورودی**
   const [usernameError, setUsernameError] = useState<boolean>(false);
   const [usernameHelperText, setUsernameHelperText] = useState<string>('');
+  const [roleError, setRoleError] = useState<boolean>(false);
+  const [roleHelperText, setRoleHelperText] = useState<string>('');
   const [passwordError, setPasswordError] = useState<boolean>(false);
   const [passwordHelperText, setPasswordHelperText] = useState<string>('');
   const [confirmPasswordError, setConfirmPasswordError] = useState<boolean>(false);
@@ -323,11 +325,13 @@ const ListUsers = () => {
     setProfileImageUrl(DEFAULT_IMAGE_URL);
     setGenerateRandomPassword(false);
     setEditingUserId(null);
-    clearAlert();
+    // clearAlert();
 
     // **پاک کردن وضعیت خطاها**
     setUsernameError(false);
     setUsernameHelperText('');
+    setRoleError(false);
+    setRoleHelperText('');
     setPasswordError(false);
     setPasswordHelperText('');
     setConfirmPasswordError(false);
@@ -363,6 +367,8 @@ const ListUsers = () => {
     // **پاک کردن وضعیت خطاها هنگام ویرایش**
     setUsernameError(false);
     setUsernameHelperText('');
+    setRoleError(false);
+    setRoleHelperText('');
     setPasswordError(false);
     setPasswordHelperText('');
     setConfirmPasswordError(false);
@@ -382,24 +388,23 @@ const ListUsers = () => {
 
 
   const insertUser = async () => {
+    let hasValidationError = false; // ✅ تغییر: نام متغیر به جای hasError برای جلوگیری از تداخل با متغیر های خود کنترل کننده خطا
+
     // **اعتبارسنجی فیلد نام کاربری**
     if (!username.trim()) {
       setUsernameError(true);
       setUsernameHelperText('Kullanıcı adı boş bırakılamaz.');
-      showAlert('Tüm zorunlu alanları doldurun!', 'warning');
-      return;
+      hasValidationError = true;
     } else {
       setUsernameError(false);
       setUsernameHelperText('');
     }
 
-    // **اعتبارسنجی فیلدهای رمز عبور (فقط برای حالت افزودن کاربر جدید)**
     if (editingUserId === null) {
       if (!password.trim()) {
         setPasswordError(true);
         setPasswordHelperText('Şifre boş bırakılamaz.');
-        showAlert('Tüm zorunlu alanları doldurun!', 'warning');
-        return;
+        hasValidationError = true;
       } else {
         setPasswordError(false);
         setPasswordHelperText('');
@@ -408,8 +413,7 @@ const ListUsers = () => {
       if (!confirmPassword.trim()) {
         setConfirmPasswordError(true);
         setConfirmPasswordHelperText('Şifre tekrarı boş bırakılamaz.');
-        showAlert('Tüm zorunlu alanları doldurun!', 'warning');
-        return;
+        hasValidationError = true;
       } else {
         setConfirmPasswordError(false);
         setConfirmPasswordHelperText('');
@@ -420,16 +424,31 @@ const ListUsers = () => {
         setConfirmPasswordError(true);
         setPasswordHelperText('Şifreler eşleşmiyor!');
         setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
-        showAlert('Şifreler eşleşmiyor!', 'error');
-        return;
+        hasValidationError = true; // ✅ تغییر: این را به hasValidationError اضافه کنید تا از ارسال جلوگیری شود
       } else {
-        setPasswordError(false);
-        setPasswordHelperText('');
-        setConfirmPasswordError(false);
-        setConfirmPasswordHelperText('');
+        // اگر قبلاً خطا بوده و حالا مطابق شده، خطاها را پاک کنید
+        if (passwordError || confirmPasswordError) {
+          setPasswordError(false);
+          setPasswordHelperText('');
+          setConfirmPasswordError(false);
+          setConfirmPasswordHelperText('');
+        }
       }
     }
+    if (selectedRoles.length==0) {debugger
+      setRoleError(true);
+      setRoleHelperText('rol seçilmelidir!');
+      hasValidationError = true;
+    } else {
+      setRoleError(false);
+      setRoleHelperText('');
+    }
 
+
+    if (hasValidationError) { // ✅ تغییر: بررسی hasValidationError
+      showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
+      return;
+    }
 
     clearAlert();
 
@@ -470,14 +489,19 @@ const ListUsers = () => {
       } else {
         showAlert(response.data.message || 'Yeni kullanıcı eklenirken bir hata oluştu.', 'error');
       }
-    } catch (e: any) {
+    } catch (e: any) {debugger
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
       console.error("Error inserting user:", e);
-      showAlert(e.response?.data?.message || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert((e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifre en az bir küçük harf içermelidir.":
+        (e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifrede en az bir küçük harf bulunmalı.":
+          (e.response?.data?.message=="username must be longer than or equal to 5 characters"?"Kullanıcı adı en az 5 karakter olmalıdır.":
+            (e.response?.data?.message=="Some roles not found"?"Rol seçilmedi.":e.response?.data?.message)
+          )))
+       || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -485,15 +509,21 @@ const ListUsers = () => {
 
   const editUser = async () => {
     if (editingUserId === null) return;
+    let hasValidationError = false; // ✅ تغییر: نام متغیر
+
     // **اعتبارسنجی فیلد نام کاربری برای ویرایش**
     if (!username.trim()) {
       setUsernameError(true);
       setUsernameHelperText('Kullanıcı adı boş olamaz!');
-      showAlert('Kullanıcı adı boş olamaz!', 'warning');
-      return;
+      hasValidationError = true;
     } else {
       setUsernameError(false);
       setUsernameHelperText('');
+    }
+
+    if (hasValidationError) { // ✅ تغییر: بررسی hasValidationError
+      showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
+      return;
     }
 
     clearAlert();
@@ -549,7 +579,12 @@ const ListUsers = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
       console.error("Error updating user:", e);
-      showAlert(e.response?.data?.message || 'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert((e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifre en az bir küçük harf içermelidir.":
+        (e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifrede en az bir küçük harf bulunmalı.":
+          (e.response?.data?.message=="username must be longer than or equal to 5 characters"?"Kullanıcı adı en az 5 karakter olmalıdır.":
+            (e.response?.data?.message=="Some roles not found"?"Rol seçilmedi.":e.response?.data?.message)
+          )))
+       || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -738,15 +773,19 @@ const ListUsers = () => {
                     value={username}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setUsername(e.target.value);
-                      if (usernameError && e.target.value.trim()) { // اگر قبلاً خطا وجود داشته و کاربر شروع به تایپ کرده است
-                        setUsernameError(false); // خطا را پاک کنید
-                        setUsernameHelperText(''); // پیام کمکی را پاک کنید
+                      // ✅ تغییر: اعتبار سنجی لحظه ای نام کاربری
+                      if (!e.target.value.trim()) {
+                        setUsernameError(true);
+                        setUsernameHelperText('Kullanıcı adı boş bırakılamaz.');
+                      } else {
+                        setUsernameError(false);
+                        setUsernameHelperText('');
                       }
                     }}
                     inputProps={{ autocomplete: 'off' }}
                     inputRef={usernameFieldRef}
                     error={usernameError}
-                    helperText={usernameHelperText} 
+                    helperText={usernameHelperText}
                   />
                 </CustomTooltip>
               </Grid>
@@ -764,23 +803,33 @@ const ListUsers = () => {
                         value={password}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           setPassword(e.target.value);
-                          if (passwordError && e.target.value.trim()) {
+                          // ✅ تغییر: اعتبار سنجی لحظه ای رمز عبور
+                          if (!e.target.value.trim()) {
+                            setPasswordError(true);
+                            setPasswordHelperText('Şifre boş bırakılamaz.');
+                          } else {
                             setPasswordError(false);
                             setPasswordHelperText('');
                           }
+                          // ✅ تغییر: بررسی تطابق رمز عبور به محض تغییر
                           if (e.target.value !== confirmPassword && confirmPassword.trim() !== '') {
                             setConfirmPasswordError(true);
                             setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
-                          } else if (e.target.value === confirmPassword && confirmPassword.trim() !== '') {
+                            setPasswordError(true); // خطا را روی فیلد پسورد هم اعمال کنید
+                          } else {
                             setConfirmPasswordError(false);
                             setConfirmPasswordHelperText('');
+                            if (e.target.value === confirmPassword && e.target.value.trim() !== '') { // اگر حالا مطابق شدند و خالی نیستند
+                                setPasswordError(false);
+                                setPasswordHelperText('');
+                            }
                           }
                         }}
                         disabled={generateRandomPassword}
                         inputProps={{ autocomplete: 'new-password' }}
                         inputRef={passwordFieldRef}
-                        error={passwordError} 
-                        helperText={passwordHelperText} 
+                        error={passwordError}
+                        helperText={passwordHelperText}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -811,21 +860,27 @@ const ListUsers = () => {
                         value={confirmPassword}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           setConfirmPassword(e.target.value);
-                          if (confirmPasswordError && e.target.value.trim()) {
+                          // ✅ تغییر: اعتبار سنجی لحظه ای تایید رمز عبور
+                          if (!e.target.value.trim()) {
+                            setConfirmPasswordError(true);
+                            setConfirmPasswordHelperText('Şifre tekrarı boş bırakılamaz.');
+                          } else if (e.target.value !== password) {
+                            setConfirmPasswordError(true);
+                            setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
+                            setPasswordError(true); // خطا را روی فیلد پسورد هم اعمال کنید
+                            setPasswordHelperText('Şifreler eşleşmiyor!'); // و پیام را نشان دهید
+                          }
+                          else {
                             setConfirmPasswordError(false);
                             setConfirmPasswordHelperText('');
-                          }
-                          if (e.target.value !== password && password.trim() !== '') {
-                            setPasswordError(true);
-                            setPasswordHelperText('Şifreler eşleşmiyor!');
-                          } else if (e.target.value === password && password.trim() !== '') {
-                            setPasswordError(false);
+                            setPasswordError(false); // اگر حالا مطابق شدند، خطا را از پسورد هم بردارید
                             setPasswordHelperText('');
                           }
                         }}
                         disabled={generateRandomPassword}
-                        error={confirmPasswordError || (password !== confirmPassword && confirmPassword.trim() !== '')}
-                        helperText={confirmPasswordHelperText || (password !== confirmPassword && confirmPassword.trim() !== '' ? 'Şifreler eşleşmiyor!' : '')}
+                        // ✅ تغییر: error و helperText اکنون بر اساس state های جداگانه تنظیم می شوند
+                        error={confirmPasswordError}
+                        helperText={confirmPasswordHelperText}
                         inputProps={{ autocomplete: 'new-password' }}
                         inputRef={confirmPasswordFieldRef}
                       />
@@ -850,14 +905,21 @@ const ListUsers = () => {
                   <Grid item xs={12} md={12}>
                     <CustomFormLabel htmlFor="select-roles">Roller</CustomFormLabel>
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
-                      <FormControl fullWidth>
+                      <FormControl fullWidth 
+                        error={roleError}>
                         <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
                         <Select
                           labelId="roles-multiple-checkbox-label"
                           id="select-roles"
                           multiple
                           value={selectedRoles}
-                          onChange={(e) => setSelectedRoles(e.target.value as number[])}
+                          onChange={(e) => {
+                            setSelectedRoles(e.target.value as number[])
+                            if (roleError) { // Clear error when a unit is selected
+                              setRoleError(false);
+                              setRoleHelperText('');
+                            }
+                          }}
                           input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
                           renderValue={(selected) => (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -876,6 +938,7 @@ const ListUsers = () => {
                             </MenuItem>
                           ))}
                         </Select>
+                        {roleHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{roleHelperText}</Typography>}
                       </FormControl>
                     </CustomTooltip>
                   </Grid>
@@ -1070,7 +1133,7 @@ const ListUsers = () => {
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="h6">Rolleri Listele</Typography>
+                  <Typography variant="h6">Rolleri</Typography>
                 </TableCell>
                 <TableCell>
                   {/* ✅ اضافه شد: TableSortLabel برای ستون Oluşturulma Tarihi */}

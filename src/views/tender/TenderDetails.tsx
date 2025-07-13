@@ -89,7 +89,7 @@ const TenderDetails = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [tenderTitle, setTenderTitle] = useState<string>('Müzayede Yükleniyor...');
+  const [tenderTitle, setTenderTitle] = useState<string>('ihale Yükleniyor...');
   const [gridData, setGridData] = useState<TenderDetailRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -132,7 +132,7 @@ const TenderDetails = () => {
     if (tenderId) {
       setLoading(true);
       setTimeout(() => {
-        setTenderTitle(`Müzayede: #${tenderId} - Örnek Başlık`);
+        setTenderTitle(`ihale: #${tenderId} - Örnek Başlık`);
         setLoading(false);
       }, 1000);
     }
@@ -490,7 +490,7 @@ const TenderDetails = () => {
         {tenderTitle}
       </Typography>
       <Typography variant="h6" color="textSecondary" gutterBottom>
-        Müzayede Detayları
+        ihale Detayları
       </Typography>
 
       {alertMessage && (

@@ -208,7 +208,7 @@ const ListUnit = () => {
   const insertUnit = async () => {
     if (!name.trim()) {
       setNameError(true); // Set error state to true
-      setNameHelperText('Birim adı boş olamaz!'); // Set helper text
+      setNameHelperText('Ölçü adı boş olamaz!'); // Set helper text
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
@@ -238,11 +238,11 @@ const ListUnit = () => {
         }
       );
       if (response.data.httpStatusCode === 201) {
-        showAlert('Yeni birim başarıyla eklendi!', 'success');
+        showAlert('Yeni Ölçü başarıyla eklendi!', 'success');
         resetFormAndState();
         getListUnit();
       } else {
-        showAlert(response.data.message || 'Yeni birim eklenirken bir hata oluştu.', 'error');
+        showAlert(response.data.message || 'Yeni Ölçü eklenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
       if (e.response && e.response.status === 401) {
@@ -251,7 +251,7 @@ const ListUnit = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
       console.error("Error inserting unit:", e);
-      showAlert(e.response?.data?.message || 'Birim eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(e.response?.data?.message || 'Ölçü eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -262,7 +262,7 @@ const ListUnit = () => {
     if (editingId === null) return;
     if (!name.trim()) {
       setNameError(true); // Set error state to true
-      setNameHelperText('Birim adı boş olamaz!'); // Set helper text
+      setNameHelperText('Ölçü adı boş olamaz!'); // Set helper text
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
@@ -299,14 +299,14 @@ const ListUnit = () => {
         }
       );
       if (response.data.httpStatusCode === 200) {
-        showAlert('Birim başarıyla güncellendi!', 'success');
+        showAlert('Ölçü başarıyla güncellendi!', 'success');
         setUnitsList(prevList =>
           prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
         );
         resetFormAndState();
         getListUnit();
       } else {
-        showAlert(response.data.message || 'Birim güncellenirken bir hata oluştu.', 'error');
+        showAlert(response.data.message || 'Ölçü güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
       if (e.response && e.response.status === 401) {
@@ -315,7 +315,7 @@ const ListUnit = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
       console.error("Error updating unit:", e);
-      showAlert(e.response?.data?.message || 'Birim güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(e.response?.data?.message || 'Ölçü güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -347,7 +347,7 @@ const ListUnit = () => {
 
       if (response.data.httpStatusCode === 200) {
         const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
-        showAlert(`Birim başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        showAlert(`Ölçü başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListUnit();
         resetFormAndState();
       } else {
@@ -513,7 +513,7 @@ const ListUnit = () => {
           <Grid item xs={12} sm={7}>
             <CustomTextField
               id="unit-name"
-              placeholder="Birim Adı"
+              placeholder="Ölçü Adı"
               fullWidth
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -533,7 +533,7 @@ const ListUnit = () => {
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili birimi güncelleyin" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili Ölçüi güncelleyin" : ""}>
                     <Button
                       variant="contained"
                       color="info"
@@ -545,7 +545,7 @@ const ListUnit = () => {
                       </> : 'Düzenlemek'}
                     </Button>
                   </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni birim moduna dön" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Ölçü moduna dön" : ""}>
                     <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
                       İptal Et
                     </Button>
@@ -553,7 +553,7 @@ const ListUnit = () => {
                 </>
               ) : (
                 <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir birim ekle" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Ölçü ekle" : ""}>
                     <Button
                       variant="contained"
                       color="success"
@@ -562,7 +562,7 @@ const ListUnit = () => {
                     >
                       {loadingButton ? <>
                         <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Yeni Birim Ekle'}
+                      </> : 'Yeni Ölçü Ekle'}
                     </Button>
                   </CustomTooltip>
                 </>
@@ -583,7 +583,7 @@ const ListUnit = () => {
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={8}>
               <TextField
-                label="Birim Ara"
+                label="Ölçü Ara"
                 variant="outlined"
                 fullWidth
                 value={searchTerm}
@@ -605,7 +605,7 @@ const ListUnit = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm birimleri göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Ölçüleri göster" : ""}>
                   <ToggleButton
                     value="all"
                     aria-label="all units"
@@ -626,7 +626,7 @@ const ListUnit = () => {
                     Tümü
                   </ToggleButton>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif birimleri göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Ölçüleri göster" : ""}>
                   <ToggleButton
                     value="active"
                     aria-label="active units"
@@ -647,7 +647,7 @@ const ListUnit = () => {
                     Aktif
                   </ToggleButton>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif birimleri göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Ölçüleri göster" : ""}>
                   <ToggleButton
                     value="inactive"
                     aria-label="inactive units"
@@ -769,7 +769,7 @@ const ListUnit = () => {
                       >
                         {selectedRowForMenu?.recordStatus === 0 ? (
                           <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu birimi pasif yap" : ""}>
+                            title={isTooltipGloballyEnabled ? "Bu Ölçüi pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -779,7 +779,7 @@ const ListUnit = () => {
                           </CustomTooltip>
                         ) : (
                           <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu birimi aktif yap" : ""}>
+                            title={isTooltipGloballyEnabled ? "Bu Ölçüi aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
@@ -789,7 +789,7 @@ const ListUnit = () => {
                           </CustomTooltip>
                         )}
                         <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu birimi düzenle" : ""}>
+                          title={isTooltipGloballyEnabled ? "Bu Ölçüi düzenle" : ""}>
                           <MenuItem onClick={handleEditClick}>
                             <ListItemIcon>
                               <IconEdit width={18} />
@@ -798,7 +798,7 @@ const ListUnit = () => {
                           </MenuItem>
                         </CustomTooltip>
                         <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu birimi sil" : ""}>
+                          title={isTooltipGloballyEnabled ? "Bu Ölçüi sil" : ""}>
                           <MenuItem onClick={handleClickOpenDeleteModal}>
                             <ListItemIcon>
                               <IconTrash width={18} />
@@ -814,7 +814,7 @@ const ListUnit = () => {
                 <TableRow>
                   <TableCell colSpan={4} align="center">
                     <Typography variant="subtitle1" color="textSecondary">
-                      Hiç birim bulunamadı.
+                      Hiç Ölçü bulunamadı.
                     </Typography>
                   </TableCell>
                 </TableRow>

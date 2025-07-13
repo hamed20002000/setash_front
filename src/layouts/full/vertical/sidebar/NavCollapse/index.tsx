@@ -1,8 +1,8 @@
+// src/layouts/full/shared/sidebar/NavCollapse.tsx (مسیر فایل شما)
+
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React from 'react';
-
-import { useState } from 'react';
+import React from 'react'; // <--- **useState را اینجا حذف کنید**
 import { useSelector } from 'src/store/Store';
 import { useLocation } from 'react-router-dom';
 
@@ -31,6 +31,7 @@ type NavGroupProps = {
   title?: string;
   icon?: any;
   href?: any;
+  children?: NavGroupProps[]; // اضافه شدن children به NavGroupProps
 };
 
 interface NavCollapseProps {
@@ -40,6 +41,10 @@ interface NavCollapseProps {
   pathDirect: any;
   hideMenu: any;
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
+  // **START: پراپ‌های جدید برای کنترل اکاردئون**
+  isOpen: boolean; // از والد می‌آید، وضعیت باز بودن این منو را نشان می‌دهد
+  onToggle: (id: string) => void; // تابعی که از والد می‌آید برای اطلاع‌رسانی کلیک
+  // **END: پراپ‌های جدید برای کنترل اکاردئون**
 }
 
 // FC Component For Dropdown Menu
@@ -49,47 +54,78 @@ const NavCollapse = ({
   pathWithoutLastPart,
   pathDirect,
   hideMenu,
-  onClick
+  onClick,
+  isOpen,   // <--- **پراپ isOpen را دریافت کنید**
+  onToggle, // <--- **پراپ onToggle را دریافت کنید**
 }: NavCollapseProps) => {
   const customizer = useSelector((state: AppState) => state.customizer);
   const Icon = menu?.icon;
   const theme = useTheme();
   const { pathname } = useLocation();
   const { t } = useTranslation();
-  const [open, setOpen] = useState(true);
-  const menuIcon =
-    level > 1 ? <Icon stroke={1.5} size="1rem" /> : <Icon stroke={1.5} size="1.3rem" />;
 
+  // **START: تغییرات برای قابلیت اکاردئون در NavCollapse**
+  // این useState برای 'open' دیگر نیازی نیست و باید حذف شود.
+  // const [open, setOpen] = useState(true);
+
+  // این handleClick حالا باید به والد (SidebarItems) اطلاع دهد.
   const handleClick = () => {
-    setOpen(!open);
+    // onToggle را با ID منوی فعلی فراخوانی کنید تا والد وضعیت را مدیریت کند.
+    onToggle(menu.id); 
+    // onClick اصلی را هم فراخوانی کنید، اگر برای بستن سایدبار موبایل است.
+    onClick(new MouseEvent('click') as any); // یک راه ساده برای فراخوانی onClick با MouseEvent
   };
 
-  // menu collapse for sub-levels
+  // React.useEffect قبلی که 'open' را بر اساس pathname تنظیم می‌کرد،
+  // دیگر نیازی به setOpen داخلی ندارد.
+  // SidebarItems خودش وضعیت باز بودن را بر اساس pathname مدیریت می‌کند.
+  // با این حال، اگر می‌خواهید مطمئن شوید که وقتی صفحه refresh می‌شود، منوی فعال باز باشد،
+  // useEffect در SidebarItems (که قبلاً اضافه کردم) آن را مدیریت می‌کند.
+  // این useEffect فعلی در NavCollapse می‌تواند حذف یا اصلاح شود.
+  // اگر حذف شود، وابستگی به مدیریت والد بیشتر می‌شود که برای اکاردئون لازم است.
+  // برای حالت اکاردئون، این useEffect باید حذف شود تا فقط والد کنترل کند.
+  /*
   React.useEffect(() => {
-    setOpen(false);
+     // این منطق حالا باید توسط والد مدیریت شود
+    setOpen(false); // <--- این خط باید حذف شود
     menu?.children?.forEach((item: any) => {
       if (item?.href === pathname) {
-        setOpen(true);
+        setOpen(true); // <--- این خط باید حذف شود
       }
     });
   }, [pathname, menu.children]);
+  */
+  // **END: تغییرات برای قابلیت اکاردئون در NavCollapse**
+
+  const menuIcon =
+    level > 1 ? <Icon stroke={1.5} size="1rem" /> : <Icon stroke={1.5} size="1.3rem" />;
+
+  // بررسی کنید آیا هر یک از فرزندان این منو در مسیر فعلی فعال هستند
+  const isAnyChildActive = menu.children
+    ? menu.children.some(
+        (child: any) => 
+          child.href === pathname || 
+          (child.children && child.children.some((grandchild: any) => grandchild.href === pathname))
+      )
+    : false;
 
   const ListItemStyled = styled(ListItemButton)(() => ({
     marginBottom: '2px',
     padding: '8px 10px',
     paddingLeft: hideMenu ? '10px' : level > 2 ? `${level * 15}px` : '10px',
-    backgroundColor: open && level < 2 ? theme.palette.primary.main : '',
+    // backgroundColor و color حالا بر اساس isOpen و isAnyChildActive تنظیم می‌شوند
+    backgroundColor: (isOpen || isAnyChildActive) && level < 2 ? 'rgb(93 135 255)' : 'transparent',
     whiteSpace: 'nowrap',
     '&:hover': {
-      backgroundColor: pathname.includes(menu.href) || open
+      backgroundColor: (pathname.includes(menu.href) || isOpen || isAnyChildActive)
         ? theme.palette.primary.main
         : theme.palette.primary.light,
-      color: pathname.includes(menu.href) || open ? 'white' : theme.palette.primary.main,
+      color: (pathname.includes(menu.href) || isOpen || isAnyChildActive) ? 'black' : theme.palette.primary.main,
     },
     color:
-     open && level < 2
-        ? 'white'
-        : (level > 1 && open
+      (isOpen || isAnyChildActive) && level < 2
+        ? 'black'
+        : (level > 1 && (isOpen || isAnyChildActive)
           ? theme.palette.primary.main
           : 'inherit' 
         ),
@@ -108,6 +144,12 @@ const NavCollapse = ({
           pathDirect={pathDirect}
           hideMenu={hideMenu}
           onClick={onClick}
+          // **پاس دادن پراپ‌های اکاردئون به NavCollapse های تو در تو**
+          isOpen={item.id === onToggle} // این قسمت نیاز به دقت بیشتر دارد اگر اکاردئون چندسطحی باشد
+          // برای اکاردئون چندسطحی پیچیده‌تر است، این فقط برای یک سطح اکاردئون کار می‌کند.
+          // برای چندسطحی باید یک state تو در تو یا یک Context کلی داشت.
+          // فعلاً فرض می‌کنیم اکاردئون فقط در سطح یک (منوهای اصلی) اتفاق می‌افتد.
+          onToggle={onToggle} // تابع onToggle را به پایین پاس می‌دهیم
         />
       );
     } else {
@@ -127,8 +169,8 @@ const NavCollapse = ({
   return (
     <>
       <ListItemStyled
-        onClick={handleClick}
-        selected={pathWithoutLastPart === menu.href}
+        onClick={handleClick} // <--- استفاده از handleClick جدید
+        selected={isAnyChildActive} // فقط اگر فرزندان فعال باشند selected شود
         key={menu?.id}
       >
         <ListItemIcon
@@ -141,10 +183,15 @@ const NavCollapse = ({
           {menuIcon}
         </ListItemIcon>
         <ListItemText color="inherit">{hideMenu ? '' : <>{t(`${menu.title}`)}</>}</ListItemText>
-        {!open ? <IconChevronDown size="1rem" /> : <IconChevronUp size="1rem" />}
+        {/* استفاده از پراپ `isOpen` برای نمایش آیکون صحیح */}
+        {!isOpen ? <IconChevronDown size="1rem" /> : <IconChevronUp size="1rem" />}
       </ListItemStyled>
-      <Collapse in={open} timeout="auto" unmountOnExit>
+      {/* استفاده از پراپ `isOpen` برای کنترل وضعیت Collapse */}
+      <Collapse in={isOpen} timeout="auto" unmountOnExit>
+      <div style={{marginLeft:"10px"}}>
         {submenus}
+      </div>
+        
       </Collapse>
     </>
   );
