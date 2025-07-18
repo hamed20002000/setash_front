@@ -550,7 +550,7 @@ const ListItemComponent = () => {
     // Validate Unit
     if (selectedUnitId === null) {
       setUnitIdError(true);
-      setUnitIdHelperText('Birim seçilmelidir!');
+      setUnitIdHelperText('Ölçü seçilmelidir!');
       hasError = true;
     } else {
       setUnitIdError(false);
@@ -665,7 +665,7 @@ const ListItemComponent = () => {
     // Validate Unit
     if (selectedUnitId === null) {
       setUnitIdError(true);
-      setUnitIdHelperText('Birim seçilmelidir!');
+      setUnitIdHelperText('Ölçü seçilmelidir!');
       hasError = true;
     } else {
       setUnitIdError(false);
@@ -853,7 +853,7 @@ const ListItemComponent = () => {
         })));
       } else {
         console.error("Failed to fetch units:", response.data.message);
-        showAlert('Birimler yüklenirken hata oluştu.', 'error');
+        showAlert('Ölçüler yüklenirken hata oluştu.', 'error');
       }
     } catch (e: any) {
       if (e.response && e.response.status === 401) {
@@ -862,7 +862,7 @@ const ListItemComponent = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Error fetching units:", e);
-        showAlert('Birimler sunucudan alınamadı.', 'error');
+        showAlert('Ölçüler sunucudan alınamadı.', 'error');
       }
     } finally {
       setLoadingUnits(false);
@@ -1089,15 +1089,15 @@ const ListItemComponent = () => {
           </Grid>
           {/* Unit Selection (with search) */}
           <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="select-unit">Birim</CustomFormLabel>
+            <CustomFormLabel htmlFor="select-unit">Ölçü</CustomFormLabel>
             {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
             <FormControl fullWidth error={unitIdError}> 
-              <InputLabel id="select-unit-label">Birim Seçin</InputLabel>
+              <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
               <Select
                 labelId="select-unit-label"
                 id="select-unit"
                 value={selectedUnitId || ''}
-                label="Birim Seçin"
+                label="Ölçü Seçin"
                 onChange={(e) => {
                   setSelectedUnitId(e.target.value as string);
                   if (unitIdError) { // Clear error when a unit is selected
@@ -1117,7 +1117,7 @@ const ListItemComponent = () => {
                 <TextField
                   autoFocus
                   fullWidth
-                  placeholder="Birim Ara..."
+                  placeholder="Ölçü Ara..."
                   value={unitSearchTerm}
                   onChange={handleUnitSearchChange}
                   onClick={(e) => e.stopPropagation()}
@@ -1386,24 +1386,26 @@ const ListItemComponent = () => {
           <Table aria-label="item table">
             <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
-                <TableCell>
+                <TableCell >
                   {/* Sortable Column: Ürün Adı */}
                   <TableSortLabel
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
                     onClick={() => handleRequestSort('name')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Ürün Adı</Typography>
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  {/* Sortable Column: Birim */}
+                  {/* Sortable Column: Ölçü */}
                   <TableSortLabel
                     active={orderBy === 'unit.title'} // Sorting by nested property 'unit.title'
                     direction={orderBy === 'unit.title' ? order : 'asc'}
                     onClick={() => handleRequestSort('unit.title')}
+                      style={{color: "#171c23"}}
                   >
-                    <Typography variant="h6">Birim</Typography>
+                    <Typography variant="h6">Ölçü</Typography>
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -1412,6 +1414,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'category.name'} // Sorting by nested property 'category.name'
                     direction={orderBy === 'category.name' ? order : 'asc'}
                     onClick={() => handleRequestSort('category.name')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Kategori</Typography>
                   </TableSortLabel>
@@ -1422,11 +1425,13 @@ const ListItemComponent = () => {
                     active={orderBy === 'abbreviation'}
                     direction={orderBy === 'abbreviation' ? order : 'asc'}
                     onClick={() => handleRequestSort('abbreviation')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Kısaltma</Typography>
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>
+                <TableCell 
+                      style={{color: "#171c23"}}>
                   <Typography variant="h6">Açıklama</Typography> {/* Description is not easily sortable */}
                 </TableCell>
                 <TableCell>
@@ -1435,6 +1440,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -1445,6 +1451,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>

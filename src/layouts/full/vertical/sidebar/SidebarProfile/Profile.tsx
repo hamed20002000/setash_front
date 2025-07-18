@@ -32,7 +32,7 @@ export const Profile = () => {
   // تابع خروج از سیستم
   const handleLogout = () => {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('activeUserRoleName'); // پاک کردن رول فعال
+    // localStorage.removeItem('activeUserRoleName'); 
     localStorage.removeItem('hasSeenWelcomeMessage'); // پاک کردن پیام Welcome
     navigate('/auth/login'); // هدایت به صفحه لاگین
   };

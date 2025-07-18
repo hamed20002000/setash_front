@@ -1,5 +1,6 @@
 // ListUserOperationsModal.tsx
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -46,6 +47,7 @@ type Props = {
 };
 
 const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAlert }: Props) => {
+  const navigate = useNavigate();
   const [allOperations, setAllOperations] = useState<OperationType[]>([]);
   const [selectedOperationIds, setSelectedOperationIds] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -188,9 +190,13 @@ const ListUserOperationsModal = ({ openOperationsModal, onClose, userId, showAle
         showAlert(response.data.message || 'Kullanıcı operasyonları güncellenirken bir hata oluştu.', 'error');
       }
     } catch (error: any) {
-      console.error("Error saving user operations:", error);
       const errorMessage = error.response?.data?.message || 'Kullanıcı operasyonları kaydedilirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
       showAlert(errorMessage, 'error');
+        if (error.response && error.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
     } finally {
       setSaving(false);
     }

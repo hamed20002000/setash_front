@@ -312,8 +312,10 @@ const ListTender = () => {
         navigate("/");
         return;
       }
-      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender",
-        { id: editingId, newTitle: title }, {
+      debugger
+      const response = await axios.put(
+        server.baseurl + server.initialoperations + "update-tender",
+        { id: Number(editingId), title: title}, {
         headers: {
           "Accept": "application/json",
           'Content-Type': 'application/json',
@@ -353,7 +355,7 @@ const ListTender = () => {
       }
 
       const response = await axios.put(server.baseurl + server.initialoperations + "update-tender",
-        { id: id, recordStatus: statusValue }, {
+        { id: Number(id), recordStatus: statusValue }, {
         headers: {
           "Accept": "application/json",
           'Content-Type': 'application/json',
@@ -522,9 +524,10 @@ const ListTender = () => {
 
 
   // --- تابع برای رفتن به صفحه جزئیات مزایده ---
-  const handleGoToDetails = (tenderId: number) => {
-    navigate(`/tender/tender-details/${tenderId}`);
-  };
+const handleGoToDetails = (tenderId: number, tenderTitle: string) => {
+  navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
+};
+
 
 
   return (
@@ -680,6 +683,7 @@ const ListTender = () => {
                       active={orderBy === 'title'}
                       direction={orderBy === 'title' ? order : 'asc'}
                       onClick={() => handleRequestSort('title')}
+                      style={{color: "#171c23"}}
                     >
                       <Typography variant="h6">Başlık</Typography>
                     </TableSortLabel>
@@ -690,6 +694,7 @@ const ListTender = () => {
                       active={orderBy === 'createAt'}
                       direction={orderBy === 'createAt' ? order : 'asc'}
                       onClick={() => handleRequestSort('createAt')}
+                      style={{color: "#171c23"}}
                     >
                       <Typography variant="h6">Oluşturulma Tarihi</Typography>
                     </TableSortLabel>
@@ -700,11 +705,13 @@ const ListTender = () => {
                       active={orderBy === 'status'}
                       direction={orderBy === 'status' ? order : 'asc'}
                       onClick={() => handleRequestSort('status')}
+                      style={{color: "#171c23"}}
                     >
                       <Typography variant="h6">Durum</Typography>
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell 
+                      style={{color: "#171c23"}}>
                     <Typography variant="h6">Detaylar</Typography>
                   </TableCell>
                   <TableCell></TableCell>
@@ -753,7 +760,7 @@ const ListTender = () => {
                           <Button
                             variant="outlined"
                             size="small"
-                            onClick={() => handleGoToDetails(row.id)}
+                            onClick={() => handleGoToDetails(row.id, row.title)}
                             startIcon={<IconPlus size={18} />}
                           >
                             Detaylar

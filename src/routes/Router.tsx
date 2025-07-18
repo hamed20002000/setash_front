@@ -145,7 +145,7 @@ const Router = [
       { path: '/baseinfo/list-units', element: <ListUnit /> },
       { path: '/baseinfo/list-items', element: <ListItem /> },
       { path: '/tender/list-tender', element: <ListAuction /> },
-      { path: '/tender/tender-details/:auctionId', element: <AuctionDetails /> },
+      { path: '/tender/tender-details/:tenderId', element: <AuctionDetails /> },
 
 
 

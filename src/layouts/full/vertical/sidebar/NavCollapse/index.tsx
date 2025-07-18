@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React from 'react'; // <--- **useState را اینجا حذف کنید**
+import React from 'react'; // useState دیگر اینجا استفاده نمی‌شود
 import { useSelector } from 'src/store/Store';
 import { useLocation } from 'react-router-dom';
 
@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 
 // custom imports
-import NavItem from '../NavItem';
+import NavItem from '../NavItem'; // مطمئن شوید NavItem از onClick برای بستن سایدبار استفاده می‌کند
 
 // plugins
 import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
@@ -40,7 +40,7 @@ interface NavCollapseProps {
   pathWithoutLastPart: any;
   pathDirect: any;
   hideMenu: any;
-  onClick: (event: React.MouseEvent<HTMLElement>) => void;
+  // onClick: (event: React.MouseEvent<HTMLElement>) => void; // <--- **این خط را حذف کنید**
   // **START: پراپ‌های جدید برای کنترل اکاردئون**
   isOpen: boolean; // از والد می‌آید، وضعیت باز بودن این منو را نشان می‌دهد
   onToggle: (id: string) => void; // تابعی که از والد می‌آید برای اطلاع‌رسانی کلیک
@@ -54,8 +54,8 @@ const NavCollapse = ({
   pathWithoutLastPart,
   pathDirect,
   hideMenu,
-  onClick,
-  isOpen,   // <--- **پراپ isOpen را دریافت کنید**
+  // onClick, // <--- **این پراپ را از اینجا حذف کنید**
+  isOpen, // <--- **پراپ isOpen را دریافت کنید**
   onToggle, // <--- **پراپ onToggle را دریافت کنید**
 }: NavCollapseProps) => {
   const customizer = useSelector((state: AppState) => state.customizer);
@@ -64,38 +64,28 @@ const NavCollapse = ({
   const { pathname } = useLocation();
   const { t } = useTranslation();
 
-  // **START: تغییرات برای قابلیت اکاردئون در NavCollapse**
-  // این useState برای 'open' دیگر نیازی نیست و باید حذف شود.
-  // const [open, setOpen] = useState(true);
-
-  // این handleClick حالا باید به والد (SidebarItems) اطلاع دهد.
+  // این handleClick حالا فقط باید به والد (SidebarItems) اطلاع دهد.
   const handleClick = () => {
     // onToggle را با ID منوی فعلی فراخوانی کنید تا والد وضعیت را مدیریت کند.
-    onToggle(menu.id); 
-    // onClick اصلی را هم فراخوانی کنید، اگر برای بستن سایدبار موبایل است.
-    onClick(new MouseEvent('click') as any); // یک راه ساده برای فراخوانی onClick با MouseEvent
+    onToggle(menu.id);
+    // onClick اصلی را که برای بستن سایدبار موبایل بود، اینجا دیگر فراخوانی نمی‌کنیم.
+    // چون مسئولیت بستن سایدبار به NavItem منتقل شده است.
   };
 
   // React.useEffect قبلی که 'open' را بر اساس pathname تنظیم می‌کرد،
-  // دیگر نیازی به setOpen داخلی ندارد.
-  // SidebarItems خودش وضعیت باز بودن را بر اساس pathname مدیریت می‌کند.
-  // با این حال، اگر می‌خواهید مطمئن شوید که وقتی صفحه refresh می‌شود، منوی فعال باز باشد،
-  // useEffect در SidebarItems (که قبلاً اضافه کردم) آن را مدیریت می‌کند.
-  // این useEffect فعلی در NavCollapse می‌تواند حذف یا اصلاح شود.
-  // اگر حذف شود، وابستگی به مدیریت والد بیشتر می‌شود که برای اکاردئون لازم است.
-  // برای حالت اکاردئون، این useEffect باید حذف شود تا فقط والد کنترل کند.
+  // دیگر نیازی به setOpen داخلی ندارد و باید حذف شود.
+  // این useEffect باید حذف شود تا فقط والد کنترل کند.
   /*
   React.useEffect(() => {
-     // این منطق حالا باید توسط والد مدیریت شود
-    setOpen(false); // <--- این خط باید حذف شود
-    menu?.children?.forEach((item: any) => {
-      if (item?.href === pathname) {
-        setOpen(true); // <--- این خط باید حذف شود
-      }
-    });
-  }, [pathname, menu.children]);
-  */
-  // **END: تغییرات برای قابلیت اکاردئون در NavCollapse**
+       // این منطق حالا باید توسط والد مدیریت شود
+     setOpen(false); // <--- این خط باید حذف شود
+     menu?.children?.forEach((item: any) => {
+       if (item?.href === pathname) {
+         setOpen(true); // <--- این خط باید حذف شود
+       }
+     });
+   }, [pathname, menu.children]);
+   */
 
   const menuIcon =
     level > 1 ? <Icon stroke={1.5} size="1rem" /> : <Icon stroke={1.5} size="1.3rem" />;
@@ -103,8 +93,8 @@ const NavCollapse = ({
   // بررسی کنید آیا هر یک از فرزندان این منو در مسیر فعلی فعال هستند
   const isAnyChildActive = menu.children
     ? menu.children.some(
-        (child: any) => 
-          child.href === pathname || 
+        (child: any) =>
+          child.href === pathname ||
           (child.children && child.children.some((grandchild: any) => grandchild.href === pathname))
       )
     : false;
@@ -126,9 +116,9 @@ const NavCollapse = ({
       (isOpen || isAnyChildActive) && level < 2
         ? 'black'
         : (level > 1 && (isOpen || isAnyChildActive)
-          ? theme.palette.primary.main
-          : 'inherit' 
-        ),
+            ? theme.palette.primary.main
+            : 'inherit'
+          ),
     borderRadius: `${customizer.borderRadius}px`,
   }));
 
@@ -143,12 +133,10 @@ const NavCollapse = ({
           pathWithoutLastPart={pathWithoutLastPart}
           pathDirect={pathDirect}
           hideMenu={hideMenu}
-          onClick={onClick}
-          // **پاس دادن پراپ‌های اکاردئون به NavCollapse های تو در تو**
-          isOpen={item.id === onToggle} // این قسمت نیاز به دقت بیشتر دارد اگر اکاردئون چندسطحی باشد
-          // برای اکاردئون چندسطحی پیچیده‌تر است، این فقط برای یک سطح اکاردئون کار می‌کند.
-          // برای چندسطحی باید یک state تو در تو یا یک Context کلی داشت.
-          // فعلاً فرض می‌کنیم اکاردئون فقط در سطح یک (منوهای اصلی) اتفاق می‌افتد.
+          // onClick را به NavCollapse های تو در تو پاس نمی‌دهیم
+          // اگر اکاردئون چندسطحی باشد، isOpen و onToggle را باید با منطق پیچیده‌تری پاس داد
+          // فعلاً برای حل مشکل اصلی، فرض بر این است که اکاردئون فقط در سطح یک مدیریت می‌شود
+          isOpen={false} // <--- برای زیرمنوها، فعلاً isOpen را false در نظر بگیرید مگر اینکه منطق پیچیده‌تری برای آن اضافه کنید
           onToggle={onToggle} // تابع onToggle را به پایین پاس می‌دهیم
         />
       );
@@ -160,7 +148,10 @@ const NavCollapse = ({
           level={level + 1}
           pathDirect={pathDirect}
           hideMenu={hideMenu}
-          onClick={onClick}
+          // این onClick در NavItem مسئول بستن سایدبار موبایل است
+          onClick={() => { /* اگر NavItem نیاز به بستن سایدبار دارد، این را اینجا مدیریت کنید */ }}
+          // یا اگر NavItem خودش onClick را از SidebarItems دریافت می‌کند، آن را پاس دهید.
+          // بهتر است NavItem خودش این منطق را داشته باشد.
         />
       );
     }
@@ -188,10 +179,9 @@ const NavCollapse = ({
       </ListItemStyled>
       {/* استفاده از پراپ `isOpen` برای کنترل وضعیت Collapse */}
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
-      <div style={{marginLeft:"10px"}}>
-        {submenus}
-      </div>
-        
+        <div style={{marginLeft:"10px"}}>
+          {submenus}
+        </div>
       </Collapse>
     </>
   );

@@ -1,5 +1,6 @@
 // ListUsersModal.tsx
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from "react-router-dom";
 import {
   Button,
   Dialog,
@@ -15,6 +16,8 @@ import {
   CircularProgress,
   Box,
   DialogContent,
+  DialogTitle, // اضافه شده برای عنوان مودال ارور
+  DialogActions, // اضافه شده برای دکمه‌های مودال ارور
 } from '@mui/material';
 import Slide from '@mui/material/Slide';
 import { IconX } from '@tabler/icons-react';
@@ -22,7 +25,7 @@ import { TransitionProps } from '@mui/material/transitions';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 const Transition = React.forwardRef(function Transition(
   props: TransitionProps & {
@@ -46,12 +49,13 @@ type Props = {
 };
 
 const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) => {
+  const navigate = useNavigate();
   const [allRoles, setAllRoles] = useState<RoleType[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [openErrorModal, setOpenErrorModal] = useState<boolean>(false); // 👈 **وضعیت جدید برای مودال ارور**
 
-  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
   const { isTooltipGloballyEnabled } = useTooltip();
 
   const fetchAllRoles = async () => {
@@ -133,6 +137,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       setSelectedRoleIds([]);
       setLoading(false);
       setSaving(false);
+      setOpenErrorModal(false); // 👈 **ریست کردن وضعیت مودال ارور هنگام بسته شدن مودال اصلی**
     }
   }, [openRoleModal, userId]);
 
@@ -168,12 +173,12 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
 
     const roleIdsToSend = allRoles
       .filter(role => selectedRoleIds.includes(role.id))
-      .map(role => role.id); // ارسال ID رول‌ها (اگر API نام می‌خواست، اینجا به نام تبدیل کنید)
+      .map(role => role.id);
 
     try {
       const response = await axios.post(
-        `${server.baseurl}${server.user}assign-user-roles`, // آدرس API اختصاص رول به کاربر
-        { UserId: userId, roleIds: roleIdsToSend }, // UserId و roleIds را ارسال کن
+        `${server.baseurl}${server.user}assign-user-roles`,
+        { UserId: userId, roleIds: roleIdsToSend },
         {
           headers: {
             "Accept": "application/json",
@@ -183,16 +188,29 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
         }
       );
 
+      // 👈 **بررسی httpStatusCode در صورت موفقیت (200 یا 201)**
       if (response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201) {
         showAlert('Roller başarıyla güncellendi!', 'success');
         onClose();
-      } else {
+      } else if (response.data.httpStatusCode === 400) { // 👈 **بررسی httpStatusCode 400 برای مودال ارور**
+        setOpenErrorModal(true); // 👈 **باز کردن مودال ارور**
+      }
+      else {
         showAlert(response.data.message || 'Roller güncellenirken bir hata oluştu.', 'error');
       }
     } catch (error: any) {
       console.error("Error saving roles:", error);
-      const errorMessage = error.response?.data?.message || 'Roller kaydedilirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
+      // 👈 **بررسی مستقیم http status از response.status در صورت وجود خطا**
+      if (error.response && error.response.status === 400) {
+        setOpenErrorModal(true); // 👈 **باز کردن مودال ارور برای خطای 400**
+      } else if (error.response && error.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        const errorMessage = error.response?.data?.message || 'Roller kaydedilirken beklenmeyen bir hata oluştu, lütfen tekrar deneyین.';
+        showAlert(errorMessage, 'error');
+      }
     } finally {
       setSaving(false);
     }
@@ -202,86 +220,105 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
   const isIndeterminate = selectedRoleIds.length > 0 && selectedRoleIds.length < allRoles.length;
 
   return (
-    <Dialog fullScreen open={openRoleModal} onClose={onClose} TransitionComponent={Transition}>
-      <AppBar sx={{ position: 'relative' }}>
-        <Toolbar>
-          {/* **Tooltip برای دکمه بستن (IconX)** */}
-          <CustomTooltip title={isTooltipGloballyEnabled ? "Kapat" : ""}>
-            <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
-              <IconX width={24} height={24} />
-            </IconButton>
-          </CustomTooltip>
-          <Typography ml={2} flex={1} variant="h6" component="div">
-            Kullanıcı için Rolleri Seçin
-          </Typography>
-          <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolleri kaydet" : ""}>
-            <Button autoFocus color="inherit" onClick={handleSaveRoles} disabled={loading || saving}>
-              {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
-            </Button>
-          </CustomTooltip>
-        </Toolbar>
-      </AppBar>
-      <DialogContent sx={{ p: 0 }}>
-        {loading ? (
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
-            <CircularProgress />
-            <Typography ml={2}>Roller yükleniyor...</Typography>
-          </Box>
-        ) : (
-          <List dense component="div" role="list">
-            {allRoles.length > 0 ? (
-              <>
-                {/* آیتم "انتخاب همه" */}
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri seç/seçimi kaldır" : ""}>
-                  <ListItem
-                    onClick={handleSelectAllToggle}
-                    role="checkbox"
-                    sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}
-                  >
-                    <ListItemIcon>
-                      <Checkbox
-                        edge="start"
-                        checked={isAllSelected}
-                        indeterminate={isIndeterminate}
-                        tabIndex={-1}
-                        disableRipple
-                      />
-                    </ListItemIcon>
-                    <ListItemText primary="Tümünü Seç / Seçimi Kaldır" />
-                  </ListItem>
-                </CustomTooltip>
-
-                {/* لیست رول‌ها */}
-                {allRoles.map((role) => (
-                  <CustomTooltip key={`role-tooltip-${role.id}`} title={isTooltipGloballyEnabled ? role.name : ""}>
+    <>
+      <Dialog fullScreen open={openRoleModal} onClose={onClose} TransitionComponent={Transition}>
+        <AppBar sx={{ position: 'relative' }}>
+          <Toolbar>
+            <CustomTooltip title={isTooltipGloballyEnabled ? "Kapat" : ""}>
+              <IconButton edge="start" color="inherit" onClick={onClose} aria-label="close">
+                <IconX width={24} height={24} />
+              </IconButton>
+            </CustomTooltip>
+            <Typography ml={2} flex={1} variant="h6" component="div">
+              Kullanıcı için Rolleri Seçin
+            </Typography>
+            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolleri kaydet" : ""}>
+              <Button autoFocus color="inherit" onClick={handleSaveRoles} disabled={loading || saving}>
+                {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
+              </Button>
+            </CustomTooltip>
+          </Toolbar>
+        </AppBar>
+        <DialogContent sx={{ p: 0 }}>
+          {loading ? (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+              <CircularProgress />
+              <Typography ml={2}>Roller yükleniyor...</Typography>
+            </Box>
+          ) : (
+            <List dense component="div" role="list">
+              {allRoles.length > 0 ? (
+                <>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri seç/seçimi kaldır" : ""}>
                     <ListItem
-                      key={role.id}
-                      onClick={handleToggle(role.id)}
+                      onClick={handleSelectAllToggle}
                       role="checkbox"
-                      sx={{ py: 0.5 }}
+                      sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}
                     >
                       <ListItemIcon>
                         <Checkbox
                           edge="start"
-                          checked={selectedRoleIds.indexOf(role.id) !== -1}
+                          checked={isAllSelected}
+                          indeterminate={isIndeterminate}
                           tabIndex={-1}
                           disableRipple
                         />
                       </ListItemIcon>
-                      <ListItemText primary={role.name} />
+                      <ListItemText primary="Tümünü Seç / Seçimi Kaldır" />
                     </ListItem>
                   </CustomTooltip>
-                ))}
-              </>
-            ) : (
-              <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
-                <Typography color="textSecondary">Hiç rol bulunamadı.</Typography>
-              </Box>
-            )}
-          </List>
-        )}
-      </DialogContent>
-    </Dialog>
+
+                  {allRoles.map((role) => (
+                    <CustomTooltip key={`role-tooltip-${role.id}`} title={isTooltipGloballyEnabled ? role.name : ""}>
+                      <ListItem
+                        key={role.id}
+                        onClick={handleToggle(role.id)}
+                        role="checkbox"
+                        sx={{ py: 0.5 }}
+                      >
+                        <ListItemIcon>
+                          <Checkbox
+                            edge="start"
+                            checked={selectedRoleIds.indexOf(role.id) !== -1}
+                            tabIndex={-1}
+                            disableRipple
+                          />
+                        </ListItemIcon>
+                        <ListItemText primary={role.name} />
+                      </ListItem>
+                    </CustomTooltip>
+                  ))}
+                </>
+              ) : (
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                  <Typography color="textSecondary">Hiç rol bulunamadı.</Typography>
+                </Box>
+              )}
+            </List>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* 👈 **مودال جدید برای نمایش خطا** */}
+      <Dialog
+        open={openErrorModal}
+        onClose={() => setOpenErrorModal(false)}
+        aria-labelledby="error-dialog-title"
+        aria-describedby="error-dialog-description"
+      >
+        <DialogTitle id="error-dialog-title">{"Rol Seçim Hatası"}</DialogTitle>
+        <DialogContent>
+          <Typography id="error-dialog-description">
+            Kullanıcı için mutlaka bir rol seçilmelidir.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenErrorModal(false)} color="primary" autoFocus>
+            Anladım.
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
 

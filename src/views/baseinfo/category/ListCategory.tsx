@@ -891,6 +891,7 @@ const ListCategory = () => {
                       active={orderBy === 'name'}
                       direction={orderBy === 'name' ? order : 'asc'}
                       onClick={() => handleRequestSort('name')}
+                      style={{color: "#171c23"}}
                     >
                       <Typography variant="h6">İsim</Typography>
                     </TableSortLabel>
@@ -901,6 +902,7 @@ const ListCategory = () => {
                       active={orderBy === 'createAt'}
                       direction={orderBy === 'createAt' ? order : 'asc'}
                       onClick={() => handleRequestSort('createAt')}
+                      style={{color: "#171c23"}}
                     >
                       <Typography variant="h6">Oluşturulma Tarihi</Typography>
                     </TableSortLabel>
@@ -911,11 +913,13 @@ const ListCategory = () => {
                       active={orderBy === 'status'}
                       direction={orderBy === 'status' ? order : 'asc'}
                       onClick={() => handleRequestSort('status')}
+                      style={{color: "#171c23"}}
                     >
                       <Typography variant="h6">Durum</Typography>
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell>
+                  <TableCell 
+                      style={{color: "#171c23"}}>
                     <Typography variant="h6">Alt Kategori</Typography> {/* This column is for navigation, not direct sort */}
                   </TableCell>
                   <TableCell></TableCell>

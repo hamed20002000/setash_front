@@ -1119,7 +1119,8 @@ const ListUsers = () => {
           <Table aria-label="user table">
             <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
-                <TableCell>
+                <TableCell 
+                      style={{color: "#171c23"}}>
                   <Typography variant="h6">Resim</Typography>
                 </TableCell>
                 <TableCell>
@@ -1128,11 +1129,13 @@ const ListUsers = () => {
                     active={orderBy === 'username'}
                     direction={orderBy === 'username' ? order : 'asc'}
                     onClick={() => handleRequestSort('username')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Kullanıcı Adı</Typography>
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>
+                <TableCell 
+                      style={{color: "#171c23"}}>
                   <Typography variant="h6">Rolleri</Typography>
                 </TableCell>
                 <TableCell>
@@ -1141,6 +1144,7 @@ const ListUsers = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -1151,6 +1155,7 @@ const ListUsers = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
+                      style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>

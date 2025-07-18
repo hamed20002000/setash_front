@@ -49,7 +49,7 @@ const Menuitems: MenuitemsType[] = [
       {
         id: uniqueId(),
         title: 'Operasyonlar',
-        icon: IconApps, // Keep icons for children too
+        icon: IconApps, 
         chipColor: 'secondary',
         href: '/managmentusers/system-operation',
       },

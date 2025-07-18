@@ -1,7 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import React, { useState, useEffect } from 'react';
-// import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Box, Menu, Avatar, Typography, Divider, Button, IconButton, Stack,
   Alert,
@@ -16,6 +16,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ا�
 import ChangeUserRoleModal from './ChangeUserRoleModal';
 
 const Profile = () => {
+  const navigate = useNavigate();
   const { username, userRoles, activeRoleName, updateActiveRole } = useAuth();
   const { isTooltipGloballyEnabled } = useTooltip(); // **استفاده از useTooltip**
 
@@ -40,9 +41,11 @@ const Profile = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('authToken');
-    localStorage.removeItem('activeUserRoleName');
+    // localStorage.removeItem('activeUserRoleName');
+    // localStorage.removeItem('lastLoggedInUsername'); 
     localStorage.removeItem('hasSeenWelcomeMessage');
-    window.location.href = '/auth/login';
+    // window.location.href = '/auth/login';
+     navigate('/auth/login');
   };
 
   const handleOpenChangeRoleModal = () => {
