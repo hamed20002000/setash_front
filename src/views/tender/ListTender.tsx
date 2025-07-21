@@ -249,12 +249,12 @@ const ListTender = () => {
       navigate("/");
       return;
     }
-
+debugger
     setLoadingButton(true);
     try {
       const response = await axios.post(
         server.baseurl + server.initialoperations + "create-tender",
-        { title, details: [] },
+        { title, tenderCategories: [] },
         {
           headers: {
             "Accept": "application/json",
@@ -428,7 +428,7 @@ const ListTender = () => {
       setLoadingData(false); // Stop loading if no token
       return;
     }
-
+debugger
     axios.request({
       baseURL: server.baseurl + server.initialoperations + "get-tenders",
       method: "get",
@@ -524,11 +524,13 @@ const ListTender = () => {
 
 
   // --- تابع برای رفتن به صفحه جزئیات مزایده ---
-const handleGoToDetails = (tenderId: number, tenderTitle: string) => {
+// const handleGoToDetails = (tenderId: number, tenderTitle: string) => {
+//   navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
+// };
+
+const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') => {
   navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
 };
-
-
 
   return (
     <>
@@ -868,5 +870,7 @@ const handleGoToDetails = (tenderId: number, tenderTitle: string) => {
     </>
   );
 };
+
+
 
 export default ListTender;

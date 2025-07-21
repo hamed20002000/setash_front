@@ -1,9 +1,10 @@
-// src/layouts/full/shared/sidebar/SidebarItems.tsx (یا مسیر مشابه)
+// src/layouts/full/shared/sidebar/SidebarItems.tsx
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useState } from 'react';
-import Menuitems from './MenuItems';
+import React, { useState, useEffect } from 'react'; // useEffect را اضافه کنید
+// Menuitems از اینجا ایمپورت نمی‌شود، بلکه getDynamicMenuItems ایمپورت می‌شود
+import { getDynamicMenuItems, MenuitemsType } from './MenuItems'; // مسیر صحیح را چک کنید
 import { useLocation } from 'react-router';
 import { Box, List, useMediaQuery } from '@mui/material';
 import { useSelector, useDispatch } from 'src/store/Store';
@@ -22,6 +23,30 @@ const SidebarItems = () => {
   const hideMenu: any = lgUp ? customizer.isCollapse && !customizer.isSidebarHover : '';
   const dispatch = useDispatch();
 
+  // اضافه کردن state برای نگهداری منوهای داینامیک
+  const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuitemsType[]>([]);
+  const [loadingMenus, setLoadingMenus] = useState(true);
+  const [errorMenus, setErrorMenus] = useState<string | null>(null);
+
+  // فراخوانی API برای دریافت منوها
+  useEffect(() => {
+    const fetchMenus = async () => {
+      try {
+        setLoadingMenus(true);
+        setErrorMenus(null); // خطا را پاک کنید قبل از فراخوانی جدید
+        const fetchedMenus = await getDynamicMenuItems();
+        setDynamicMenuItems(fetchedMenus);
+      } catch (err) {
+        console.error('Failed to fetch dynamic menu items in SidebarItems:', err);
+        setErrorMenus('Failed to load menu items.');
+      } finally {
+        setLoadingMenus(false);
+      }
+    };
+
+    fetchMenus();
+  }, []); // این useEffect فقط یک بار هنگام mount شدن کامپوننت اجرا می‌شود
+
   // **START: تغییرات برای قابلیت اکاردئون در SidebarItems**
   const [openCollapseId, setOpenCollapseId] = useState<string | null>(null);
 
@@ -29,9 +54,11 @@ const SidebarItems = () => {
     setOpenCollapseId((prevId) => (prevId === id ? null : id));
   };
 
+  // این useEffect باید روی dynamicMenuItems کار کند
   React.useEffect(() => {
     let newOpenCollapseId: string | null = null;
-    Menuitems.forEach(item => {
+    // از dynamicMenuItems استفاده کنید به جای Menuitems
+    dynamicMenuItems.forEach(item => {
       if (item.children) {
         const isActiveParent = item.children.some((child: any) =>
           child.href === pathname ||
@@ -43,14 +70,31 @@ const SidebarItems = () => {
       }
     });
     setOpenCollapseId(newOpenCollapseId);
-  }, [pathname]);
+  }, [pathname, dynamicMenuItems]); // dynamicMenuItems را به dependencies اضافه کنید
 
   // **END: تغییرات برای قابلیت اکاردئون در SidebarItems**
+
+  if (loadingMenus) {
+    return (
+      <Box sx={{ px: 3, py: 2 }}>
+        <div>Loading menus...</div>
+      </Box>
+    );
+  }
+
+  if (errorMenus) {
+    return (
+      <Box sx={{ px: 3, py: 2 }}>
+        <div>Error: {errorMenus}</div>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ px: 3 }}>
       <List sx={{ pt: 0 }} className="sidebarNav">
-        {Menuitems.map((item) => {
+        {/* از dynamicMenuItems برای رندر کردن استفاده کنید */}
+        {dynamicMenuItems.map((item) => {
           if (item.subheader) {
             return <NavGroup item={item} hideMenu={hideMenu} key={item.subheader} />;
           } else if (item.children) {
@@ -62,13 +106,8 @@ const SidebarItems = () => {
                 pathWithoutLastPart={pathWithoutLastPart}
                 level={1}
                 key={item.id}
-                // `isOpen`: به NavCollapse می‌گوید که آیا باید باز باشد یا نه.
-                // اگر id این آیتم با openCollapseId یکی باشد، باید باز باشد.
                 isOpen={item.id === openCollapseId}
-                // `onToggle`: تابعی که NavCollapse می‌تواند فراخوانی کند تا والد را از کلیک مطلع کند.
                 onToggle={handleToggleCollapse}
-                // **این خط را حذف یا کامنت کنید**
-                // onClick={() => dispatch(toggleMobileSidebar())}
               />
             );
           } else {
@@ -78,7 +117,6 @@ const SidebarItems = () => {
                 key={item.id}
                 pathDirect={pathDirect}
                 hideMenu={hideMenu}
-                // این `onClick` را اینجا نگه دارید تا پس از کلیک روی آیتم نهایی، سایدبار بسته شود.
                 onClick={() => dispatch(toggleMobileSidebar())}
               />
             );
@@ -88,4 +126,5 @@ const SidebarItems = () => {
     </Box>
   );
 };
+
 export default SidebarItems;

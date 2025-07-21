@@ -1,9 +1,9 @@
 {
-    "baseurl": "http://94.138.207.132:3001/",
-    "admin": "api/Admin/",
-    "login": "api/auth/",
-    "user": "api/users/",
-    "baseinfo": "api/baseinfo/",
-    "initialoperations":"api/initial-operations/",
+    "baseurl": "https://setasportal.com/api/",
+    "admin": "Admin/",
+    "login": "auth/",
+    "user": "users/",
+    "baseinfo": "baseinfo/",
+    "initialoperations":"initial-operations/",
     "company": "Setash"
 }

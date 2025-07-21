@@ -34,7 +34,7 @@ import imagedefault from '../../../assets/images/profile/user-d.svg';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 interface UserType {
-  id: number;
+  id: string;
   username: string;
   email?: string;
   status: string; // این برای نمایش وضعیت string استفاده می‌شود
@@ -145,7 +145,7 @@ const ListUsers = () => {
   const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null);
 
   const [openRoleModal, setOpenRoleModal] = useState(false);
-  const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<number | null>(null);
+  const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<string | null>(null);
 
   const [openOperationsModal, setOpenOperationsModal] = useState(false);
   const [userIdForOperationsSelection, setUserIdForOperationsSelection] = useState<number | null>(null);
@@ -219,7 +219,7 @@ const ListUsers = () => {
 
   const handleClickOpenDeleteModal = () => {
     if (selectedUserForMenu) {
-      setUserIdToDelete(selectedUserForMenu.id);
+      setUserIdToDelete(Number(selectedUserForMenu.id));
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
@@ -261,7 +261,7 @@ const ListUsers = () => {
 
   const handleClickOpenOperationsModal = () => {
     if (selectedUserForMenu) {
-      setUserIdForOperationsSelection(selectedUserForMenu.id);
+      setUserIdForOperationsSelection(Number(selectedUserForMenu.id));
       setOpenOperationsModal(true);
     }
     handleCloseMenu();
@@ -347,7 +347,7 @@ const ListUsers = () => {
   const handleEditItemClick = () => {
     if (selectedUserForMenu) {
       setUsername(selectedUserForMenu.username);
-      setEditingUserId(selectedUserForMenu.id);
+      setEditingUserId(Number(selectedUserForMenu.id));
 
       setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
       setProfileImageBase64('');
@@ -1246,7 +1246,7 @@ const ListUsers = () => {
                         {selectedUserForMenu?.recordStatus === 0 ? (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
-                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
+                            <MenuItem onClick={() => sendStatusUpdate(Number(selectedUserForMenu.id), 1)}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
@@ -1256,7 +1256,7 @@ const ListUsers = () => {
                         ) : (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
-                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
+                            <MenuItem onClick={() => sendStatusUpdate(Number(selectedUserForMenu!.id), 0)}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>

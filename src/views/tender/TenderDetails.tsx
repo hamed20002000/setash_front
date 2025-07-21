@@ -1,3 +1,4 @@
+// src/views/tender/TenderDetails.tsx
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -17,9 +18,9 @@ import {
     IconEdit, IconTrash, IconCloudUpload, IconCheck,
     IconChevronDown,
     IconChevronRight,
-    IconAlertCircle
+    IconFileExport,
+    IconDownload
 } from '@tabler/icons-react';
-// فرض بر این است که این دو آیکون از @mui/icons-material هستند
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 
@@ -29,50 +30,60 @@ import BlankCard from 'src/components/shared/BlankCard';
 import "./style.css"
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// For Excel parsing (XLSX - SheetJS)
 import * as XLSX from 'xlsx';
 
-// --- API Imports ---
 import axios from 'axios';
+
 import server from 'src/assets/address.json';
 
-// --- Data Interfaces ---
+// YENİ: Yeni modal bileşenlerini içeri aktar
+import RegisterUnregisteredItemModal from './RegisterUnregisteredItemModal';
+import RegisterUnregisteredCategoryModal from './RegisterUnregisteredCategoryModal';
+
+
 interface TenderDetailRow {
     id: number;
     siraNo: number;
+    eskiPoz: string;
+
+    tedasNo: number;
+    anaNo: number;
+    altNo: number;
+
     description: string;
     olcuBrimi: string;
-    malzemeGDZ: number;
-    malzemeYuklenici: number;
-    montaj: number; // calculated field
-    demontaj: number;
-    demontajMontaj: number; // This is a distinct field
+
+    malzeme: number; // NEW: Added MALZEME as a separate numeric field (not quantity)
+    malzemeYuklenici: number; // MALZEME MİKTARI
+    montaj: number; // MONTAJ MİKTARI (Calculated: MALZEME + MALZEME MİKTARI)
+    demontaj: number; // DEMONTAJ MİKTARI
+    demontajMontaj: number; // DMM MİKTARI
+
     birimFiyatMalzeme: number;
     birimFiyatMontaj: number;
     birimFiyatDemontaj: number;
     birimFiyatDemontajMontaj: number;
-    toplamMalzeme: number; // calculated field
-    toplamMontaj: number; // calculated field
-    toplamDemontaj: number; // calculated field
-    toplamDemontajdanMontaj: number; // calculated field
+
+    aciklama: string;
+    categoryPercentage: number | null; // NEW: For %Kategoriler, can be null or a number
+    isCategory: boolean; // NEW: To distinguish categories from items for %Kategoriler column
+
+    toplamMalzeme: number;
+    toplamMontaj: number;
+    toplamDemontaj: number;
+    toplamDemontajdanMontaj: number;
+
     isUnregisteredItem: boolean;
     itemId: number | null;
+    isFromExcel: boolean; // **NEW: Flag to indicate if the row came directly from an Excel import**
 }
 
-// const MOCK_BIRIM_FIYAT_OPTIONS = [
-//     { unit: 'Ad.', malzeme: 0.00, montaj: 0.00, demontaj: 0.00, demontajdanMontaj: 0.00 },
-//     { unit: 'Kg', malzeme: 0.00, montaj: 0.00, demontaj: 0.00, demontajdanMontaj: 0.00 },
-//     { unit: 'M.', malzeme: 0.00, montaj: 0.00, demontaj: 0.00, demontajdanMontaj: 0.00 },
-//     { unit: 'Litre', malzeme: 0.00, montaj: 0.00, demontaj: 0.00, demontajdanMontaj: 0.00 },
-//     { unit: 'Kutu', malzeme: 0.00, montaj: 0.00, demontaj: 0.00, demontajdanMontaj: 0.00 },
-//     { unit: 'Paket', malzeme: 0.00, montaj: 0.00, demontaj: 0.00, demontajdanMontaj: 0.00 },
-// ];
-
-interface ApiCategoryType {
-    id: string;
+export interface ApiCategoryType {
+    id: string; // <-- این هم باید string باشد
     name: string;
     parentId: string | null;
     categories: ApiCategoryType[];
+    depth?: number;
 }
 
 interface ApiItemType {
@@ -91,7 +102,6 @@ interface UnifiedTreeNode {
     originalData?: ApiItemType;
 }
 
-// Interface for the top-level response from get-tender-by-id
 interface GetTenderByIdRawResponse {
     success: boolean;
     httpStatusCode: number;
@@ -109,13 +119,12 @@ interface GetTenderByIdRawResponse {
     errors: any[];
 }
 
-// Interface for each item within the tenderDetails array from the API
 interface ApiTenderDetailItem {
-    id: number; // ID of the tender detail record itself
-    firmProcuredItemQuantities: number;
+    id: number;
+    firmProcuredItemQuantities: number; // Used for 'MALZEME' value
     ourProcuredItemQuantities: number;
     demontaj: number;
-    demontajMontaj: number; // From API response
+    demontajMontaj: number;
     firmProcuredItemPrice: string | number;
     ourProcuredItemPrice: string | number;
     montajPrice: string | number;
@@ -124,7 +133,7 @@ interface ApiTenderDetailItem {
     recordStatus: number;
     createAt: string;
     item: {
-        id: number; // Item ID from API is number
+        id: number;
         name: string;
         description: string;
         abbreviation: string;
@@ -133,16 +142,26 @@ interface ApiTenderDetailItem {
         category: { id: string; name?: string; };
         unit: { id: string; title: string; recordStatus: number; createAt: string; };
     };
+    tedasNo?: number | string;
+    anaNo?: number | string;
+    altNo?: number | string;
+    montajQuantity?: number | string;
+    aciklama?: string;
+    eskiPoz?: string;
+    toplamMalzeme?: number | string;
+    toplamMontaj?: number | string;
+    toplamDemontaj?: number | string;
+    toplamDemontajdanMontaj?: number | string;
+    categoryPercentage?: number | string; // NEW: Added to API response interface
 }
 
-// Interface for the response from get-item-by-id
 interface GetItemByIdApiResponse {
     success: boolean;
     httpStatusCode: number;
     httpStatusCodeName: string;
     message: string;
     data: {
-        id: number; // Item ID from this API is number
+        id: number;
         name: string;
         description: string;
         abbreviation: string;
@@ -170,12 +189,12 @@ const buildCombinedTree = (categories: ApiCategoryType[], items: ApiItemType[], 
         const childItems: UnifiedTreeNode[] = items
             .filter(item => item.category.id === category.id)
             .map(item => ({
-                id: `item-${item.id}`, // Tree node ID as string (e.g., "item-123")
+                id: `item-${item.id}`,
                 name: item.name,
                 type: 'item',
                 depth: depth + 1,
                 children: [],
-                originalData: item, // originalData.id is number
+                originalData: item,
             } as UnifiedTreeNode));
 
         const childCategories: UnifiedTreeNode[] = category.categories && category.categories.length > 0
@@ -341,15 +360,21 @@ const isItemDescriptionDuplicate = (
     );
 };
 
-// --- توابع کمکی برای تبدیل ورودی به عدد ---
-// این توابع کاما را به نقطه تبدیل کرده و مطمئن می شوند که فقط اعداد (و نقطه برای اعشاری)
-// در نهایت تبدیل می شوند.
 const parseAndCleanFloat = (value: string | number): number => {
     if (typeof value === 'number') {
         return value;
     }
-    // تبدیل کاما به نقطه و حذف کاراکترهای غیر مجاز (به جز اعداد و نقطه)
-    const cleanedValue = String(value).replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    let cleanedValue = String(value).replace(/,/g, '.'); // Convert comma to dot
+
+    // Handle multiple dots by keeping only the first one
+    const parts = cleanedValue.split('.');
+    if (parts.length > 2) {
+        cleanedValue = parts[0] + '.' + parts.slice(1).join('');
+    }
+
+    // Remove any non-numeric characters except for the dot
+    cleanedValue = cleanedValue.replace(/[^0-9.]/g, '');
+
     const parsed = parseFloat(cleanedValue);
     return isNaN(parsed) ? 0 : parsed;
 };
@@ -358,10 +383,36 @@ const parseAndCleanInt = (value: string | number): number => {
     if (typeof value === 'number') {
         return value;
     }
-    // حذف کاما و حذف کاراکترهای غیر مجاز (به جز اعداد)
     const cleanedValue = String(value).replace(/,/g, '').replace(/[^0-9]/g, '');
     const parsed = parseInt(cleanedValue, 10);
     return isNaN(parsed) ? 0 : parsed;
+};
+
+const formatIntForDisplayNoGrouping = (value: number | null): string => {
+    if (value === null || isNaN(value)) return '0';
+    return value.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+        useGrouping: false
+    });
+};
+
+const formatNumber = (value: number | null, decimalPlaces: number = 0, useGrouping: boolean = true) => {
+    if (value === null || isNaN(value)) return '0';
+    return value.toLocaleString('en-US', {
+        minimumFractionDigits: decimalPlaces,
+        maximumFractionDigits: decimalPlaces,
+        useGrouping: useGrouping
+    });
+};
+
+const formatInputNumberForDisplay = (value: number | null, decimalPlaces: number = 0): string => {
+    if (value === null || isNaN(value)) return '';
+    return value.toLocaleString('en-US', {
+        minimumFractionDigits: decimalPlaces,
+        maximumFractionDigits: decimalPlaces,
+        useGrouping: false
+    });
 };
 
 
@@ -383,10 +434,12 @@ const TenderDetails = () => {
 
     const [tenderTitle, setTenderTitle] = useState<string>(initialTenderTitle);
     const [gridData, setGridData] = useState<TenderDetailRow[]>([]);
-    const [loading, setLoading] = useState(false); // برای لودینگ اکسل
-    const [isLoading, setIsLoading] = useState(false); // برای لودینگ ذخیره تمام دیتا
+    const [loading, setLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
     const [isSavingAll, setIsSavingAll] = useState<boolean>(false);
     const [fileUploadedSuccessfully, setFileUploadedSuccessfully] = useState<boolean>(false);
+
+    const [displayMode, setDisplayMode] = useState<'withCategory' | 'withoutCategory'>('withoutCategory');
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -398,7 +451,7 @@ const TenderDetails = () => {
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-    
+
     const [newRecordTreeSearchTerm, setNewRecordTreeSearchTerm] = useState('');
     const [newRecordSelectedUnifiedNodeId, setNewRecordSelectedUnifiedNodeId] = useState<string | null>(null);
     const [isNewRecordTreeSelectOpen, setIsNewRecordTreeSelectOpen] = useState(false);
@@ -420,16 +473,21 @@ const TenderDetails = () => {
     const [currentDisplayCount, setCurrentDisplayCount] = useState(initialDisplayLimit);
     const [hasMoreData, setHasMoreData] = useState(true);
 
+    // Original state for new record (holding numbers)
     const [newRecordRow, setNewRecordRow] = useState<TenderDetailRow>({
         id: 0,
         siraNo: 0,
+        eskiPoz: '',
+        tedasNo: 0,
+        anaNo: 0,
+        altNo: 0,
         description: '',
         olcuBrimi: '',
-        malzemeGDZ: 0,
+        malzeme: 0, // NEW
         malzemeYuklenici: 0,
-        montaj: 0,
+        montaj: 0, // Calculated
         demontaj: 0,
-        demontajMontaj: 0, 
+        demontajMontaj: 0,
         birimFiyatMalzeme: 0,
         birimFiyatMontaj: 0,
         birimFiyatDemontaj: 0,
@@ -440,24 +498,34 @@ const TenderDetails = () => {
         toplamDemontajdanMontaj: 0,
         isUnregisteredItem: false,
         itemId: null,
+        aciklama: '',
+        categoryPercentage: null, // NEW
+        isCategory: false, // NEW
+        isFromExcel: false, // NEW: Default to false for new manual entries
     });
 
-    // این Stateها برای نگهداری ورودی کاربر (String) هستند
-    // تا بتوانیم کاراکتر نقطه/کاما را در فیلد نمایش دهیم و بعدا تبدیل کنیم
+    // States for raw string input for NEW record Birim Fiyatlar
     const [birimFiyatMalzemeNew, setBirimFiyatMalzemeNew] = useState<string>("0");
     const [birimFiyatMontajNew, setBirimFiyatMontajNew] = useState<string>("0");
     const [birimFiyatDemontajNew, setBirimFiyatDemontajNew] = useState<string>("0");
     const [birimFiyatDemontajMontajNew, setBirimFiyatDemontajMontajNew] = useState<string>("0");
 
+    // States for raw string input for EDITING record Birim Fiyatlar
+    const [editingBirimFiyatMalzeme, setEditingBirimFiyatMalzeme] = useState<string>('');
+    const [editingBirimFiyatMontaj, setEditingBirimFiyatMontaj] = useState<string>('');
+    const [editingBirimFiyatDemontaj, setEditingBirimFiyatDemontaj] = useState<string>('');
+    const [editingBirimFiyatDemontajMontaj, setEditingBirimFiyatDemontajMontaj] = useState<string>('');
+
     const [editingRowId, setEditingRowId] = useState<number | null>(null);
     const [editingRowData, setEditingRowData] = useState<TenderDetailRow | null>(null);
 
-    // const [isBirimFiyatEditManuallyEdited, setIsBirimFiyatEditManuallyEdited] = useState({
-    //     malzeme: false,
-    //     montaj: false,
-    //     demontaj: false,
-    //     demontajdanMontaj: false,
-    // });
+    const [openRegisterItemModal, setOpenRegisterItemModal] = useState(false);
+    const [itemToRegister, setItemToRegister] = useState<Partial<TenderDetailRow> | null>(null);
+
+    const [openRegisterCategoryModal, setOpenRegisterCategoryModal] = useState(false);
+    const [categoryToRegister, setCategoryToRegister] = useState<Partial<TenderDetailRow> | null>(null);
+
+    const [templateWorkbookBuffer, setTemplateWorkbookBuffer] = useState<ArrayBuffer | null>(null);
 
 
     const newRecordSelectedNodePath = useMemo(() => {
@@ -493,21 +561,6 @@ const TenderDetails = () => {
     );
 
 
-    const filteredGridData = useMemo(() => {
-        if (!gridSearchTerm) {
-            return gridData;
-        }
-        const lowerCaseSearchTerm = gridSearchTerm.toLowerCase();
-        return gridData.filter(row =>
-            row.description.toLowerCase().includes(lowerCaseSearchTerm)
-        );
-    }, [gridData, gridSearchTerm]);
-
-    const displayedGridData = useMemo(() => {
-        return filteredGridData.slice(0, currentDisplayCount);
-    }, [filteredGridData, currentDisplayCount]);
-
-
     const findNodeById = (nodes: UnifiedTreeNode[], id: string): UnifiedTreeNode | undefined => {
         for (const node of nodes) {
             if (node.id === id) {
@@ -521,18 +574,198 @@ const TenderDetails = () => {
         return undefined;
     };
 
-    const findNodeByNameAndType = (nodes: UnifiedTreeNode[], name: string, type: 'category' | 'item'): UnifiedTreeNode | undefined => {
+    const normalizeString = (str: string): string => {
+        if (!str) return '';
+        return str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    };
+
+    const findNodeByNameAndType = (nodes: UnifiedTreeNode[], normalizedSearchName: string, type: 'category' | 'item'): UnifiedTreeNode | undefined => {
         for (const node of nodes) {
-            if (node.name === name && node.type === type) {
+            const normalizedNodeName = normalizeString(node.name);
+
+            if (normalizedNodeName === normalizedSearchName && node.type === type) {
                 return node;
             }
             if (node.children && node.children.length > 0) {
-                const found = findNodeByNameAndType(node.children, name, type);
+                const found = findNodeByNameAndType(node.children, normalizedSearchName, type);
                 if (found) return found;
             }
         }
         return undefined;
     };
+
+
+    const calculateTotals = useCallback((
+        row: Partial<TenderDetailRow>,
+        forceRecalculate: boolean = false // Added flag to force recalculation
+    ): TenderDetailRow => {
+        // If the row is flagged as from Excel and we are not explicitly forcing recalculation,
+        // then use its existing toplam values.
+        if (row.isFromExcel && !forceRecalculate) {
+            return {
+                id: row.id ?? 0,
+                siraNo: row.siraNo ?? 0,
+                eskiPoz: row.eskiPoz ?? '',
+                tedasNo: row.tedasNo ?? 0,
+                anaNo: row.anaNo ?? 0,
+                altNo: row.altNo ?? 0,
+                description: row.description ?? '',
+                olcuBrimi: row.olcuBrimi ?? '',
+                malzeme: row.malzeme ?? 0,
+                malzemeYuklenici: row.malzemeYuklenici ?? 0,
+                montaj: (row.malzeme ?? 0) + (row.malzemeYuklenici ?? 0), // Montaj quantity is still derived
+                demontaj: row.demontaj ?? 0,
+                demontajMontaj: row.demontajMontaj ?? 0,
+                birimFiyatMalzeme: row.birimFiyatMalzeme ?? 0,
+                birimFiyatMontaj: row.birimFiyatMontaj ?? 0,
+                birimFiyatDemontaj: row.birimFiyatDemontaj ?? 0,
+                birimFiyatDemontajMontaj: row.birimFiyatDemontajMontaj ?? 0,
+                aciklama: row.aciklama ?? '',
+                categoryPercentage: row.categoryPercentage ?? null,
+                isCategory: row.isCategory ?? false,
+                isUnregisteredItem: row.isUnregisteredItem ?? false,
+                itemId: row.itemId ?? null,
+                isFromExcel: row.isFromExcel ?? false,
+                toplamMalzeme: row.toplamMalzeme ?? 0, // Preserve original Excel values
+                toplamMontaj: row.toplamMontaj ?? 0,
+                toplamDemontaj: row.toplamDemontaj ?? 0,
+                toplamDemontajdanMontaj: row.toplamDemontajdanMontaj ?? 0,
+            };
+        }
+
+        // Proceed with normal calculation if not from Excel OR if forceRecalculate is true
+        const malzeme = row.malzeme ?? 0;
+        const malzemeMiktari = row.malzemeYuklenici ?? 0;
+        const montajMiktari = malzeme + malzemeMiktari; // This is a quantity, always calculated
+
+        const demontajMiktari = row.demontaj ?? 0;
+        const dmmMiktari = row.demontajMontaj ?? 0;
+
+        const birimFiyatMalzeme = row.birimFiyatMalzeme ?? 0;
+        const birimFiyatMontaj = row.birimFiyatMontaj ?? 0;
+        const birimFiyatDemontaj = row.birimFiyatDemontaj ?? 0;
+        const birimFiyatDemontajMontaj = row.birimFiyatDemontajMontaj ?? 0;
+
+        let percentageFactor = 1;
+        // Apply %n only if the row is NOT a category and its parent category has a percentage
+        // or if the row *is* a category and has its own percentage.
+        if (row.isCategory) { // If it's a category, use its own percentage
+            percentageFactor = (row.categoryPercentage ?? 100) / 100;
+        } else if (row.categoryPercentage !== null && row.categoryPercentage !== undefined) { // If it's an item and has a parent category percentage
+             percentageFactor = row.categoryPercentage / 100;
+        }
+
+
+        const calculatedToplamMalzeme = malzemeMiktari * birimFiyatMalzeme; // NO percentage for MALZEME
+        const calculatedToplamMontaj = montajMiktari * birimFiyatMontaj;     // NO percentage for MONTAJ
+        const calculatedToplamDemontaj = demontajMiktari * birimFiyatDemontaj * percentageFactor;
+        const calculatedToplamDemontajdanMontaj = dmmMiktari * birimFiyatDemontajMontaj * percentageFactor;
+
+        return {
+            id: row.id ?? 0,
+            siraNo: row.siraNo ?? 0,
+            eskiPoz: row.eskiPoz ?? '',
+            tedasNo: row.tedasNo ?? 0,
+            anaNo: row.anaNo ?? 0,
+            altNo: row.altNo ?? 0,
+            description: row.description ?? '',
+            olcuBrimi: row.olcuBrimi ?? '',
+            malzeme: malzeme,
+            malzemeYuklenici: malzemeMiktari,
+            montaj: montajMiktari,
+            demontaj: demontajMiktari,
+            demontajMontaj: dmmMiktari,
+            birimFiyatMalzeme: birimFiyatMalzeme,
+            birimFiyatMontaj: birimFiyatMontaj,
+            birimFiyatDemontaj: birimFiyatDemontaj,
+            birimFiyatDemontajMontaj: birimFiyatDemontajMontaj,
+            toplamMalzeme: calculatedToplamMalzeme,
+            toplamMontaj: calculatedToplamMontaj,
+            toplamDemontaj: calculatedToplamDemontaj,
+            toplamDemontajdanMontaj: calculatedToplamDemontajdanMontaj,
+            isUnregisteredItem: row.isUnregisteredItem ?? false,
+            itemId: row.itemId ?? null,
+            aciklama: row.aciklama ?? '',
+            categoryPercentage: row.categoryPercentage ?? null,
+            isCategory: row.isCategory ?? false,
+            isFromExcel: row.isFromExcel ?? false, // Keep the flag consistent
+        } as TenderDetailRow;
+    }, []);
+
+
+    const processedAndFilteredGridData = useMemo(() => {
+        let currentData = [...gridData];
+
+        // First, create a map of category percentages for quick lookup
+        const categoryPercentagesMap = new Map<string, number | null>();
+        gridData.forEach(row => {
+            if (row.isCategory && row.categoryPercentage !== null) {
+                categoryPercentagesMap.set(normalizeString(row.description), row.categoryPercentage);
+            }
+        });
+
+        // Apply category percentages to items and recalculate totals if needed
+        currentData = currentData.map(row => {
+            let updatedRow = { ...row };
+            
+            // This part updates categoryPercentage based on parent category mapping
+            // It will trigger recalculation if the percentage changes.
+            if (!row.isCategory && row.itemId !== null && combinedTreeData.length > 0) {
+                const itemNode = findNodeById(combinedTreeData, `item-${row.itemId}`);
+                if (itemNode && itemNode.originalData?.category?.id) {
+                    const parentCategoryNode = findNodePath(combinedTreeData, `cat-${itemNode.originalData.category.id}`).find(n => n.type === 'category');
+                    if (parentCategoryNode) {
+                        const normalizedCategoryName = normalizeString(parentCategoryNode.name);
+                        const categoryPct = categoryPercentagesMap.get(normalizedCategoryName);
+                        if (categoryPct !== undefined && updatedRow.categoryPercentage !== categoryPct) {
+                            updatedRow.categoryPercentage = categoryPct;
+                            // When category percentage changes for an item, force recalculation of its totals.
+                            // Even if it was from Excel, the percentage changed, so its totals need update.
+                            return calculateTotals(updatedRow, true); 
+                        }
+                    }
+                }
+            }
+            // If the row's category percentage (for items) didn't change,
+            // or if it's a category, or if it's not linked to a category,
+            // simply call calculateTotals without forcing recalculation.
+            // calculateTotals will handle `isFromExcel` internally.
+            return calculateTotals(updatedRow, false); // Do not force, let calculateTotals decide based on isFromExcel
+        });
+
+        // --- CRITICAL CHANGE FOR ORDER ---
+        if (displayMode === 'withoutCategory') {
+            currentData = currentData.filter(row => !row.isCategory);
+        }
+
+        let currentSiraNo = 1;
+        currentData = currentData.map(row => ({
+            ...row,
+            siraNo: currentSiraNo++
+        }));
+        // --- END CRITICAL CHANGE ---
+
+        if (!gridSearchTerm) {
+            return currentData;
+        }
+        const lowerCaseSearchTerm = gridSearchTerm.toLowerCase();
+        return currentData.filter(row =>
+            row.description.toLowerCase().includes(lowerCaseSearchTerm) ||
+            row.aciklama.toLowerCase().includes(lowerCaseSearchTerm)
+        );
+    }, [gridData, displayMode, gridSearchTerm, combinedTreeData, calculateTotals]);
+
+
+    const displayedGridData = useMemo(() => {
+        return processedAndFilteredGridData.slice(0, currentDisplayCount);
+    }, [processedAndFilteredGridData, currentDisplayCount]);
+
 
     const fetchDataAndBuildTree = useCallback(async () => {
         setLoadingTree(true);
@@ -552,12 +785,12 @@ const TenderDetails = () => {
             const tree = buildCombinedTree(categoriesResponse.data.data || [], itemsResponse.data.data || []);
             setCombinedTreeData(tree);
 
-        } catch (error : any) {
+        } catch (error: any) {
             if (error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-              }
+            }
             console.error("Ağaç verisi yüklenirken hata oluştu:", error);
             showAlert('Kategori ve ürünler yüklenirken bir hata oluştu.', 'error');
         } finally {
@@ -571,14 +804,13 @@ const TenderDetails = () => {
         setLoading(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            showAlert('Oturumunuzun süresi doldu.', 'error');
             navigate("/");
             setLoading(false);
             return;
         }
 
         try {
-            console.log(`Loading details for tender ID: ${tenderId}`);
             const response = await axios.get<GetTenderByIdRawResponse>(
                 server.baseurl + server.initialoperations + "get-tender-by-id/" + tenderId,
                 {
@@ -588,48 +820,63 @@ const TenderDetails = () => {
                 }
             );
 
-            console.log("API Response Data for Tender Details:", response.data);
-            
             if (response.data && response.data.data) {
                 const tenderData = response.data.data;
-                setTenderTitle(tenderData.title || `İhale (ID: ${tenderId})`);
+                setTenderTitle(tenderData.title || `İhale Yükleniyor... (ID: ${tenderId})`);
 
                 const loadedDetails: TenderDetailRow[] = tenderData.tenderDetails.map((detail, index) => {
-                    // اطمینان از اینکه مقادیر از API به Number تبدیل شده و کاما به نقطه تبدیل شده باشد.
-                    // API ممکن است اعداد را به صورت رشته (با کاما یا نقطه) برگرداند.
                     const ourProcuredItemPriceNum = parseAndCleanFloat(detail.ourProcuredItemPrice);
                     const montajPriceNum = parseAndCleanFloat(detail.montajPrice);
                     const demontajPriceNum = parseAndCleanFloat(detail.demontajPrice);
                     const demontajMontajPriceNum = parseAndCleanFloat(detail.demontajMontajPrice);
 
-                    const malzemeGDZ = parseAndCleanInt(detail.firmProcuredItemQuantities);
+                    const malzeme = parseAndCleanInt(detail.firmProcuredItemQuantities || 0);
+
                     const malzemeYuklenici = parseAndCleanInt(detail.ourProcuredItemQuantities);
-
-                    const montajCalculated = (malzemeGDZ) + (malzemeYuklenici);
+                    const montaj = parseAndCleanInt(detail.montajQuantity || 0);
                     const demontaj = parseAndCleanInt(detail.demontaj);
-                    const demontajdanMontaj = parseAndCleanInt(detail.demontajMontaj); 
+                    const demontajMontaj = parseAndCleanInt(detail.demontajMontaj);
 
-                    return {
+                    const tedasNo = parseAndCleanInt(detail.tedasNo || 0);
+                    const anaNo = parseAndCleanInt(detail.anaNo || 0);
+                    const altNo = parseAndCleanInt(detail.altNo || 0);
+                    const aciklama = String(detail.aciklama || '');
+                    const eskiPoz = String(detail.eskiPoz || '');
+
+                    const isItemCategory = !detail.item.unit?.title || detail.item.unit.title.trim() === '';
+                    const categoryPercentage = isItemCategory && (detail as any).categoryPercentage ? parseAndCleanFloat((detail as any).categoryPercentage) : null;
+
+                    const baseRow: Partial<TenderDetailRow> = {
                         id: detail.id,
                         siraNo: index + 1,
+                        eskiPoz: eskiPoz,
+                        tedasNo: tedasNo,
+                        anaNo: anaNo,
+                        altNo: altNo,
                         description: detail.item.name || "N/A",
-                        olcuBrimi: detail.item.unit?.title || "N/A",
-                        malzemeGDZ: malzemeGDZ,
+                        olcuBrimi: detail.item.unit?.title || "",
+                        malzeme: malzeme,
                         malzemeYuklenici: malzemeYuklenici,
-                        montaj: montajCalculated,
+                        montaj: montaj,
                         demontaj: demontaj,
-                        demontajMontaj: demontajdanMontaj, // Assign directly from API response and parsed
+                        demontajMontaj: demontajMontaj,
                         birimFiyatMalzeme: ourProcuredItemPriceNum,
                         birimFiyatMontaj: montajPriceNum,
                         birimFiyatDemontaj: demontajPriceNum,
                         birimFiyatDemontajMontaj: demontajMontajPriceNum,
-                        toplamMalzeme: (malzemeYuklenici) * ourProcuredItemPriceNum,
-                        toplamMontaj: montajCalculated * montajPriceNum,
-                        toplamDemontaj: demontaj * demontajPriceNum,
-                        toplamDemontajdanMontaj: demontajdanMontaj * demontajMontajPriceNum,
+                        toplamMalzeme: 0, // Will be recalculated by calculateTotals
+                        toplamMontaj: 0,  // Will be recalculated by calculateTotals
+                        toplamDemontaj: 0, // Will be recalculated by calculateTotals
+                        toplamDemontajdanMontaj: 0, // Will be recalculated by calculateTotals
                         isUnregisteredItem: false,
-                        itemId: detail.item.id || null, 
+                        itemId: detail.item.id || null,
+                        aciklama: aciklama,
+                        categoryPercentage: categoryPercentage,
+                        isCategory: isItemCategory,
+                        isFromExcel: false, // Mark as NOT from Excel, will be calculated by logic
                     };
+                    // Force recalculation for data loaded from API
+                    return calculateTotals(baseRow, true); 
                 });
                 setGridData(loadedDetails);
                 showAlert('İhale detayları başarıyla yüklendi.', 'success');
@@ -639,19 +886,18 @@ const TenderDetails = () => {
             }
 
         } catch (error: any) {
-            console.error("İhale detayları yüklenirken hata oluştu:", error);
             if (error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert(error.response?.data?.message || 'İhale detayları yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
-            setGridData([]);
+            console.error("İhale detayları yüklenirken hata oluştu:", error);
+            showAlert('İhale detayları yüklenirken bir hata oluştu.', 'error');
+            return null;
         } finally {
             setLoading(false);
         }
-    }, [tenderId, navigate, showAlert]);
+    }, [tenderId, navigate, showAlert, calculateTotals]); // Added calculateTotals to dependencies
 
     useEffect(() => {
         loadExistingTenderDetails();
@@ -659,17 +905,48 @@ const TenderDetails = () => {
     }, [loadExistingTenderDetails, fetchDataAndBuildTree]);
 
     useEffect(() => {
+    fetch('/tender_template.xlsx')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.arrayBuffer();
+        })
+        .then(buffer => {
+            setTemplateWorkbookBuffer(buffer);
+        })
+        .catch(error => {
+            console.error("Error loading Excel template:", error);
+            showAlert('Excel şablonu yüklenirken hata oluştu.', 'error');
+        });
+}, [showAlert]);
+
+    useEffect(() => {
         if (!gridData.length || !combinedTreeData.length) {
             return;
         }
-
         let needsUpdate = false;
         const updatedGridData = gridData.map(row => {
-            const foundNode = findNodeByNameAndType(combinedTreeData, row.description, 'item');
-            const isUnregistered = !foundNode;
-            if (row.isUnregisteredItem !== isUnregistered) {
+            const normalizedRowDescription = normalizeString(row.description);
+            let foundNode: UnifiedTreeNode | undefined;
+            let isUnregistered: boolean;
+            let currentItemId: number | null = null;
+
+            const isCurrentlyCategory = row.isCategory || (row.description.trim() !== '' && row.olcuBrimi.trim() === '');
+
+            if (isCurrentlyCategory) {
+                foundNode = findNodeByNameAndType(combinedTreeData, normalizedRowDescription, 'category');
+                isUnregistered = !foundNode;
+                currentItemId = null;
+            } else {
+                foundNode = findNodeByNameAndType(combinedTreeData, normalizedRowDescription, 'item');
+                isUnregistered = !foundNode;
+                currentItemId = foundNode?.originalData?.id ?? null;
+            }
+
+            if (row.isUnregisteredItem !== isUnregistered || row.itemId !== currentItemId || row.isCategory !== isCurrentlyCategory) {
                 needsUpdate = true;
-                return { ...row, isUnregisteredItem: isUnregistered };
+                return { ...row, isUnregisteredItem: isUnregistered, itemId: currentItemId, isCategory: isCurrentlyCategory };
             }
             return row;
         });
@@ -677,9 +954,9 @@ const TenderDetails = () => {
         if (needsUpdate) {
             setGridData(updatedGridData);
         }
-    }, [gridData, combinedTreeData, findNodeByNameAndType]);
+    }, [gridData, combinedTreeData, normalizeString, findNodeByNameAndType]);
 
-    const addNewItemToApi = useCallback(async (itemName: string): Promise<number | null> => {  
+    const addNewItemToApi = useCallback(async (itemName: string): Promise<number | null> => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Oturumunuzun süresi doldu.', 'error');
@@ -688,11 +965,11 @@ const TenderDetails = () => {
         }
 
         try {
-            const defaultCategoryId = "some-default-category-id";  
+            const defaultCategoryId = "some-default-category-id"; // You might need a dynamic default category or user selection
 
             const response = await axios.post(
                 server.baseurl + server.baseinfo + "create-item",
-                { name: itemName, categoryId: defaultCategoryId, unitId: null },
+                { name: itemName, categoryId: defaultCategoryId, unitId: null }, // unitId might be needed
                 {
                     headers: {
                         'Content-Type': 'application/json',
@@ -703,7 +980,7 @@ const TenderDetails = () => {
 
             if (response.data && response.data.data && response.data.data.id) {
                 showAlert(`"${itemName}" ürünü başarıyla eklendi!`, 'success');
-                return Number(response.data.data.id);  
+                return Number(response.data.data.id);
             } else {
                 showAlert(`"${itemName}" ürünü eklenirken bir hata oluştu: ${response.data.message || 'Bilinmeyen Hata'}`, 'error');
                 return null;
@@ -713,45 +990,12 @@ const TenderDetails = () => {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-              }
+            }
             console.error("Yeni ürün API hatası:", error);
             showAlert(`Yeni ürün eklenirken bir hata oluştu: ${error.response?.data?.message || error.message}`, 'error');
             return null;
         }
     }, [navigate, showAlert]);
-
-
-    // ** تابع calculateTotals بدون تغییرات عمده، اما مطمئن می شویم مقادیر ورودی از قبل به Number تبدیل شده باشند **
-    const calculateTotals = useCallback((row: Partial<TenderDetailRow>): TenderDetailRow => {
-        const montaj = (row.malzemeGDZ ?? 0) + (row.malzemeYuklenici ?? 0); 
-
-        const birimFiyatMalzeme = row.birimFiyatMalzeme ?? 0;
-        const birimFiyatMontaj = row.birimFiyatMontaj ?? 0;
-        const birimFiyatDemontaj = row.birimFiyatDemontaj ?? 0;
-        const birimFiyatDemontajMontaj = row.birimFiyatDemontajMontaj ?? 0;
-
-        return {
-            id: row.id ?? 0,
-            siraNo: row.siraNo ?? 0,
-            description: row.description ?? '',
-            olcuBrimi: row.olcuBrimi ?? '',
-            malzemeGDZ: row.malzemeGDZ ?? 0,
-            malzemeYuklenici: row.malzemeYuklenici ?? 0,
-            montaj: montaj, // Calculated value
-            demontaj: row.demontaj ?? 0,
-            demontajMontaj: row.demontajMontaj ?? 0, 
-            birimFiyatMalzeme: birimFiyatMalzeme,
-            birimFiyatMontaj: birimFiyatMontaj,
-            birimFiyatDemontaj: birimFiyatDemontaj,
-            birimFiyatDemontajMontaj: birimFiyatDemontajMontaj,
-            toplamMalzeme: (row.malzemeYuklenici ?? 0) * birimFiyatMalzeme,
-            toplamMontaj: montaj * birimFiyatMontaj,
-            toplamDemontaj: (row.demontaj ?? 0) * birimFiyatDemontaj,
-            toplamDemontajdanMontaj: (row.demontajMontaj ?? 0) * birimFiyatDemontajMontaj, 
-            isUnregisteredItem: row.isUnregisteredItem ?? false,
-            itemId: row.itemId ?? null,
-        };
-    }, []);
 
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -783,18 +1027,6 @@ const TenderDetails = () => {
         setFileUploadedSuccessfully(false);
 
         const reader = new FileReader();
-        const explanatoryTexts = [
-            "SÖZLEŞME MİKTARLARI PROJESİNE GÖRE ÖNGÖRÜLEN MİKTARLARDIR",
-            "A SÜTUNUNDAKİ GDZ TARAFINDAN VERİLECEK MALZEMELERİN MONTAJI K SÜTUNUNDAKİ MONTAJ TUTARINA YANSITILMIŞTIR",
-            "A SÜTUNUNDA GDZ TARAFINDAN VERİLMESİ ÖNGÖRÜLEN MALZEMELERİN MALZEME BEDELLERİ, KEŞİF TUTARINA YANSITILMAMIŞTIR.",
-            "A SÜTUNUNDA GDZ TARAFINDAN VERİLMESİ ÖNGÖRÜLEN MALZEME LİSTESİNDE GDZ'NİN UYGUN GÖRMESİ HALİNDE SÖZLEŞME SÜRESİ İÇERİSİNDE DEĞİŞİKLİK YAPILABİLİR.",
-            "YAPILAN İŞLERİN BEDELLERİNİN ÖDENMESİNDE، GDZ 2024 BİRİM FİYATLARI’NA YÜKLENİCİ’NİN TEKLİF ETTİĞİ TENZİLAT UYGULANARAK BULUNAN VE SÖZLEŞME BEDELİNİN TESPİTİNDE KULLANILAN BİRİM FİYATLAR İLE VARSA SONRADAN TESPİT EDILEN YENİ BİRİM FİYATLAR ESAS ALINACAKTIR."
-        ].map(text => text.trim());
-        reader.onprogress = (e) => {
-            if (e.lengthComputable) {
-                // const percentCompleted = Math.round((e.loaded * 100) / e.total);
-            }
-        };
 
         reader.onload = (e) => {
             try {
@@ -802,7 +1034,6 @@ const TenderDetails = () => {
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
-
                 if (!worksheet['!ref']) {
                     showAlert('Excel dosyası boş veya formatı geçersiz.', 'error');
                     return;
@@ -820,50 +1051,90 @@ const TenderDetails = () => {
                     return cell ? cell.v : undefined;
                 };
 
-                for (let R = 4; R <= range.e.r; R++) {
-                    const descriptionValue = String(getCellValue(R, 1) || '').trim();
-                    const olcuBrimi = String(getCellValue(R, 2) || '').trim();
+                for (let R = 4; R <= range.e.r; R++) { // Start from row 5 (index 4) based on your template
+                    const eskiPozValue = String(getCellValue(R, 0) || '').trim(); // A
+                    const tedasNo = parseAndCleanInt(getCellValue(R, 1)); // B
+                    const anaNo = parseAndCleanInt(getCellValue(R, 2)); // C
+                    const altNo = parseAndCleanInt(getCellValue(R, 3));
 
-                    if (!olcuBrimi || explanatoryTexts.includes(descriptionValue)) {
+                    const descriptionValue = String(getCellValue(R, 4) || '').trim(); // E
+                    const olcuBrimi = String(getCellValue(R, 5) || '').trim(); // F
+
+                    const isCurrentRowCategory = (descriptionValue !== '' && olcuBrimi === '');
+
+                    if (descriptionValue === '' && olcuBrimi === '') {
                         continue;
                     }
 
                     if (isItemDescriptionDuplicate(descriptionValue, gridData)) {
-                        console.warn(`"${descriptionValue}" ürünü zaten mevcut, atlanıyor.`);
                         duplicateCount++;
                         continue;
                     }
 
-                    // استفاده از توابع parseAndCleanInt و parseAndCleanFloat برای تبدیل مقادیر
-                    const malzemeGDZ = parseAndCleanInt(getCellValue(R, 3));
-                    const malzemeYuklenici = parseAndCleanInt(getCellValue(R, 4));
-                    const demontaj = parseAndCleanInt(getCellValue(R, 6));
-                    const demontajdanMontaj = parseAndCleanInt(getCellValue(R, 7));
+                    const malzeme = parseAndCleanFloat(getCellValue(R, 6)); // G (MALZEME)
+                    const malzemeYuklenici = parseAndCleanInt(getCellValue(R, 7)); // H (MALZEME MİKTARI)
+                    const montaj = parseAndCleanInt(getCellValue(R, 8)); // I (MONTAJ MİKTARI) - Use Excel value, don't recalculate here
+                    const demontaj = parseAndCleanInt(getCellValue(R, 9)); // J (DEMONTAJ MİKTARI)
+                    const demontajMontaj = parseAndCleanInt(getCellValue(R, 10)); // K (DMM MİKTARI)
 
-                    const birimFiyatMalzeme = parseAndCleanFloat(getCellValue(R, 8));
-                    const birimFiyatMontaj = parseAndCleanFloat(getCellValue(R, 9));
-                    const birimFiyatDemontaj = parseAndCleanFloat(getCellValue(R, 10));
-                    const birimFiyatDemontajMontaj = parseAndCleanFloat(getCellValue(R, 11));
+                    const birimFiyatMalzeme = parseAndCleanFloat(getCellValue(R, 11)); // L (MALZEME (TL))
+                    const birimFiyatMontaj = parseAndCleanFloat(getCellValue(R, 12)); // M (MONTAJ (TL))
+                    const birimFiyatDemontaj = parseAndCleanFloat(getCellValue(R, 13)); // N (DEMONTAJ (SÖKME) (TL))
+                    const birimFiyatDemontajMontaj = parseAndCleanFloat(getCellValue(R, 14)); // O (DEMONTAJDAN MONTAJ (TL))
 
-                    const existingNode = findNodeByNameAndType(combinedTreeData, descriptionValue, 'item');
-                    const itemId = existingNode?.originalData?.id ?? null; // originalData.id is number or null
+                    const aciklama = String(getCellValue(R, 15) || '').trim(); // P (AÇIKLAMA)
 
-                    const newRow: TenderDetailRow = calculateTotals({
+                    const categoryPercentage = parseAndCleanFloat(getCellValue(R, 16)); // Q (%Kategoriler)
+
+                    // Get TUTARLAR directly from Excel, as per requirement
+                    const toplamMalzemeFromExcel = parseAndCleanFloat(getCellValue(R, 17)); // R
+                    const toplamMontajFromExcel = parseAndCleanFloat(getCellValue(R, 18)); // S
+                    const toplamDemontajFromExcel = parseAndCleanFloat(getCellValue(R, 19)); // T
+                    const toplamDemontajdanMontajFromExcel = parseAndCleanFloat(getCellValue(R, 20)); // U
+
+                    let existingNode: UnifiedTreeNode | undefined;
+                    let isCurrentItemUnregistered = false;
+                    let currentItemId: number | null = null;
+
+                    if (isCurrentRowCategory) {
+                        existingNode = findNodeByNameAndType(combinedTreeData, normalizeString(descriptionValue), 'category');
+                        isCurrentItemUnregistered = !existingNode;
+                        currentItemId = null;
+                    } else {
+                        existingNode = findNodeByNameAndType(combinedTreeData, normalizeString(descriptionValue), 'item');
+                        isCurrentItemUnregistered = !existingNode;
+                        currentItemId = existingNode?.originalData?.id ?? null;
+                    }
+
+                    const newRow: TenderDetailRow = {
                         id: currentLocalId++,
                         siraNo: currentSiraNoForImport++,
+                        eskiPoz: eskiPozValue,
+                        tedasNo: tedasNo,
+                        anaNo: anaNo,
+                        altNo: altNo,
                         description: descriptionValue,
                         olcuBrimi: olcuBrimi,
-                        malzemeGDZ: malzemeGDZ,
+                        malzeme: malzeme,
                         malzemeYuklenici: malzemeYuklenici,
+                        montaj: montaj, // Using Excel's MONTAJ MİKTARI
                         demontaj: demontaj,
-                        demontajMontaj: demontajdanMontaj, 
+                        demontajMontaj: demontajMontaj,
                         birimFiyatMalzeme: birimFiyatMalzeme,
                         birimFiyatMontaj: birimFiyatMontaj,
                         birimFiyatDemontaj: birimFiyatDemontaj,
                         birimFiyatDemontajMontaj: birimFiyatDemontajMontaj,
-                        isUnregisteredItem: !existingNode,  
-                        itemId: itemId,  
-                    });
+                        toplamMalzeme: toplamMalzemeFromExcel, // **Directly use Excel values**
+                        toplamMontaj: toplamMontajFromExcel,   // **Directly use Excel values**
+                        toplamDemontaj: toplamDemontajFromExcel,
+                        toplamDemontajdanMontaj: toplamDemontajdanMontajFromExcel,
+                        isUnregisteredItem: isCurrentItemUnregistered,
+                        itemId: currentItemId,
+                        aciklama: aciklama,
+                        categoryPercentage: isCurrentRowCategory ? (categoryPercentage || null) : null,
+                        isCategory: isCurrentRowCategory,
+                        isFromExcel: true, // **NEW: Mark this row as coming directly from Excel**
+                    };
                     importedRows.push(newRow);
                 }
 
@@ -879,19 +1150,19 @@ const TenderDetails = () => {
                     setFileUploadedSuccessfully(true);
                 } else {
                     if (duplicateCount > 0) {
-                           showAlert(`Hiçbir kayıt eklenemedi. ${duplicateCount} adet yinelenen kayıt atlandı.`, 'warning');
+                        showAlert(`Hiçbir kayıt eklenemedi. ${duplicateCount} adet yinelenen kayıt atlandı.`, 'info');
                     } else {
                         showAlert('Excel dosyasında eklenecek geçerli kayıt bulunamadı.', 'info');
                     }
                     setFileUploadedSuccessfully(false);
                 }
 
-            } catch (error : any) {
+            } catch (error: any) {
                 if (error.response && error.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-              }
+                    localStorage.removeItem('authToken');
+                    navigate("/");
+                    showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+                }
                 console.error("Excel işleme hatası:", error);
                 showAlert('Excel dosyası işlenirken bir hata oluştu. Lütfen dosyanın formatını kontrol edin.', 'error');
                 setFileUploadedSuccessfully(false);
@@ -909,44 +1180,61 @@ const TenderDetails = () => {
     const handleNewRecordInputChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
-        const target = e.target as HTMLInputElement;
+        const target = e.target as HTMLInputElement | HTMLTextAreaElement;
         const { name, value } = target;
-        
-        if (name === 'birimFiyatMalzeme') {
-            setBirimFiyatMalzemeNew(value); // اینجا فقط رشته رو ذخیره می‌کنیم
-        } else if (name === 'birimFiyatMontaj') {
-            setBirimFiyatMontajNew(value);
-        } else if (name === 'birimFiyatDemontaj') {
-            setBirimFiyatDemontajNew(value);
-        } else if (name === 'birimFiyatDemontajMontaj') {
-            setBirimFiyatDemontajMontajNew(value);
-        }
-        else if (name === 'newRecordManualInput') {
-            setNewRecordManualInput(String(value));
-            setNewRecordRow(prev => ({ ...prev, description: String(value) }));
-            setNewRecordSelectedUnifiedNodeId(null);
-        }
-        // برای مقادیر کمیتی (integer) از parseAndCleanInt استفاده می‌کنیم
-        else if (['malzemeGDZ', 'malzemeYuklenici', 'demontaj', 'demontajMontaj'].includes(name)) {
-            setNewRecordRow(prev => ({
-                ...prev,
-                [name]: parseAndCleanInt(value) // تبدیل به عدد صحیح
-            }));
-        } else {
-            setNewRecordRow(prev => ({
-                ...prev,
-                [name as keyof TenderDetailRow]: value as any  
-            }));
-        }
-    };
 
-    // محاسبات برای ردیف جدید:
-    // اطمینان حاصل کنید که قبل از محاسبه، مقادیر `birimFiyatXxxNew` به عدد تبدیل شده‌اند.
-    const calculatedNewRecordMontaj = newRecordRow.malzemeGDZ + newRecordRow.malzemeYuklenici;
-    const calculatedNewRecordToplamMalzeme = newRecordRow.malzemeYuklenici * parseAndCleanFloat(birimFiyatMalzemeNew);
-    const calculatedNewRecordToplamMontaj = calculatedNewRecordMontaj * parseAndCleanFloat(birimFiyatMontajNew);
-    const calculatedNewRecordToplamDemontaj = newRecordRow.demontaj * parseAndCleanFloat(birimFiyatDemontajNew);
-    const calculatedNewRecordToplamDemontajdanMontaj = newRecordRow.demontajMontaj * parseAndCleanFloat(birimFiyatDemontajMontajNew);
+        let cleanedValue = value;
+        let parsedNumber: number;
+
+        setNewRecordRow(prev => {
+            let updatedRow = { ...prev, isFromExcel: false }; // Mark as not from Excel when manually editing
+            if (['birimFiyatMalzeme', 'birimFiyatMontaj', 'birimFiyatDemontaj', 'birimFiyatDemontajMontaj',
+                'malzeme', 'categoryPercentage'].includes(name)) {
+                const numericValue = value.replace(/,/g, '.');
+                if (numericValue.startsWith('.')) {
+                    cleanedValue = '0' + numericValue;
+                } else {
+                    const parts = numericValue.split('.');
+                    cleanedValue = parts[0];
+                    if (parts.length > 1) {
+                        cleanedValue += '.' + parts.slice(1).join('').replace(/[^0-9]/g, '');
+                    }
+                    cleanedValue = cleanedValue.replace(/[^0-9.]/g, '');
+                }
+
+                if (name === 'birimFiyatMalzeme') setBirimFiyatMalzemeNew(cleanedValue);
+                else if (name === 'birimFiyatMontaj') setBirimFiyatMontajNew(cleanedValue);
+                else if (name === 'birimFiyatDemontaj') setBirimFiyatDemontajNew(cleanedValue);
+                else if (name === 'birimFiyatDemontajMontaj') setBirimFiyatDemontajMontajNew(cleanedValue);
+
+                parsedNumber = parseFloat(cleanedValue) || 0;
+                updatedRow = { ...updatedRow, [name]: parsedNumber };
+
+                if (name === 'categoryPercentage') {
+                    if (updatedRow.isCategory) {
+                        updatedRow.categoryPercentage = parsedNumber;
+                    } else {
+                        updatedRow.categoryPercentage = null; // Should not set for items
+                    }
+                }
+            } else if (['malzemeYuklenici', 'demontaj', 'demontajMontaj', 'tedasNo', 'anaNo', 'altNo'].includes(name)) {
+                cleanedValue = value.replace(/[^0-9]/g, '');
+                parsedNumber = parseInt(cleanedValue, 10) || 0;
+                updatedRow = { ...updatedRow, [name]: parsedNumber };
+            } else if (name === 'newRecordManualInput') {
+                setNewRecordManualInput(String(value));
+                updatedRow.description = String(value);
+                updatedRow.isCategory = String(value).trim() !== '' && updatedRow.olcuBrimi.trim() === '';
+                if (!updatedRow.isCategory) updatedRow.categoryPercentage = null;
+            } else {
+                updatedRow = { ...updatedRow, [name as keyof TenderDetailRow]: value as any };
+                updatedRow.isCategory = updatedRow.description.trim() !== '' && updatedRow.olcuBrimi.trim() === '';
+                if (!updatedRow.isCategory) updatedRow.categoryPercentage = null;
+            }
+            // Always force recalculate totals for manual input/changes
+            return calculateTotals(updatedRow, true);
+        });
+    };
 
     const fetchItemUnitById = useCallback(async (itemId: string): Promise<string | null> => {
         const authToken = localStorage.getItem('authToken');
@@ -957,19 +1245,19 @@ const TenderDetails = () => {
         }
         try {
             const response = await axios.get<GetItemByIdApiResponse>(
-                server.baseurl + server.baseinfo + "get-item-by-id/" + Number(itemId), 
+                server.baseurl + server.baseinfo + "get-item-by-id/" + Number(itemId),
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data && response.data.success && response.data.data && response.data.data.unit) {
                 return response.data.data.unit.title;
             }
             return null;
-        } catch (error : any) {
+        } catch (error: any) {
             if (error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-              }
+                showAlert('Oturumunuzun süresi doldu hoặc yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            }
             console.error("Ölçü bilgisi yüklenirken hata oluştu:", error);
             showAlert('Ölçü bilgisi yüklenirken bir hata oluştu.', 'error');
             return null;
@@ -980,19 +1268,26 @@ const TenderDetails = () => {
     const handleNewRecordTreeSelection = async (node: UnifiedTreeNode) => {
         if (node.type === 'item') {
             setNewRecordSelectedUnifiedNodeId(node.id);
-            
-            const nodeIdNum = node.originalData?.id ?? null;  
 
-            setNewRecordRow(prev => ({
-                ...prev,
-                description: node.name,
-                itemId: nodeIdNum,  
-            }));
-            
+            const nodeIdNum = node.originalData?.id ?? null;
+
+            setNewRecordRow(prev => {
+                const updatedRow = {
+                    ...prev,
+                    description: node.name,
+                    itemId: nodeIdNum,
+                    isCategory: false, // Selected an item, so it's not a category
+                    categoryPercentage: null, // Clear percentage for items
+                    isFromExcel: false, // Not from Excel on tree selection
+                };
+                return calculateTotals(updatedRow, true); // Force recalculation on tree selection
+            });
+
             setNewRecordManualInput('');
+            setNewRecordTreeSearchTerm(''); // Clear search term after selection
             setIsNewRecordTreeSelectOpen(false);
-            
-            const itemIdForApi = node.originalData?.id ? String(node.originalData.id) : null;  
+
+            const itemIdForApi = node.originalData?.id ? String(node.originalData.id) : null;
             if (itemIdForApi) {
                 const unitTitle = await fetchItemUnitById(itemIdForApi);
                 setNewRecordRow(prev => ({
@@ -1005,73 +1300,286 @@ const TenderDetails = () => {
         }
     };
 
+
     const handleEditRecordTreeSelection = async (node: UnifiedTreeNode) => {
         if (node.type === 'item') {
             setEditingRowSelectedUnifiedNodeId(node.id);
-            
+
             const nodeIdNum = node.originalData?.id ?? null;
 
             setEditingRowData(prev => {
-                if (!prev) return null;
-                return calculateTotals({
-                    ...prev,
+                const baseRow = prev || {
+                    id: 0, siraNo: 0, eskiPoz: '', tedasNo: 0, anaNo: 0, altNo: 0,
+                    description: '', olcuBrimi: '', malzeme: 0,
+                    malzemeYuklenici: 0, montaj: 0, demontaj: 0, demontajMontaj: 0,
+                    birimFiyatMalzeme: 0, birimFiyatMontaj: 0, birimFiyatDemontaj: 0, birimFiyatDemontajMontaj: 0,
+                    aciklama: '', categoryPercentage: null, isCategory: false,
+                    toplamMalzeme: 0, toplamMontaj: 0, toplamDemontaj: 0, toplamDemontajdanMontaj: 0,
+                    isUnregisteredItem: false, itemId: null, isFromExcel: false,
+                };
+
+                const updated = calculateTotals({
+                    ...baseRow,
                     description: node.name,
                     itemId: nodeIdNum,
-                });
+                    isCategory: false,
+                    categoryPercentage: null,
+                    isFromExcel: false, // Not from Excel on tree selection for edit
+                }, true); // Force recalculation
+
+                setEditingBirimFiyatMalzeme(formatInputNumberForDisplay(updated.birimFiyatMalzeme, 2));
+                setEditingBirimFiyatMontaj(formatInputNumberForDisplay(updated.birimFiyatMontaj, 2));
+                setEditingBirimFiyatDemontaj(formatInputNumberForDisplay(updated.birimFiyatDemontaj, 2));
+                setEditingBirimFiyatDemontajMontaj(formatInputNumberForDisplay(updated.birimFiyatDemontajMontaj, 2));
+                return updated;
             });
             setIsEditingRowTreeSelectOpen(false);
+            setEditingRowTreeSearchTerm('');
 
             const itemIdForApi = node.originalData?.id;
             if (itemIdForApi) {
                 const unitTitle = await fetchItemUnitById(String(itemIdForApi));
                 setEditingRowData(prev => {
                     if (!prev) return null;
-                    return calculateTotals({
+                    return {
                         ...prev,
                         olcuBrimi: unitTitle || '',
-                    });
+                    };
                 });
             } else {
                 setEditingRowData(prev => {
                     if (!prev) return null;
-                    return calculateTotals({ ...prev, olcuBrimi: '' });
+                    return { ...prev, olcuBrimi: '' };
                 });
             }
-
-            // اینجا مقادیر birimFiyatEdit را به state اصلی برگردانده و پرچم‌ها را ریست می‌کنیم.
-            setEditingRowData(prev => {
-                if (!prev) return null;
-                return {
-                    ...prev,
-                    // این مقادیر از قبل در `rowToEdit` تنظیم شده بودند.
-                    // فقط نیاز داریم که آنها را به عنوان String نمایش دهیم.
-                    // پس نیازی به تغییر اینجا نیست مگر اینکه بخواهیم default unit price را اعمال کنیم.
-                    // اگر میخواهیم قیمت های Mock را اعمال کنیم، اینجا باید اعمال شوند.
-                    // در غیر اینصورت، همان مقادیر قبلی را نگه میداریم.
-                };
-            });
-
-            // setIsBirimFiyatEditManuallyEdited({
-            //     malzeme: false,
-            //     montaj: false,
-            //     demontaj: false,
-            //     demontajdanMontaj: false,
-            // });
         }
     };
 
+    const renderSelectValue = (currentSelectedId: string | null, isEditingContext: boolean, currentTreeSearchTerm: string) => {
+        if (currentSelectedId) {
+            const node = findNodeById(combinedTreeData, currentSelectedId);
+            if (node) {
+                return node.name;
+            }
+        }
+
+        if (isEditingContext && editingRowData && editingRowData.description && !currentSelectedId) {
+            return editingRowData.description;
+        }
+
+        if (!currentSelectedId && currentTreeSearchTerm) {
+            return currentTreeSearchTerm;
+        }
+
+        if (!isEditingContext && newRecordManualInput) {
+            return newRecordManualInput;
+        }
+
+        return "Ürün seçin veya manuel girin...";
+    };
+
+    const handleOpenRegisterModalForUnregisteredRow = (row: TenderDetailRow) => {
+        if (row.isCategory) {
+            setCategoryToRegister({
+                description: row.description,
+                eskiPoz: row.eskiPoz,
+                categoryPercentage: row.categoryPercentage,
+                isCategory: true,
+            });
+            setOpenRegisterCategoryModal(true);
+        } else {
+            setItemToRegister({
+                description: row.description,
+                olcuBrimi: row.olcuBrimi,
+                eskiPoz: row.eskiPoz,
+                tedasNo: row.tedasNo,
+                anaNo: row.anaNo,
+                altNo: row.altNo,
+                aciklama: row.aciklama,
+                malzeme: row.malzeme,
+                malzemeYuklenici: row.malzemeYuklenici,
+                montaj: row.montaj,
+                demontaj: row.demontaj,
+                demontajMontaj: row.demontajMontaj,
+                isCategory: false,
+            });
+            setOpenRegisterItemModal(true);
+        }
+    };
+
+    // const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
+    //     setLoadingTree(true);
+    //     const authToken = localStorage.localStorage.getItem('authToken');
+    //     if (!authToken) {
+    //         showAlert('Oturumunuzun süresi doldu.', 'error');
+    //         navigate("/");
+    //         setLoadingTree(false);
+    //         return;
+    //     }
+
+    //     axios.all([
+    //         axios.get<any>(server.baseurl + server.baseinfo + "get-categories", { headers: { "Authorization": `Bearer ${authToken}` } }),
+    //         axios.get<any>(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } })
+    //     ] as const)
+    //         .then(axios.spread(
+    //             (categoriesResponse, itemsResponse) => {
+    //                 const categoriesData = categoriesResponse.data.data as ApiCategoryType[] || [];
+    //                 const itemsData = itemsResponse.data.data as ApiItemType[] || [];
+
+    //                 const updatedTree = buildCombinedTree(categoriesData, itemsData);
+    //                 setCombinedTreeData(updatedTree);
+    //                 setLoadingTree(false);
+
+    //                 setGridData(prevGridData => {
+    //                     let updated = false;
+    //                     const registeredDataName = 'name' in registeredData ? registeredData.name : '';
+    //                     const newGridData = prevGridData.map(row => {
+    //                         const isCategoryRow = row.isCategory;
+    //                         const normalizedRowDescription = normalizeString(row.description);
+
+    //                         if (row.isUnregisteredItem && normalizedRowDescription === normalizeString(registeredDataName)) {
+    //                             updated = true;
+    //                             if (isCategoryRow && 'categories' in registeredData) {
+    //                                 return { ...row, isUnregisteredItem: false, itemId: null };
+    //                             } else if (!isCategoryRow && 'category' in registeredData) {
+    //                                 return { ...row, isUnregisteredItem: false, itemId: (registeredData as ApiItemType).id };
+    //                             }
+    //                         }
+    //                         return row;
+    //                     });
+    //                     if (updated) {
+    //                         showAlert(`Liste başarıyla güncellendi ve ${registeredDataName} öğesinin durumu ayarlandı!`, 'success');
+    //                     }
+    //                     return newGridData;
+    //                 });
+    //             }
+    //         ))
+    //         .catch(error => {
+    //             console.error("Error updating tree after registration:", error);
+    //             if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+    //                 localStorage.removeItem('authToken');
+    //                 navigate("/");
+    //                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+    //             } else {
+    //                 showAlert(`Veri başarıyla kaydedildi, اما ağaç güncellenmedi. Lütfen sayfayı yenileyin: ${error.response?.data?.message || error.message || 'Bilinmeyen Hata'}`, 'warning');
+    //             }
+    //             setLoadingTree(false);
+    //         });
+    // }, [showAlert, navigate]);
+
+const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
+    setLoadingTree(true);
+    // Fix for potential `localStorage.localStorage` typo, ensure it's just `localStorage`
+    const authToken = localStorage.getItem('authToken'); 
+    if (!authToken) {
+        showAlert('Oturumunuzun süresi doldu.', 'error');
+        navigate("/");
+        setLoadingTree(false);
+        return;
+    }
+
+    // Explicitly define types for axios.all promises for better type inference
+    axios.all([
+               axios.get<any>(server.baseurl + server.baseinfo + "get-categories", { headers: { "Authorization": `Bearer ${authToken}` } }),
+            axios.get<any>(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } })
+        
+    ])
+        .then(axios.spread( // axios.spread will correctly unpack the results based on the Promise types
+            (categoriesResponse, itemsResponse) => {
+                const categoriesData = categoriesResponse.data.data || [];
+                const itemsData = itemsResponse.data.data || [];
+
+                const updatedTree = buildCombinedTree(categoriesData, itemsData);
+                setCombinedTreeData(updatedTree);
+                setLoadingTree(false);
+
+                setGridData(prevGridData => {
+                    let updated = false;
+                    const registeredDataName = 'name' in registeredData ? registeredData.name : '';
+                    const newGridData = prevGridData.map(row => {
+                        const isCategoryRow = row.isCategory;
+                        const normalizedRowDescription = normalizeString(row.description);
+
+                        // Check if this is the row that was just registered
+                        if (row.isUnregisteredItem && normalizedRowDescription === normalizeString(registeredDataName)) {
+                            updated = true;
+                            let newItemId: number | null = row.itemId; // Default to existing itemId
+
+                            // Determine the new itemId based on whether it's an item or category
+                            if (!isCategoryRow && 'id' in registeredData) {
+                                // For an item, registeredData.id is a number.
+                                newItemId = Number(registeredData.id); 
+                            } else if (isCategoryRow) {
+                                // For a category, itemId should be null
+                                newItemId = null;
+                            }
+                            
+                            const updatedRow: TenderDetailRow = {
+                                ...row,
+                                isUnregisteredItem: false, // This is the key change
+                                itemId: newItemId, // Assign the (possibly new) numeric itemId
+                                // The `toplam` values will be re-evaluated by `processedAndFilteredGridData`
+                                // which calls `calculateTotals` without forceRecalculate (which respects `isFromExcel`)
+                                // or with forceRecalculate:true if category percentage changes.
+                                // This is crucial for UI consistency without full reload.
+                            };
+                            return updatedRow;
+                        }
+                        return row;
+                    });
+                    if (updated) {
+                        showAlert(`Liste başarıyla güncellendi و "${registeredDataName}" öğesinin durumu ayarlandı!`, 'success');
+                    }
+                    return newGridData;
+                });
+            }
+        ))
+        .catch(error => {
+            console.error("Error updating tree after registration:", error);
+            if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+                localStorage.removeItem('authToken');
+                navigate("/");
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            } else {
+                showAlert(`Veri başarıyla kaydedildi، اما ağaç güncellenmedi. Lütfen sayfayı yenileyin: ${error.response?.data?.message || error.message || 'Bilinmeyen Hata'}`, 'warning');
+            }
+            setLoadingTree(false);
+        });
+}, [showAlert, navigate, normalizeString]); // Added normalizeString to dependencies
+
+    const handleRegistrationSuccess = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
+        setOpenRegisterItemModal(false);
+        setOpenRegisterCategoryModal(false);
+        setItemToRegister(null);
+        setCategoryToRegister(null);
+
+        handleUpdateRegisteredItemInGrid(registeredData);
+
+    }, [handleUpdateRegisteredItemInGrid]);
+
+    const handleCloseRegisterItemModal = () => {
+        setOpenRegisterItemModal(false);
+        setItemToRegister(null);
+    };
+
+    const handleCloseRegisterCategoryModal = () => {
+        setOpenRegisterCategoryModal(false);
+        setCategoryToRegister(null);
+    };
+
+
     const handleAddRecord = async () => {
         let finalDescription = '';
-        let finalItemId: number | null = null;  
+        let finalItemId: number | null = null;
         const selectedNode = newRecordSelectedUnifiedNodeId ? findNodeById(combinedTreeData, newRecordSelectedUnifiedNodeId) : null;
 
         if (selectedNode && selectedNode.type === 'item') {
             finalDescription = selectedNode.name;
-            finalItemId = selectedNode.originalData?.id ?? null;  
+            finalItemId = selectedNode.originalData?.id ?? null;
         } else if (newRecordManualInput.trim() !== '') {
             finalDescription = newRecordManualInput.trim();
         } else {
-            showAlert('Açıklama (MALZEME VEYA İŞİN CİNSİ) alanı boş olamaz. Lütfen bir ürün seçin veya manuel girin.', 'warning');
+            showAlert('Açıklama (MALZEME VEYA İŞİN CİNSİ) alanı boş bırakılamaz. Lütfen bir ürün seçin veya manuel girin.', 'warning');
             return;
         }
 
@@ -1080,36 +1588,44 @@ const TenderDetails = () => {
             return;
         }
 
+        const normalizedFinalDescription = normalizeString(finalDescription);
+
+        const isNewRecordCategory = newRecordRow.olcuBrimi.trim() === '';
+
         if (newRecordManualInput.trim() !== '' && (!selectedNode || selectedNode.type !== 'item')) {
-            const addedItemId = await addNewItemToApi(finalDescription); // Returns number | null
-            if (addedItemId !== null) {
-                finalItemId = addedItemId;
-                await fetchDataAndBuildTree(); // Refresh tree after adding new item
-            } else {
-                return; // If API add failed, stop
+            if (!isNewRecordCategory) {
+                const addedItemId = await addNewItemToApi(finalDescription);
+                if (addedItemId !== null) {
+                    finalItemId = addedItemId;
+                    await fetchDataAndBuildTree();
+                } else {
+                    return;
+                }
             }
         }
-        
-        if (finalItemId === null && finalDescription !== '') {
-            const nodeFromTree = findNodeByNameAndType(combinedTreeData, finalDescription, 'item');
+
+        if (finalItemId === null && !isNewRecordCategory && finalDescription !== '') {
+            const nodeFromTree = findNodeByNameAndType(combinedTreeData, normalizedFinalDescription, 'item');
             if (nodeFromTree && nodeFromTree.originalData?.id !== undefined) {
-                finalItemId = nodeFromTree.originalData.id;  
+                finalItemId = nodeFromTree.originalData.id;
             } else {
-                showAlert('Ürün ID\'si belirlenemedi. Lütfen önce ürünü kaydedin veya listeden seçin.', 'error');
-                return;
+                if (!newRecordManualInput.trim()) {
+                    showAlert('Ürün ID\'si belirlenemedi. Lütfen önce ürünü kaydedin veya listeden seçin.', 'error');
+                    return;
+                }
             }
         }
 
         let currentOlcuBrimi = newRecordRow.olcuBrimi;
-        if (!currentOlcuBrimi && finalDescription && finalItemId !== null) {
-            const unitTitle = await fetchItemUnitById(String(finalItemId)); // Convert number itemId to string for API call
+        if (!isNewRecordCategory && !currentOlcuBrimi && finalItemId !== null) {
+            const unitTitle = await fetchItemUnitById(String(finalItemId));
             if (unitTitle) {
                 currentOlcuBrimi = unitTitle;
             } else {
                 showAlert('Seçilen ürün için ölçü birimi bulunamadı. Lütfen kontrol edin.', 'warning');
             }
-        } else if (!currentOlcuBrimi && finalDescription) {
-            showAlert('Ölçü Birimi boş olamaz! Lütfen geçerli bir ürün seçin veya manuel girilen ürün için birim tanımlayın.', 'warning');
+        } else if (!isNewRecordCategory && !currentOlcuBrimi && finalDescription && finalItemId === null) {
+            showAlert('Ölçü Birimi boş bırakılamaz! Lütfen geçerli bir ürün seçin veya manuel girilen ürün için birim tanımlayın.', 'warning');
             return;
         }
 
@@ -1120,78 +1636,80 @@ const TenderDetails = () => {
         const newRecord: TenderDetailRow = calculateTotals({
             id: newRowId,
             siraNo: nextSiraNo,
+            eskiPoz: newRecordRow.eskiPoz,
+            tedasNo: newRecordRow.tedasNo,
+            anaNo: newRecordRow.anaNo,
+            altNo: newRecordRow.altNo,
             description: finalDescription,
             olcuBrimi: currentOlcuBrimi,
-            malzemeGDZ: newRecordRow.malzemeGDZ,
+            malzeme: newRecordRow.malzeme,
             malzemeYuklenici: newRecordRow.malzemeYuklenici,
             demontaj: newRecordRow.demontaj,
-            demontajMontaj: newRecordRow.demontajMontaj,  
-            // تبدیل رشته‌های birimFiyatNew به عدد قبل از ارسال به calculateTotals
-            birimFiyatMalzeme: parseAndCleanFloat(birimFiyatMalzemeNew),
-            birimFiyatMontaj: parseAndCleanFloat(birimFiyatMontajNew),
-            birimFiyatDemontaj: parseAndCleanFloat(birimFiyatDemontajNew),
-            birimFiyatDemontajMontaj: parseAndCleanFloat(birimFiyatDemontajMontajNew),
-            // Pass the calculated values for total columns
-            toplamMalzeme: calculatedNewRecordToplamMalzeme,  
-            toplamMontaj: calculatedNewRecordToplamMontaj,
-            toplamDemontaj: calculatedNewRecordToplamDemontaj,
-            toplamDemontajdanMontaj: calculatedNewRecordToplamDemontajdanMontaj,
-            isUnregisteredItem: !findNodeByNameAndType(combinedTreeData, finalDescription, 'item'),
-            itemId: finalItemId,  
-        });
+            demontajMontaj: newRecordRow.demontajMontaj,
+            birimFiyatMalzeme: newRecordRow.birimFiyatMalzeme,
+            birimFiyatMontaj: newRecordRow.birimFiyatMontaj,
+            birimFiyatDemontaj: newRecordRow.birimFiyatDemontaj,
+            birimFiyatDemontajMontaj: newRecordRow.birimFiyatDemontajMontaj,
+
+            toplamMalzeme: 0, // Placeholder, calculateTotals will set
+            toplamMontaj: 0,
+            toplamDemontaj: 0,
+            toplamDemontajdanMontaj: 0,
+
+            isUnregisteredItem: !findNodeByNameAndType(combinedTreeData, normalizedFinalDescription, isNewRecordCategory ? 'category' : 'item'),
+            itemId: finalItemId,
+            aciklama: newRecordRow.aciklama,
+            categoryPercentage: isNewRecordCategory ? newRecordRow.categoryPercentage : null,
+            isCategory: isNewRecordCategory,
+            isFromExcel: false, // NEW: Mark new manual entries as NOT from Excel
+        }, true); // **Force recalculation for new manual entries**
 
         setGridData(prev => [...prev, newRecord]);
         showAlert('Yeni kayıt başarıyla eklendi!', 'success');
 
+        // Reset new record form states
         setNewRecordRow({
-            id: 0,
-            siraNo: 0,
-            description: '',
-            olcuBrimi: '',
-            malzemeGDZ: 0,
-            malzemeYuklenici: 0,
-            montaj: 0,  
-            demontaj: 0,
-            demontajMontaj: 0,  
-            birimFiyatMalzeme: 0,
-            birimFiyatMontaj: 0,
-            birimFiyatDemontaj: 0,
-            birimFiyatDemontajMontaj: 0,
-            toplamMalzeme: 0,  
-            toplamMontaj: 0,
-            toplamDemontaj: 0,
-            toplamDemontajdanMontaj: 0,
-            isUnregisteredItem: false,
-            itemId: null,
+            id: 0, siraNo: 0, eskiPoz: '', tedasNo: 0, anaNo: 0, altNo: 0,
+            description: '', olcuBrimi: '', malzeme: 0,
+            malzemeYuklenici: 0, montaj: 0, demontaj: 0, demontajMontaj: 0,
+            birimFiyatMalzeme: 0, birimFiyatMontaj: 0, birimFiyatDemontaj: 0, birimFiyatDemontajMontaj: 0,
+            toplamMalzeme: 0, toplamMontaj: 0, toplamDemontaj: 0, toplamDemontajdanMontaj: 0,
+            isUnregisteredItem: false, itemId: null, aciklama: '',
+            categoryPercentage: null,
+            isCategory: false,
+            isFromExcel: false,
         });
         setNewRecordSelectedUnifiedNodeId(null);
         setNewRecordManualInput('');
-
+        setNewRecordTreeSearchTerm('');
         setBirimFiyatMalzemeNew("0");
         setBirimFiyatMontajNew("0");
         setBirimFiyatDemontajNew("0");
         setBirimFiyatDemontajMontajNew("0");
+
         setIsNewRecordTreeSelectOpen(false);
     };
-
 
     const handleEditGridRow = (rowId: number) => {
         const rowToEdit = gridData.find(row => row.id === rowId);
         if (rowToEdit) {
             setEditingRowId(rowId);
-            setEditingRowData({ ...rowToEdit });
+            setEditingRowData({ ...rowToEdit }); // Create a copy to edit
 
-            // برای نمایش صحیح در فیلدهای ویرایش، مقادیر عددی را به رشته تبدیل می‌کنیم و کاما اضافه می‌کنیم
-            // تا با فرمت نمایش در UI همخوانی داشته باشد.
-            setEditingRowData(prev => prev ? {
-                ...prev,
-                birimFiyatMalzeme: prev.birimFiyatMalzeme, // اینجا Number است
-                birimFiyatMontaj: prev.birimFiyatMontaj,
-                birimFiyatDemontaj: prev.birimFiyatDemontaj,
-                birimFiyatDemontajMontaj: prev.birimFiyatDemontajMontaj,
-            } : null);
+            setEditingBirimFiyatMalzeme(formatInputNumberForDisplay(rowToEdit.birimFiyatMalzeme, 2));
+            setEditingBirimFiyatMontaj(formatInputNumberForDisplay(rowToEdit.birimFiyatMontaj, 2));
+            setEditingBirimFiyatDemontaj(formatInputNumberForDisplay(rowToEdit.birimFiyatDemontaj, 2));
+            setEditingBirimFiyatDemontajMontaj(formatInputNumberForDisplay(rowToEdit.birimFiyatDemontajMontaj, 2));
 
-            const foundNode = findNodeByNameAndType(combinedTreeData, rowToEdit.description, 'item');
+            const normalizedDescription = normalizeString(rowToEdit.description);
+            let foundNode: UnifiedTreeNode | undefined;
+
+            if (rowToEdit.isCategory) {
+                foundNode = findNodeByNameAndType(combinedTreeData, normalizedDescription, 'category');
+            } else {
+                foundNode = findNodeByNameAndType(combinedTreeData, normalizedDescription, 'item');
+            }
+
             if (foundNode) {
                 setEditingRowSelectedUnifiedNodeId(foundNode.id);
                 setEditingRowTreeSearchTerm('');
@@ -1199,64 +1717,89 @@ const TenderDetails = () => {
                 setEditingRowSelectedUnifiedNodeId(null);
                 setEditingRowTreeSearchTerm('');
             }
-
-            // const selectedUnitRates = MOCK_BIRIM_FIYAT_OPTIONS.find(f => f.unit === rowToEdit.olcuBrimi);
-            // setIsBirimFiyatEditManuallyEdited({
-            //     malzeme: rowToEdit.birimFiyatMalzeme !== (selectedUnitRates?.malzeme ?? 0),
-            //     montaj: rowToEdit.birimFiyatMontaj !== (selectedUnitRates?.montaj ?? 0),
-            //     demontaj: rowToEdit.birimFiyatDemontaj !== (selectedUnitRates?.demontaj ?? 0),
-            //     demontajdanMontaj: rowToEdit.birimFiyatDemontajMontaj !== (selectedUnitRates?.demontajdanMontaj ?? 0),
-            // });
         }
     };
+
 
     const handleEditRowInputChange = useCallback((
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
-        const target = e.target as HTMLInputElement;
+        const target = e.target as HTMLInputElement | HTMLTextAreaElement;
         const { name, value } = target;
 
         setEditingRowData(prev => {
             if (!prev) return null;
 
-            let updatedData: TenderDetailRow = { ...prev };
+            let updatedData: TenderDetailRow = { ...prev, isFromExcel: false }; // Mark as not from Excel when manually editing
 
-            if (name === 'birimFiyatMalzeme') {
-                updatedData.birimFiyatMalzeme = parseAndCleanFloat(value); // تبدیل به عدد اعشاری
-                // setIsBirimFiyatEditManuallyEdited(prevFlags => ({ ...prevFlags, malzeme: true }));
-            } else if (name === 'birimFiyatMontaj') {
-                updatedData.birimFiyatMontaj = parseAndCleanFloat(value); // تبدیل به عدد اعشاری
-                // setIsBirimFiyatEditManuallyEdited(prevFlags => ({ ...prevFlags, montaj: true }));
-            } else if (name === 'birimFiyatDemontaj') {
-                updatedData.birimFiyatDemontaj = parseAndCleanFloat(value); // تبدیل به عدد اعشاری
-                // setIsBirimFiyatEditManuallyEdited(prevFlags => ({ ...prevFlags, demontaj: true }));
-            } else if (name === 'birimFiyatDemontajMontaj') {
-                updatedData.birimFiyatDemontajMontaj = parseAndCleanFloat(value); // تبدیل به عدد اعشاری
-                // setIsBirimFiyatEditManuallyEdited(prevFlags => ({ ...prevFlags, demontajdanMontaj: true }));
-            }
-            else if (name === 'editingRowDescription') {
+            let cleanedValue = value;
+            let parsedValue: number;
+
+            if (['birimFiyatMalzeme', 'birimFiyatMontaj', 'birimFiyatDemontaj', 'birimFiyatDemontajMontaj',
+                'malzeme', 'categoryPercentage'].includes(name)) {
+
+                const numericValue = value.replace(/,/g, '.');
+
+                if (numericValue.startsWith('.')) {
+                    cleanedValue = '0' + numericValue;
+                } else {
+                    const parts = numericValue.split('.');
+                    cleanedValue = parts[0];
+                    if (parts.length > 1) {
+                        cleanedValue += '.' + parts.slice(1).join('').replace(/[^0-9]/g, '');
+                    }
+                    cleanedValue = cleanedValue.replace(/[^0-9.]/g, '');
+                }
+
+                if (name === 'birimFiyatMalzeme') setEditingBirimFiyatMalzeme(cleanedValue);
+                else if (name === 'birimFiyatMontaj') setEditingBirimFiyatMontaj(cleanedValue);
+                else if (name === 'birimFiyatDemontaj') setEditingBirimFiyatDemontaj(cleanedValue);
+                else if (name === 'birimFiyatDemontajMontaj') setEditingBirimFiyatDemontajMontaj(cleanedValue);
+
+                if (name === 'malzeme') {
+                    (updatedData as any)[name] = parseFloat(cleanedValue) || 0;
+                } else if (name === 'categoryPercentage') {
+                    if (updatedData.isCategory) {
+                        (updatedData as any)[name] = parseFloat(cleanedValue) || null;
+                    } else {
+                        (updatedData as any)[name] = null; // Cannot set percentage for items
+                    }
+                } else {
+                    parsedValue = parseFloat(cleanedValue) || 0;
+                    (updatedData as any)[name] = parsedValue;
+                }
+
+            } else if (['malzemeYuklenici', 'demontaj', 'demontajMontaj', 'tedasNo', 'anaNo', 'altNo'].includes(name)) {
+                cleanedValue = value.replace(/[^0-9]/g, '');
+                (updatedData as any)[name] = parseInt(cleanedValue, 10) || 0;
+            } else if (name === 'editingRowDescription') {
                 setEditingRowTreeSearchTerm(String(value));
                 setEditingRowSelectedUnifiedNodeId(null);
                 updatedData.description = String(value);
+                updatedData.isCategory = updatedData.olcuBrimi.trim() === '';
+                if (!updatedData.isCategory) updatedData.categoryPercentage = null;
             }
-            // برای مقادیر کمیتی (integer) از parseAndCleanInt استفاده می‌کنیم
-            else if (name === 'malzemeGDZ') {
-                updatedData.malzemeGDZ = parseAndCleanInt(value);
-            } else if (name === 'malzemeYuklenici') {
-                updatedData.malzemeYuklenici = parseAndCleanInt(value);
-            } else if (name === 'demontaj') {
-                updatedData.demontaj = parseAndCleanInt(value);
-            }  else if (name === 'demontajMontaj') { 
-                updatedData.demontajMontaj = parseAndCleanInt(value);
+            else if (name === 'aciklama') {
+                updatedData.aciklama = String(value);
             }
-            
-            const foundNode = findNodeByNameAndType(combinedTreeData, updatedData.description, 'item');
-            updatedData.isUnregisteredItem = !foundNode;
+            else if (name === 'eskiPoz') {
+                updatedData.eskiPoz = String(value);
+            }
+            else if (name === 'olcuBrimi') {
+                updatedData.olcuBrimi = String(value);
+                updatedData.isCategory = updatedData.olcuBrimi.trim() === '';
+                if (!updatedData.isCategory) updatedData.categoryPercentage = null;
+            }
 
-            return calculateTotals(updatedData);
+            // Always force recalculate totals for edited rows
+            const tempUpdatedData = calculateTotals(updatedData, true);
+
+            const foundNode = findNodeByNameAndType(combinedTreeData, normalizeString(tempUpdatedData.description), tempUpdatedData.isCategory ? 'category' : 'item');
+            tempUpdatedData.isUnregisteredItem = !foundNode;
+
+            return tempUpdatedData;
         });
     }, [calculateTotals, combinedTreeData, findNodeByNameAndType]);
-
 
     const handleUpdateGridRow = async () => {
         if (!editingRowId || !editingRowData) return;
@@ -1264,35 +1807,62 @@ const TenderDetails = () => {
         let updatedRowData: TenderDetailRow = { ...editingRowData };
 
         const selectedNode = editingRowSelectedUnifiedNodeId ? findNodeById(combinedTreeData, editingRowSelectedUnifiedNodeId) : null;
+
         if (selectedNode && selectedNode.type === 'item') {
             updatedRowData.description = selectedNode.name;
-            updatedRowData.itemId = selectedNode.originalData?.id ?? null;  
+            updatedRowData.itemId = selectedNode.originalData?.id ?? null;
+            updatedRowData.isCategory = false;
+            updatedRowData.categoryPercentage = null;
         }
         else if (editingRowTreeSearchTerm && !editingRowSelectedUnifiedNodeId) {
             updatedRowData.description = editingRowTreeSearchTerm;
+            updatedRowData.itemId = null;
         }
 
         if (!updatedRowData.description) {
-            showAlert('Açıklama (MALZEME VEYA İŞİN CİNSİ) boş olamaz!', 'warning');
+            showAlert('Açıklama (MALZEME VEYA İŞİN CİNSİ) alanı boş bırakılamaz!', 'warning');
             return;
         }
-        if (!updatedRowData.olcuBrimi) {
-            showAlert('Ölçü Birimi boş olamaz! Lütfen geçerli bir ürün seçin.', 'warning');
+        updatedRowData.isCategory = updatedRowData.olcuBrimi.trim() === '';
+        if (!updatedRowData.isCategory && !updatedRowData.olcuBrimi) {
+            showAlert('Ölçü Birimi boş bırakılamaz! Lütfen geçerli bir ürün seçin.', 'warning');
             return;
         }
 
         if (isItemDescriptionDuplicate(updatedRowData.description, gridData, updatedRowData.id)) {
-            showAlert(`"${updatedRowData.description}" ürünü zaten başka bir satırda mevcut. Yinelenen kayıt ekleyemezsiniz.`, 'warning');
+            showAlert(`"${updatedRowData.description}" ürünü zaten listede mevcut. Yinelenen kayıt ekleyemezsiniz. Varolan kaydı düzenleyebilirsiniz.`, 'warning');
             return;
         }
 
-        const foundNode = findNodeByNameAndType(combinedTreeData, updatedRowData.description, 'item');
-        updatedRowData.isUnregisteredItem = !foundNode;
+        const normalizedUpdatedDescription = normalizeString(updatedRowData.description);
+
+        let isUnregisteredAfterEdit: boolean;
+        if (updatedRowData.isCategory) {
+            isUnregisteredAfterEdit = !findNodeByNameAndType(combinedTreeData, normalizedUpdatedDescription, 'category');
+            updatedRowData.itemId = null;
+        } else {
+            isUnregisteredAfterEdit = !findNodeByNameAndType(combinedTreeData, normalizedUpdatedDescription, 'item');
+            const nodeFromTree = findNodeByNameAndType(combinedTreeData, normalizedUpdatedDescription, 'item');
+            updatedRowData.itemId = nodeFromTree?.originalData?.id ?? null;
+        }
+        updatedRowData.isUnregisteredItem = isUnregisteredAfterEdit;
+
+        if (!updatedRowData.isCategory && !updatedRowData.olcuBrimi && updatedRowData.itemId !== null) {
+            const unitTitle = await fetchItemUnitById(String(updatedRowData.itemId));
+            if (unitTitle) {
+                updatedRowData = { ...updatedRowData, olcuBrimi: unitTitle };
+            } else {
+                showAlert('Seçilen ürün için ölçü birimi bulunamadı. Lütfen kontrol edin.', 'warning');
+            }
+        }
+
+        // Final calculation after all user inputs and selections are processed.
+        const finalCalculatedRow = calculateTotals(updatedRowData, true); // **Force recalculate one last time on save**
 
 
         setGridData(prev => prev.map(row =>
             row.id === editingRowId
-                ? calculateTotals(updatedRowData)
+                ? finalCalculatedRow
                 : row
         ));
 
@@ -1301,100 +1871,69 @@ const TenderDetails = () => {
         setEditingRowSelectedUnifiedNodeId(null);
         setIsEditingRowTreeSelectOpen(false);
         setEditingRowTreeSearchTerm('');
-        // setIsBirimFiyatEditManuallyEdited({
-        //     malzeme: false, montaj: false, demontaj: false, demontajdanMontaj: false,
-        // });
         showAlert('Giriş başarıyla güncellendi!', 'success');
+        setEditingBirimFiyatMalzeme('');
+        setEditingBirimFiyatMontaj('');
+        setEditingBirimFiyatDemontaj('');
+        setEditingBirimFiyatDemontajMontaj('');
     };
-
-
     const handleCancelEditGridRow = () => {
         setEditingRowId(null);
         setEditingRowData(null);
         setEditingRowSelectedUnifiedNodeId(null);
         setIsEditingRowTreeSelectOpen(false);
         setEditingRowTreeSearchTerm('');
-        // setIsBirimFiyatEditManuallyEdited({
-        //     malzeme: false, montaj: false, demontaj: false, demontajdanMontaj: false,
-        // });
+
+        setEditingBirimFiyatMalzeme('');
+        setEditingBirimFiyatMontaj('');
+        setEditingBirimFiyatDemontaj('');
+        setEditingBirimFiyatDemontajMontaj('');
         showAlert('İşlem iptal edildi.', 'info');
     };
 
-    const totalGdz2024MalzemeTutari = useMemo(() => {
-        return gridData.reduce((sum, row) => sum + (row.toplamMalzeme || 0), 0);
-    }, [gridData]);
+    const totalMalzemeTutariTl = useMemo(() => {
+        return processedAndFilteredGridData.reduce((sum, row) => {
+            if (displayMode === 'withoutCategory' && row.isCategory) {
+                return sum;
+            }
+            return sum + (row.toplamMalzeme || 0);
+        }, 0);
+    }, [processedAndFilteredGridData, displayMode]);
 
-    const totalGdz2024MontajTutari = useMemo(() => {
-        return gridData.reduce((sum, row) => sum + (row.toplamMontaj || 0), 0);
-    }, [gridData]);
+    const totalMontajTutariTl = useMemo(() => {
+        return processedAndFilteredGridData.reduce((sum, row) => {
+            if (displayMode === 'withoutCategory' && row.isCategory) {
+                return sum;
+            }
+            return sum + (row.toplamMontaj || 0);
+        }, 0);
+    }, [processedAndFilteredGridData, displayMode]);
 
-    const totalGdz2024DemontajTutari = useMemo(() => {
-        return gridData.reduce((sum, row) => sum + (row.toplamDemontaj || 0), 0);
-    }, [gridData]);
+    const totalDemontajTutariTl = useMemo(() => {
+        return processedAndFilteredGridData.reduce((sum, row) => {
+            if (displayMode === 'withoutCategory' && row.isCategory) {
+                return sum;
+            }
+            return sum + (row.toplamDemontaj || 0);
+        }, 0);
+    }, [processedAndFilteredGridData, displayMode]);
 
-    const totalGdz2024DemontajdanMontajTutari = useMemo(() => {
-        return gridData.reduce((sum, row) => sum + (row.toplamDemontajdanMontaj || 0), 0);
-    }, [gridData]);
+    const totalDmmTutariTl = useMemo(() => {
+        return processedAndFilteredGridData.reduce((sum, row) => {
+            if (displayMode === 'withoutCategory' && row.isCategory) {
+                return sum;
+            }
+            return sum + (row.toplamDemontajdanMontaj || 0);
+        }, 0);
+    }, [processedAndFilteredGridData, displayMode]);
 
-    const totalGdz2024CombinedTutari = useMemo(() => {
-        return totalGdz2024MalzemeTutari + totalGdz2024MontajTutari + totalGdz2024DemontajTutari + totalGdz2024DemontajdanMontajTutari;
-    }, [totalGdz2024MalzemeTutari, totalGdz2024MontajTutari, totalGdz2024DemontajTutari, totalGdz2024DemontajdanMontajTutari]);
+    const totalKesifBedeliTl = useMemo(() => {
+        return totalMalzemeTutariTl + totalMontajTutariTl + totalDemontajTutariTl + totalDmmTutariTl;
+    }, [totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl]);
 
     const hasUnregisteredItems = useMemo(() => {
-        return gridData.some(row => row.isUnregisteredItem);
-    }, [gridData]);
-
-
-    const formatNumber = (value: number | null, decimalPlaces: number = 0, useGrouping: boolean = true) => {
-        if (value === null || isNaN(value)) return '0';
-        // برای نمایش در UI، کاما را به عنوان جداکننده اعشار استفاده می‌کنیم اگر نیاز باشد.
-        return value.toLocaleString('tr-TR', { // 'tr-TR' برای استفاده از کاما به عنوان جداکننده اعشار و نقطه برای هزارگان
-            minimumFractionDigits: decimalPlaces,
-            maximumFractionDigits: decimalPlaces,
-            useGrouping: useGrouping
-        });
-    };
-
-    // این تابع برای تنظیم مقدار `value` در CustomTextField است.
-    // در اینجا، ما باید مقدار عددی را به فرمت رشته‌ای که کاربر می‌بیند (با کاما برای اعشار) تبدیل کنیم.
-    const formatInputNumberForDisplay = (value: number | null, decimalPlaces: number = 0): string => {
-        if (value === null || isNaN(value)) return '';
-        // اگر اعشار صفر است، فقط قسمت صحیح را برمی‌گردانیم.
-        if (decimalPlaces === 0) {
-            return value.toFixed(0);
-        }
-        // اگر اعشار داریم، به صورت رشته با کاما (برای نمایش به کاربر) تبدیل می‌کنیم.
-        // `toLocaleString` با locale 'tr-TR' این کار را انجام می‌دهد.
-        return value.toLocaleString('tr-TR', {
-            minimumFractionDigits: decimalPlaces,
-            maximumFractionDigits: decimalPlaces,
-            useGrouping: false // برای ورودی، گروپینگ را خاموش می‌کنیم.
-        });
-    };
-
-
-    const renderSelectValue = (currentSelectedId: string | null, isEditingContext: boolean, currentTreeSearchTerm: string) => {
-        if (currentSelectedId) {
-            const node = findNodeById(combinedTreeData, currentSelectedId);
-            if (node) {
-                return node.name;
-            }
-        }
-        
-        if (isEditingContext && editingRowData && editingRowData.description && !currentSelectedId) {
-            return editingRowData.description;
-        }
-        
-        if (!isEditingContext && newRecordManualInput) {
-            return newRecordManualInput;
-        }
-
-        if (currentTreeSearchTerm && !currentSelectedId) {
-            return currentTreeSearchTerm;
-        }
-        
-        return "Ürün seçin veya manuel girin...";
-    };
+        return processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory);
+    }, [processedAndFilteredGridData]);
 
 
     useEffect(() => {
@@ -1408,7 +1947,7 @@ const TenderDetails = () => {
             ) {
                 setCurrentDisplayCount(prevCount => {
                     const newCount = prevCount + loadMoreStep;
-                    if (newCount >= filteredGridData.length) {
+                    if (newCount >= processedAndFilteredGridData.length) {
                         setHasMoreData(false);
                     }
                     return newCount;
@@ -1426,7 +1965,7 @@ const TenderDetails = () => {
                 currentContainer.removeEventListener('scroll', handleScroll);
             }
         };
-    }, [gridData, gridSearchTerm, hasMoreData, filteredGridData, initialDisplayLimit, loadMoreStep]);
+    }, [processedAndFilteredGridData, hasMoreData, initialDisplayLimit, loadMoreStep]);
 
 
     const handleSaveAllData = async () => {
@@ -1434,7 +1973,7 @@ const TenderDetails = () => {
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            showAlert('Lütfen giriş yapın.', 'warning');
+            showAlert('Oturumunuzun süresi doldu.', 'error');
             navigate("/");
             setIsLoading(false);
             return;
@@ -1449,7 +1988,7 @@ const TenderDetails = () => {
             setIsLoading(false);
             return;
         }
-        if (hasUnregisteredItems) {
+        if (processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory)) {
             showAlert('Kaydedilmemiş ürünler var. Lütfen tüm ürünleri ekleyin veya listeden seçin.', 'warning');
             setIsLoading(false);
             return;
@@ -1458,28 +1997,40 @@ const TenderDetails = () => {
         setIsSavingAll(true);
         setAlertMessage(null);
 
-
         const payload = {
             id: Number(tenderId),
-            title: tenderTitle, 
+            title: tenderTitle,
             details: gridData.map(row => {
                 const mappedItemId = row.itemId !== null ? Number(row.itemId) : null;
 
                 return {
-                    // مقادیر کمیتی
-                    firmProcuredItemQuantities: row.malzemeGDZ, // اینها در state از قبل به Number تبدیل شده‌اند.
+                    id: row.id,
+                    eskiPoz: row.eskiPoz,
+                    tedasNo: row.tedasNo,
+                    anaNo: row.anaNo,
+                    altNo: row.altNo,
+                    firmProcuredItemQuantities: row.malzeme,
                     ourProcuredItemQuantities: row.malzemeYuklenici,
+                    montajQuantity: row.montaj,
                     demontaj: row.demontaj,
                     demontajMontaj: row.demontajMontaj,
 
-                    // مقادیر قیمتی (که Number هستند و به همین صورت ارسال می‌شوند)
-                    firmProcuredItemPrice: row.birimFiyatMontaj,  
-                    ourProcuredItemPrice: row.birimFiyatMalzeme,   
-                    montajPrice: row.birimFiyatMontaj,             
-                    demontajPrice: row.birimFiyatDemontaj,         
-                    demontajMontajPrice: row.birimFiyatDemontajMontaj, 
+                    firmProcuredItemPrice: row.birimFiyatMalzeme,
+                    ourProcuredItemPrice: row.birimFiyatMalzeme,
+                    montajPrice: row.birimFiyatMontaj,
+                    demontajPrice: row.birimFiyatDemontaj,
+                    demontajMontajPrice: row.birimFiyatDemontajMontaj,
 
-                    itemId: mappedItemId 
+                    itemId: mappedItemId,
+                    aciklama: row.aciklama,
+                    categoryPercentage: row.isCategory ? row.categoryPercentage : null,
+                    isCategory: row.isCategory,
+
+                    // Send the calculated totals, which now correctly reflect the source (Excel vs. calculated)
+                    toplamMalzeme: row.toplamMalzeme, 
+                    toplamMontaj: row.toplamMontaj,
+                    toplamDemontaj: row.toplamDemontaj,
+                    toplamDemontajdanMontaj: row.toplamDemontajdanMontaj,
                 };
             })
         };
@@ -1490,9 +2041,9 @@ const TenderDetails = () => {
                 payload,
                 {
                     headers: {
-                    "Accept": "application/json",
-                    'Content-Type': 'application/json',
-                    "Authorization": `Bearer ${authToken}`
+                        "Accept": "application/json",
+                        'Content-Type': 'application/json',
+                        "Authorization": `Bearer ${authToken}`
                     }
                 }
             );
@@ -1507,7 +2058,7 @@ const TenderDetails = () => {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-              }
+            }
             console.error("Error updating tender details:", error);
             showAlert(`İhale detayları güncellenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
         } finally {
@@ -1517,16 +2068,10 @@ const TenderDetails = () => {
     };
 
 
-      const handleDeleteGridRow = (rowId: number) => {
+    const handleDeleteGridRow = (rowId: number) => {
         setGridData(prev => {
             const updatedGrid = prev.filter(row => row.id !== rowId);
-            let resequencedGrid = [];
-            let currentSiraNo = 1;
-            const sortedUpdatedGrid = [...updatedGrid].sort((a, b) => a.id - b.id);
-            for (const row of sortedUpdatedGrid) {
-                resequencedGrid.push({ ...row, siraNo: currentSiraNo++ });
-            }
-            return resequencedGrid;
+            return updatedGrid;
         });
         showAlert('Giriş başarıyla silindi!', 'success');
         if (editingRowId === rowId) {
@@ -1535,108 +2080,138 @@ const TenderDetails = () => {
             setEditingRowSelectedUnifiedNodeId(null);
             setIsEditingRowTreeSelectOpen(false);
             setEditingRowTreeSearchTerm('');
-            // setIsBirimFiyatEditManuallyEdited({
-            //     malzeme: false, montaj: false, demontaj: false, demontajdanMontaj: false,
-            // });
+            setEditingBirimFiyatMalzeme('');
+            setEditingBirimFiyatMontaj('');
+            setEditingBirimFiyatDemontaj('');
+            setEditingBirimFiyatDemontajMontaj('');
         }
     };
-    // const handleDeleteGridRow = async (rowId: number) => {debugger
-    //     // ابتدا رکورد مورد نظر را پیدا می‌کنیم تا مطمئن شویم در State موجود است
-    //     const rowToDelete = gridData.find(row => row.id === rowId);
-    //     if (!rowToDelete) {
-    //         showAlert('حذف نشد: ردیف مورد نظر یافت نشد.', 'error');
-    //         return;
-    //     }
 
-    //     // مطمئن می‌شویم که tenderId یک عدد معتبر است و از سرور آمده است
-    //     // اگر rowId از API آمده باشد، همان را استفاده می‌کنیم، در غیر این صورت، ID داخلی React است.
-    //     // API شما انتظار ID اصلی رکورد را دارد، نه ID موقت React.
-    //     // بنابراین، فرض می‌کنیم row.id همان ID ای است که از API دریافت شده.
-    //     const tenderDetailIdToDelete = Number(rowId); 
+    const handleExportExcelPreview = () => {
+        if (!templateWorkbookBuffer) {
+            showAlert('Excel şablonu henüz yüklenmedi veya yüklenemedi.', 'warning');
+            return;
+        }
 
-    //     if (tenderDetailIdToDelete === 0) { // اگر ID صفر بود (یعنی رکورد جدید و هنوز در API ثبت نشده)
-    //         showAlert('این رکورد هنوز در سیستم ثبت نشده است. فقط از جدول محلی حذف می‌شود.', 'info');
-    //         // فقط از Grid محلی حذف می‌کنیم
-    //         setGridData(prev => {
-    //             const updatedGrid = prev.filter(row => row.id !== rowId);
-    //             let resequencedGrid = [];
-    //             let currentSiraNo = 1;
-    //             const sortedUpdatedGrid = [...updatedGrid].sort((a, b) => a.id - b.id);
-    //             for (const row of sortedUpdatedGrid) {
-    //                 resequencedGrid.push({ ...row, siraNo: currentSiraNo++ });
-    //             }
-    //             return resequencedGrid;
-    //         });
-    //         showAlert('رکورد با موفقیت از جدول حذف شد.', 'success');
-    //         if (editingRowId === rowId) {
-    //             setEditingRowId(null);
-    //             setEditingRowData(null);
-    //         }
-    //         return;
-    //     }
+        const workbook = XLSX.read(templateWorkbookBuffer, { type: 'array', cellStyles: true });
+        const sheetName = workbook.SheetNames[0];
+        const ws = workbook.Sheets[sheetName];
 
-    //     setIsLoading(true); // لودینگ را فعال می‌کنیم
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         showAlert('Lütfen giriş yapın.', 'warning');
-    //         navigate("/");
-    //         setIsLoading(false);
-    //         return;
-    //     }
+        const startDataRowIndex = 3;
 
-    //     try {
-    //         // فراخوانی API برای حذف
-    //         const response = await axios.delete(
-    //             `${server.baseurl}${server.initialoperations}delete-tender-detail/${tenderDetailIdToDelete}`, // مطمئن شوید endpoint صحیح است
-    //             {
-    //                 headers: {
-    //                     "Accept": "application/json",
-    //                     "Authorization": `Bearer ${authToken}`
-    //                 }
-    //             }
-    //         );
+        const dataRowsForTemplate = gridData.map(row => [
+            row.eskiPoz, row.tedasNo, row.anaNo, row.altNo,
+            row.description, row.olcuBrimi, row.malzeme, row.malzemeYuklenici,
+            row.montaj, row.demontaj, row.demontajMontaj,
+            row.birimFiyatMalzeme, row.birimFiyatMontaj, row.birimFiyatDemontaj, row.birimFiyatDemontajMontaj,
+            row.aciklama,
+            row.categoryPercentage !== null ? row.categoryPercentage : '',
+            row.toplamMalzeme, row.toplamMontaj, row.toplamDemontaj, row.toplamDemontajdanMontaj
+        ]);
 
-    //         if (response.status === 200 || response.data.success) { // فرض می‌کنیم API در صورت موفقیت 200 برمی‌گرداند یا success: true
-    //             // اگر حذف از سرور موفقیت‌آمیز بود، آن را از State محلی هم حذف می‌کنیم
-    //             setGridData(prev => {
-    //                 const updatedGrid = prev.filter(row => row.id !== rowId);
-    //                 // شماره ردیف‌ها را پس از حذف مجدداً تنظیم می‌کنیم
-    //                 let resequencedGrid = [];
-    //                 let currentSiraNo = 1;
-    //                 const sortedUpdatedGrid = [...updatedGrid].sort((a, b) => a.id - b.id);
-    //                 for (const row of sortedUpdatedGrid) {
-    //                     resequencedGrid.push({ ...row, siraNo: currentSiraNo++ });
-    //                 }
-    //                 return resequencedGrid;
-    //             });
-    //             showAlert('Giriş başarıyla silindi!', 'success');
-    //             if (editingRowId === rowId) {
-    //                 setEditingRowId(null);
-    //                 setEditingRowData(null);
-    //                 setEditingRowSelectedUnifiedNodeId(null);
-    //                 setIsEditingRowTreeSelectOpen(false);
-    //                 setEditingRowTreeSearchTerm('');
-    //                 // setIsBirimFiyatEditManuallyEdited({
-    //                 //     malzeme: false, montaj: false, demontaj: false, demontajdanMontaj: false,
-    //                 // });
-    //             }
-    //         } else {
-    //             showAlert(`Silme başarısız oldu: ${response.data?.message || 'Bilinmeyen bir hata oluştu.'}`, 'error');
-    //         }
-    //     } catch (error: any) {
-    //        if (error.response && error.response.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             navigate("/");
-    //             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-    //           }
-    //         console.error("Hata oluştu silme işleminde:", error);
-    //         showAlert(`Silme işleminde bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
-    //     } finally {
-    //         setIsLoading(false); // لودینگ را غیرفعال می‌کنیم
-    //     }
-    // };
-    // --- پایان تابع handleDeleteGridRow اصلاح شده ---
-    
+        XLSX.utils.sheet_add_aoa(ws, dataRowsForTemplate, { origin: startDataRowIndex, cellStyles: true });
+
+        const startRowForTotals = startDataRowIndex + dataRowsForTemplate.length + 1;
+
+        const totalSumsOutputRows = [
+            // Row for ALT TOPLAM:
+            [...Array(16).fill(''), 'ALT TOPLAM:', totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl],
+            // Row for TOPLAM KEŞİF BEDELİ TL:
+            [...Array(16).fill(''), 'TOPLAM KEŞİF BEDELİ TL:', totalKesifBedeliTl, '', '', '']
+        ];
+        
+        XLSX.utils.sheet_add_aoa(ws, totalSumsOutputRows, { origin: startRowForTotals, cellStyles: true });
+
+        const borderStyle = {
+            top: { style: "thin", color: { auto: 1 } },
+            bottom: { style: "thin", color: { auto: 1 } },
+            left: { style: "thin", color: { auto: 1 } },
+            right: { style: "thin", color: { auto: 1 } },
+        };
+
+        const totalLabelStyle = {
+            font: { bold: true, color: { rgb: "000000" } },
+            fill: { fgColor: { rgb: "D9E1F2" } },
+            alignment: { horizontal: "right", vertical: "center", wrapText: false },
+            border: borderStyle,
+        };
+
+        const totalAmountStyle = {
+            font: { bold: true, color: { rgb: "000000" } },
+            fill: { fgColor: { rgb: "D9E1F2" } },
+            alignment: { horizontal: "right", vertical: "center", wrapText: false },
+            border: borderStyle,
+            numFmt: "#,##0.00"
+        };
+
+        for (let R = 0; R < totalSumsOutputRows.length; R++) {
+            const currentRowIndexInWorksheet = startRowForTotals + R;
+            const currentTotalRowData = totalSumsOutputRows[R];
+
+            for (let C = 0; C < currentTotalRowData.length; C++) {
+                const cellAddress = XLSX.utils.encode_cell({ r: currentRowIndexInWorksheet, c: C });
+                const cellValue = currentTotalRowData[C];
+                let cell = ws[cellAddress];
+
+                if (!cell) { cell = { t: 's', v: cellValue }; ws[cellAddress] = cell; }
+
+                if (C === 16) {
+                    Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+                    if (R === 0) {
+                        Object.assign(cell.s || (cell.s = {}), { alignment: { horizontal: "center", vertical: "center" } });
+                    }
+                }
+                else if (C >= 17 && C <= 20) {
+                    if (typeof cellValue === 'number') {
+                        cell.t = 'n';
+                        Object.assign(cell.s || (cell.s = {}), totalAmountStyle);
+                    } else {
+                        Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+                    }
+                }
+                else {
+                    Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+                }
+            }
+        }
+
+        const specificMerges = [
+            { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } }, // ESKİ POZ (A1:A3)
+            { s: { r: 0, c: 4 }, e: { r: 2, c: 4 } }, // MALZEME VEYA İŞİN CİNSİ (E1:E3)
+            { s: { r: 0, c: 5 }, e: { r: 2, c: 5 } }, // ÖLÇÜ (F1:F3)
+            { s: { r: 0, c: 15 }, e: { r: 2, c: 15 } }, // AÇIKLAMA (P1:P3)
+            { s: { r: 0, c: 16 }, e: { r: 2, c: 16 } }, // %Kategoriler (Q1:Q3)
+
+            { s: { r: 1, c: 1 }, e: { r: 1, c: 3 } }, // YENİ POZ NO (B2:D2)
+            { s: { r: 1, c: 6 }, e: { r: 1, c: 10 } }, // MİKTAR (G2:K2)
+            { s: { r: 1, c: 11 }, e: { r: 1, c: 14 } }, // Birim fiyatlar (L2:O2)
+            { s: { r: 1, c: 17 }, e: { r: 1, c: 20 } }, // TUTARLAR (R2:U2)
+
+            { s: { r: startRowForTotals, c: 16 }, e: { r: startRowForTotals, c: 17 } },
+            { s: { r: startRowForTotals + 1, c: 16 }, e: { r: startRowForTotals + 1, c: 17 } },
+        ];
+
+        ws['!merges'] = specificMerges;
+
+        const colWidths = [
+            { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 30 }, { wch: 10 },
+            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+            { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 },
+            { wch: 40 },
+            { wch: 15 },
+            { wch: 20 },
+            { wch: 20 },
+            { wch: 20 },
+            { wch: 20 }
+        ];
+        ws['!cols'] = colWidths;
+
+
+        XLSX.writeFile(workbook, `İhaleDetayları_${tenderId}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
+        showAlert('Excel önizlemesi başarıyla oluşturuldu!', 'success');
+    };
+
+
     return (
         <Box sx={{ p: 3 }} >
             <Typography variant="h4" gutterBottom>
@@ -1645,7 +2220,7 @@ const TenderDetails = () => {
             <Typography variant="h6" color="textSecondary" gutterBottom>
                 İhale Detayları ({tenderId})
             </Typography>
-        
+
             <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
                 <Grid container spacing={2} alignItems="center">
                     <Grid item xs={12} sm={6}>
@@ -1670,6 +2245,19 @@ const TenderDetails = () => {
                                     {loading ? 'Dosya Okunuyor...' : 'Dosya Seç'}
                                 </Button>
                             </CustomTooltip>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Boş Excel şablonunu indir" : ""}>
+                                <Button
+                                    variant="outlined"
+                                    color="secondary"
+                                    href="/tender_template.xlsx"
+                                    download="ihale_sablonu.xlsx"
+                                    startIcon={<IconDownload />}
+                                    sx={{ mt: 1, mb: 1 }}
+                                    disabled={loading || isSavingAll || editingRowId !== null || isLoading}
+                                >
+                                    Şablon İndir
+                                </Button>
+                            </CustomTooltip>
                             {fileUploadedSuccessfully && !loading && (
                                 <CustomTooltip title="Dosya başarıyla yüklendi!">
                                     <IconCheck style={{ color: theme.palette.success.main }} />
@@ -1685,7 +2273,7 @@ const TenderDetails = () => {
                             Lütfen Excel dosyanızı (.xlsx, .xls veya .csv) buraya yükleyin.
                         </Typography>
                     </Grid>
-                    <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
+                    <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 1 }}>
                         <Button
                             variant="contained"
                             color="primary"
@@ -1696,24 +2284,59 @@ const TenderDetails = () => {
                         >
                             {isSavingAll ? 'Kaydediliyor...' : 'Tümünü Kaydet'}
                         </Button>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tabloyu Excel olarak dışa aktar" : ""}>
+                            <Button
+                                variant="outlined"
+                                color="secondary"
+                                onClick={handleExportExcelPreview}
+                                disabled={isLoading || isSavingAll || editingRowId !== null || gridData.length === 0}
+                                startIcon={<IconFileExport />}
+                                sx={{ minWidth: 150, height: 40 }}
+                            >
+                                Excel Önizlemesi Oluştur
+                            </Button>
+                        </CustomTooltip>
                     </Grid>
                 </Grid>
             </Paper>
 
             <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>Tablo İçinde Ara</Typography>
-                <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="MALZEME VEYA İŞİN CİNSİ içinde ara..."
-                    value={gridSearchTerm}
-                    onChange={(e) => setGridSearchTerm(e.target.value)}
-                    InputProps={{
-                        startAdornment: (<InputAdornment position="start"><IconSearch size={18} /></InputAdornment>),
-                    }}
-                />
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={6}>
+                        <Typography variant="h6" gutterBottom>Tablo İçinde Ara</Typography>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="MALZEME VEYA İŞİN CİNSİ veya Açıklama içinde ara..."
+                            value={gridSearchTerm}
+                            onChange={(e) => setGridSearchTerm(e.target.value)}
+                            InputProps={{
+                                startAdornment: (<InputAdornment position="start"><IconSearch size={18} /></InputAdornment>),
+                            }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={6} sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
+                        <Stack direction="row" spacing={1}>
+                            <Button
+                                variant={displayMode === 'withoutCategory' ? 'contained' : 'outlined'}
+                                onClick={() => setDisplayMode('withoutCategory')}
+                                disabled={isLoading || isSavingAll || editingRowId !== null}
+                                size="small"
+                            >
+                                Kategorisiz Görüntüle
+                            </Button>
+                            <Button
+                                variant={displayMode === 'withCategory' ? 'contained' : 'outlined'}
+                                onClick={() => setDisplayMode('withCategory')}
+                                disabled={isLoading || isSavingAll || editingRowId !== null}
+                                size="small"
+                            >
+                                Kategorilerle Görüntüle
+                            </Button>
+                        </Stack>
+                    </Grid>
+                </Grid>
             </Paper>
-                {/* پیام های هشدار به اینجا منتقل شده اند */}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1725,77 +2348,121 @@ const TenderDetails = () => {
             <BlankCard>
                 <Box sx={{ overflowX: 'auto', width: '100%' }}>
                     <TableContainer ref={tableContainerRef} sx={{ maxHeight: 600 }}>
-                        <Table stickyHeader aria-label="tender details table" sx={{ minWidth: 1500 }}>
+                        <Table stickyHeader aria-label="tender details table" sx={{ minWidth: 2100 }}>
                             <TableHead>
                                 <TableRow>
-                                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, backgroundColor: theme.palette.background.paper, minWidth: 80, borderRight: '1px solid ' + theme.palette.divider }}>
-                                        <Typography variant="subtitle2" fontWeight="600">POZ NO</Typography>
+                                    <TableCell sx={{ backgroundColor: theme.palette.background.paper, minWidth: 80, borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <Typography variant="subtitle2" fontWeight="600">ESKİ POZ</Typography>
                                     </TableCell>
-                                    <TableCell sx={{ position: 'sticky', left: 80, zIndex: 4, backgroundColor: theme.palette.background.paper, minWidth: 280, borderRight: '1px solid ' + theme.palette.divider }}>
+                                    <TableCell colSpan={3} align="center" sx={{ borderBottom: 'none', borderRight: '1px solid ' + theme.palette.divider, minWidth: 180 }}>
+                                        <Typography variant="subtitle2" fontWeight="600">YENİ POZ NO</Typography>
+                                    </TableCell>
+                                    <TableCell sx={{ backgroundColor: theme.palette.background.paper, minWidth: 280, borderRight: '1px solid ' + theme.palette.divider }}>
                                         <Typography variant="subtitle2" fontWeight="600">MALZEME VEYA İŞİN CİNSİ</Typography>
                                     </TableCell>
                                     <TableCell sx={{ minWidth: 100, borderRight: '1px solid ' + theme.palette.divider }}>
                                         <Typography variant="subtitle2" fontWeight="600">ÖLÇÜ</Typography>
                                     </TableCell>
-                                    <TableCell colSpan={5} align="center" sx={{ borderBottom: 'none' }}>
-                                        <Typography variant="subtitle2" fontWeight="600">ÖNGÖRÜLEN SÖZLEŞME MİKTARI</Typography>
+                                    <TableCell colSpan={5} align="center" sx={{ borderBottom: 'none', borderRight: '1px solid ' + theme.palette.divider, minWidth: 500 }}>
+                                        <Typography variant="subtitle2" fontWeight="600">MİKTAR</Typography>
+                                    </TableCell>
+                                    <TableCell colSpan={4} align="center" sx={{ borderBottom: 'none', borderRight: '1px solid ' + theme.palette.divider, minWidth: 400 }}>
+                                        <Typography variant="subtitle2" fontWeight="600">Birim fiyatlar</Typography>
+                                    </TableCell>
+                                    <TableCell rowSpan={2} sx={{ minWidth: 200, zIndex: 4, backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <Typography variant="subtitle2" fontWeight="600">AÇIKLAMA</Typography>
+                                    </TableCell>
+                                    <TableCell rowSpan={2} sx={{ minWidth: 100, zIndex: 4, backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <Typography variant="subtitle2" fontWeight="600">%Kategoriler</Typography>
                                     </TableCell>
                                     <TableCell colSpan={4} align="center" sx={{ borderBottom: 'none' }}>
-                                        <Typography variant="subtitle2" fontWeight="600">GDZ 2024 YILI BİRİM FİYATLARI</Typography>
-                                    </TableCell>
-                                    <TableCell colSpan={4} align="center" sx={{ borderBottom: 'none' }}>
-                                        <Typography variant="subtitle2" fontWeight="600">GDZ 2024 YILI TUTARI</Typography>
+                                        <Typography variant="subtitle2" fontWeight="600">TUTARLAR</Typography>
                                     </TableCell>
                                     <TableCell rowSpan={2} sx={{ minWidth: 120, zIndex: 4, backgroundColor: theme.palette.background.paper }}>
                                         <Typography variant="subtitle2" fontWeight="600">Aksiyonlar</Typography>
                                     </TableCell>
                                 </TableRow>
                                 <TableRow>
-                                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 4, backgroundColor: theme.palette.background.paper, borderTop: '1px solid ' + theme.palette.divider, borderBottom: '1px solid ' + theme.palette.divider, borderRight: '1px solid ' + theme.palette.divider }}></TableCell>
-                                    <TableCell sx={{ position: 'sticky', left: 80, zIndex: 4, backgroundColor: theme.palette.background.paper, borderTop: '1px solid ' + theme.palette.divider, borderBottom: '1px solid ' + theme.palette.divider, borderRight: '1px solid ' + theme.palette.divider }}>
-                                    </TableCell>
+                                    <TableCell sx={{ backgroundColor: theme.palette.background.paper, borderTop: '1px solid ' + theme.palette.divider, borderBottom: '1px solid ' + theme.palette.divider, borderRight: '1px solid ' + theme.palette.divider }}></TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 60 }}>TEDAŞ</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 60 }}>ANA</TableCell>
+                                    <TableCell align="center" sx={{ borderRight: '1px solid ' + theme.palette.divider, minWidth: 60 }}>ALT</TableCell>
+
+                                    <TableCell sx={{ backgroundColor: theme.palette.background.paper, borderTop: '1px solid ' + theme.palette.divider, borderBottom: '1px solid ' + theme.palette.divider, borderRight: '1px solid ' + theme.palette.divider }}></TableCell>
                                     <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}></TableCell>
-                                    <TableCell align="center">MALZEME<br />(GDZ)</TableCell>
-                                    <TableCell align="center">MALZEME<br />(Yüklenici)</TableCell>
-                                    <TableCell align="center">MONTAJ</TableCell>
-                                    <TableCell align="center">DEMONTAJ</TableCell>
-                                    <TableCell align="center">DEMONTAJDAN<br />MONTAJ</TableCell>
-                                    <TableCell align="center">Malzeme</TableCell>
-                                    <TableCell align="center">Montaj</TableCell>
-                                    <TableCell align="center">Demontaj</TableCell>
-                                    <TableCell align="center">Demontajdan Montaj</TableCell>
-                                    <TableCell align="center">Malzeme</TableCell>
-                                    <TableCell align="center">Montaj</TableCell>
-                                    <TableCell align="center">Demontaj</TableCell>
-                                    <TableCell align="center">Demontajdan Montaj</TableCell>
+
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME MİKTARI</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MONTAJ MİKTARI</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>DEMONTAJ MİKTARI</TableCell>
+                                    <TableCell align="center" sx={{ borderRight: '1px solid ' + theme.palette.divider, minWidth: 100 }}>DMM MİKTARI</TableCell>
+
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME (TL)</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MONTAJ (TL)</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>DEMONTAJ (SÖKME) (TL)</TableCell>
+                                    <TableCell align="center" sx={{ borderRight: '1px solid ' + theme.palette.divider, minWidth: 100 }}>DEMONTAJDAN MONTAJ (TL)</TableCell>
+
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME TUTARI-TL</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MONTAJ TUTARI-TL</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>DEMONTAJ TUTARI-TL</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>DMM TUTARI-TL</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {/* New Record Row (fixed top row) */}
                                 <TableRow sx={{ position: 'sticky', top: 75, zIndex: 3, backgroundColor: theme.palette.background.paper, boxShadow: '0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12)' }}>
-                                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 3, backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider }}>
+                                    <TableCell sx={{ backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider }}>
                                         <CustomTextField
-                                            id="new-siraNo"
-                                            name="siraNo"
-                                            type="text" // تغییر نکردن
+                                            id="new-eskiPoz"
+                                            name="eskiPoz"
+                                            type="text"
                                             size="small"
-                                            value={getNextAvailableSiraNo(gridData).toString()}
-                                            onChange={() => { }}
-                                            sx={{ width: 60 }}
-                                            
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            value={newRecordRow.eskiPoz}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 60, '& input': { textAlign: 'center' } }}
                                             placeholder="POZ NO"
-                                            disabled={true}
+                                            disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
-                                    <TableCell sx={{ position: 'sticky', left: 80, zIndex: 3, backgroundColor: 'inherit', borderRight: '1px solid ' + theme.palette.divider }}>
-                                        <FormControl fullWidth size="small">
+                                    <TableCell>
+                                        <CustomTextField
+                                            id="new-tedasNo"
+                                            name="tedasNo"
+                                            type="text"
+                                            size="small"
+                                            value={formatInputNumberForDisplay(newRecordRow.tedasNo, 0)}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                            disabled={loading || isSavingAll || isLoading}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <CustomTextField
+                                            id="new-anaNo"
+                                            name="anaNo"
+                                            type="text"
+                                            size="small"
+                                            value={formatInputNumberForDisplay(newRecordRow.anaNo, 0)}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                            disabled={loading || isSavingAll || isLoading}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <CustomTextField
+                                            id="new-altNo"
+                                            name="altNo"
+                                            type="text"
+                                            size="small"
+                                            value={formatInputNumberForDisplay(newRecordRow.altNo, 0)}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                            disabled={loading || isSavingAll || isLoading}
+                                        />
+                                    </TableCell>
+
+                                    <TableCell sx={{ backgroundColor: 'inherit', borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <FormControl fullWidth size="small" variant="outlined">
                                             <Select
                                                 displayEmpty
                                                 value={newRecordSelectedUnifiedNodeId || newRecordManualInput || ''}
@@ -1818,10 +2485,11 @@ const TenderDetails = () => {
                                                         fullWidth
                                                         autoFocus
                                                         size="small"
-                                                        placeholder="Ürün ara veya manuel gir..."
+                                                        placeholder="Ürün ara veya manuel girin..."
                                                         value={newRecordTreeSearchTerm}
                                                         onChange={(e) => setNewRecordTreeSearchTerm(e.target.value)}
                                                         onClick={(e) => e.stopPropagation()}
+                                                        onKeyDown={(e) => e.stopPropagation()}
                                                         InputProps={{
                                                             startAdornment: (<InputAdornment position="start"><IconSearch size={18} /></InputAdornment>),
                                                         }}
@@ -1845,7 +2513,7 @@ const TenderDetails = () => {
                                                         {newRecordTreeSearchTerm && !newRecordSelectedUnifiedNodeId && (
                                                             <MuiMenuItem onClick={() => {
                                                                 setNewRecordManualInput(newRecordTreeSearchTerm);
-                                                                setNewRecordRow(prev => ({ ...prev, description: newRecordTreeSearchTerm }));
+                                                                setNewRecordRow(prev => calculateTotals({ ...prev, description: newRecordTreeSearchTerm, isCategory: (prev.olcuBrimi.trim() === '') }, true)); // Force recalc
                                                                 setNewRecordSelectedUnifiedNodeId(null);
                                                                 setIsNewRecordTreeSelectOpen(false);
                                                             }}>
@@ -1865,26 +2533,20 @@ const TenderDetails = () => {
                                             size="small"
                                             value={newRecordRow.olcuBrimi || ''}
                                             disabled={true}
-                                            sx={{ width: 90 }}
+                                            sx={{ width: 90, '& input': { textAlign: 'center' } }}
                                             placeholder="Ölçü"
                                         />
                                     </TableCell>
+                                    {/* NEW: MALZEME (new input field) */}
                                     <TableCell>
                                         <CustomTextField
-                                            id="new-malzemeGDZ"
-                                            name="malzemeGDZ"
-                                            type="text" // از text استفاده می‌کنیم برای کنترل دقیق‌تر
+                                            id="new-malzeme"
+                                            name="malzeme"
+                                            type="text"
                                             size="small"
-                                            value={formatInputNumberForDisplay(newRecordRow.malzemeGDZ, 0)} // برای نمایش عدد صحیح
+                                            value={formatInputNumberForDisplay(newRecordRow.malzeme, 0)}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
@@ -1892,18 +2554,11 @@ const TenderDetails = () => {
                                         <CustomTextField
                                             id="new-malzemeYuklenici"
                                             name="malzemeYuklenici"
-                                            type="text" // از text استفاده می‌کنیم
+                                            type="text"
                                             size="small"
-                                            value={formatInputNumberForDisplay(newRecordRow.malzemeYuklenici, 0)} // برای نمایش عدد صحیح
+                                            value={formatInputNumberForDisplay(newRecordRow.malzemeYuklenici, 0)}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
@@ -1911,55 +2566,34 @@ const TenderDetails = () => {
                                         <CustomTextField
                                             id="new-montaj"
                                             name="montaj"
-                                            type="text" // از text استفاده می‌کنیم
+                                            type="text"
                                             size="small"
-                                            value={formatInputNumberForDisplay(calculatedNewRecordMontaj, 0)} // برای نمایش عدد صحیح
-                                            disabled
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            value={formatInputNumberForDisplay(newRecordRow.montaj, 0)}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
+                                            disabled={true} // MONTAJ MİKTARI is read-only
                                         />
                                     </TableCell>
                                     <TableCell>
                                         <CustomTextField
                                             id="new-demontaj"
                                             name="demontaj"
-                                            type="text" // از text استفاده می‌کنیم
+                                            type="text"
                                             size="small"
-                                            value={formatInputNumberForDisplay(newRecordRow.demontaj, 0)} // برای نمایش عدد صحیح
+                                            value={formatInputNumberForDisplay(newRecordRow.demontaj, 0)}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
                                         <CustomTextField
-                                            id="new-demontajMontaj" 
-                                            name="demontajMontaj" 
-                                            type="text" // از text استفاده می‌کنیم
+                                            id="new-demontajMontaj"
+                                            name="demontajMontaj"
+                                            type="text"
                                             size="small"
-                                            value={formatInputNumberForDisplay(newRecordRow.demontajMontaj, 0)} // برای نمایش عدد صحیح
+                                            value={formatInputNumberForDisplay(newRecordRow.demontajMontaj, 0)}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
@@ -1967,18 +2601,11 @@ const TenderDetails = () => {
                                         <CustomTextField
                                             id="new-birimFiyatMalzeme"
                                             name="birimFiyatMalzeme"
-                                            type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
+                                            type="text"
                                             size="small"
-                                            value={birimFiyatMalzemeNew} // رشته‌ای که کاربر وارد کرده (ممکن است . یا , داشته باشد)
+                                            value={birimFiyatMalzemeNew}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
@@ -1986,18 +2613,11 @@ const TenderDetails = () => {
                                         <CustomTextField
                                             id="new-birimFiyatMontaj"
                                             name="birimFiyatMontaj"
-                                            type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
+                                            type="text"
                                             size="small"
-                                            value={birimFiyatMontajNew} // رشته‌ای که کاربر وارد کرده
+                                            value={birimFiyatMontajNew}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
                                     </TableCell>
@@ -2005,51 +2625,97 @@ const TenderDetails = () => {
                                         <CustomTextField
                                             id="new-birimFiyatDemontaj"
                                             name="birimFiyatDemontaj"
-                                            type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
+                                            type="text"
                                             size="small"
-                                            value={birimFiyatDemontajNew} // رشته‌ای که کاربر وارد کرده
+                                            value={birimFiyatDemontajNew}
                                             onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <CustomTextField
+                                            id="new-birimFiyatDemontajMontaj"
+                                            name="birimFiyatDemontajMontaj"
+                                            type="text"
+                                            size="small"
+                                            value={birimFiyatDemontajMontajNew}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 70, '& input': { textAlign: 'center' } }}
+                                            disabled={loading || isSavingAll || isLoading}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <CustomTextField
+                                            id="new-aciklama"
+                                            name="aciklama"
+                                            multiline
+                                            rows={2}
+                                            size="small"
+                                            value={newRecordRow.aciklama}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 180 }}
+                                            disabled={loading || isSavingAll || isLoading}
+                                            placeholder="Açıklama girin..."
+                                        />
+                                    </TableCell>
+                                    {/* NEW: %Kategoriler - only editable for categories */}
+                                    <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
+                                        <CustomTextField
+                                            id="new-categoryPercentage"
+                                            name="categoryPercentage"
+                                            type="text"
+                                            size="small"
+                                            value={newRecordRow.isCategory ? formatInputNumberForDisplay(newRecordRow.categoryPercentage, 2) : ''}
+                                            onChange={handleNewRecordInputChange}
+                                            sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                            disabled={!newRecordRow.isCategory || loading || isSavingAll || isLoading}
+                                            placeholder={newRecordRow.isCategory ? "%n" : "N/A"}
                                         />
                                     </TableCell>
                                     <TableCell>
                                         <CustomTextField
-                                            id="new-birimFiyatDemontajMontaj"
-                                            name="birimFiyatDemontajMontaj"
-                                            type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
+                                            id="new-toplamMalzeme"
+                                            name="toplamMalzeme"
+                                            type="text"
                                             size="small"
-                                            value={birimFiyatDemontajMontajNew} // رشته‌ای که کاربر وارد کرده
-                                            onChange={handleNewRecordInputChange}
-                                            sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
-                                            disabled={loading || isSavingAll || isLoading}
+                                            value={formatNumber(newRecordRow.toplamMalzeme, 2)}
+                                            sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                            disabled={true} // TUTARLAR is read-only
                                         />
                                     </TableCell>
                                     <TableCell>
-                                        {formatNumber(calculatedNewRecordToplamMalzeme, 2)}
+                                        <CustomTextField
+                                            id="new-toplamMontaj"
+                                            name="toplamMontaj"
+                                            type="text"
+                                            size="small"
+                                            value={formatNumber(newRecordRow.toplamMontaj, 2)}
+                                            sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                            disabled={true} // TUTARLAR is read-only
+                                        />
                                     </TableCell>
                                     <TableCell>
-                                        {formatNumber(calculatedNewRecordToplamMontaj, 2)}
+                                        <CustomTextField
+                                            id="new-toplamDemontaj"
+                                            name="toplamDemontaj"
+                                            type="text"
+                                            size="small"
+                                            value={formatNumber(newRecordRow.toplamDemontaj, 2)}
+                                            sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                            disabled={true} // TUTARLAR is read-only
+                                        />
                                     </TableCell>
                                     <TableCell>
-                                        {formatNumber(calculatedNewRecordToplamDemontaj, 2)}
-                                    </TableCell>
-                                    <TableCell>
-                                        {formatNumber(calculatedNewRecordToplamDemontajdanMontaj, 2)}
+                                        <CustomTextField
+                                            id="new-toplamDemontajdanMontaj"
+                                            name="toplamDemontajdanMontaj"
+                                            type="text"
+                                            size="small"
+                                            value={formatNumber(newRecordRow.toplamDemontajdanMontaj, 2)}
+                                            sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                            disabled={true} // TUTARLAR is read-only
+                                        />
                                     </TableCell>
                                     <TableCell>
                                         <Stack direction="row" spacing={0.5}>
@@ -2068,50 +2734,81 @@ const TenderDetails = () => {
                                 {displayedGridData.length > 0 ? (
                                     displayedGridData.map((row) => (
                                         <TableRow key={row.id}>
-                                            <TableCell sx={{
-                                                position: 'sticky', left: 0, zIndex: 2,
-                                                backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider,
-                                                fontWeight: 'normal',
-                                                paddingLeft: '16px'
-                                            }}>
+                                            <TableCell sx={{ backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider, fontWeight: 'normal', paddingLeft: '16px', textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
+                                                        id={`eskiPoz-${row.id}`}
+                                                        name="eskiPoz"
                                                         type="text"
                                                         size="small"
-                                                        value={formatInputNumberForDisplay(editingRowData?.siraNo ?? null, 0)}
-                                                        name="siraNo"
-                                                        onChange={() => { }}
-                                                        sx={{ width: 60 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
-                                                        disabled={true}
+                                                        value={editingRowData?.eskiPoz ?? ''}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                                        disabled={loading || isSavingAll || isLoading}
                                                     />
                                                 ) : (
-                                                    row.siraNo.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0, useGrouping: false })
+                                                    row.eskiPoz
                                                 )}
                                             </TableCell>
-                                            <TableCell sx={{
-                                                position: 'sticky', left: 80, zIndex: 2,
-                                                backgroundColor: theme.palette.background.paper,
-                                                borderRight: '1px solid ' + theme.palette.divider,
-                                                fontWeight: 'normal',
-                                                paddingLeft: '16px',
-                                                border: (row.isUnregisteredItem ?? false) ? '1px solid ' + theme.palette.error.main : 'none'
-                                            }}>
+                                            <TableCell sx={{ textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
-                                                    <FormControl fullWidth size="small">
+                                                    <CustomTextField
+                                                        id={`tedasNo-${row.id}`}
+                                                        name="tedasNo"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatInputNumberForDisplay(editingRowData?.tedasNo ?? null, 0)}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                                        disabled={loading || isSavingAll || isLoading}
+                                                    />
+                                                ) : (
+                                                    formatIntForDisplayNoGrouping(row.tedasNo)
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`anaNo-${row.id}`}
+                                                        name="anaNo"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatInputNumberForDisplay(editingRowData?.anaNo ?? null, 0)}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                                        disabled={loading || isSavingAll || isLoading}
+                                                    />
+                                                ) : (
+                                                    formatIntForDisplayNoGrouping(row.anaNo)
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider, textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`altNo-${row.id}`}
+                                                        name="altNo"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatInputNumberForDisplay(editingRowData?.altNo ?? null, 0)}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 60, '& input': { textAlign: 'center' } }}
+                                                        disabled={loading || isSavingAll || isLoading}
+                                                    />
+                                                ) : (
+                                                    formatIntForDisplayNoGrouping(row.altNo)
+                                                )}
+                                            </TableCell>
+
+                                            <TableCell sx={{ backgroundColor: theme.palette.background.paper, borderRight: '1px solid ' + theme.palette.divider, fontWeight: 'normal', paddingLeft: '16px', border: (row.isUnregisteredItem ?? false) ? '1px solid ' + theme.palette.error.main : 'none' }}>
+                                                {editingRowId === row.id ? (
+                                                    <FormControl fullWidth size="small" variant="outlined">
                                                         <Select
                                                             displayEmpty
                                                             value={editingRowSelectedUnifiedNodeId || editingRowData?.description || ''}
                                                             open={isEditingRowTreeSelectOpen}
                                                             onOpen={() => {
                                                                 setIsEditingRowTreeSelectOpen(true);
-                                                                const foundNode = findNodeByNameAndType(combinedTreeData, editingRowData?.description || '', 'item');
+                                                                const foundNode = findNodeByNameAndType(combinedTreeData, normalizeString(editingRowData?.description || ''), (editingRowData?.isCategory ?? false) ? 'category' : 'item');
                                                                 if (foundNode) {
                                                                     setEditingRowSelectedUnifiedNodeId(foundNode.id);
                                                                 } else {
@@ -2137,6 +2834,7 @@ const TenderDetails = () => {
                                                                     value={editingRowTreeSearchTerm}
                                                                     onChange={(e) => setEditingRowTreeSearchTerm(e.target.value)}
                                                                     onClick={(e) => e.stopPropagation()}
+                                                                    onKeyDown={(e) => e.stopPropagation()}
                                                                     InputProps={{
                                                                         startAdornment: (<InputAdornment position="start"><IconSearch size={18} /></InputAdornment>),
                                                                     }}
@@ -2170,222 +2868,270 @@ const TenderDetails = () => {
                                                             {row.description}
                                                         </Typography>
                                                         {row.isUnregisteredItem && (
-                                                            <CustomTooltip placement="right" title="Bu ürün sistemde kayıtlı değil. Lütfen kaydetmeden önce bu ürünü ekleyin.">
-                                                                <IconAlertCircle size={18} color={theme.palette.error.main} />
+                                                            <CustomTooltip placement="right"
+                                                                title={
+                                                                    row.isCategory ?
+                                                                        "Bu kategori sistemde kayıtlı değil. Lütfen kaydetmeden önce bu kategoriyi ekleyin." :
+                                                                        "Bu ürün sistemde kayıtlı değil. Lütfen kaydetmeden önce bu ürünü ekleyin."
+                                                                }>
+                                                                <IconButton size="small" onClick={() => handleOpenRegisterModalForUnregisteredRow(row)} sx={{ p: 0 }}>
+                                                                    <IconPlus size={18} color={theme.palette.success.main} />
+                                                                </IconButton>
                                                             </CustomTooltip>
                                                         )}
                                                     </Box>
                                                 )}
                                             </TableCell>
-                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
-                                                <CustomTextField
-                                                    id={`olcuBrimi-${row.id}`}
-                                                    name="olcuBrimi"
-                                                    type="text"
-                                                    size="small"
-                                                    value={editingRowId === row.id ? (editingRowData?.olcuBrimi || '') : row.olcuBrimi}
-                                                    disabled={true}
-                                                    sx={{ width: 90 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider, textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // از text استفاده می‌کنیم
+                                                        id={`olcuBrimi-${row.id}`}
+                                                        name="olcuBrimi"
+                                                        type="text"
                                                         size="small"
-                                                        value={formatInputNumberForDisplay(editingRowData?.malzemeGDZ ?? null, 0)}
-                                                        name="malzemeGDZ"
+                                                        value={editingRowData?.olcuBrimi || ''}
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 90, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
-                                                    formatNumber(row.malzemeGDZ, 0)
+                                                    <Typography variant="body2" sx={{ textAlign: 'center' }}>{row.olcuBrimi}</Typography>
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            {/* NEW: MALZEME (new input field) */}
+                                            <TableCell sx={{ textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // از text استفاده می‌کنیم
+                                                        id={`malzeme-${row.id}`}
+                                                        name="malzeme"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatInputNumberForDisplay(editingRowData?.malzeme ?? null, 0)}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
+                                                    />
+                                                ) : (
+                                                    formatNumber(row.malzeme, 0)
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        type="text"
                                                         size="small"
                                                         value={formatInputNumberForDisplay(editingRowData?.malzemeYuklenici ?? null, 0)}
                                                         name="malzemeYuklenici"
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
                                                     formatNumber(row.malzemeYuklenici, 0)
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // از text استفاده می‌کنیم
+                                                        id={`montaj-${row.id}`}
+                                                        name="montaj"
+                                                        type="text"
                                                         size="small"
                                                         value={formatInputNumberForDisplay(editingRowData?.montaj ?? null, 0)}
-                                                        name="montaj"
-                                                        disabled
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
+                                                        disabled={true} // MONTAJ MİKTARI is read-only
                                                     />
                                                 ) : (
                                                     formatNumber(row.montaj, 0)
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // از text استفاده می‌کنیم
+                                                        id={`demontaj-${row.id}`}
+                                                        name="demontaj"
+                                                        type="text"
                                                         size="small"
                                                         value={formatInputNumberForDisplay(editingRowData?.demontaj ?? null, 0)}
-                                                        name="demontaj"
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
                                                     formatNumber(row.demontaj, 0)
                                                 )}
                                             </TableCell>
-                                            <TableCell>
-                                                <CustomTextField
-                                                    id={`demontajMontaj-${row.id}`}
-                                                    name="demontajMontaj"
-                                                    type="text" // از text استفاده می‌کنیم
-                                                    size="small"
-                                                    value={editingRowId === row.id ? formatInputNumberForDisplay(editingRowData?.demontajMontaj ?? null, 0) : formatNumber(row.demontajMontaj, 0)}
-                                                    onChange={handleEditRowInputChange}
-                                                    sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider, textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
+                                                        id={`demontajMontaj-${row.id}`}
+                                                        name="demontajMontaj"
+                                                        type="text"
                                                         size="small"
-                                                        // برای نمایش به کاربر، نقطه رو به کاما تبدیل کن (فقط برای نمایش)
-                                                        value={formatInputNumberForDisplay(editingRowData?.birimFiyatMalzeme ?? null, 2)}
-                                                        name="birimFiyatMalzeme"
+                                                        value={editingRowId === row.id ? formatInputNumberForDisplay(editingRowData?.demontajMontaj ?? null, 0) : formatNumber(row.demontajMontaj, 0)}
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
+                                                    />
+                                                ) : (
+                                                    formatNumber(row.demontajMontaj, 0)
+                                                )}
+                                            </TableCell>
+
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`birimFiyatMalzeme-${row.id}`}
+                                                        name="birimFiyatMalzeme"
+                                                        type="text"
+                                                        size="small"
+                                                        value={editingBirimFiyatMalzeme}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
                                                     formatNumber(row.birimFiyatMalzeme, 2)
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
-                                                        size="small"
-                                                        value={formatInputNumberForDisplay(editingRowData?.birimFiyatMontaj ?? null, 2)}
+                                                        id={`birimFiyatMontaj-${row.id}`}
                                                         name="birimFiyatMontaj"
+                                                        type="text"
+                                                        size="small"
+                                                        value={editingBirimFiyatMontaj}
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
                                                     formatNumber(row.birimFiyatMontaj, 2)
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
-                                                        size="small"
-                                                        value={formatInputNumberForDisplay(editingRowData?.birimFiyatDemontaj ?? null, 2)}
+                                                        id={`birimFiyatDemontaj-${row.id}`}
                                                         name="birimFiyatDemontaj"
+                                                        type="text"
+                                                        size="small"
+                                                        value={editingBirimFiyatDemontaj}
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
                                                     formatNumber(row.birimFiyatDemontaj, 2)
                                                 )}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider, textAlign: 'center' }}>
                                                 {editingRowId === row.id ? (
                                                     <CustomTextField
-                                                        type="text" // ** تغییر اصلی: از type="text" استفاده می‌کنیم **
-                                                        size="small"
-                                                        value={formatInputNumberForDisplay(editingRowData?.birimFiyatDemontajMontaj ?? null, 2)}
+                                                        id={`birimFiyatDemontajMontaj-${row.id}`}
                                                         name="birimFiyatDemontajMontaj"
+                                                        type="text"
+                                                        size="small"
+                                                        value={editingBirimFiyatDemontajMontaj}
                                                         onChange={handleEditRowInputChange}
-                                                        sx={{ width: 70 }}
-                                            InputProps={{
-                                                sx: {
-                                                '& input': { // انتخابگر '& input' عنصر input داخلی را هدف قرار می‌دهد
-                                                    textAlign: 'center',
-                                                },
-                                                },
-                                            }}
+                                                        sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                                     />
                                                 ) : (
                                                     formatNumber(row.birimFiyatDemontajMontaj, 2)
                                                 )}
                                             </TableCell>
-                                            <TableCell>{formatNumber(row.toplamMalzeme, 2)}</TableCell>
-                                            <TableCell>{formatNumber(row.toplamMontaj, 2)}</TableCell>
-                                            <TableCell>{formatNumber(row.toplamDemontaj, 2)}</TableCell>
-                                            <TableCell>{formatNumber(row.toplamDemontajdanMontaj, 2)}</TableCell>
+
+                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`aciklama-${row.id}`}
+                                                        name="aciklama"
+                                                        multiline
+                                                        rows={2}
+                                                        size="small"
+                                                        value={editingRowData?.aciklama || ''}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 180 }}
+                                                        disabled={loading || isSavingAll || isLoading}
+                                                        placeholder="Açıklama girin..."
+                                                    />
+                                                ) : (
+                                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{row.aciklama}</Typography>
+                                                )}
+                                            </TableCell>
+                                            {/* NEW: %Kategoriler - only editable for categories */}
+                                            <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}>
+                                                {editingRowId === row.id && editingRowData?.isCategory ? (
+                                                    <CustomTextField
+                                                        id={`categoryPercentage-${row.id}`}
+                                                        name="categoryPercentage"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatInputNumberForDisplay(editingRowData?.categoryPercentage ?? null, 2)}
+                                                        onChange={handleEditRowInputChange}
+                                                        sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                                        disabled={!editingRowData?.isCategory || loading || isSavingAll || isLoading}
+                                                        placeholder={editingRowData?.isCategory ? "%n" : "N/A"}
+                                                    />
+                                                ) : (
+                                                    <Typography variant="body2" sx={{ textAlign: 'center', color: row.isCategory ? 'text.primary' : 'text.secondary' }}>
+                                                        {row.isCategory && row.categoryPercentage !== null ? formatNumber(row.categoryPercentage, 2) : ''}
+                                                    </Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`toplamMalzeme-${row.id}`}
+                                                        name="toplamMalzeme"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatNumber(editingRowData?.toplamMalzeme ?? null, 2)}
+                                                        sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                                        disabled={true} // TUTARLAR is read-only
+                                                    />
+                                                ) : (
+                                                    formatNumber(row.toplamMalzeme, 2)
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`toplamMontaj-${row.id}`}
+                                                        name="toplamMontaj"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatNumber(editingRowData?.toplamMontaj ?? null, 2)}
+                                                        sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                                        disabled={true} // TUTARLAR is read-only
+                                                    />
+                                                ) : (
+                                                    formatNumber(row.toplamMontaj, 2)
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`toplamDemontaj-${row.id}`}
+                                                        name="toplamDemontaj"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatNumber(editingRowData?.toplamDemontaj ?? null, 2)}
+                                                        sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                                        disabled={true} // TUTARLAR is read-only
+                                                    />
+                                                ) : (
+                                                    formatNumber(row.toplamDemontaj, 2)
+                                                )}
+                                            </TableCell>
+                                            <TableCell sx={{ textAlign: 'center' }}>
+                                                {editingRowId === row.id ? (
+                                                    <CustomTextField
+                                                        id={`toplamDemontajdanMontaj-${row.id}`}
+                                                        name="toplamDemontajdanMontaj"
+                                                        type="text"
+                                                        size="small"
+                                                        value={formatNumber(editingRowData?.toplamDemontajdanMontaj ?? null, 2)}
+                                                        sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                                        disabled={true} // TUTARLAR is read-only
+                                                    />
+                                                ) : (
+                                                    formatNumber(row.toplamDemontajdanMontaj, 2)
+                                                )}
+                                            </TableCell>
                                             <TableCell>
                                                 <Stack direction="row" spacing={0.5}>
                                                     {editingRowId === row.id ? (
@@ -2429,16 +3175,16 @@ const TenderDetails = () => {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={15} align="center">
+                                        <TableCell colSpan={21} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">
                                                 Henüz detay girişi yapılmadı.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
                                 )}
-                                {hasMoreData && filteredGridData.length > displayedGridData.length && (
+                                {hasMoreData && processedAndFilteredGridData.length > displayedGridData.length && (
                                     <TableRow>
-                                        <TableCell colSpan={15} align="center">
+                                        <TableCell colSpan={21} align="center">
                                             <CircularProgress size={20} />
                                             <Typography variant="body2" color="text.secondary" ml={1} component="span">Daha Fazla Yükleniyor...</Typography>
                                         </TableCell>
@@ -2453,45 +3199,63 @@ const TenderDetails = () => {
             <Paper elevation={3} sx={{ p: 2, mt: 3 }}>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle1" fontWeight="600">Malzeme Toplamı:</Typography>
+                        <Typography variant="subtitle1" fontWeight="600">MALZEME TUTARI-TL Toplamı:</Typography>
                         <Typography variant="h5" color="primary">
-                            {formatNumber(totalGdz2024MalzemeTutari, 2)}
+                            {formatNumber(totalMalzemeTutariTl, 2)}
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle1" fontWeight="600">Montaj Toplamı:</Typography>
+                        <Typography variant="subtitle1" fontWeight="600">MONTAJ TUTARI-TL Toplamı:</Typography>
                         <Typography variant="h5" color="primary">
-                            {formatNumber(totalGdz2024MontajTutari, 2)}
+                            {formatNumber(totalMontajTutariTl, 2)}
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle1" fontWeight="600">Demontaj Toplamı:</Typography>
+                        <Typography variant="subtitle1" fontWeight="600">DEMONTAJ TUTARI-TL Toplamı:</Typography>
                         <Typography variant="h5" color="primary">
-                            {formatNumber(totalGdz2024DemontajTutari, 2)}
+                            {formatNumber(totalDemontajTutariTl, 2)}
                         </Typography>
                     </Grid>
                     <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle1" fontWeight="600">Demontajdan Montaj Toplamı:</Typography>
+                        <Typography variant="subtitle1" fontWeight="600">DMM TUTARI-TL Toplamı:</Typography>
                         <Typography variant="h5" color="primary">
-                            {formatNumber(totalGdz2024DemontajdanMontajTutari, 2)}
+                            {formatNumber(totalDmmTutariTl, 2)}
                         </Typography>
                     </Grid>
                     <Grid item xs={12}>
                         <Typography variant="subtitle1" fontWeight="600" mt={2}>
-                            Tüm GDZ 2024 YILI TUTARI Toplamı:
+                            TOPLAM KEŞİF BEDELİ TL:
                         </Typography>
                         <Typography variant="h4" color="secondary">
-                            {formatNumber(totalGdz2024CombinedTutari, 2)}
+                            {formatNumber(totalKesifBedeliTl, 2)}
                         </Typography>
                     </Grid>
                 </Grid>
             </Paper>
-        <Backdrop
-            sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
-            open={isLoading}
-        >
-            <CircularProgress color="inherit" />
-        </Backdrop>
+            {itemToRegister && (
+                <RegisterUnregisteredItemModal
+                    open={openRegisterItemModal}
+                    onClose={handleCloseRegisterItemModal}
+                    onRegisterSuccess={handleRegistrationSuccess}
+                    initialData={itemToRegister}
+                    showAlert={showAlert}
+                />
+            )}
+            {categoryToRegister && (
+                <RegisterUnregisteredCategoryModal
+                    open={openRegisterCategoryModal}
+                    onClose={handleCloseRegisterCategoryModal}
+                    onRegisterSuccess={handleRegistrationSuccess}
+                    initialData={categoryToRegister}
+                    showAlert={showAlert}
+                />
+            )}
+            <Backdrop
+                sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+                open={isLoading}
+            >
+                <CircularProgress color="inherit" />
+            </Backdrop>
         </Box>
     );
 };
