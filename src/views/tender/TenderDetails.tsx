@@ -1,4 +1,3 @@
-// src/views/tender/TenderDetails.tsx
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -41,8 +40,13 @@ import RegisterUnregisteredItemModal from './RegisterUnregisteredItemModal';
 import RegisterUnregisteredCategoryModal from './RegisterUnregisteredCategoryModal';
 
 
+// ===========================================================================
+// TYPE DEFINITIONS (UPDATED)
+// ===========================================================================
+
+// --- Internal Data Model for React Grid ---
 interface TenderDetailRow {
-    id: number;
+    id: number; // Unique ID for the row (can be from API or locally generated)
     siraNo: number;
     eskiPoz: string;
 
@@ -50,12 +54,12 @@ interface TenderDetailRow {
     anaNo: number;
     altNo: number;
 
-    description: string;
-    olcuBrimi: string;
+    description: string; // Item name or category description
+    olcuBrimi: string; // Unit for items, empty for categories
 
-    malzeme: number; // NEW: Added MALZEME as a separate numeric field (not quantity)
-    malzemeYuklenici: number; // MALZEME MİKTARI
-    montaj: number; // MONTAJ MİKTARI (Calculated: MALZEME + MALZEME MİKTARI)
+    malzeme: number; // MALZEME quantity (or value if it's not a quantity but a base number)
+    malzemeYuklenici: number; // MALZEME MİKTARI (Item quantity procured by contractor)
+    montaj: number; // MONTAJ MİKTARI (Calculated: MALZEME + MALZEME MİKTARI if it's a sum, or just montaj quantity)
     demontaj: number; // DEMONTAJ MİKTARI
     demontajMontaj: number; // DMM MİKTARI
 
@@ -64,97 +68,48 @@ interface TenderDetailRow {
     birimFiyatDemontaj: number;
     birimFiyatDemontajMontaj: number;
 
-    aciklama: string;
-    categoryPercentage: number | null; // NEW: For %Kategoriler, can be null or a number
-    isCategory: boolean; // NEW: To distinguish categories from items for %Kategoriler column
+    aciklama: string; // Additional notes for the row
+    categoryPercentage: number | null; // For categories, or inherited percentage for items
+    isCategory: boolean; // True if this row represents a category, false for an item
 
     toplamMalzeme: number;
     toplamMontaj: number;
     toplamDemontaj: number;
     toplamDemontajdanMontaj: number;
 
-    isUnregisteredItem: boolean;
-    itemId: number | null;
-    isFromExcel: boolean; // **NEW: Flag to indicate if the row came directly from an Excel import**
+    isUnregisteredItem: boolean; // True if item/category is not in the system's master data
+    itemId: number | null; // Master item ID if registered, null otherwise
+    isFromExcel: boolean; // Flag to indicate if the row came directly from an Excel import
 }
 
+// --- API Response Type for /get-categories endpoint ---
 export interface ApiCategoryType {
-    id: string; // <-- این هم باید string باشد
+    id: string; // Assuming category ID from API is string (as per your previous ApiCategoryType)
     name: string;
     parentId: string | null;
-    categories: ApiCategoryType[];
+    categories: ApiCategoryType[]; // Nested categories
     depth?: number;
 }
 
+// --- API Response Type for /get-item endpoint ---
 interface ApiItemType {
     id: number;
     name: string;
     category: { id: string; name?: string; };
-    unit: { title: string; };
+    unit: { title: string; }; // Unit of measurement for the item
 }
 
+// --- Unified Tree Node for Categories and Items (for selection dropdown) ---
 interface UnifiedTreeNode {
-    id: string;
+    id: string; // Unique ID for the node (e.g., "cat-123" or "item-456")
     name: string;
     type: 'category' | 'item';
     depth: number;
     children: UnifiedTreeNode[];
-    originalData?: ApiItemType;
+    originalData?: ApiItemType; // Store original item data for convenience
 }
 
-interface GetTenderByIdRawResponse {
-    success: boolean;
-    httpStatusCode: number;
-    httpStatusCodeName: string;
-    message: string;
-    data: {
-        id: number;
-        title: string;
-        createAt: string;
-        recordStatus: number;
-        status: number;
-        statusDate: string;
-        tenderDetails: ApiTenderDetailItem[];
-    };
-    errors: any[];
-}
-
-interface ApiTenderDetailItem {
-    id: number;
-    firmProcuredItemQuantities: number; // Used for 'MALZEME' value
-    ourProcuredItemQuantities: number;
-    demontaj: number;
-    demontajMontaj: number;
-    firmProcuredItemPrice: string | number;
-    ourProcuredItemPrice: string | number;
-    montajPrice: string | number;
-    demontajPrice: string | number;
-    demontajMontajPrice: string | number;
-    recordStatus: number;
-    createAt: string;
-    item: {
-        id: number;
-        name: string;
-        description: string;
-        abbreviation: string;
-        recordStatus: number;
-        createAt: string;
-        category: { id: string; name?: string; };
-        unit: { id: string; title: string; recordStatus: number; createAt: string; };
-    };
-    tedasNo?: number | string;
-    anaNo?: number | string;
-    altNo?: number | string;
-    montajQuantity?: number | string;
-    aciklama?: string;
-    eskiPoz?: string;
-    toplamMalzeme?: number | string;
-    toplamMontaj?: number | string;
-    toplamDemontaj?: number | string;
-    toplamDemontajdanMontaj?: number | string;
-    categoryPercentage?: number | string; // NEW: Added to API response interface
-}
-
+// --- API Response Type for /get-item-by-id endpoint ---
 interface GetItemByIdApiResponse {
     success: boolean;
     httpStatusCode: number;
@@ -184,6 +139,60 @@ interface GetItemByIdApiResponse {
     errors: any[];
 }
 
+
+// --- NEW API Response Type for tender details (from /get-tender-by-id) ---
+interface TenderDetailFromApi { // Represents an item within a category's 'details' array
+    id: number; // Confirmed: ID exists on each detail item
+    eskiPoz: string;
+    tedas: string; // API sends as string
+    ana: string;   // API sends as string
+    alt: string;   // API sends as string
+    firmProcuredItemQuantities: number;
+    ourProcuredItemQuantities: number;
+    demontaj: number;
+    demontajMontaj: number;
+    firmProcuredItemPrice: string; // API sends as string
+    ourProcuredItemPrice: string; // API sends as string
+    montajPrice: string;           // API sends as string
+    demontajPrice: string;         // API sends as string
+    demontajMontajPrice: string;   // API sends as string
+    itemId: number; // Direct item ID
+    // NOTE: 'description' and 'unit' are NOT present directly on 'detail' in your API snippet.
+    // They will be looked up from `combinedTreeData` using `itemId`.
+    // aciklama?: string; // Confirm if 'aciklama' is also sent for details in new API
+}
+
+interface TenderCategoryFromApi { // Represents each category within 'tenderCategories' array
+    percent: number; // API sends as number, TenderDetailRow uses number | null
+    description: string;
+    details: TenderDetailFromApi[];
+}
+
+interface GetTenderByIdRawResponse { // Overall response from /get-tender-by-id
+    success: boolean;
+    httpStatusCode: number;
+    httpStatusCodeName: string;
+    message: string;
+    data: {
+        id: number;
+        title: string;
+        createAt: string;
+        recordStatus: number;
+        status: number;
+        statusDate: string;
+        // OLD: tenderDetails: ApiTenderDetailItem[]; // This is removed
+        tenderCategories: TenderCategoryFromApi[]; // NEW: This is the actual structure
+    };
+    errors: any[];
+}
+
+
+// ===========================================================================
+// UTILITY FUNCTIONS (Defined outside of the component for stability)
+// These functions are pure or only depend on their arguments,
+// so they don't cause re-renders when passed as dependencies.
+// ===========================================================================
+
 const buildCombinedTree = (categories: ApiCategoryType[], items: ApiItemType[], depth = 0): UnifiedTreeNode[] => {
     return categories.map(category => {
         const childItems: UnifiedTreeNode[] = items
@@ -211,15 +220,14 @@ const buildCombinedTree = (categories: ApiCategoryType[], items: ApiItemType[], 
     }).sort((a, b) => a.name.localeCompare(b.name));
 };
 
-
-const findNodePath = (nodes: UnifiedTreeNode[], targetId: string, currentPath: UnifiedTreeNode[] = []): UnifiedTreeNode[] => {
+const findNodePathPure = (nodes: UnifiedTreeNode[], targetId: string, currentPath: UnifiedTreeNode[] = []): UnifiedTreeNode[] => {
     for (const node of nodes) {
         const newPath = [...currentPath, node];
         if (node.id === targetId) {
             return newPath;
         }
         if (node.children && node.children.length > 0) {
-            const foundPath = findNodePath(node.children, targetId, newPath);
+            const foundPath = findNodePathPure(node.children, targetId, newPath);
             if (foundPath.length > 0) {
                 return foundPath;
             }
@@ -227,7 +235,6 @@ const findNodePath = (nodes: UnifiedTreeNode[], targetId: string, currentPath: U
     }
     return [];
 };
-
 
 const filterTree = (nodes: UnifiedTreeNode[], searchTerm: string): UnifiedTreeNode[] => {
     if (!searchTerm) {
@@ -253,91 +260,6 @@ const filterTree = (nodes: UnifiedTreeNode[], searchTerm: string): UnifiedTreeNo
         }
         return acc;
     }, []);
-};
-
-
-interface CombinedTreeMenuItemProps {
-    node: UnifiedTreeNode;
-    selectedId: string | null;
-    onSelect: (node: UnifiedTreeNode) => void;
-    isSearchActive: boolean;
-    isNodeAncestorOfSpecificSelectedId: (nodeId: string, specificSelectedId: string | null) => boolean;
-}
-
-const CombinedTreeMenuItem: React.FC<CombinedTreeMenuItemProps> = ({ node, selectedId, onSelect, isSearchActive, isNodeAncestorOfSpecificSelectedId }) => {
-    const [open, setOpen] = useState(isSearchActive || node.type === 'item' || isNodeAncestorOfSpecificSelectedId(node.id, selectedId));
-
-    useEffect(() => {
-        setOpen(isSearchActive || node.type === 'item' || isNodeAncestorOfSpecificSelectedId(node.id, selectedId));
-    }, [isSearchActive, node.type, isNodeAncestorOfSpecificSelectedId, node.id, selectedId]);
-
-    const handleToggleCollapse = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        setOpen(!open);
-    };
-
-    const handleSelection = (e: React.MouseEvent | React.ChangeEvent) => {
-        e.stopPropagation();
-        if (node.type === 'item') {
-            onSelect(node);
-        }
-    };
-
-    return (
-        <>
-            <MuiMenuItem
-                onClick={handleSelection}
-                sx={{
-                    paddingLeft: `${node.depth * 20 + 8}px`,
-                    fontWeight: node.type === 'category' ? 'bold' : 'normal',
-                    backgroundColor: selectedId === node.id ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
-                    '&:hover': {
-                        backgroundColor: selectedId === node.id ? 'rgba(0, 0, 0, 0.12)' : 'rgba(0, 0, 0, 0.04)',
-                    },
-                    opacity: node.type === 'category' && node.children.length === 0 ? 0.6 : 1,
-                    pointerEvents: node.type === 'category' && node.children.length === 0 ? 'none' : 'auto',
-                }}
-                disabled={node.type === 'category' && node.children.length === 0}
-            >
-                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
-                    {node.children && node.children.length > 0 && node.type === 'category' ? (
-                        <IconButton onClick={handleToggleCollapse} size="small" sx={{ p: 0.5 }}>
-                            {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                        </IconButton>
-                    ) : (
-                        <Box sx={{ width: 28 }} />
-                    )}
-
-                    {node.type === 'item' && (
-                        <Checkbox
-                            edge="start"
-                            size="small"
-                            checked={selectedId === node.id}
-                            onChange={handleSelection}
-                            sx={{ p: 0 }}
-                            tabIndex={-1}
-                            disableRipple
-                        />
-                    )}
-                    <ListItemText primary={node.name} primaryTypographyProps={{ variant: 'body2', noWrap: true }} />
-                </Box>
-            </MuiMenuItem>
-            {open && node.children && (
-                <List component="div" disablePadding>
-                    {node.children.map(childNode => (
-                        <CombinedTreeMenuItem
-                            key={childNode.id}
-                            node={childNode}
-                            selectedId={selectedId}
-                            onSelect={onSelect}
-                            isSearchActive={isSearchActive}
-                            isNodeAncestorOfSpecificSelectedId={isNodeAncestorOfSpecificSelectedId}
-                        />
-                    ))}
-                </List>
-            )}
-        </>
-    );
 };
 
 const getNextAvailableSiraNo = (currentGridData: TenderDetailRow[]): number => {
@@ -366,13 +288,11 @@ const parseAndCleanFloat = (value: string | number): number => {
     }
     let cleanedValue = String(value).replace(/,/g, '.'); // Convert comma to dot
 
-    // Handle multiple dots by keeping only the first one
     const parts = cleanedValue.split('.');
     if (parts.length > 2) {
         cleanedValue = parts[0] + '.' + parts.slice(1).join('');
     }
 
-    // Remove any non-numeric characters except for the dot
     cleanedValue = cleanedValue.replace(/[^0-9.]/g, '');
 
     const parsed = parseFloat(cleanedValue);
@@ -415,6 +335,49 @@ const formatInputNumberForDisplay = (value: number | null, decimalPlaces: number
     });
 };
 
+const normalizeString = (str: string): string => {
+    if (!str) return '';
+    return str
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+};
+
+const findNodeByIdPure = (nodes: UnifiedTreeNode[], id: string): UnifiedTreeNode | undefined => {
+    for (const node of nodes) {
+        if (node.id === id) {
+            return node;
+        }
+        if (node.children && node.children.length > 0) {
+            const found = findNodeByIdPure(node.children, id);
+            if (found) return found;
+        }
+    }
+    return undefined;
+};
+
+const findNodeByNameAndTypePure = (nodes: UnifiedTreeNode[], normalizedSearchName: string, type: 'category' | 'item'): UnifiedTreeNode | undefined => {
+    for (const node of nodes) {
+        const normalizedNodeName = normalizeString(node.name);
+
+        if (normalizedNodeName === normalizedSearchName && node.type === type) {
+            return node;
+        }
+        if (node.children && node.children.length > 0) {
+            const found = findNodeByNameAndTypePure(node.children, normalizedSearchName, type);
+            if (found) return found;
+        }
+    }
+    return undefined;
+};
+
+
+// ===========================================================================
+// REACT COMPONENT STARTS HERE
+// ===========================================================================
 
 const TenderDetails = () => {
     const { tenderId } = useParams<{ tenderId: string }>();
@@ -434,8 +397,8 @@ const TenderDetails = () => {
 
     const [tenderTitle, setTenderTitle] = useState<string>(initialTenderTitle);
     const [gridData, setGridData] = useState<TenderDetailRow[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [loading, setLoading] = useState(false); // For general loading indicators
+    const [isLoading, setIsLoading] = useState(false); // For full page backdrop loading
     const [isSavingAll, setIsSavingAll] = useState<boolean>(false);
     const [fileUploadedSuccessfully, setFileUploadedSuccessfully] = useState<boolean>(false);
 
@@ -464,10 +427,11 @@ const TenderDetails = () => {
 
     const [loadingTree, setLoadingTree] = useState(false);
     const [combinedTreeData, setCombinedTreeData] = useState<UnifiedTreeNode[]>([]);
+    const [isTreeDataLoaded, setIsTreeDataLoaded] = useState(false); // NEW: State to track if tree data is loaded
 
     const [gridSearchTerm, setGridSearchTerm] = useState<string>('');
 
-    const initialDisplayLimit = 30;
+    const initialDisplayLimit = 60;
     const loadMoreStep = 5;
 
     const [currentDisplayCount, setCurrentDisplayCount] = useState(initialDisplayLimit);
@@ -483,9 +447,9 @@ const TenderDetails = () => {
         altNo: 0,
         description: '',
         olcuBrimi: '',
-        malzeme: 0, // NEW
+        malzeme: 0,
         malzemeYuklenici: 0,
-        montaj: 0, // Calculated
+        montaj: 0,
         demontaj: 0,
         demontajMontaj: 0,
         birimFiyatMalzeme: 0,
@@ -499,9 +463,9 @@ const TenderDetails = () => {
         isUnregisteredItem: false,
         itemId: null,
         aciklama: '',
-        categoryPercentage: null, // NEW
-        isCategory: false, // NEW
-        isFromExcel: false, // NEW: Default to false for new manual entries
+        categoryPercentage: null,
+        isCategory: false,
+        isFromExcel: false,
     });
 
     // States for raw string input for NEW record Birim Fiyatlar
@@ -530,7 +494,8 @@ const TenderDetails = () => {
 
     const newRecordSelectedNodePath = useMemo(() => {
         if (!newRecordSelectedUnifiedNodeId) return new Set<string>();
-        const path = findNodePath(combinedTreeData, newRecordSelectedUnifiedNodeId);
+        // Use the pure function, pass combinedTreeData explicitly
+        const path = findNodePathPure(combinedTreeData, newRecordSelectedUnifiedNodeId);
         return new Set(path.map(node => node.id));
     }, [newRecordSelectedUnifiedNodeId, combinedTreeData]);
 
@@ -546,7 +511,8 @@ const TenderDetails = () => {
 
     const editingRowSelectedNodePath = useMemo(() => {
         if (!editingRowSelectedUnifiedNodeId) return new Set<string>();
-        const path = findNodePath(combinedTreeData, editingRowSelectedUnifiedNodeId);
+        // Use the pure function, pass combinedTreeData explicitly
+        const path = findNodePathPure(combinedTreeData, editingRowSelectedUnifiedNodeId);
         return new Set(path.map(node => node.id));
     }, [editingRowSelectedUnifiedNodeId, combinedTreeData]);
 
@@ -560,50 +526,10 @@ const TenderDetails = () => {
         [combinedTreeData, editingRowTreeSearchTerm]
     );
 
-
-    const findNodeById = (nodes: UnifiedTreeNode[], id: string): UnifiedTreeNode | undefined => {
-        for (const node of nodes) {
-            if (node.id === id) {
-                return node;
-            }
-            if (node.children && node.children.length > 0) {
-                const found = findNodeById(node.children, id);
-                if (found) return found;
-            }
-        }
-        return undefined;
-    };
-
-    const normalizeString = (str: string): string => {
-        if (!str) return '';
-        return str
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/[.,/#!$%^&*;:{}=\-_`~()]/g, "")
-            .replace(/\s+/g, ' ')
-            .trim()
-            .toLowerCase();
-    };
-
-    const findNodeByNameAndType = (nodes: UnifiedTreeNode[], normalizedSearchName: string, type: 'category' | 'item'): UnifiedTreeNode | undefined => {
-        for (const node of nodes) {
-            const normalizedNodeName = normalizeString(node.name);
-
-            if (normalizedNodeName === normalizedSearchName && node.type === type) {
-                return node;
-            }
-            if (node.children && node.children.length > 0) {
-                const found = findNodeByNameAndType(node.children, normalizedSearchName, type);
-                if (found) return found;
-            }
-        }
-        return undefined;
-    };
-
-
+    // calculateTotals is a dependency for many functions, memoize it with useCallback
     const calculateTotals = useCallback((
         row: Partial<TenderDetailRow>,
-        forceRecalculate: boolean = false // Added flag to force recalculation
+        forceRecalculate: boolean = false
     ): TenderDetailRow => {
         // If the row is flagged as from Excel and we are not explicitly forcing recalculation,
         // then use its existing toplam values.
@@ -639,7 +565,6 @@ const TenderDetails = () => {
             };
         }
 
-        // Proceed with normal calculation if not from Excel OR if forceRecalculate is true
         const malzeme = row.malzeme ?? 0;
         const malzemeMiktari = row.malzemeYuklenici ?? 0;
         const montajMiktari = malzeme + malzemeMiktari; // This is a quantity, always calculated
@@ -653,17 +578,14 @@ const TenderDetails = () => {
         const birimFiyatDemontajMontaj = row.birimFiyatDemontajMontaj ?? 0;
 
         let percentageFactor = 1;
-        // Apply %n only if the row is NOT a category and its parent category has a percentage
-        // or if the row *is* a category and has its own percentage.
         if (row.isCategory) { // If it's a category, use its own percentage
             percentageFactor = (row.categoryPercentage ?? 100) / 100;
         } else if (row.categoryPercentage !== null && row.categoryPercentage !== undefined) { // If it's an item and has a parent category percentage
-             percentageFactor = row.categoryPercentage / 100;
+            percentageFactor = row.categoryPercentage / 100;
         }
 
-
         const calculatedToplamMalzeme = malzemeMiktari * birimFiyatMalzeme; // NO percentage for MALZEME
-        const calculatedToplamMontaj = montajMiktari * birimFiyatMontaj;     // NO percentage for MONTAJ
+        const calculatedToplamMontaj = montajMiktari * birimFiyatMontaj;      // NO percentage for MONTAJ
         const calculatedToplamDemontaj = demontajMiktari * birimFiyatDemontaj * percentageFactor;
         const calculatedToplamDemontajdanMontaj = dmmMiktari * birimFiyatDemontajMontaj * percentageFactor;
 
@@ -694,10 +616,9 @@ const TenderDetails = () => {
             aciklama: row.aciklama ?? '',
             categoryPercentage: row.categoryPercentage ?? null,
             isCategory: row.isCategory ?? false,
-            isFromExcel: row.isFromExcel ?? false, // Keep the flag consistent
+            isFromExcel: row.isFromExcel ?? false,
         } as TenderDetailRow;
-    }, []);
-
+    }, []); // No external dependencies here if findNodeByIdPure/findNodePathPure are used with explicit data.
 
     const processedAndFilteredGridData = useMemo(() => {
         let currentData = [...gridData];
@@ -713,33 +634,28 @@ const TenderDetails = () => {
         // Apply category percentages to items and recalculate totals if needed
         currentData = currentData.map(row => {
             let updatedRow = { ...row };
-            
+
             // This part updates categoryPercentage based on parent category mapping
             // It will trigger recalculation if the percentage changes.
             if (!row.isCategory && row.itemId !== null && combinedTreeData.length > 0) {
-                const itemNode = findNodeById(combinedTreeData, `item-${row.itemId}`);
+                // Use the pure function, pass combinedTreeData explicitly
+                const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
                 if (itemNode && itemNode.originalData?.category?.id) {
-                    const parentCategoryNode = findNodePath(combinedTreeData, `cat-${itemNode.originalData.category.id}`).find(n => n.type === 'category');
+                    // Use the pure function, pass combinedTreeData explicitly
+                    const parentCategoryNode = findNodePathPure(combinedTreeData, `cat-${itemNode.originalData.category.id}`).find(n => n.type === 'category');
                     if (parentCategoryNode) {
                         const normalizedCategoryName = normalizeString(parentCategoryNode.name);
                         const categoryPct = categoryPercentagesMap.get(normalizedCategoryName);
                         if (categoryPct !== undefined && updatedRow.categoryPercentage !== categoryPct) {
                             updatedRow.categoryPercentage = categoryPct;
-                            // When category percentage changes for an item, force recalculation of its totals.
-                            // Even if it was from Excel, the percentage changed, so its totals need update.
-                            return calculateTotals(updatedRow, true); 
+                            return calculateTotals(updatedRow, true);
                         }
                     }
                 }
             }
-            // If the row's category percentage (for items) didn't change,
-            // or if it's a category, or if it's not linked to a category,
-            // simply call calculateTotals without forcing recalculation.
-            // calculateTotals will handle `isFromExcel` internally.
-            return calculateTotals(updatedRow, false); // Do not force, let calculateTotals decide based on isFromExcel
+            return calculateTotals(updatedRow, false);
         });
 
-        // --- CRITICAL CHANGE FOR ORDER ---
         if (displayMode === 'withoutCategory') {
             currentData = currentData.filter(row => !row.isCategory);
         }
@@ -749,7 +665,6 @@ const TenderDetails = () => {
             ...row,
             siraNo: currentSiraNo++
         }));
-        // --- END CRITICAL CHANGE ---
 
         if (!gridSearchTerm) {
             return currentData;
@@ -767,6 +682,7 @@ const TenderDetails = () => {
     }, [processedAndFilteredGridData, currentDisplayCount]);
 
 
+    // NEW: fetchDataAndBuildTree now explicitly sets isTreeDataLoaded
     const fetchDataAndBuildTree = useCallback(async () => {
         setLoadingTree(true);
         const authToken = localStorage.getItem('authToken');
@@ -774,6 +690,7 @@ const TenderDetails = () => {
             showAlert('Oturumunuzun süresi doldu.', 'error');
             navigate("/");
             setLoadingTree(false);
+            setIsTreeDataLoaded(false); // Ensure this is false on error
             return;
         }
         try {
@@ -784,7 +701,7 @@ const TenderDetails = () => {
 
             const tree = buildCombinedTree(categoriesResponse.data.data || [], itemsResponse.data.data || []);
             setCombinedTreeData(tree);
-
+            setIsTreeDataLoaded(true); // Set true on successful load
         } catch (error: any) {
             if (error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
@@ -793,13 +710,18 @@ const TenderDetails = () => {
             }
             console.error("Ağaç verisi yüklenirken hata oluştu:", error);
             showAlert('Kategori ve ürünler yüklenirken bir hata oluştu.', 'error');
+            setIsTreeDataLoaded(false); // Set false on error
         } finally {
             setLoadingTree(false);
         }
     }, [navigate, showAlert]);
 
+    // NEW: loadExistingTenderDetails now depends on isTreeDataLoaded
     const loadExistingTenderDetails = useCallback(async () => {
-        if (!tenderId) return;
+        if (!tenderId || !isTreeDataLoaded) { // Only run if tenderId exists AND tree data is loaded
+            console.log("Skipping loadExistingTenderDetails: tenderId or tree data not ready.");
+            return;
+        }
 
         setLoading(true);
         const authToken = localStorage.getItem('authToken');
@@ -819,72 +741,122 @@ const TenderDetails = () => {
                     }
                 }
             );
+            debugger // You can keep this for debugging purposes, remove in production
 
             if (response.data && response.data.data) {
                 const tenderData = response.data.data;
                 setTenderTitle(tenderData.title || `İhale Yükleniyor... (ID: ${tenderId})`);
 
-                const loadedDetails: TenderDetailRow[] = tenderData.tenderDetails.map((detail, index) => {
-                    const ourProcuredItemPriceNum = parseAndCleanFloat(detail.ourProcuredItemPrice);
-                    const montajPriceNum = parseAndCleanFloat(detail.montajPrice);
-                    const demontajPriceNum = parseAndCleanFloat(detail.demontajPrice);
-                    const demontajMontajPriceNum = parseAndCleanFloat(detail.demontajMontajPrice);
+                let loadedDetails: TenderDetailRow[] = [];
+                let currentLocalIdCounter = 1; // For generating temporary IDs for categories if needed
+                                                // Or you could use a more robust unique ID generator like uuid()
 
-                    const malzeme = parseAndCleanInt(detail.firmProcuredItemQuantities || 0);
+                if (tenderData.tenderCategories) {
+                    tenderData.tenderCategories.forEach(category => {
+                        // Create the category row first
+                        const categoryRow: TenderDetailRow = calculateTotals({
+                            // Generate a unique ID for category row. If API provides category IDs, use them.
+                            id: currentLocalIdCounter++, 
+                            siraNo: 0, // Will be re-calculated later by processedAndFilteredGridData
+                            eskiPoz: "",
+                            tedasNo: 0,
+                            anaNo: 0,
+                            altNo: 0,
+                            description: category.description || "Kategori",
+                            olcuBrimi: "", // Categories don't have a unit
+                            malzeme: 0,
+                            malzemeYuklenici: 0,
+                            montaj: 0,
+                            demontaj: 0,
+                            demontajMontaj: 0,
+                            birimFiyatMalzeme: 0,
+                            birimFiyatMontaj: 0,
+                            birimFiyatDemontaj: 0,
+                            birimFiyatDemontajMontaj: 0,
+                            toplamMalzeme: 0, // Will be sum of its children's totals, or calculated as a category summary
+                            toplamMontaj: 0,
+                            toplamDemontaj: 0,
+                            toplamDemontajdanMontaj: 0,
+                            isUnregisteredItem: false, // Categories coming from API are generally considered registered
+                            itemId: null, // Categories don't have itemId
+                            aciklama: category.description || "", // Category description itself
+                            categoryPercentage: category.percent !== undefined && category.percent !== null ? category.percent : null,
+                            isCategory: true,
+                            isFromExcel: false, // Data from API, not Excel
+                        }, true); // Force recalculate to set initial totals (even if zero)
+                        loadedDetails.push(categoryRow);
 
-                    const malzemeYuklenici = parseAndCleanInt(detail.ourProcuredItemQuantities);
-                    const montaj = parseAndCleanInt(detail.montajQuantity || 0);
-                    const demontaj = parseAndCleanInt(detail.demontaj);
-                    const demontajMontaj = parseAndCleanInt(detail.demontajMontaj);
+                        // Then map the details (items) within this category
+                        const itemDetails = category.details.map((detail, index) => {
+                            const ourProcuredItemPriceNum = parseAndCleanFloat(detail.ourProcuredItemPrice);
+                            const montajPriceNum = parseAndCleanFloat(detail.montajPrice);
+                            const demontajPriceNum = parseAndCleanFloat(detail.demontajPrice);
+                            const demontajMontajPriceNum = parseAndCleanFloat(detail.demontajMontajPrice);
 
-                    const tedasNo = parseAndCleanInt(detail.tedasNo || 0);
-                    const anaNo = parseAndCleanInt(detail.anaNo || 0);
-                    const altNo = parseAndCleanInt(detail.altNo || 0);
-                    const aciklama = String(detail.aciklama || '');
-                    const eskiPoz = String(detail.eskiPoz || '');
+                            const malzeme = parseAndCleanInt(detail.firmProcuredItemQuantities || 0);
+                            const malzemeYuklenici = parseAndCleanInt(detail.ourProcuredItemQuantities);
+                            const demontaj = parseAndCleanInt(detail.demontaj);
+                            const demontajMontaj = parseAndCleanInt(detail.demontajMontaj);
 
-                    const isItemCategory = !detail.item.unit?.title || detail.item.unit.title.trim() === '';
-                    const categoryPercentage = isItemCategory && (detail as any).categoryPercentage ? parseAndCleanFloat((detail as any).categoryPercentage) : null;
+                            const tedasNo = parseAndCleanInt(detail.tedas || 0); // Parse from string to number
+                            const anaNo = parseAndCleanInt(detail.ana || 0);     // Parse from string to number
+                            const altNo = parseAndCleanInt(detail.alt || 0);     // Parse from string to number
+                            const eskiPoz = String(detail.eskiPoz || '');
 
-                    const baseRow: Partial<TenderDetailRow> = {
-                        id: detail.id,
-                        siraNo: index + 1,
-                        eskiPoz: eskiPoz,
-                        tedasNo: tedasNo,
-                        anaNo: anaNo,
-                        altNo: altNo,
-                        description: detail.item.name || "N/A",
-                        olcuBrimi: detail.item.unit?.title || "",
-                        malzeme: malzeme,
-                        malzemeYuklenici: malzemeYuklenici,
-                        montaj: montaj,
-                        demontaj: demontaj,
-                        demontajMontaj: demontajMontaj,
-                        birimFiyatMalzeme: ourProcuredItemPriceNum,
-                        birimFiyatMontaj: montajPriceNum,
-                        birimFiyatDemontaj: demontajPriceNum,
-                        birimFiyatDemontajMontaj: demontajMontajPriceNum,
-                        toplamMalzeme: 0, // Will be recalculated by calculateTotals
-                        toplamMontaj: 0,  // Will be recalculated by calculateTotals
-                        toplamDemontaj: 0, // Will be recalculated by calculateTotals
-                        toplamDemontajdanMontaj: 0, // Will be recalculated by calculateTotals
-                        isUnregisteredItem: false,
-                        itemId: detail.item.id || null,
-                        aciklama: aciklama,
-                        categoryPercentage: categoryPercentage,
-                        isCategory: isItemCategory,
-                        isFromExcel: false, // Mark as NOT from Excel, will be calculated by logic
-                    };
-                    // Force recalculation for data loaded from API
-                    return calculateTotals(baseRow, true); 
-                });
+                            // Lookup item description and unit from combinedTreeData using itemId
+                            let itemDescription: string = "N/A";
+                            let itemUnit: string = "";
+                            const foundItemNode = detail.itemId ? findNodeByIdPure(combinedTreeData, `item-${detail.itemId}`) : undefined;
+
+                            if (foundItemNode && foundItemNode.type === 'item' && foundItemNode.originalData) {
+                                itemDescription = foundItemNode.originalData.name;
+                                itemUnit = foundItemNode.originalData.unit?.title || "";
+                            }
+                            
+                            // For items, aciklama might be present on detail, or be empty
+                            // Assuming 'aciklama' is not directly on detail for items, or if it is, default to empty string if not provided by API
+                            const aciklama = ""; // Or String(detail.aciklama || '') if API provides it
+
+                            const baseRow: Partial<TenderDetailRow> = {
+                                id: detail.id, // Use the ID from API for the detail item
+                                siraNo: index + 1, // Will be re-calculated later by processedAndFilteredGridData
+                                eskiPoz: eskiPoz,
+                                tedasNo: tedasNo,
+                                anaNo: anaNo,
+                                altNo: altNo,
+                                description: itemDescription, // From combinedTreeData
+                                olcuBrimi: itemUnit, // From combinedTreeData
+                                malzeme: malzeme,
+                                malzemeYuklenici: malzemeYuklenici,
+                                montaj: (malzeme + malzemeYuklenici), // Calculated here as sum of material quantities
+                                demontaj: demontaj,
+                                demontajMontaj: demontajMontaj,
+                                birimFiyatMalzeme: ourProcuredItemPriceNum,
+                                birimFiyatMontaj: montajPriceNum,
+                                birimFiyatDemontaj: demontajPriceNum,
+                                birimFiyatDemontajMontaj: demontajMontajPriceNum,
+                                toplamMalzeme: 0, // Will be recalculated by calculateTotals
+                                toplamMontaj: 0,
+                                toplamDemontaj: 0,
+                                toplamDemontajdanMontaj: 0,
+                                isUnregisteredItem: !foundItemNode, // Mark if item not found in master data
+                                itemId: detail.itemId || null,
+                                aciklama: aciklama, // Item-specific notes, if available
+                                categoryPercentage: category.percent !== undefined && category.percent !== null ? category.percent : null, // Inherit from parent category
+                                isCategory: false, // This is an item row
+                                isFromExcel: false, // Data from API, not Excel
+                            };
+                            return calculateTotals(baseRow, true); // Force recalculation to ensure totals are correct
+                        });
+                        loadedDetails = loadedDetails.concat(itemDetails); // Add items after category
+                    });
+                }
                 setGridData(loadedDetails);
                 showAlert('İhale detayları başarıyla yüklendi.', 'success');
             } else {
                 setGridData([]);
                 showAlert('Bu ihale için detay bulunamadı.', 'info');
             }
-
         } catch (error: any) {
             if (error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
@@ -893,34 +865,45 @@ const TenderDetails = () => {
             }
             console.error("İhale detayları yüklenirken hata oluştu:", error);
             showAlert('İhale detayları yüklenirken bir hata oluştu.', 'error');
-            return null;
+            setGridData([]); // Clear data on error
         } finally {
             setLoading(false);
         }
-    }, [tenderId, navigate, showAlert, calculateTotals]); // Added calculateTotals to dependencies
+    }, [tenderId, navigate, showAlert, calculateTotals, combinedTreeData, isTreeDataLoaded]); // Added isTreeDataLoaded
 
+
+    // Effect to fetch tree data on component mount
     useEffect(() => {
-        loadExistingTenderDetails();
         fetchDataAndBuildTree();
-    }, [loadExistingTenderDetails, fetchDataAndBuildTree]);
+    }, [fetchDataAndBuildTree]); // fetchDataAndBuildTree is memoized, so this runs once on mount
 
+    // Effect to load tender details AFTER tree data is loaded
     useEffect(() => {
-    fetch('/tender_template.xlsx')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.arrayBuffer();
-        })
-        .then(buffer => {
-            setTemplateWorkbookBuffer(buffer);
-        })
-        .catch(error => {
-            console.error("Error loading Excel template:", error);
-            showAlert('Excel şablonu yüklenirken hata oluştu.', 'error');
-        });
-}, [showAlert]);
+        if (isTreeDataLoaded) { // Only proceed if tree data is ready
+            loadExistingTenderDetails();
+        }
+    }, [loadExistingTenderDetails, isTreeDataLoaded]); // loadExistingTenderDetails is memoized, and isTreeDataLoaded makes it run when ready
 
+
+    // Effect to fetch Excel template
+    useEffect(() => {
+        fetch('/tender_template.xlsx')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.arrayBuffer();
+            })
+            .then(buffer => {
+                setTemplateWorkbookBuffer(buffer);
+            })
+            .catch(error => {
+                console.error("Error loading Excel template:", error);
+                showAlert('Excel şablonu yüklenirken hata oluştu.', 'error');
+            });
+    }, [showAlert]);
+
+    // Effect to update isUnregisteredItem flag based on combinedTreeData
     useEffect(() => {
         if (!gridData.length || !combinedTreeData.length) {
             return;
@@ -932,21 +915,22 @@ const TenderDetails = () => {
             let isUnregistered: boolean;
             let currentItemId: number | null = null;
 
-            const isCurrentlyCategory = row.isCategory || (row.description.trim() !== '' && row.olcuBrimi.trim() === '');
+            const isCurrentlyCategory = row.isCategory; // Trust the row's existing isCategory flag
 
             if (isCurrentlyCategory) {
-                foundNode = findNodeByNameAndType(combinedTreeData, normalizedRowDescription, 'category');
+                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'category');
                 isUnregistered = !foundNode;
                 currentItemId = null;
             } else {
-                foundNode = findNodeByNameAndType(combinedTreeData, normalizedRowDescription, 'item');
+                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'item');
                 isUnregistered = !foundNode;
                 currentItemId = foundNode?.originalData?.id ?? null;
             }
 
-            if (row.isUnregisteredItem !== isUnregistered || row.itemId !== currentItemId || row.isCategory !== isCurrentlyCategory) {
+            if (row.isUnregisteredItem !== isUnregistered || row.itemId !== currentItemId) {
                 needsUpdate = true;
-                return { ...row, isUnregisteredItem: isUnregistered, itemId: currentItemId, isCategory: isCurrentlyCategory };
+                // Preserve isCategory, only update unregistered status and itemId
+                return { ...row, isUnregisteredItem: isUnregistered, itemId: currentItemId };
             }
             return row;
         });
@@ -954,7 +938,8 @@ const TenderDetails = () => {
         if (needsUpdate) {
             setGridData(updatedGridData);
         }
-    }, [gridData, combinedTreeData, normalizeString, findNodeByNameAndType]);
+    }, [gridData, combinedTreeData]); // CombinedTreeData is a dependency because findNodeByNameAndTypePure uses it.
+
 
     const addNewItemToApi = useCallback(async (itemName: string): Promise<number | null> => {
         const authToken = localStorage.getItem('authToken');
@@ -1042,7 +1027,6 @@ const TenderDetails = () => {
 
                 const importedRows: TenderDetailRow[] = [];
                 let currentLocalId = gridData.length > 0 ? Math.max(...gridData.map(row => row.id)) + 1 : 1;
-                let currentSiraNoForImport = getNextAvailableSiraNo(gridData);
                 let duplicateCount = 0;
 
                 const getCellValue = (rowIdx: number, colIdx: number): any => {
@@ -1097,18 +1081,18 @@ const TenderDetails = () => {
                     let currentItemId: number | null = null;
 
                     if (isCurrentRowCategory) {
-                        existingNode = findNodeByNameAndType(combinedTreeData, normalizeString(descriptionValue), 'category');
+                        existingNode = findNodeByNameAndTypePure(combinedTreeData, normalizeString(descriptionValue), 'category');
                         isCurrentItemUnregistered = !existingNode;
                         currentItemId = null;
                     } else {
-                        existingNode = findNodeByNameAndType(combinedTreeData, normalizeString(descriptionValue), 'item');
+                        existingNode = findNodeByNameAndTypePure(combinedTreeData, normalizeString(descriptionValue), 'item');
                         isCurrentItemUnregistered = !existingNode;
                         currentItemId = existingNode?.originalData?.id ?? null;
                     }
 
                     const newRow: TenderDetailRow = {
                         id: currentLocalId++,
-                        siraNo: currentSiraNoForImport++,
+                        siraNo: 0, // Will be recalculated by processedAndFilteredGridData
                         eskiPoz: eskiPozValue,
                         tedasNo: tedasNo,
                         anaNo: anaNo,
@@ -1125,7 +1109,7 @@ const TenderDetails = () => {
                         birimFiyatDemontaj: birimFiyatDemontaj,
                         birimFiyatDemontajMontaj: birimFiyatDemontajMontaj,
                         toplamMalzeme: toplamMalzemeFromExcel, // **Directly use Excel values**
-                        toplamMontaj: toplamMontajFromExcel,   // **Directly use Excel values**
+                        toplamMontaj: toplamMontajFromExcel,    // **Directly use Excel values**
                         toplamDemontaj: toplamDemontajFromExcel,
                         toplamDemontajdanMontaj: toplamDemontajdanMontajFromExcel,
                         isUnregisteredItem: isCurrentItemUnregistered,
@@ -1177,7 +1161,7 @@ const TenderDetails = () => {
     };
 
 
-    const handleNewRecordInputChange = (
+    const handleNewRecordInputChange = useCallback((
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
         const target = e.target as HTMLInputElement | HTMLTextAreaElement;
@@ -1187,7 +1171,7 @@ const TenderDetails = () => {
         let parsedNumber: number;
 
         setNewRecordRow(prev => {
-            let updatedRow = { ...prev, isFromExcel: false }; // Mark as not from Excel when manually editing
+            let updatedRow = { ...prev, isFromExcel: false };
             if (['birimFiyatMalzeme', 'birimFiyatMontaj', 'birimFiyatDemontaj', 'birimFiyatDemontajMontaj',
                 'malzeme', 'categoryPercentage'].includes(name)) {
                 const numericValue = value.replace(/,/g, '.');
@@ -1214,7 +1198,7 @@ const TenderDetails = () => {
                     if (updatedRow.isCategory) {
                         updatedRow.categoryPercentage = parsedNumber;
                     } else {
-                        updatedRow.categoryPercentage = null; // Should not set for items
+                        updatedRow.categoryPercentage = null;
                     }
                 }
             } else if (['malzemeYuklenici', 'demontaj', 'demontajMontaj', 'tedasNo', 'anaNo', 'altNo'].includes(name)) {
@@ -1231,10 +1215,10 @@ const TenderDetails = () => {
                 updatedRow.isCategory = updatedRow.description.trim() !== '' && updatedRow.olcuBrimi.trim() === '';
                 if (!updatedRow.isCategory) updatedRow.categoryPercentage = null;
             }
-            // Always force recalculate totals for manual input/changes
             return calculateTotals(updatedRow, true);
         });
-    };
+    }, [calculateTotals, setNewRecordRow, setBirimFiyatMalzemeNew, setBirimFiyatMontajNew, setBirimFiyatDemontajNew, setBirimFiyatDemontajMontajNew]);
+
 
     const fetchItemUnitById = useCallback(async (itemId: string): Promise<string | null> => {
         const authToken = localStorage.getItem('authToken');
@@ -1256,7 +1240,7 @@ const TenderDetails = () => {
             if (error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu hoặc yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
             console.error("Ölçü bilgisi yüklenirken hata oluştu:", error);
             showAlert('Ölçü bilgisi yüklenirken bir hata oluştu.', 'error');
@@ -1265,7 +1249,7 @@ const TenderDetails = () => {
     }, [navigate, showAlert]);
 
 
-    const handleNewRecordTreeSelection = async (node: UnifiedTreeNode) => {
+    const handleNewRecordTreeSelection = useCallback(async (node: UnifiedTreeNode) => {
         if (node.type === 'item') {
             setNewRecordSelectedUnifiedNodeId(node.id);
 
@@ -1276,15 +1260,15 @@ const TenderDetails = () => {
                     ...prev,
                     description: node.name,
                     itemId: nodeIdNum,
-                    isCategory: false, // Selected an item, so it's not a category
-                    categoryPercentage: null, // Clear percentage for items
-                    isFromExcel: false, // Not from Excel on tree selection
+                    isCategory: false,
+                    categoryPercentage: null,
+                    isFromExcel: false,
                 };
-                return calculateTotals(updatedRow, true); // Force recalculation on tree selection
+                return calculateTotals(updatedRow, true);
             });
 
             setNewRecordManualInput('');
-            setNewRecordTreeSearchTerm(''); // Clear search term after selection
+            setNewRecordTreeSearchTerm('');
             setIsNewRecordTreeSelectOpen(false);
 
             const itemIdForApi = node.originalData?.id ? String(node.originalData.id) : null;
@@ -1298,10 +1282,10 @@ const TenderDetails = () => {
                 setNewRecordRow(prev => ({ ...prev, olcuBrimi: '' }));
             }
         }
-    };
+    }, [calculateTotals, fetchItemUnitById]);
 
 
-    const handleEditRecordTreeSelection = async (node: UnifiedTreeNode) => {
+    const handleEditRecordTreeSelection = useCallback(async (node: UnifiedTreeNode) => {
         if (node.type === 'item') {
             setEditingRowSelectedUnifiedNodeId(node.id);
 
@@ -1324,8 +1308,8 @@ const TenderDetails = () => {
                     itemId: nodeIdNum,
                     isCategory: false,
                     categoryPercentage: null,
-                    isFromExcel: false, // Not from Excel on tree selection for edit
-                }, true); // Force recalculation
+                    isFromExcel: false,
+                }, true);
 
                 setEditingBirimFiyatMalzeme(formatInputNumberForDisplay(updated.birimFiyatMalzeme, 2));
                 setEditingBirimFiyatMontaj(formatInputNumberForDisplay(updated.birimFiyatMontaj, 2));
@@ -1353,11 +1337,13 @@ const TenderDetails = () => {
                 });
             }
         }
-    };
+    }, [calculateTotals, fetchItemUnitById]);
 
-    const renderSelectValue = (currentSelectedId: string | null, isEditingContext: boolean, currentTreeSearchTerm: string) => {
+
+    const renderSelectValue = useCallback((currentSelectedId: string | null, isEditingContext: boolean, currentTreeSearchTerm: string) => {
+        // Use findNodeByIdPure to ensure it doesn't depend on component context
         if (currentSelectedId) {
-            const node = findNodeById(combinedTreeData, currentSelectedId);
+            const node = findNodeByIdPure(combinedTreeData, currentSelectedId);
             if (node) {
                 return node.name;
             }
@@ -1376,9 +1362,10 @@ const TenderDetails = () => {
         }
 
         return "Ürün seçin veya manuel girin...";
-    };
+    }, [combinedTreeData, editingRowData, newRecordManualInput]);
 
-    const handleOpenRegisterModalForUnregisteredRow = (row: TenderDetailRow) => {
+
+    const handleOpenRegisterModalForUnregisteredRow = useCallback((row: TenderDetailRow) => {
         if (row.isCategory) {
             setCategoryToRegister({
                 description: row.description,
@@ -1405,147 +1392,75 @@ const TenderDetails = () => {
             });
             setOpenRegisterItemModal(true);
         }
-    };
+    }, []);
 
-    // const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
-    //     setLoadingTree(true);
-    //     const authToken = localStorage.localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         showAlert('Oturumunuzun süresi doldu.', 'error');
-    //         navigate("/");
-    //         setLoadingTree(false);
-    //         return;
-    //     }
+    const handleUpdateRegisteredItemInGrid = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
+        setLoadingTree(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Oturumunuzun süresi doldu.', 'error');
+            navigate("/");
+            setLoadingTree(false);
+            return;
+        }
 
-    //     axios.all([
-    //         axios.get<any>(server.baseurl + server.baseinfo + "get-categories", { headers: { "Authorization": `Bearer ${authToken}` } }),
-    //         axios.get<any>(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } })
-    //     ] as const)
-    //         .then(axios.spread(
-    //             (categoriesResponse, itemsResponse) => {
-    //                 const categoriesData = categoriesResponse.data.data as ApiCategoryType[] || [];
-    //                 const itemsData = itemsResponse.data.data as ApiItemType[] || [];
+        try {
+            const [categoriesResponse, itemsResponse] = await Promise.all([
+                axios.get<any>(server.baseurl + server.baseinfo + "get-categories", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<any>(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } })
+            ]);
 
-    //                 const updatedTree = buildCombinedTree(categoriesData, itemsData);
-    //                 setCombinedTreeData(updatedTree);
-    //                 setLoadingTree(false);
+            const categoriesData = categoriesResponse.data.data || [];
+            const itemsData = itemsResponse.data.data || [];
 
-    //                 setGridData(prevGridData => {
-    //                     let updated = false;
-    //                     const registeredDataName = 'name' in registeredData ? registeredData.name : '';
-    //                     const newGridData = prevGridData.map(row => {
-    //                         const isCategoryRow = row.isCategory;
-    //                         const normalizedRowDescription = normalizeString(row.description);
+            const updatedTree = buildCombinedTree(categoriesData, itemsData);
+            setCombinedTreeData(updatedTree);
+            setLoadingTree(false);
 
-    //                         if (row.isUnregisteredItem && normalizedRowDescription === normalizeString(registeredDataName)) {
-    //                             updated = true;
-    //                             if (isCategoryRow && 'categories' in registeredData) {
-    //                                 return { ...row, isUnregisteredItem: false, itemId: null };
-    //                             } else if (!isCategoryRow && 'category' in registeredData) {
-    //                                 return { ...row, isUnregisteredItem: false, itemId: (registeredData as ApiItemType).id };
-    //                             }
-    //                         }
-    //                         return row;
-    //                     });
-    //                     if (updated) {
-    //                         showAlert(`Liste başarıyla güncellendi ve ${registeredDataName} öğesinin durumu ayarlandı!`, 'success');
-    //                     }
-    //                     return newGridData;
-    //                 });
-    //             }
-    //         ))
-    //         .catch(error => {
-    //             console.error("Error updating tree after registration:", error);
-    //             if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
-    //                 localStorage.removeItem('authToken');
-    //                 navigate("/");
-    //                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-    //             } else {
-    //                 showAlert(`Veri başarıyla kaydedildi, اما ağaç güncellenmedi. Lütfen sayfayı yenileyin: ${error.response?.data?.message || error.message || 'Bilinmeyen Hata'}`, 'warning');
-    //             }
-    //             setLoadingTree(false);
-    //         });
-    // }, [showAlert, navigate]);
+            setGridData(prevGridData => {
+                let updated = false;
+                const registeredDataName = 'name' in registeredData ? registeredData.name : '';
+                const newGridData = prevGridData.map(row => {
+                    const isCategoryRow = row.isCategory;
+                    const normalizedRowDescription = normalizeString(row.description);
 
-const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
-    setLoadingTree(true);
-    // Fix for potential `localStorage.localStorage` typo, ensure it's just `localStorage`
-    const authToken = localStorage.getItem('authToken'); 
-    if (!authToken) {
-        showAlert('Oturumunuzun süresi doldu.', 'error');
-        navigate("/");
-        setLoadingTree(false);
-        return;
-    }
+                    if (row.isUnregisteredItem && normalizedRowDescription === normalizeString(registeredDataName)) {
+                        updated = true;
+                        let newItemId: number | null = row.itemId;
 
-    // Explicitly define types for axios.all promises for better type inference
-    axios.all([
-               axios.get<any>(server.baseurl + server.baseinfo + "get-categories", { headers: { "Authorization": `Bearer ${authToken}` } }),
-            axios.get<any>(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } })
-        
-    ])
-        .then(axios.spread( // axios.spread will correctly unpack the results based on the Promise types
-            (categoriesResponse, itemsResponse) => {
-                const categoriesData = categoriesResponse.data.data || [];
-                const itemsData = itemsResponse.data.data || [];
-
-                const updatedTree = buildCombinedTree(categoriesData, itemsData);
-                setCombinedTreeData(updatedTree);
-                setLoadingTree(false);
-
-                setGridData(prevGridData => {
-                    let updated = false;
-                    const registeredDataName = 'name' in registeredData ? registeredData.name : '';
-                    const newGridData = prevGridData.map(row => {
-                        const isCategoryRow = row.isCategory;
-                        const normalizedRowDescription = normalizeString(row.description);
-
-                        // Check if this is the row that was just registered
-                        if (row.isUnregisteredItem && normalizedRowDescription === normalizeString(registeredDataName)) {
-                            updated = true;
-                            let newItemId: number | null = row.itemId; // Default to existing itemId
-
-                            // Determine the new itemId based on whether it's an item or category
-                            if (!isCategoryRow && 'id' in registeredData) {
-                                // For an item, registeredData.id is a number.
-                                newItemId = Number(registeredData.id); 
-                            } else if (isCategoryRow) {
-                                // For a category, itemId should be null
-                                newItemId = null;
-                            }
-                            
-                            const updatedRow: TenderDetailRow = {
-                                ...row,
-                                isUnregisteredItem: false, // This is the key change
-                                itemId: newItemId, // Assign the (possibly new) numeric itemId
-                                // The `toplam` values will be re-evaluated by `processedAndFilteredGridData`
-                                // which calls `calculateTotals` without forceRecalculate (which respects `isFromExcel`)
-                                // or with forceRecalculate:true if category percentage changes.
-                                // This is crucial for UI consistency without full reload.
-                            };
-                            return updatedRow;
+                        if (!isCategoryRow && 'id' in registeredData) {
+                            newItemId = Number(registeredData.id);
+                        } else if (isCategoryRow) {
+                            newItemId = null;
                         }
-                        return row;
-                    });
-                    if (updated) {
-                        showAlert(`Liste başarıyla güncellendi و "${registeredDataName}" öğesinin durumu ayarlandı!`, 'success');
+
+                        const updatedRow: TenderDetailRow = {
+                            ...row,
+                            isUnregisteredItem: false,
+                            itemId: newItemId,
+                        };
+                        return updatedRow;
                     }
-                    return newGridData;
+                    return row;
                 });
-            }
-        ))
-        .catch(error => {
+                if (updated) {
+                    showAlert(`Liste başarıyla güncellendi ve "${registeredDataName}" öğesinin durumu ayarlandı!`, 'success');
+                }
+                return newGridData;
+            });
+        } catch (error: any) {
             console.error("Error updating tree after registration:", error);
             if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                showAlert(`Veri başarıyla kaydedildi، اما ağaç güncellenmedi. Lütfen sayfayı yenileyin: ${error.response?.data?.message || error.message || 'Bilinmeyen Hata'}`, 'warning');
+                showAlert(`Veri başarıyla kaydedildi, ama ağaç güncellenmedi. Lütfen sayfayı yenileyin: ${error.response?.data?.message || error.message || 'Bilinmeyen Hata'}`, 'warning');
             }
             setLoadingTree(false);
-        });
-}, [showAlert, navigate, normalizeString]); // Added normalizeString to dependencies
+        }
+    }, [showAlert, navigate]);
+
 
     const handleRegistrationSuccess = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
         setOpenRegisterItemModal(false);
@@ -1557,21 +1472,21 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
 
     }, [handleUpdateRegisteredItemInGrid]);
 
-    const handleCloseRegisterItemModal = () => {
+    const handleCloseRegisterItemModal = useCallback(() => {
         setOpenRegisterItemModal(false);
         setItemToRegister(null);
-    };
+    }, []);
 
-    const handleCloseRegisterCategoryModal = () => {
+    const handleCloseRegisterCategoryModal = useCallback(() => {
         setOpenRegisterCategoryModal(false);
         setCategoryToRegister(null);
-    };
+    }, []);
 
 
     const handleAddRecord = async () => {
         let finalDescription = '';
         let finalItemId: number | null = null;
-        const selectedNode = newRecordSelectedUnifiedNodeId ? findNodeById(combinedTreeData, newRecordSelectedUnifiedNodeId) : null;
+        const selectedNode = newRecordSelectedUnifiedNodeId ? findNodeByIdPure(combinedTreeData, newRecordSelectedUnifiedNodeId) : null;
 
         if (selectedNode && selectedNode.type === 'item') {
             finalDescription = selectedNode.name;
@@ -1597,7 +1512,8 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                 const addedItemId = await addNewItemToApi(finalDescription);
                 if (addedItemId !== null) {
                     finalItemId = addedItemId;
-                    await fetchDataAndBuildTree();
+                    // After adding, refetch tree data to ensure it's up-to-date for future lookups
+                    await fetchDataAndBuildTree(); 
                 } else {
                     return;
                 }
@@ -1605,7 +1521,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         }
 
         if (finalItemId === null && !isNewRecordCategory && finalDescription !== '') {
-            const nodeFromTree = findNodeByNameAndType(combinedTreeData, normalizedFinalDescription, 'item');
+            const nodeFromTree = findNodeByNameAndTypePure(combinedTreeData, normalizedFinalDescription, 'item');
             if (nodeFromTree && nodeFromTree.originalData?.id !== undefined) {
                 finalItemId = nodeFromTree.originalData.id;
             } else {
@@ -1651,18 +1567,18 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
             birimFiyatDemontaj: newRecordRow.birimFiyatDemontaj,
             birimFiyatDemontajMontaj: newRecordRow.birimFiyatDemontajMontaj,
 
-            toplamMalzeme: 0, // Placeholder, calculateTotals will set
+            toplamMalzeme: 0,
             toplamMontaj: 0,
             toplamDemontaj: 0,
             toplamDemontajdanMontaj: 0,
 
-            isUnregisteredItem: !findNodeByNameAndType(combinedTreeData, normalizedFinalDescription, isNewRecordCategory ? 'category' : 'item'),
+            isUnregisteredItem: !findNodeByNameAndTypePure(combinedTreeData, normalizedFinalDescription, isNewRecordCategory ? 'category' : 'item'),
             itemId: finalItemId,
             aciklama: newRecordRow.aciklama,
             categoryPercentage: isNewRecordCategory ? newRecordRow.categoryPercentage : null,
             isCategory: isNewRecordCategory,
-            isFromExcel: false, // NEW: Mark new manual entries as NOT from Excel
-        }, true); // **Force recalculation for new manual entries**
+            isFromExcel: false,
+        }, true);
 
         setGridData(prev => [...prev, newRecord]);
         showAlert('Yeni kayıt başarıyla eklendi!', 'success');
@@ -1690,11 +1606,11 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         setIsNewRecordTreeSelectOpen(false);
     };
 
-    const handleEditGridRow = (rowId: number) => {
+    const handleEditGridRow = useCallback((rowId: number) => {
         const rowToEdit = gridData.find(row => row.id === rowId);
         if (rowToEdit) {
             setEditingRowId(rowId);
-            setEditingRowData({ ...rowToEdit }); // Create a copy to edit
+            setEditingRowData({ ...rowToEdit });
 
             setEditingBirimFiyatMalzeme(formatInputNumberForDisplay(rowToEdit.birimFiyatMalzeme, 2));
             setEditingBirimFiyatMontaj(formatInputNumberForDisplay(rowToEdit.birimFiyatMontaj, 2));
@@ -1705,9 +1621,9 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
             let foundNode: UnifiedTreeNode | undefined;
 
             if (rowToEdit.isCategory) {
-                foundNode = findNodeByNameAndType(combinedTreeData, normalizedDescription, 'category');
+                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedDescription, 'category');
             } else {
-                foundNode = findNodeByNameAndType(combinedTreeData, normalizedDescription, 'item');
+                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedDescription, 'item');
             }
 
             if (foundNode) {
@@ -1718,7 +1634,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                 setEditingRowTreeSearchTerm('');
             }
         }
-    };
+    }, [gridData, combinedTreeData]);
 
 
     const handleEditRowInputChange = useCallback((
@@ -1730,7 +1646,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         setEditingRowData(prev => {
             if (!prev) return null;
 
-            let updatedData: TenderDetailRow = { ...prev, isFromExcel: false }; // Mark as not from Excel when manually editing
+            let updatedData: TenderDetailRow = { ...prev, isFromExcel: false };
 
             let cleanedValue = value;
             let parsedValue: number;
@@ -1762,7 +1678,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                     if (updatedData.isCategory) {
                         (updatedData as any)[name] = parseFloat(cleanedValue) || null;
                     } else {
-                        (updatedData as any)[name] = null; // Cannot set percentage for items
+                        (updatedData as any)[name] = null;
                     }
                 } else {
                     parsedValue = parseFloat(cleanedValue) || 0;
@@ -1776,8 +1692,10 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                 setEditingRowTreeSearchTerm(String(value));
                 setEditingRowSelectedUnifiedNodeId(null);
                 updatedData.description = String(value);
+                // `isCategory` for an edited row needs careful re-evaluation based on its olcuBrimi
+                // If olcuBrimi is empty, it's a category.
                 updatedData.isCategory = updatedData.olcuBrimi.trim() === '';
-                if (!updatedData.isCategory) updatedData.categoryPercentage = null;
+                if (!updatedData.isCategory) updatedData.categoryPercentage = null; // Clear percentage for items
             }
             else if (name === 'aciklama') {
                 updatedData.aciklama = String(value);
@@ -1787,26 +1705,32 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
             }
             else if (name === 'olcuBrimi') {
                 updatedData.olcuBrimi = String(value);
+                // `isCategory` is derived from olcuBrimi
                 updatedData.isCategory = updatedData.olcuBrimi.trim() === '';
-                if (!updatedData.isCategory) updatedData.categoryPercentage = null;
+                if (!updatedData.isCategory) updatedData.categoryPercentage = null; // Clear percentage for items
             }
 
-            // Always force recalculate totals for edited rows
             const tempUpdatedData = calculateTotals(updatedData, true);
 
-            const foundNode = findNodeByNameAndType(combinedTreeData, normalizeString(tempUpdatedData.description), tempUpdatedData.isCategory ? 'category' : 'item');
+            // Re-evaluate isUnregisteredItem after description or olcuBrimi changes
+            const foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizeString(tempUpdatedData.description), tempUpdatedData.isCategory ? 'category' : 'item');
             tempUpdatedData.isUnregisteredItem = !foundNode;
+            if (!tempUpdatedData.isCategory) { // Only update itemId for items
+                tempUpdatedData.itemId = foundNode?.originalData?.id ?? null;
+            } else { // Category, so itemId should be null
+                tempUpdatedData.itemId = null;
+            }
 
             return tempUpdatedData;
         });
-    }, [calculateTotals, combinedTreeData, findNodeByNameAndType]);
+    }, [calculateTotals, combinedTreeData, setEditingBirimFiyatMalzeme, setEditingBirimFiyatMontaj, setEditingBirimFiyatDemontaj, setEditingBirimFiyatDemontajMontaj]);
 
     const handleUpdateGridRow = async () => {
         if (!editingRowId || !editingRowData) return;
 
         let updatedRowData: TenderDetailRow = { ...editingRowData };
 
-        const selectedNode = editingRowSelectedUnifiedNodeId ? findNodeById(combinedTreeData, editingRowSelectedUnifiedNodeId) : null;
+        const selectedNode = editingRowSelectedUnifiedNodeId ? findNodeByIdPure(combinedTreeData, editingRowSelectedUnifiedNodeId) : null;
 
         if (selectedNode && selectedNode.type === 'item') {
             updatedRowData.description = selectedNode.name;
@@ -1816,18 +1740,20 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         }
         else if (editingRowTreeSearchTerm && !editingRowSelectedUnifiedNodeId) {
             updatedRowData.description = editingRowTreeSearchTerm;
-            updatedRowData.itemId = null;
+            updatedRowData.itemId = null; // If manually typed and not found in tree
         }
 
         if (!updatedRowData.description) {
             showAlert('Açıklama (MALZEME VEYA İŞİN CİNSİ) alanı boş bırakılamaz!', 'warning');
             return;
         }
+        // Re-evaluate isCategory based on olcuBrimi one last time
         updatedRowData.isCategory = updatedRowData.olcuBrimi.trim() === '';
         if (!updatedRowData.isCategory && !updatedRowData.olcuBrimi) {
             showAlert('Ölçü Birimi boş bırakılamaz! Lütfen geçerli bir ürün seçin.', 'warning');
             return;
         }
+        if (!updatedRowData.isCategory) updatedRowData.categoryPercentage = null; // Ensure items don't have category percentage
 
         if (isItemDescriptionDuplicate(updatedRowData.description, gridData, updatedRowData.id)) {
             showAlert(`"${updatedRowData.description}" ürünü zaten listede mevcut. Yinelenen kayıt ekleyemezsiniz. Varolan kaydı düzenleyebilirsiniz.`, 'warning');
@@ -1838,12 +1764,12 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
 
         let isUnregisteredAfterEdit: boolean;
         if (updatedRowData.isCategory) {
-            isUnregisteredAfterEdit = !findNodeByNameAndType(combinedTreeData, normalizedUpdatedDescription, 'category');
-            updatedRowData.itemId = null;
+            isUnregisteredAfterEdit = !findNodeByNameAndTypePure(combinedTreeData, normalizedUpdatedDescription, 'category');
+            updatedRowData.itemId = null; // Categories don't have item IDs
         } else {
-            isUnregisteredAfterEdit = !findNodeByNameAndType(combinedTreeData, normalizedUpdatedDescription, 'item');
-            const nodeFromTree = findNodeByNameAndType(combinedTreeData, normalizedUpdatedDescription, 'item');
-            updatedRowData.itemId = nodeFromTree?.originalData?.id ?? null;
+            isUnregisteredAfterEdit = !findNodeByNameAndTypePure(combinedTreeData, normalizedUpdatedDescription, 'item');
+            const nodeFromTree = findNodeByNameAndTypePure(combinedTreeData, normalizedUpdatedDescription, 'item');
+            updatedRowData.itemId = nodeFromTree?.originalData?.id ?? null; // Update itemId if item is found/registered
         }
         updatedRowData.isUnregisteredItem = isUnregisteredAfterEdit;
 
@@ -1857,7 +1783,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         }
 
         // Final calculation after all user inputs and selections are processed.
-        const finalCalculatedRow = calculateTotals(updatedRowData, true); // **Force recalculate one last time on save**
+        const finalCalculatedRow = calculateTotals(updatedRowData, true);
 
 
         setGridData(prev => prev.map(row =>
@@ -1877,7 +1803,8 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         setEditingBirimFiyatDemontaj('');
         setEditingBirimFiyatDemontajMontaj('');
     };
-    const handleCancelEditGridRow = () => {
+
+    const handleCancelEditGridRow = useCallback(() => {
         setEditingRowId(null);
         setEditingRowData(null);
         setEditingRowSelectedUnifiedNodeId(null);
@@ -1889,7 +1816,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
         setEditingBirimFiyatDemontaj('');
         setEditingBirimFiyatDemontajMontaj('');
         showAlert('İşlem iptal edildi.', 'info');
-    };
+    }, [showAlert]);
 
     const totalMalzemeTutariTl = useMemo(() => {
         return processedAndFilteredGridData.reduce((sum, row) => {
@@ -1932,6 +1859,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
     }, [totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl]);
 
     const hasUnregisteredItems = useMemo(() => {
+        // Only consider items for this check, not categories (as categories might be "unregistered" from master but part of tender)
         return processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory);
     }, [processedAndFilteredGridData]);
 
@@ -1968,107 +1896,178 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
     }, [processedAndFilteredGridData, hasMoreData, initialDisplayLimit, loadMoreStep]);
 
 
-    const handleSaveAllData = async () => {
-        setIsLoading(true);
+   // ... (Your existing code) ...
 
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            showAlert('Oturumunuzun süresi doldu.', 'error');
-            navigate("/");
-            setIsLoading(false);
-            return;
-        }
-        if (gridData.length === 0) {
-            showAlert('Kaydedilecek veri bulunamadı.', 'warning');
-            setIsLoading(false);
-            return;
-        }
-        if (editingRowId !== null) {
-            showAlert('Lütfen önce açık olan düzenlemeyi tamamlayın veya iptal edin.', 'warning');
-            setIsLoading(false);
-            return;
-        }
-        if (processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory)) {
-            showAlert('Kaydedilmemiş ürünler var. Lütfen tüm ürünleri ekleyin veya listeden seçin.', 'warning');
-            setIsLoading(false);
-            return;
-        }
+const handleSaveAllData = async () => {
+    setIsLoading(true);
 
-        setIsSavingAll(true);
-        setAlertMessage(null);
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+        showAlert('Oturumunuzun süresi doldu.', 'error');
+        navigate("/");
+        setIsLoading(false);
+        return;
+    }
+    if (gridData.length === 0) {
+        showAlert('Kaydedilecek veri bulunamadı.', 'warning');
+        setIsLoading(false);
+        return;
+    }
+    if (editingRowId !== null) {
+        showAlert('Lütfen önce açık olan düzenlemeyi tamamlayın veya iptal edin.', 'warning');
+        setIsLoading(false);
+        return;
+    }
+    if (processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory)) {
+        showAlert('Kaydedilmemiş ürünler var. Lütfen tüm ürünleri ekleyin veya listeden seçin.', 'warning');
+        setIsLoading(false);
+        return;
+    }
 
-        const payload = {
-            id: Number(tenderId),
-            title: tenderTitle,
-            details: gridData.map(row => {
-                const mappedItemId = row.itemId !== null ? Number(row.itemId) : null;
+    setIsSavingAll(true);
+    setAlertMessage(null);
 
-                return {
-                    id: row.id,
-                    eskiPoz: row.eskiPoz,
-                    tedasNo: row.tedasNo,
-                    anaNo: row.anaNo,
-                    altNo: row.altNo,
-                    firmProcuredItemQuantities: row.malzeme,
-                    ourProcuredItemQuantities: row.malzemeYuklenici,
-                    montajQuantity: row.montaj,
-                    demontaj: row.demontaj,
-                    demontajMontaj: row.demontajMontaj,
+    // =======================================================================
+    // START: Constructing the Payload for PUT request
+    // =======================================================================
 
-                    firmProcuredItemPrice: row.birimFiyatMalzeme,
-                    ourProcuredItemPrice: row.birimFiyatMalzeme,
-                    montajPrice: row.birimFiyatMontaj,
-                    demontajPrice: row.birimFiyatDemontaj,
-                    demontajMontajPrice: row.birimFiyatDemontajMontaj,
+    // Group gridData by category for the new API structure
+    const groupedData: { [categoryDescription: string]: { categoryRow: TenderDetailRow, items: TenderDetailRow[] } } = {};
+    
+    // Iterate through all gridData to build the grouped structure
+    gridData.forEach(row => {
+        if (row.isCategory) {
+            // For category rows, use their description as the key
+            groupedData[normalizeString(row.description)] = {
+                categoryRow: row,
+                items: []
+            };
+        } else {
+            // For item rows, find their parent category from combinedTreeData
+            let parentCategoryName: string = "Uncategorized"; // Default if item has no category or category not found
 
-                    itemId: mappedItemId,
-                    aciklama: row.aciklama,
-                    categoryPercentage: row.isCategory ? row.categoryPercentage : null,
-                    isCategory: row.isCategory,
-
-                    // Send the calculated totals, which now correctly reflect the source (Excel vs. calculated)
-                    toplamMalzeme: row.toplamMalzeme, 
-                    toplamMontaj: row.toplamMontaj,
-                    toplamDemontaj: row.toplamDemontaj,
-                    toplamDemontajdanMontaj: row.toplamDemontajdanMontaj,
-                };
-            })
-        };
-
-        try {
-            const response = await axios.put(
-                server.baseurl + server.initialoperations + "update-tender",
-                payload,
-                {
-                    headers: {
-                        "Accept": "application/json",
-                        'Content-Type': 'application/json',
-                        "Authorization": `Bearer ${authToken}`
+            if (row.itemId !== null) {
+                const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
+                if (itemNode && itemNode.originalData?.category?.id) {
+                    const parentCategoryNode = findNodePathPure(combinedTreeData, `cat-${itemNode.originalData.category.id}`).find(n => n.type === 'category');
+                    if (parentCategoryNode) {
+                        parentCategoryName = normalizeString(parentCategoryNode.name);
                     }
                 }
-            );
-
-            if (response.status === 200) {
-                showAlert('İhale detayları başarıyla güncellendi!', 'success');
-            } else {
-                showAlert(`Güncelleme başarısız oldu: ${response.data?.message || 'Bilinmeyen bir hata oluştu.'}`, 'error');
             }
-        } catch (error: any) {
-            if (error.response && error.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            
+            // If the category for this item hasn't been added yet (e.g., if it came from Excel without an explicit category row)
+            if (!groupedData[parentCategoryName]) {
+                // Create a "dummy" category row for items whose category exists in the tree but not as a separate grid row.
+                // This might happen if items are imported without their explicit category header row in Excel,
+                // but their category is known from the master data.
+                // This dummy category will not have an 'id' property in the API payload, as it's not a real category object from API GET.
+                groupedData[parentCategoryName] = {
+                    categoryRow: {
+                        id: 0, // No API ID for this "synthetic" category row
+                        siraNo: 0, eskiPoz: '', tedasNo: 0, anaNo: 0, altNo: 0,
+                        description: parentCategoryName, olcuBrimi: '',
+                        malzeme: 0, malzemeYuklenici: 0, montaj: 0, demontaj: 0, demontajMontaj: 0,
+                        birimFiyatMalzeme: 0, birimFiyatMontaj: 0, birimFiyatDemontaj: 0, birimFiyatDemontajMontaj: 0,
+                        toplamMalzeme: 0, toplamMontaj: 0, toplamDemontaj: 0, toplamDemontajdanMontaj: 0,
+                        isUnregisteredItem: false, itemId: null,
+                        aciklama: '', // No specific aciklama for a dummy category
+                        categoryPercentage: null, // No specific percentage for a dummy category, or it can be derived from combinedTreeData if category itself has percent
+                        isCategory: true,
+                        isFromExcel: false // This is generated internally
+                    },
+                    items: []
+                };
+                // If you need the actual percentage of this 'synthetic' category, you'd find it in `combinedTreeData` too.
+                const actualCategoryNode = findNodeByNameAndTypePure(combinedTreeData, parentCategoryName, 'category');
+                if (actualCategoryNode && actualCategoryNode.originalData /* Assuming originalData contains percent */) {
+                    // Update dummy category's percentage if found in master tree
+                    // You'd need to add 'percent' to ApiCategoryType or UnifiedTreeNode if it's there
+                    // groupedData[parentCategoryName].categoryRow.categoryPercentage = actualCategoryNode.originalData.percent;
+                }
             }
-            console.error("Error updating tender details:", error);
-            showAlert(`İhale detayları güncellenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
-        } finally {
-            setIsSavingAll(false);
-            setIsLoading(false);
+            groupedData[parentCategoryName].items.push(row);
         }
+    });
+
+    // Transform grouped data into the API's expected 'categories' array
+    const categoriesPayload = Object.values(groupedData).map(group => {
+        return {
+            // No 'id' for the category object itself in the PUT payload structure you provided.
+            // If API expects it, you'd need to store category ID from GET response in TenderDetailRow or a separate state.
+            // id: group.categoryRow.apiCategoryId || null, // Example if you had category IDs
+            percent: group.categoryRow.categoryPercentage || 0, // Using percentage from the category row
+            description: group.categoryRow.description,
+            details: group.items.map(itemRow => ({
+                id: itemRow.id, // Assuming API expects this ID back for existing items (from GET response)
+                eskiPoz: itemRow.eskiPoz,
+                tedas: String(itemRow.tedasNo), // Convert back to string for API
+                ana: String(itemRow.anaNo),
+                alt: String(itemRow.altNo),
+                firmProcuredItemQuantities: itemRow.malzeme,
+                ourProcuredItemQuantities: itemRow.malzemeYuklenici,
+                // montajQuantity: itemRow.montaj, // NOT in your provided new API structure for details for PUT
+                demontaj: itemRow.demontaj,
+                demontajMontaj: itemRow.demontajMontaj,
+                firmProcuredItemPrice: String(itemRow.birimFiyatMalzeme),
+                ourProcuredItemPrice: String(itemRow.birimFiyatMalzeme), // Assuming same as firmProcuredItemPrice if not distinct
+                montajPrice: String(itemRow.birimFiyatMontaj),
+                demontajPrice: String(itemRow.birimFiyatDemontaj),
+                demontajMontajPrice: String(itemRow.birimFiyatDemontajMontaj),
+                itemId: itemRow.itemId, // Send the actual master item ID
+                // aciklama: itemRow.aciklama, // NOT in your provided new API structure for details for PUT
+            }))
+        };
+    });
+
+    const payload = {
+        id: Number(tenderId), // Tender ID from URL params
+        // title: tenderTitle, // NOT in your provided new API structure for PUT
+        categories: categoriesPayload, // NEW: Renamed from tenderCategories to categories
     };
+    
+    // =======================================================================
+    // END: Constructing the Payload for PUT request
+    // =======================================================================
+
+    try {
+        const response = await axios.put(
+            server.baseurl + server.initialoperations + "update-tender",
+            payload, // Send the constructed payload
+            {
+                headers: {
+                    "Accept": "application/json",
+                    'Content-Type': 'application/json',
+                    "Authorization": `Bearer ${authToken}`
+                }
+            }
+        );
+
+        if (response.status === 200) {
+            showAlert('İhale detayları başarıyla güncellendi!', 'success');
+            // After successful save, you might want to reload the data from API
+            // to ensure the UI is fully consistent with the backend, especially if
+            // backend makes further changes (e.g., re-calculates totals or assigns new IDs).
+            // loadExistingTenderDetails(); // Consider calling this here
+        } else {
+            showAlert(`Güncelleme başarısız oldu: ${response.data?.message || 'Bilinmeyen bir hata oluştu.'}`, 'error');
+        }
+    } catch (error: any) {
+        if (error.response && error.response.status === 401) {
+            localStorage.removeItem('authToken');
+            navigate("/");
+            showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+        }
+        console.error("Error updating tender details:", error);
+        showAlert(`İhale detayları güncellenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
+    } finally {
+        setIsSavingAll(false);
+        setIsLoading(false);
+    }
+};
 
 
-    const handleDeleteGridRow = (rowId: number) => {
+    const handleDeleteGridRow = useCallback((rowId: number) => {
         setGridData(prev => {
             const updatedGrid = prev.filter(row => row.id !== rowId);
             return updatedGrid;
@@ -2085,9 +2084,9 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
             setEditingBirimFiyatDemontaj('');
             setEditingBirimFiyatDemontajMontaj('');
         }
-    };
+    }, [editingRowId, showAlert]);
 
-    const handleExportExcelPreview = () => {
+    const handleExportExcelPreview = useCallback(() => {
         if (!templateWorkbookBuffer) {
             showAlert('Excel şablonu henüz yüklenmedi veya yüklenemedi.', 'warning');
             return;
@@ -2105,7 +2104,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
             row.montaj, row.demontaj, row.demontajMontaj,
             row.birimFiyatMalzeme, row.birimFiyatMontaj, row.birimFiyatDemontaj, row.birimFiyatDemontajMontaj,
             row.aciklama,
-            row.categoryPercentage !== null ? row.categoryPercentage : '',
+            row.isCategory && row.categoryPercentage !== null ? row.categoryPercentage : '', // Only show for categories
             row.toplamMalzeme, row.toplamMontaj, row.toplamDemontaj, row.toplamDemontajdanMontaj
         ]);
 
@@ -2191,7 +2190,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
             { s: { r: startRowForTotals + 1, c: 16 }, e: { r: startRowForTotals + 1, c: 17 } },
         ];
 
-        ws['!merges'] = specificMerges;
+        ws['!merges'] = (ws['!merges'] || []).concat(specificMerges); // Append merges
 
         const colWidths = [
             { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 30 }, { wch: 10 },
@@ -2209,8 +2208,91 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
 
         XLSX.writeFile(workbook, `İhaleDetayları_${tenderId}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
         showAlert('Excel önizlemesi başarıyla oluşturuldu!', 'success');
+    }, [templateWorkbookBuffer, gridData, totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl, totalKesifBedeliTl, tenderId, showAlert]);
+
+    interface CombinedTreeMenuItemProps {
+    node: UnifiedTreeNode;
+    selectedId: string | null;
+    onSelect: (node: UnifiedTreeNode) => void;
+    isSearchActive: boolean;
+    isNodeAncestorOfSpecificSelectedId: (nodeId: string, specificSelectedId: string | null) => boolean;
+}
+
+const CombinedTreeMenuItem: React.FC<CombinedTreeMenuItemProps> = ({ node, selectedId, onSelect, isSearchActive, isNodeAncestorOfSpecificSelectedId }) => {
+    const [open, setOpen] = useState(isSearchActive || node.type === 'item' || isNodeAncestorOfSpecificSelectedId(node.id, selectedId));
+
+    useEffect(() => {
+        setOpen(isSearchActive || node.type === 'item' || isNodeAncestorOfSpecificSelectedId(node.id, selectedId));
+    }, [isSearchActive, node.type, isNodeAncestorOfSpecificSelectedId, node.id, selectedId]);
+
+    const handleToggleCollapse = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setOpen(!open);
     };
 
+    const handleSelection = (e: React.MouseEvent | React.ChangeEvent) => {
+        e.stopPropagation();
+        if (node.type === 'item') {
+            onSelect(node);
+        }
+    };
+
+    return (
+        <>
+            <MuiMenuItem
+                onClick={handleSelection}
+                sx={{
+                    paddingLeft: `${node.depth * 20 + 8}px`,
+                    fontWeight: node.type === 'category' ? 'bold' : 'normal',
+                    backgroundColor: selectedId === node.id ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
+                    '&:hover': {
+                        backgroundColor: selectedId === node.id ? 'rgba(0, 0, 0, 0.12)' : 'rgba(0, 0, 0, 0.04)',
+                    },
+                    opacity: node.type === 'category' && node.children.length === 0 ? 0.6 : 1,
+                    pointerEvents: node.type === 'category' && node.children.length === 0 ? 'none' : 'auto',
+                }}
+                disabled={node.type === 'category' && node.children.length === 0}
+            >
+                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%', gap: 1 }}>
+                    {node.children && node.children.length > 0 && node.type === 'category' ? (
+                        <IconButton onClick={handleToggleCollapse} size="small" sx={{ p: 0.5 }}>
+                            {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                        </IconButton>
+                    ) : (
+                        <Box sx={{ width: 28 }} />
+                    )}
+
+                    {node.type === 'item' && (
+                        <Checkbox
+                            edge="start"
+                            size="small"
+                            checked={selectedId === node.id}
+                            onChange={handleSelection}
+                            sx={{ p: 0 }}
+                            tabIndex={-1}
+                            disableRipple
+                        />
+                    )}
+                    <ListItemText primary={node.name} primaryTypographyProps={{ variant: 'body2', noWrap: true }} />
+                </Box>
+            </MuiMenuItem>
+            {open && node.children && (
+                <List component="div" disablePadding>
+                    {node.children.map(childNode => (
+                        <CombinedTreeMenuItem
+                            key={childNode.id}
+                            node={childNode}
+                            selectedId={selectedId}
+                            onSelect={onSelect}
+                            isSearchActive={isSearchActive}
+                            isNodeAncestorOfSpecificSelectedId={isNodeAncestorOfSpecificSelectedId}
+                        />
+                    ))}
+                </List>
+            )}
+        </>
+    );
+};
 
     return (
         <Box sx={{ p: 3 }} >
@@ -2513,7 +2595,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                                                         {newRecordTreeSearchTerm && !newRecordSelectedUnifiedNodeId && (
                                                             <MuiMenuItem onClick={() => {
                                                                 setNewRecordManualInput(newRecordTreeSearchTerm);
-                                                                setNewRecordRow(prev => calculateTotals({ ...prev, description: newRecordTreeSearchTerm, isCategory: (prev.olcuBrimi.trim() === '') }, true)); // Force recalc
+                                                                setNewRecordRow(prev => calculateTotals({ ...prev, description: newRecordTreeSearchTerm, isCategory: (prev.olcuBrimi.trim() === '') }, true));
                                                                 setNewRecordSelectedUnifiedNodeId(null);
                                                                 setIsNewRecordTreeSelectOpen(false);
                                                             }}>
@@ -2808,7 +2890,8 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                                                             open={isEditingRowTreeSelectOpen}
                                                             onOpen={() => {
                                                                 setIsEditingRowTreeSelectOpen(true);
-                                                                const foundNode = findNodeByNameAndType(combinedTreeData, normalizeString(editingRowData?.description || ''), (editingRowData?.isCategory ?? false) ? 'category' : 'item');
+                                                                // Pre-select if current description matches an item/category in tree
+                                                                const foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizeString(editingRowData?.description || ''), (editingRowData?.isCategory ?? false) ? 'category' : 'item');
                                                                 if (foundNode) {
                                                                     setEditingRowSelectedUnifiedNodeId(foundNode.id);
                                                                 } else {
@@ -2892,6 +2975,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                                                         value={editingRowData?.olcuBrimi || ''}
                                                         onChange={handleEditRowInputChange}
                                                         sx={{ width: 90, '& input': { textAlign: 'center' } }}
+                                                        disabled={editingRowData?.isCategory} // Disable if it's a category
                                                     />
                                                 ) : (
                                                     <Typography variant="body2" sx={{ textAlign: 'center' }}>{row.olcuBrimi}</Typography>
@@ -3045,7 +3129,6 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                                                         value={editingRowData?.aciklama || ''}
                                                         onChange={handleEditRowInputChange}
                                                         sx={{ width: 180 }}
-                                                        disabled={loading || isSavingAll || isLoading}
                                                         placeholder="Açıklama girin..."
                                                     />
                                                 ) : (
@@ -3063,7 +3146,7 @@ const handleUpdateRegisteredItemInGrid = useCallback((registeredData: ApiItemTyp
                                                         value={formatInputNumberForDisplay(editingRowData?.categoryPercentage ?? null, 2)}
                                                         onChange={handleEditRowInputChange}
                                                         sx={{ width: 90, '& input': { textAlign: 'center' } }}
-                                                        disabled={!editingRowData?.isCategory || loading || isSavingAll || isLoading}
+                                                        disabled={!editingRowData?.isCategory}
                                                         placeholder={editingRowData?.isCategory ? "%n" : "N/A"}
                                                     />
                                                 ) : (

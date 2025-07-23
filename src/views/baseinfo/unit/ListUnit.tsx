@@ -665,7 +665,7 @@ const ListUnit = () => {
                       },
                     }}
                   >
-                    Etkin Değil
+                    Pasif
                   </ToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -777,7 +777,7 @@ const ListUnit = () => {
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
-                              Etkin değil
+                              Pasif Yap
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
@@ -787,7 +787,7 @@ const ListUnit = () => {
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>
-                              Aktif
+                              Aktif Yap
                             </MenuItem>
                           </CustomTooltip>
                         )}

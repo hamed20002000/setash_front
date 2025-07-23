@@ -1,5 +1,5 @@
 // ListUsersModal.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -28,7 +28,7 @@ import Slide from '@mui/material/Slide';
 import { IconX, IconChevronDown } from '@tabler/icons-react';
 import { TransitionProps } from '@mui/material/transitions';
 import axios from 'axios';
-import server from '../../../assets/address.json'; 
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
@@ -73,36 +73,36 @@ type Props = {
 };
 
 // ==============================================================================================
-// 🌟🌟🌟🌟🌟 توابع API (بدون تغییر) 🌟🌟🌟🌟🌟
+// 🌟🌟🌟🌟🌟 توابع API (تغییر در fetchUserRolesAndPermissions) 🌟🌟🌟🌟🌟
 // ==============================================================================================
 
 interface MenuApiRawItem {
-    id: string; name: string; url: string; depth: number; order: number; recordStatus: number;
-    menuOperations: Array<{ id: string; systemOperation: { id: string; name: string; } }>;
-    menus: MenuApiRawItem[];
+  id: string; name: string; url: string; depth: number; order: number; recordStatus: number;
+  menuOperations: Array<{ id: string; systemOperation: { id: string; name: string; } }>;
+  menus: MenuApiRawItem[];
 }
 
 const mapApiMenuToModalMenuItem = (apiMenus: MenuApiRawItem[]): MenuItemType[] => {
-    return apiMenus
-        .filter((item: MenuApiRawItem) => item.recordStatus === 0)
-        .sort((a: MenuApiRawItem, b: MenuApiRawItem) => a.order - b.order)
-        .map((item: MenuApiRawItem) => {
-            const mappedItem: MenuItemType = {
-                id: item.id, name: item.name, url: item.url === '#' ? undefined : item.url,
-                availableOperations: item.menuOperations.map((op: any) => ({ id: op.systemOperation.id, name: op.systemOperation.name, })), // 🌟 Type `any` موقت برای op
-            };
-            if (item.menus && item.menus.length > 0) { mappedItem.children = mapApiMenuToModalMenuItem(item.menus); }
-            return mappedItem;
-        });
+  return apiMenus
+    .filter((item: MenuApiRawItem) => item.recordStatus === 0)
+    .sort((a: MenuApiRawItem, b: MenuApiRawItem) => a.order - b.order)
+    .map((item: MenuApiRawItem) => {
+      const mappedItem: MenuItemType = {
+        id: item.id, name: item.name, url: item.url === '#' ? undefined : item.url,
+        availableOperations: item.menuOperations.map((op: any) => ({ id: op.systemOperation.id, name: op.systemOperation.name, })),
+      };
+      if (item.menus && item.menus.length > 0) { mappedItem.children = mapApiMenuToModalMenuItem(item.menus); }
+      return mappedItem;
+    });
 };
 
 export const fetchAllMenusWithOperations = async (): Promise<MenuItemType[]> => {
   const authToken = localStorage.getItem('authToken');
   if (!authToken) { console.warn("No auth token found for all menus with operations."); return []; }
   try {
-      const response = await axios.get(server.baseurl + server.baseinfo + 'get-menus', { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` } });
-      if (response.data.success && response.data.data) { return mapApiMenuToModalMenuItem(response.data.data as MenuApiRawItem[]); }
-      console.warn('API response for all menus with operations was not successful or data was empty.', response.data); return [];
+    const response = await axios.get(server.baseurl + server.baseinfo + 'get-menus', { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` } });
+    if (response.data.success && response.data.data) { return mapApiMenuToModalMenuItem(response.data.data as MenuApiRawItem[]); }
+    console.warn('API response for all menus with operations was not successful or data was empty.', response.data); return [];
   } catch (error: any) { console.error('Error fetching all menus with operations:', error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return []; }
 };
 
@@ -110,42 +110,64 @@ export const fetchAllRoles = async (): Promise<RoleType[]> => {
   const authToken = localStorage.getItem('authToken');
   if (!authToken) { console.warn("No auth token found for all roles."); return []; }
   try {
-      const response = await axios.get(server.baseurl + server.user + "get-roles", { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` } });
-      if (response.data.httpStatusCode === 200) { 
-        return response.data.data.map((item: any) => ({ id: item.id, name: item.name })) as RoleType[]; // 🌟 Type `any` موقت برای item 
-      }
-      console.warn('Rol listesi alınırken bir hata oluştu.', response.data); return [];
+    const response = await axios.get(server.baseurl + server.user + "get-roles", { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` } });
+    if (response.data.httpStatusCode === 200) {
+      return response.data.data.map((item: any) => ({ id: item.id, name: item.name })) as RoleType[];
+    }
+    console.warn('Rol listesi alınırken bir hata oluştu.', response.data); return [];
   } catch (error: any) { console.error("Error fetching all roles:", error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return []; }
 };
 
-export const fetchUserRolesAndPermissions = async (userId: string): Promise<RolePermissionAssignment[]> => {
+// 🔴 تغییر: این تابع حالا از API `get-user-with-role-and-operations/{userId}` استفاده می‌کند
+// و نقش‌های اختصاص یافته و دسترسی‌های پیش‌فرض آن‌ها را برای نمایش برمی‌گرداند.
+export const fetchUserRolesAndPermissions = async (userId: string): Promise<{
+    assignedRoleIds: string[],
+    rolePermissions: RolePermissionAssignment[]
+}> => {
     const authToken = localStorage.getItem('authToken');
-    if (!authToken) { console.warn("No auth token found for user roles and permissions."); return []; }
+    if (!authToken) { console.warn("No auth token found for user roles and operations."); return { assignedRoleIds: [], rolePermissions: [] }; }
     try {
-        const response = await axios.get(`${server.baseurl}${server.user}get-user-roles-and-permissions/${userId}`, {
+        const response = await axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`, {
             headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
         });
-        if (response.data.success && response.data.data && response.data.data.assignedRoles) {
-            return response.data.data.assignedRoles.map((assignment: any) => ({ // 🌟 Type `any` موقت برای assignment
-                roleId: assignment.roleId,
-                permissions: assignment.permissions || {},
-            })) as RolePermissionAssignment[];
+        if (response.data.success && response.data.data) {
+            const userRoles = response.data.data.userRoles || []; // آرایه نقش‌های کاربر
+            const assignedRoleIds = userRoles.map((ur: any) => ur.role.id) as string[]; // ID نقش‌ها
+            
+            // اگر API دسترسی‌های منو/عملیات پیش‌فرض هر نقش را در اینجا برمی‌گرداند (مثلاً در userRoles[i].role.permissions)
+            // باید آن را نیز نگاشت کنید. فعلاً فرض می‌کنیم این اطلاعات از API `get-user-roles-and-permissions` می‌آمد
+            // و این API (get-user-with-role-and-operations) فقط نقش‌ها را می‌دهد.
+            // اگر userMenuOperations دسترسی‌های خاص کاربر را نمایش می‌دهد، می‌توانید از آن استفاده کنید.
+            // برای هدف "فقط نمایش دسترسی‌های پیش‌فرض رول"، این بخش را ساده نگه می‌داریم.
+            const rolePermissions: RolePermissionAssignment[] = userRoles.map((ur:any) => ({
+                roleId: ur.role.id,
+                // فرض می‌کنیم دسترسی‌های پیش‌فرض رول از جای دیگری واکشی شده یا در اینجا موجود نیست.
+                // در غیر این صورت، این اطلاعات باید از یک API دیگر برای هر رول واکشی شود.
+                // برای این کامپوننت که فقط نمایش می‌دهد، این قسمت را فعلاً با آبجکت خالی پر می‌کنیم
+                // تا زمانی که یک API برای 'default_permissions_for_role_X' داشته باشیم.
+                permissions: ur.role.defaultMenuOperations || {} // اگر بک‌اند شما defaultMenuOperations را برمی‌گرداند
+            }));
+
+            return { assignedRoleIds, rolePermissions };
         }
-        console.warn('API response for user roles and permissions was not successful or data was empty.', response.data);
-        return [];
-    } catch (error: any) { console.error(`Error fetching user roles and permissions for userId ${userId}:`, error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return []; }
+        console.warn('API response for user roles and operations was not successful or data was empty.', response.data);
+        return { assignedRoleIds: [], rolePermissions: [] };
+    } catch (error: any) { console.error(`Error fetching user roles and operations for userId ${userId}:`, error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return { assignedRoleIds: [], rolePermissions: [] }; }
 };
 
-export const saveUserRolesAndPermissions = async (userId: string, assignments: RolePermissionAssignment[]): Promise<boolean> => {
-    const authToken = localStorage.getItem('authToken');
-    if (!authToken) { console.warn("No auth token found for saving user roles and permissions."); return false; }
-    try {
-        const payload = { UserId: userId, assignedRolesWithCustomPermissions: assignments };
-        const response = await axios.post(`${server.baseurl}${server.user}assign-user-roles-and-permissions`, payload, {
-            headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` }
-        });
-        return response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201;
-    } catch (error: any) { console.error(`Error saving user roles and permissions for userId ${userId}:`, error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } throw error; }
+
+export const saveUserRolesAndPermissions = async (userId: string, selectedRoleIds: string[]): Promise<boolean> => {
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) { console.warn("No auth token found for saving user roles."); return false; }
+  try {
+    const roleIdsAsNumbers = selectedRoleIds.map(id => Number(id));
+debugger
+    const payload = { UserId: userId, roleIds: roleIdsAsNumbers };
+    const response = await axios.post(`${server.baseurl}${server.user}assign-user-roles`, payload, {
+      headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` }
+    });
+    return response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201;
+  } catch (error: any) { console.error(`Error saving user roles for userId ${userId}:`, error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } throw error; }
 };
 
 // ==============================================================================================
@@ -154,20 +176,20 @@ export const saveUserRolesAndPermissions = async (userId: string, assignments: R
 const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) => {
   const navigate = useNavigate();
   const [allRoles, setAllRoles] = useState<RoleType[]>([]);
-  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]); // 🌟 تغییر: به string[]
+  const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [rolePermissionsForUser, setRolePermissionsForUser] = useState<RolePermissionAssignment[]>([]);
 
-  const [expandedRoleAccordions, setExpandedRoleAccordions] = useState<string[]>([]); // 🌟 تغییر: به string[]
+  const [expandedRoleAccordions, setExpandedRoleAccordions] = useState<string[]>([]);
 
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [openErrorModal, setOpenErrorModal] = useState<boolean>(false);
-  const [expandedMenusForRole, setExpandedMenusForRole] = useState<{ [roleId: string]: string[] }>({}); // 🌟 تغییر: roleId به string
+  const [expandedMenusForRole, setExpandedMenusForRole] = useState<{ [roleId: string]: string[] }>({});
   const [allMenusWithOperations, setAllMenusWithOperations] = useState<MenuItemType[]>([]);
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
-  const VIEW_OPERATION_ID = '35'; // 🌟 حتماً مطمئن شوید این ID واقعی 'Görüntülemek' است
+  // const VIEW_OPERATION_ID = '35';
 
   // ------------------------------------------------------------------------------------------
   // ✨ Effect برای لود کردن رول‌ها، تمام منوها و دسترسی‌های اولیه کاربر
@@ -178,17 +200,17 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       Promise.all([
         fetchAllRoles(),
         fetchAllMenusWithOperations(),
+        // 🔴 از تابع API به‌روز شده استفاده کنید
         fetchUserRolesAndPermissions(userId)
       ])
-        .then(([roles, menus, userRoleAssignments]) => {
+        .then(([roles, menus, { assignedRoleIds, rolePermissions }]) => { // 🔴 تغییر در اینجا برای گرفتن assignedRoleIds و rolePermissions
           setAllRoles(roles);
-          const initialSelectedRoleIds = userRoleAssignments.map(assignment => assignment.roleId);
-          setSelectedRoleIds(initialSelectedRoleIds);
-          setRolePermissionsForUser(userRoleAssignments);
-          setAllMenusWithOperations(menus); // مطمئن شوید این خط بعد از setAllRoles است
+          setSelectedRoleIds(assignedRoleIds); // 🔴 از assignedRoleIds جدید استفاده کنید
+          setRolePermissionsForUser(rolePermissions); // 🔴 دسترسی‌های پیش‌فرض رول را برای نمایش تنظیم کنید
+          setAllMenusWithOperations(menus);
           setLoading(false);
 
-          setExpandedRoleAccordions(initialSelectedRoleIds);
+          setExpandedRoleAccordions(assignedRoleIds); // 🔴 باز کردن آکاردئون رول‌های اختصاص یافته
         })
         .catch(err => {
           console.error("Failed to load data for modal:", err);
@@ -203,73 +225,69 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       setAllRoles([]);
       setSelectedRoleIds([]);
       setRolePermissionsForUser([]);
-      setExpandedRoleAccordions([]); 
+      setExpandedRoleAccordions([]);
       setLoading(false);
       setSaving(false);
       setOpenErrorModal(false);
       setExpandedMenusForRole({});
       setAllMenusWithOperations([]);
     }
-  }, [openRoleModal, userId, navigate]);
+  }, [openRoleModal, userId, navigate, showAlert]);
 
   // ------------------------------------------------------------------------------------------
-  // ✨ هندلرها برای انتخاب رول در ستون چپ
+  // ✨ هندلرها برای انتخاب رول در ستون چپ (این بخش فعال باقی می‌ماند)
   // ------------------------------------------------------------------------------------------
 
-  const handleToggleRoleSelection = (roleId: string) => () => { // 🌟 تغییر: roleId به string
+  const handleToggleRoleSelection = useCallback((roleId: string) => () => {
     setSelectedRoleIds(prevSelectedIds => {
       const currentIndex = prevSelectedIds.indexOf(roleId);
-      let newSelectedIds: string[]; // 🌟 تغییر: به string[]
-      let newRolePermissionsForUser = [...rolePermissionsForUser];
-      let newExpandedRoleAccordions = [...expandedRoleAccordions]; 
+      let newSelectedIds: string[];
 
       if (currentIndex === -1) {
         newSelectedIds = [...prevSelectedIds, roleId];
-        newRolePermissionsForUser.push({ roleId: roleId, permissions: {} });
-        newExpandedRoleAccordions.push(roleId); 
+        // 🔴 اگر در اینجا نیاز به بارگذاری دسترسی‌های پیش‌فرض یک رول جدید انتخاب شده دارید،
+        // باید یک فراخوانی API جداگانه برای `get-role-with-operations/{roleId}` انجام دهید
+        // و نتیجه را به `rolePermissionsForUser` اضافه کنید.
+        // اما چون این کامپوننت فقط "نمایشی" است، فعلاً این کار را نمی‌کنیم.
       } else {
         newSelectedIds = prevSelectedIds.filter(id => id !== roleId);
-        newRolePermissionsForUser = newRolePermissionsForUser.filter(assignment => assignment.roleId !== roleId);
-        newExpandedRoleAccordions = newExpandedRoleAccordions.filter(id => id !== roleId); 
+        // 🔴 هنگام حذف رول، دسترسی‌های آن را از `rolePermissionsForUser` نیز حذف کنید
+        // تا در نمایش سمت راست حذف شوند.
+        setRolePermissionsForUser(prevPerms => prevPerms.filter(p => p.roleId !== roleId));
       }
-      setRolePermissionsForUser(newRolePermissionsForUser);
-      setExpandedRoleAccordions(newExpandedRoleAccordions); 
       return newSelectedIds;
     });
-  };
+  }, []);
 
-  const handleToggleRoleAccordion = (roleId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => { // 🌟 تغییر: roleId به string
+   const handleToggleRoleAccordion = useCallback((roleId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+    // از event.stopPropagation() استفاده کنید اگر نمی‌خواهید کلیک به عناصر والد منتقل شود
+    event.stopPropagation(); // جلوگیری از انتشار کلیک به آیتم لیست والد
     setExpandedRoleAccordions(prev => {
-          console.log(event)
-        if (isExpanded) {
-            return Array.from(new Set([...prev, roleId]));
-        } else {
-            return prev.filter(id => id !== roleId);
-        }
+      if (isExpanded) {
+        return Array.from(new Set([...prev, roleId]));
+      } else {
+        return prev.filter(id => id !== roleId);
+      }
     });
-  };
+  }, []);
 
-    const handleListItemClick  = (roleId: string) => (event: React.MouseEvent<HTMLLIElement>) => {
-        // از `event.stopPropagation()` استفاده کنید اگر نمی‌خواهید کلیک به عناصر والد منتقل شود
-        // event.stopPropagation(); 
-        
-        setExpandedRoleAccordions(prev => {
-          console.log(event)
-            if (prev.includes(roleId)) {
-                // اگر roleId قبلاً وجود دارد، آن را حذف کنید (یعنی "جمع شود" یا "انتخابش برداشته شود")
-                return prev.filter(id => id !== roleId);
-            } else {
-                // اگر roleId وجود ندارد، آن را اضافه کنید (یعنی "باز شود" یا "انتخاب شود")
-                return Array.from(new Set([...prev, roleId]));
-            }
-        });
-    };
+
+  const handleListItemClick = useCallback((roleId: string) => (event: React.MouseEvent<HTMLLIElement>) => {
+    setExpandedRoleAccordions(prev => {
+      console.log(event)
+      if (prev.includes(roleId)) {
+        return prev.filter(id => id !== roleId);
+      } else {
+        return Array.from(new Set([...prev, roleId]));
+      }
+    });
+  }, []);
 
   // ------------------------------------------------------------------------------------------
-  // ✨ هندلرها و توابع کمکی برای مدیریت دسترسی‌های منو و عملیات
+  // ✨ توابع کمکی برای نمایش منوها و عملیات‌ها (فقط برای نمایش، بدون منطق تغییر)
   // ------------------------------------------------------------------------------------------
 
-  const findMenuItemById = (menus: MenuItemType[], id: string): MenuItemType | undefined => {
+  const findMenuItemById = useCallback((menus: MenuItemType[], id: string): MenuItemType | undefined => {
     for (const menu of menus) {
       if (menu.id === id) return menu;
       if (menu.children) {
@@ -278,9 +296,9 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       }
     }
     return undefined;
-  };
+  }, []);
 
-  const getAllChildMenuAndOperationIds = (menu: MenuItemType): { menuIds: string[], operationIds: string[] } => {
+  const getAllChildMenuAndOperationIds = useCallback((menu: MenuItemType): { menuIds: string[], operationIds: string[] } => {
     let menuIds: string[] = [menu.id];
     let operationIds: string[] = [];
 
@@ -294,194 +312,23 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       });
     }
     return { menuIds, operationIds: Array.from(new Set(operationIds)) };
-  };
+  }, []);
 
-
-  const updateMenuPermissionsForRole = (
-    currentRoleId: string, // 🌟 تغییر: currentRoleId به string
-    updater: (prevMenuPerms: { [menuId: string]: string[] }) => { [menuId: string]: string[] }
-  ) => {
-    setRolePermissionsForUser(prevAssignments => {
-      const newAssignments = prevAssignments.map(assignment => {
-        if (assignment.roleId === currentRoleId) {
-          return {
-            ...assignment,
-            permissions: updater(assignment.permissions || {}),
-          };
-        }
-        return assignment;
-      });
-      return newAssignments;
-    });
-  };
-
-  const handleToggleMenuAccess = (currentRoleId: string, menu: MenuItemType) => (event: React.MouseEvent<HTMLButtonElement> | React.ChangeEvent<HTMLInputElement>) => {
-   
-    if (event && 'stopPropagation' in event) { 
-      (event as React.MouseEvent<HTMLButtonElement>).stopPropagation();
-    }
-    
-    updateMenuPermissionsForRole(currentRoleId, prevMenuPerms => {
-      const newMenuPerms = { ...prevMenuPerms };
-      const isCurrentlyChecked = !!newMenuPerms[menu.id];
-
-      if (isCurrentlyChecked) {
-        delete newMenuPerms[menu.id];
-        const { menuIds: childMenuIds } = getAllChildMenuAndOperationIds(menu);
-        childMenuIds.forEach(id => { if (newMenuPerms[id]) { delete newMenuPerms[id]; } });
-      } else {
-        const { menuIds: childMenuIds } = getAllChildMenuAndOperationIds(menu);
-        const viewOperation = menu.availableOperations.find(op => op.name === 'Görüntülemek');
-        if (viewOperation) { newMenuPerms[menu.id] = [viewOperation.id]; } else if (!menu.children) { newMenuPerms[menu.id] = []; } else { newMenuPerms[menu.id] = []; }
-
-        childMenuIds.forEach(id => {
-            const childMenu = findMenuItemById(allMenusWithOperations, id);
-            if (childMenu) {
-                const childViewOperation = childMenu.availableOperations.find(op => op.name === 'Görüntülemek');
-                if (childViewOperation) { newMenuPerms[childMenu.id] = [childViewOperation.id]; } else if (!childMenu.children) { newMenuPerms[childMenu.id] = []; } else { newMenuPerms[childMenu.id] = []; }
-            }
-        });
-      }
-      return newMenuPerms;
-    });
-  };
-
-  const handleToggleOperation = (currentRoleId: string, menuId: string, operationId: string) => () => { // 🌟 تغییر: currentRoleId به string
-    updateMenuPermissionsForRole(currentRoleId, prevMenuPerms => {
-      const newMenuPerms = { ...prevMenuPerms };
-      let currentOperations = newMenuPerms[menuId] ? [...newMenuPerms[menuId]] : [];
-
-      const currentIndex = currentOperations.indexOf(operationId);
-
-      if (currentIndex === -1) { // عملیات اضافه می‌شود
-        currentOperations.push(operationId);
-        
-        if (operationId !== VIEW_OPERATION_ID && !currentOperations.includes(VIEW_OPERATION_ID)) {
-            currentOperations.push(VIEW_OPERATION_ID);
-        }
-        newMenuPerms[menuId] = Array.from(new Set(currentOperations));
-
-      } else { // عملیات حذف می‌شود
-        currentOperations = currentOperations.filter(op => op !== operationId);
-        
-        if (operationId === VIEW_OPERATION_ID) {
-            newMenuPerms[menuId] = [];
-            delete newMenuPerms[menuId];
-        } else {
-            newMenuPerms[menuId] = currentOperations;
-            
-            const menu = findMenuItemById(allMenusWithOperations, menuId);
-            if (newMenuPerms[menuId]?.length === 0 && !menu?.children) { // 🌟 اضافه کردن Optional Chaining برای length
-                delete newMenuPerms[menuId];
-            }
-        }
-      }
-      return newMenuPerms;
-    });
-  };
-
-  const handleAccordionChangeForMenu = (roleId: string, panelId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => { // 🌟 تغییر: roleId به string
+ const handleAccordionChangeForMenu = useCallback((currentRoleId: string, menuId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+    event.stopPropagation(); // جلوگیری از انتشار کلیک به Summary آکاردئون والد
     setExpandedMenusForRole(prevExpanded => {
-          console.log(event)
-        const newExpanded = { ...prevExpanded };
-        const currentRoleExpandedMenus = newExpanded[roleId] || [];
-        if (isExpanded) {
-            newExpanded[roleId] = Array.from(new Set([...currentRoleExpandedMenus, panelId]));
-        } else {
-            newExpanded[roleId] = currentRoleExpandedMenus.filter(p => p !== panelId);
-        }
-        return newExpanded;
-    });
-  };
-
-
-  const handleSelectAllPermissionsForRole = (currentRoleId: string) => () => { // 🌟 تغییر: currentRoleId به string
-    updateMenuPermissionsForRole(currentRoleId, prevMenuPerms => {
-      const newMenuPerms: { [menuId: string]: string[] } = {};
-      
-      let allOperationsTrulySelected = true;
-      allMenusWithOperations.forEach(menu => {
-        const { menuIds } = getAllChildMenuAndOperationIds(menu);
-        menuIds.forEach(id => {
-          const currentMenu = findMenuItemById(allMenusWithOperations, id);
-          if (currentMenu) {
-            const selectedOpsForThisMenu = prevMenuPerms[id] || [];
-            const allAvailableOpsForMenu = currentMenu.availableOperations.map(op => op.id);
-            if (allAvailableOpsForMenu.length !== selectedOpsForThisMenu.length ||
-                !allAvailableOpsForMenu.every(opId => selectedOpsForThisMenu.includes(opId))) {
-                allOperationsTrulySelected = false;
-            }
-          }
-        });
-      });
-
-      if (allOperationsTrulySelected) {
-        return {};
+      const newExpanded = { ...prevExpanded };
+      const currentRoleExpandedMenus = newExpanded[currentRoleId] || []; // از currentRoleId استفاده کن
+      if (isExpanded) {
+        newExpanded[currentRoleId] = Array.from(new Set([...currentRoleExpandedMenus, menuId])); // از menuId استفاده کن
       } else {
-        const selectAllRecursive = (menus: MenuItemType[]) => {
-          menus.forEach(menu => {
-            newMenuPerms[menu.id] = menu.availableOperations.map(op => op.id);
-            if (menu.children && menu.children.length > 0) {
-              selectAllRecursive(menu.children);
-            }
-          });
-        };
-        selectAllRecursive(allMenusWithOperations);
-        return newMenuPerms;
+        newExpanded[currentRoleId] = currentRoleExpandedMenus.filter(p => p !== menuId); // از menuId استفاده کن
       }
+      return newExpanded;
     });
-  };
-
-  const getCountOfSelectableItems = (menus: MenuItemType[]): number => {
-    let count = 0;
-    menus.forEach(menu => {
-      count++;
-      if (menu.children) {
-        count += getCountOfSelectableItems(menu.children);
-      }
-    });
-    return count;
-  }
-  
-  const validatePermissionsForSave = (assignments: RolePermissionAssignment[], allMenus: MenuItemType[]): boolean => {
-    let isValid = true;
-    const errors: string[] = [];
-    
-    assignments.forEach(assignment => {
-        const roleName = allRoles.find(r => r.id === assignment.roleId)?.name || `Role ${assignment.roleId}`;
-        for (const menuId in assignment.permissions) {
-            const selectedOperations = assignment.permissions[menuId];
-            if (selectedOperations.length === 0) {
-                const menu = findMenuItemById(allMenus, menuId);
-                if (menu && !menu.children && menu.availableOperations.length > 0) {
-                     errors.push(`${roleName} rolü için '${menu.name}' menüsünde en az bir operasyon seçilmelidir.`);
-                     isValid = false;
-                }
-                continue;
-            }
-
-            const hasOtherOperations = selectedOperations.some(opId => opId !== VIEW_OPERATION_ID);
-            const hasViewPermission = selectedOperations.includes(VIEW_OPERATION_ID);
-
-            if (hasOtherOperations && !hasViewPermission) {
-                const menu = findMenuItemById(allMenus, menuId);
-                errors.push(`${menu?.name || 'Bir menü'} için 'Görüntülemek' izni olmadan diğer operasyonlar seçilemez.`);
-                isValid = false;
-            }
-        }
-    });
-
-    if (!isValid) {
-        console.error("Final permission validation errors:", errors);
-        showAlert(errors.join('\n') || 'İzinlerde bazı hatalar var. Lütfen kontrol edin.', 'error');
-    }
-    return isValid;
-  };
+  }, []);
 
 
-  // ------------------------------------------------------------------------------------------
-  // ✨ تابع ذخیره نهایی
-  // ------------------------------------------------------------------------------------------
   const handleSaveUserRolesAndPermissions = async () => {
     if (userId === null) {
       showAlert('Kullanıcı seçilmedi.', 'error');
@@ -501,50 +348,40 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
       return;
     }
 
-    const assignmentsToSend = rolePermissionsForUser.filter(assignment =>
-        selectedRoleIds.includes(assignment.roleId)
-    );
-
-    if (!validatePermissionsForSave(assignmentsToSend, allMenusWithOperations)) {
-        setSaving(false);
-        return;
-    }
-
     try {
-      const success = await saveUserRolesAndPermissions(userId, assignmentsToSend);
+      const success = await saveUserRolesAndPermissions(userId, selectedRoleIds);
 
       if (success) {
-        showAlert('Kullanıcı rolleri ve izinleri başarıyla güncellendi!', 'success');
+        showAlert('Kullanıcı rolleri başarıyla güncellendi!', 'success');
         onClose();
       } else {
-        showAlert('Kullanıcı rolleri ve izinleri güncellenirken bir hata oluştu.', 'error');
+        showAlert('Kullanıcı rolleri güncellenirken bir hata oluştu.', 'error');
       }
     } catch (error: any) {
-      console.error("Error saving user roles and permissions:", error);
+      console.error("Error saving user roles:", error);
       if (axios.isAxiosError(error)) {
         if (error.response && error.response.status === 400) {
-            setOpenErrorModal(true);
+          setOpenErrorModal(true);
         } else if (error.response && error.response.status === 401) {
-            localStorage.removeItem('authToken');
-            navigate("/");
-            showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+          localStorage.removeItem('authToken');
+          navigate("/");
+          showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
         } else {
-            
+          showAlert('Roller kaydedilirken beklenmeyen bir hata oluştu، lütfen tekrar deneyin.', 'error');
         }
       } else {
-          showAlert('Rol izinleri kaydedilirken beklenmeyen bir hata oluştu، lütfen tekrar deneyin.', 'error');
+        showAlert('Roller kaydedilirken beklenmeyen bir hata oluştu، lütfen tekrar deneyin.', 'error');
       }
     } finally {
       setSaving(false);
     }
   };
 
-
   // ------------------------------------------------------------------------------------------
-  // ✨ کامپوننت رندر کننده منوها و عملیات‌ها برای یک رول خاص
+  // ✨ کامپوننت رندر کننده منوها و عملیات‌ها برای یک رول خاص (فقط نمایشی)
   // ------------------------------------------------------------------------------------------
 
-  const renderMenuItemsForRole = (currentRoleId: string, menuItems: MenuItemType[], level: number = 0) => { // 🌟 تغییر: currentRoleId به string
+  const renderMenuItemsForRole = (currentRoleId: string, menuItems: MenuItemType[], level: number = 0) => {
     const currentRoleAssignment = rolePermissionsForUser.find(assignment => assignment.roleId === currentRoleId);
     const currentRoleMenuPermissions = currentRoleAssignment ? currentRoleAssignment.permissions : {};
 
@@ -555,17 +392,27 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
           const isParentMenu = !!menu.children && menu.children.length > 0;
 
           const getIndeterminateStatus = (currentMenu: MenuItemType): boolean => {
-              if (!currentMenu.children || currentMenu.children.length === 0) {
-                  return false;
-              }
-              const allChildIds = getAllChildMenuAndOperationIds(currentMenu).menuIds;
-              const selectedChildCount = allChildIds.filter(id => currentRoleMenuPermissions[id]).length;
+            if (!currentMenu.children || currentMenu.children.length === 0) return false;
 
-              return selectedChildCount > 0 && selectedChildCount < allChildIds.length;
-          }
+            let allChildMenusSelected = true;
+            let anyChildMenuSelected = false;
+
+            currentMenu.children.forEach(child => {
+              const childHasPermission = !!currentRoleMenuPermissions[child.id];
+              if (childHasPermission) {
+                anyChildMenuSelected = true;
+              } else {
+                allChildMenusSelected = false;
+              }
+              if (getIndeterminateStatus(child)) {
+                  anyChildMenuSelected = true;
+              }
+            });
+
+            return anyChildMenuSelected && !allChildMenusSelected;
+          };
 
           const isIndeterminate = isParentMenu ? getIndeterminateStatus(menu) : false;
-
 
           return (
             <React.Fragment key={menu.id}>
@@ -584,10 +431,10 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                     expandIcon={<IconChevronDown />}
                     aria-controls={`${menu.id}-content`} id={`${menu.id}-header`}
                     sx={{
-                        padding: '0 16px', minHeight: '48px !important',
-                        '&.Mui-expanded': { minHeight: '48px !important', },
-                        '& .MuiAccordionSummary-content': { margin: '12px 0 !important', },
-                        borderBottom: (theme) => ((expandedMenusForRole[currentRoleId] || []).includes(menu.id) ? `1px solid ${theme.palette.divider}` : 'none'),
+                      padding: '0 16px', minHeight: '48px !important',
+                      '&.Mui-expanded': { minHeight: '48px !important', },
+                      '& .MuiAccordionSummary-content': { margin: '12px 0 !important', },
+                      borderBottom: (theme) => ((expandedMenusForRole[currentRoleId] || []).includes(menu.id) ? `1px solid ${theme.palette.divider}` : 'none'),
                     }}
                   >
                     <ListItem dense sx={{ width: '100%', padding: 0 }}>
@@ -596,9 +443,9 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                           edge="start"
                           checked={isMenuChecked}
                           indeterminate={isIndeterminate}
-                          onChange={handleToggleMenuAccess(currentRoleId, menu)} // 🌟 تغییر: currentRoleId به string
                           tabIndex={-1}
                           disableRipple
+                          disabled // 🔴 غیرفعال شده: فقط نمایشی
                         />
                       </ListItemIcon>
                       <ListItemText primary={<Typography variant="subtitle1">{menu.name}</Typography>} />
@@ -614,9 +461,9 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                     <Checkbox
                       edge="start"
                       checked={isMenuChecked}
-                      onChange={handleToggleMenuAccess(currentRoleId, menu)} // 🌟 تغییر: currentRoleId به string
                       tabIndex={-1}
                       disableRipple
+                      disabled // 🔴 غیرفعال شده: فقط نمایشی
                     />
                   </ListItemIcon>
                   <ListItemText primary={menu.name} />
@@ -629,7 +476,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                             <Checkbox
                               size="small"
                               checked={currentRoleMenuPermissions[menu.id]?.includes(op.id) || false}
-                              onChange={handleToggleOperation(currentRoleId, menu.id, op.id)} // 🌟 تغییر: currentRoleId به string
+                              disabled // 🔴 غیرفعال شده: فقط نمایشی
                             />
                           }
                           label={<Typography variant="caption">{op.name}</Typography>}
@@ -660,8 +507,8 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
             <Typography ml={2} flex={1} variant="h6" component="div">
               Kullanıcı Rol ve İzinlerini Yönet
             </Typography>
-            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen izinleri kaydet" : ""}>
-              <span> {/* Wrapper span */}
+            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen rolleri kaydet" : ""}>
+              <span>
                 <Button autoFocus color="inherit" onClick={handleSaveUserRolesAndPermissions} disabled={loading || saving || selectedRoleIds.length === 0}>
                   {saving ? <CircularProgress size={20} color="inherit" /> : 'Kaydet'}
                 </Button>
@@ -670,8 +517,8 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
           </Toolbar>
         </AppBar>
         <DialogContent sx={{ p: 0, display: 'flex', height: '100%', maxHeight: 'calc(100vh - 64px)' }}>
-          {/* ستون چپ: لیست رول‌ها */}
-          <Box sx={{ width: '25%', flexShrink: 0, borderRight: '1px solid #e0e0e0', height: '100%', overflowY: 'auto' }}>
+          {/* ستون چپ: لیست رول‌ها (انتخابی) */}
+          <Box sx={{ width: { xs: '100%', sm: '35%', md: '25%' }, flexShrink: 0, borderRight: '1px solid #e0e0e0', height: '100%', overflowY: 'auto' }}>
             <Typography variant="h6" mb={2} sx={{ p: 2, pb: 0 }}>Roller</Typography>
             {loading ? (
               <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -685,7 +532,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                   allRoles.map(role => (
                     <ListItem
                       key={role.id}
-                      onClick={handleListItemClick(role.id)} 
+                      onClick={handleListItemClick(role.id)}
                       selected={selectedRoleIds.includes(role.id)}
                       sx={{
                         borderRadius: 0,
@@ -698,14 +545,14 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                       }}
                     >
                       <ListItemIcon>
-                          <Checkbox
-                              edge="start"
-                              checked={selectedRoleIds.includes(role.id)}
-                              onChange={handleToggleRoleSelection(role.id)}
-                              tabIndex={-1}
-                              disableRipple
-                              onClick={(e) => e.stopPropagation()}
-                          />
+                        <Checkbox
+                          edge="start"
+                          checked={selectedRoleIds.includes(role.id)}
+                          onChange={handleToggleRoleSelection(role.id)}
+                          tabIndex={-1}
+                          disableRipple
+                          onClick={(e) => e.stopPropagation()}
+                        />
                       </ListItemIcon>
                       <ListItemText primary={role.name} />
                     </ListItem>
@@ -715,85 +562,44 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
             )}
           </Box>
 
-          {/* ستون راست: دسترسی‌های منو و عملیات */}
-          <Box sx={{ width: '75%', p: 2, height: '100%', overflowY: 'auto' }}>
-            <Typography variant="h6" mb={2}>Menü ve Operasyon İzinleri</Typography>
+          {/* ستون راست: دسترسی‌های منو و عملیات (فقط نمایشی) */}
+          <Box sx={{ width: { xs: '100%', sm: '65%', md: '75%' }, p: 2, height: '100%', overflowY: 'auto' }}>
+            <Typography variant="h6" mb={2}>Menü ve Operasyon İzinleri (Sadece Görüntülenebilir)</Typography>
             {loading ? (
               <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
                 <CircularProgress />
               </Box>
             ) : selectedRoleIds.length === 0 ? (
-              <Typography color="textSecondary">Lütfen izinlerini yönetmek için en az bir rol seçin.</Typography>
+              <Typography color="textSecondary">Lütfen izinlerini görüntülemek için soldan bir rol seçin.</Typography>
             ) : (
               <Box>
                 {selectedRoleIds.map(roleId => {
-                    const role = allRoles.find(r => r.id === roleId);
-                    if (!role) return null;
+                  const role = allRoles.find(r => r.id === roleId);
+                  if (!role) return null;
 
-                    const currentRoleAssignment = rolePermissionsForUser.find(a => a.roleId === roleId);
-                    const currentRoleMenuPermissions = currentRoleAssignment ? currentRoleAssignment.permissions : {};
+                  // const currentRoleAssignment = rolePermissionsForUser.find(a => a.roleId === roleId);
+                  // const currentRoleMenuPermissions = currentRoleAssignment ? currentRoleAssignment.permissions : {};
 
-                    const isAllMenusSelectedForRole = (() => {
-                        if (allMenusWithOperations.length === 0) return false;
-                        let allOperationsAreTicked = true;
-                        allMenusWithOperations.forEach(menu => {
-                            const { menuIds } = getAllChildMenuAndOperationIds(menu);
-                            menuIds.forEach(id => {
-                                const currentMenu = findMenuItemById(allMenusWithOperations, id);
-                                if (currentMenu) {
-                                    const selectedOpsForThisMenu = currentRoleMenuPermissions[id] || [];
-                                    const allAvailableOpsForMenu = currentMenu.availableOperations.map(op => op.id);
-                                    if (selectedOpsForThisMenu.length !== allAvailableOpsForMenu.length ||
-                                        !allAvailableOpsForMenu.every(opId => selectedOpsForThisMenu.includes(opId))) {
-                                        allOperationsAreTicked = false;
-                                    }
-                                }
-                            });
-                        });
-                        return allOperationsAreTicked && Object.keys(currentRoleMenuPermissions).length === getCountOfSelectableItems(allMenusWithOperations);
-                    })();
-
-                    const isAnyMenuSelectedForRole = Object.keys(currentRoleMenuPermissions).length > 0;
-
-                    return (
-                        <Accordion
-                            key={`role-accordion-${role.id}`}
-                            expanded={expandedRoleAccordions.includes(role.id)}
-                            onChange={handleToggleRoleAccordion(role.id)}
-                            sx={{
-                                width: '100%', boxShadow: 'none', borderRadius: 0,
-                                '&:before': { display: 'none' },
-                                border: '1px solid rgba(0, 0, 0, 0.12)',
-                                mb: 1,
-                            }}
-                        >
-                            <AccordionSummary expandIcon={<IconChevronDown />}>
-                                <Typography variant="h6">{role.name} İzinleri</Typography>
-                            </AccordionSummary>
-                            <AccordionDetails sx={{ pt: 0, borderTop: '1px solid rgba(0, 0, 0, 0.12)' }}>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? (isAllMenusSelectedForRole ? "Bu rol için tüm izinleri kaldır" : "Bu rol için tüm menü ve tüm operasyon izinlerini seç") : ""}>
-                                    <ListItem
-                                        button
-                                        onClick={handleSelectAllPermissionsForRole(role.id)}
-                                        sx={{ py: 1, borderBottom: '1px solid rgba(0, 0, 0, 0.12)', mb: 2 }}
-                                    >
-                                        <ListItemIcon>
-                                            <Checkbox
-                                                edge="start"
-                                                checked={isAllMenusSelectedForRole}
-                                                indeterminate={isAnyMenuSelectedForRole && !isAllMenusSelectedForRole}
-                                                tabIndex={-1}
-                                                disableRipple
-                                            />
-                                        </ListItemIcon>
-                                        <ListItemText primary="Tümünü Seç/Kaldır" />
-                                    </ListItem>
-                                </CustomTooltip>
-
-                                {renderMenuItemsForRole(role.id, allMenusWithOperations)}
-                            </AccordionDetails>
-                        </Accordion>
-                    );
+                  return (
+                    <Accordion
+                      key={`role-accordion-${role.id}`}
+                      expanded={expandedRoleAccordions.includes(role.id)}
+                      onChange={handleToggleRoleAccordion(role.id)}
+                      sx={{
+                        width: '100%', boxShadow: 'none', borderRadius: 0,
+                        '&:before': { display: 'none' },
+                        border: '1px solid rgba(0, 0, 0, 0.12)',
+                        mb: 1,
+                      }}
+                    >
+                      <AccordionSummary expandIcon={<IconChevronDown />}>
+                        <Typography variant="h6">{role.name} İzinleri</Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ pt: 0, borderTop: '1px solid rgba(0, 0, 0, 0.12)' }}>
+                        {renderMenuItemsForRole(role.id, allMenusWithOperations)}
+                      </AccordionDetails>
+                    </Accordion>
+                  );
                 })}
               </Box>
             )}

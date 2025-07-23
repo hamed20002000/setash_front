@@ -27,19 +27,22 @@ const Logo: FC = () => {
 
   if (customizer.activeDir === 'ltr') {
     return (
-      <LinkStyled
-        to="/dashboards/dashboard"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-        }}
-      >
-        {customizer.activeMode === 'dark' ? (
+      // <LinkStyled
+      //   to="/dashboards/dashboard"
+      //   style={{
+      //     display: 'flex',
+      //     alignItems: 'center',
+      //   }}
+      // >
+      <>
+       {customizer.activeMode === 'dark' ? (
           <LogoLight />
         ) : (
           <LogoDark />
         )}
-      </LinkStyled>
+      </>
+       
+      // </LinkStyled>
     );
   }
 

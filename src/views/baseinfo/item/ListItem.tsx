@@ -1375,7 +1375,7 @@ const ListItemComponent = () => {
                     value="inactive"
                     aria-label="inactive items"
                   >
-                    Etkin Değil
+                    Pasif
                   </StyledToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -1553,7 +1553,7 @@ const ListItemComponent = () => {
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
-                              Etkin değil
+                              Pasif Yap
                             </MuiMenuItem>
                           </CustomTooltip>
                         ) : (
@@ -1563,7 +1563,7 @@ const ListItemComponent = () => {
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>
-                              Aktif
+                              Aktif Yap
                             </MuiMenuItem>
                           </CustomTooltip>
                         )}

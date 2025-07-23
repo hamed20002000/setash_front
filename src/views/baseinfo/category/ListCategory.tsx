@@ -868,7 +868,7 @@ const ListCategory = () => {
                     value="inactive"
                     aria-label="inactive categories"
                   >
-                    Etkin Değil
+                    Pasif
                   </StyledToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -1014,7 +1014,7 @@ const ListCategory = () => {
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
                                 </ListItemIcon>
-                                Etkin değil
+                                Pasif Yap
                               </MenuItem>
                             </CustomTooltip>
                           ) : (
@@ -1024,7 +1024,7 @@ const ListCategory = () => {
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
                                 </ListItemIcon>
-                                Aktif
+                                Aktif Yap
                               </MenuItem>
                             </CustomTooltip>
                           )}

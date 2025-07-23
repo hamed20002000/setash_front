@@ -1,7 +1,7 @@
 // SystemRole.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react"; // useRef را اضافه کنید
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"; // useCallback را اضافه کنید
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -9,7 +9,7 @@ import {
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup,
   ToggleButton,
-  TableSortLabel, // برای آیکون‌های مرتب‌سازی
+  TableSortLabel,
 } from '@mui/material';
 
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -38,7 +38,6 @@ interface RowType {
 const initialRows: RowType[] = [];
 
 // Helper functions for sorting - placed outside the component for reusability
-// توابع کمکی برای مرتب‌سازی - خارج از کامپوننت برای قابلیت استفاده مجدد
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
   b: T,
@@ -120,100 +119,168 @@ const SystemRole = () => {
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
-  // State برای فیلتر وضعیت
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // State برای مرتب‌سازی
-  const [orderBy, setOrderBy] = useState<keyof RowType>('createAt'); // ستون پیش‌فرض برای مرتب‌سازی
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // جهت پیش‌فرض مرتب‌سازی
+  const [orderBy, setOrderBy] = useState<keyof RowType>('createAt');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-  // ✅ اضافه شد: Ref برای کادر ویرایش
   const editFieldRef = useRef<HTMLInputElement>(null);
 
-  // **State جدید برای مدیریت خطای ورودی**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
 
-  const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
+  // -----------------------------------------------------
+  // توابع هندلر با useCallback برای جلوگیری از رفرش مودال
+  // -----------------------------------------------------
+
+  // تابع showAlert که به ListSystemOperationModal ارسال می‌شود
+  const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    setAlertMessage(message);
+    setAlertSeverity(severity);
+  }, []); // [] به این معنی است که این تابع فقط یک بار در طول عمر کامپوننت ساخته می‌شود.
+
+  // تابع clearAlert هم با useCallback
+  const clearAlert = useCallback(() => {
+    setAlertMessage(null);
+  }, []);
+ const getListRole = useCallback(() => {
+    const authToken = localStorage.getItem('authToken');
+
+    if (!authToken) {
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
+      return;
+    }
+
+    axios.request({
+      baseURL: server.baseurl + server.user + "get-roles",
+      method: "get",
+      headers: {
+        "Accept": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      }
+    }).then((result) => {
+      if (result.data.httpStatusCode === 200) {
+        const formattedData = result.data.data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
+          createAt: item.createAt,
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+        }));
+        setRolesList(formattedData as RowType[]);
+      } else {
+        showAlert(result.data.message || 'Rol listesi alınırken bir hata oluştu.', 'error');
+      }
+    }).catch((e) => {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error fetching Roles list:", e);
+        showAlert('Rol listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
+    });
+  }, [navigate, showAlert]); // وابسته به navigate و showAlert
+
+  // تابع بستن مودال عملیات با useCallback
+  const handleClickCloseOperationModal = useCallback(() => {
+    setOpenOperationModal(false);
+    setRoleIdForOperations(null); // ریست کردن roleIdForOperations
+    getListRole(); // ممکن است نیاز باشد لیست رول‌ها را رفرش کنید (اگر مودال تغییراتی در نقش‌ها ایجاد می‌کند)
+  }, [getListRole]); // وابسته به getListRole
+
+  // تابع getListRole هم باید useCallback شود چون در handleClickCloseOperationModal استفاده می‌شود و در useEffect اصلی
+ 
+  // -----------------------------------------------------
+  // سایر توابع هندلر (برخی از قبل useCallback شده بودند، برخی را اضافه کردم)
+  // -----------------------------------------------------
+
+  const handleClickMenu = useCallback((event: React.MouseEvent<HTMLButtonElement>, row: RowType) => {
     setAnchorEl(event.currentTarget);
     setSelectedRowForMenu(row);
-  };
+  }, []);
 
-  const handleCloseMenu = () => {
+  const handleCloseMenu = useCallback(() => {
     setAnchorEl(null);
     setSelectedRowForMenu(null);
-  };
+  }, []);
 
-  const handleClickOpenDeleteModal = () => {
+  const handleClickOpenDeleteModal = useCallback(() => {
     if (selectedRowForMenu) {
       setRowIdToDelete(selectedRowForMenu.name);
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
-  };
+  }, [selectedRowForMenu, handleCloseMenu]);
 
-  const handleClickCloseDeleteModal = () => {
+  const handleClickCloseDeleteModal = useCallback(() => {
     setOpenDeleteModal(false);
     setRowIdToDelete(null);
-    getListRole();
-  };
+    getListRole(); // مطمئن شوید getListRole در اینجا فراخوانی می‌شود
+  }, [getListRole]);
 
-  const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
-    setAlertMessage(message);
-    setAlertSeverity(severity);
-  };
 
-  const clearAlert = () => {
-    setAlertMessage(null);
-  };
-
-  // useEffect برای بستن خودکار Alert
+  // useEffect برای بستن خودکار Alert (وابسته به alertMessage و clearAlert)
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
-      }, 5000); // 5000 milliseconds = 5 seconds
+      }, 5000);
     }
     return () => {
-      clearTimeout(timer); // پاک کردن تایمر در صورت unmount شدن کامپوننت یا تغییر alertMessage
+      clearTimeout(timer);
     };
-  }, [alertMessage]);
+  }, [alertMessage, clearAlert]);
 
-  const handleEditClick = () => {
+
+  const resetFormAndState = useCallback(() => {
+    setName('');
+    setEditingId(null);
+    setOriginalName('');
+    setNameError(false);
+    setNameHelperText('');
+  }, []);
+
+  const handleEditClick = useCallback(() => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setOriginalName(selectedRowForMenu.name);
       setEditingId(selectedRowForMenu.id);
-      // ✅ اضافه شد: اسکرول به کادر ویرایش
-      // از setTimeout استفاده می‌کنیم تا مطمئن شویم DOM قبل از اسکرول به‌روز شده است
       setTimeout(() => {
         editFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        editFieldRef.current?.focus(); // فوکوس روی فیلد
+        editFieldRef.current?.focus();
       }, 100);
     }
     handleCloseMenu();
     clearAlert();
-    setNameError(false); // پاک کردن خطای ورودی هنگام ویرایش
-    setNameHelperText(''); // پاک کردن پیام کمکی هنگام ویرایش
-  };
+    setNameError(false);
+    setNameHelperText('');
+  }, [selectedRowForMenu, handleCloseMenu, clearAlert]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     resetFormAndState();
     clearAlert();
-    setNameError(false); // پاک کردن خطای ورودی
-    setNameHelperText(''); // پاک کردن پیام کمکی
-  };
+    setNameError(false);
+    setNameHelperText('');
+  }, [resetFormAndState, clearAlert]);
 
-  const insertRole = async () => {
+
+  // توابع insertRole و editRole و sendStatusUpdate و formatDate
+  // به دلیل پیچیدگی و عدم ارسال مستقیم به فرزند (به جز showAlert), useCallback ضروری نیستند مگر اینکه در dependency array useEffect یا useCallback های دیگر استفاده شوند.
+  // اما برای ثبات بیشتر، می‌توان آن‌ها را نیز useCallback کرد.
+  // فعلا بدون useCallback می‌گذارم تا تغییرات مینیمال باشند.
+  const insertRole = async () => { /* ... کد قبلی ... */
     if (!name.trim()) {
-      setNameError(true); // تنظیم وضعیت خطا به true
-      setNameHelperText('Rol ismi boş bırakılamaz.'); // تنظیم پیام کمکی
+      setNameError(true);
+      setNameHelperText('Rol ismi boş bırakılamaz.');
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
-    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
-    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+    setNameError(false);
+    setNameHelperText('');
 
     clearAlert();
     const authToken = localStorage.getItem('authToken');
@@ -257,17 +324,17 @@ const SystemRole = () => {
     }
   };
 
-  const editRole = async () => {
+  const editRole = async () => { /* ... کد قبلی ... */
     if (editingId === null) return;
     if (!name.trim()) {
-      setNameError(true); // تنظیم وضعیت خطا به true
-      setNameHelperText('Rol ismi boş bırakılamaz.'); // تنظیم پیام کمکی
+      setNameError(true);
+      setNameHelperText('Rol ismi boş bırakılamaz.');
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
-    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
-    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
-    
+    setNameError(false);
+    setNameHelperText('');
+
     clearAlert();
 
     if (name === originalName) {
@@ -320,7 +387,7 @@ const SystemRole = () => {
     }
   }
 
-  const sendStatusUpdate = async (currentName: string, statusValue: number) => {
+  const sendStatusUpdate = useCallback(async (currentName: string, statusValue: number) => { // اضافه شدن useCallback
     clearAlert();
 
     const authToken = localStorage.getItem('authToken');
@@ -362,29 +429,21 @@ const SystemRole = () => {
     } finally {
       handleCloseMenu();
     }
-  };
+  }, [clearAlert, showAlert, navigate, getListRole, resetFormAndState, handleCloseMenu]); // اضافه شدن dependencies
 
-  const handleSetActive = () => {
+  const handleSetActive = useCallback(() => { // اضافه شدن useCallback
     if (selectedRowForMenu) {
       sendStatusUpdate(selectedRowForMenu.name, 0);
     }
-  };
+  }, [selectedRowForMenu, sendStatusUpdate]); // وابسته به selectedRowForMenu و sendStatusUpdate
 
-  const handleSetInactive = () => {
+  const handleSetInactive = useCallback(() => { // اضافه شدن useCallback
     if (selectedRowForMenu) {
       sendStatusUpdate(selectedRowForMenu.name, 1);
     }
-  };
+  }, [selectedRowForMenu, sendStatusUpdate]); // وابسته به selectedRowForMenu و sendStatusUpdate
 
-  const resetFormAndState = () => {
-    setName('');
-    setEditingId(null);
-    setOriginalName('');
-    setNameError(false); // پاک کردن خطای ورودی
-    setNameHelperText(''); // پاک کردن پیام کمکی
-  };
-
-  const formatDate = (dateString: string): string => {
+  const formatDate = useCallback((dateString: string): string => { // اضافه شدن useCallback
     try {
       const date = new Date(dateString);
       const year = date.getFullYear();
@@ -395,119 +454,78 @@ const SystemRole = () => {
       console.error("Error formatting date:", e);
       return "Geçersiz Tarih";
     }
-  };
+  }, []); // بدون وابستگی، یک بار ساخته می‌شود
 
-  const handleClickOpenOperationModal = () => {
+  const handleClickOpenOperationModal = useCallback(() => {
     if (selectedRowForMenu) {
       setRoleIdForOperations(selectedRowForMenu.id);
       setOpenOperationModal(true);
     }
     handleCloseMenu();
-  };
+  }, [selectedRowForMenu, handleCloseMenu]);
 
-  const handleClickCloseOperationModal = () => {
-    setOpenOperationModal(false);
-    setRoleIdForOperations(null);
-  };
-
-
-  function getListRole() {
-    const authToken = localStorage.getItem('authToken');
-
-    if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
-      navigate("/");
-      return;
-    }
-
-    axios.request({
-      baseURL: server.baseurl + server.user + "get-roles",
-      method: "get",
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${authToken}`
-      }
-    }).then((result) => {
-      if (result.data.httpStatusCode === 200) {
-        const formattedData = result.data.data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          // اطمینان از اینکه recordStatus همیشه یک عدد است.
-          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
-          createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
-        }));
-        // مرتب‌سازی اولیه از اینجا حذف شد، زیرا مرتب‌سازی نهایی پایین‌تر انجام می‌شود.
-        setRolesList(formattedData as RowType[]);
-      } else {
-        showAlert(result.data.message || 'Rol listesi alınırken bir hata oluştu.', 'error');
-      }
-    }).catch((e) => {
-      if (e.response && e.response.status === 401) {
-        localStorage.removeItem('authToken');
-        navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-      } else {
-        console.error("Error fetching Roles list:", e);
-        showAlert('Rol listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-      }
-    });
-  }
-
+  // -----------------------------------------------------
+  // useEffect اصلی برای واکشی لیست رول‌ها
+  // -----------------------------------------------------
   useEffect(() => {
     getListRole();
-  }, []);
+  }, [getListRole]); // وابسته به getListRole (تضمین می‌کند فقط یک بار در mount اجرا شود)
 
-  // هندلر تغییر فیلتر وضعیت
-  const handleStatusFilterChange = (
+  // -----------------------------------------------------
+  // سایر توابع مربوط به فیلتر و مرتب‌سازی
+  // -----------------------------------------------------
+  const handleStatusFilterChange = useCallback((
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
     if (newFilter !== null) {
       console.log(event)
       setStatusFilter(newFilter);
-      setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
+      setPage(0);
     }
-  };
+  }, []);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = useCallback((event: unknown, newPage: number) => {
     console.log(event)
     setPage(newPage);
-  };
+  }, []);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
+  }, []);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setPage(0);
-  };
+  }, []);
 
-  // هندلر برای تغییر مرتب‌سازی
-  const handleRequestSort = (property: keyof RowType) => {
+  const handleRequestSort = useCallback((property: keyof RowType) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-    setPage(0); // هنگام تغییر مرتب‌سازی، به صفحه اول برگرد
-  };
+    setPage(0);
+  }, [order, orderBy]);
 
 
-  // فیلتر کردن رول‌ها بر اساس جستجو و وضعیت
-  const filteredRoles = rolesList.filter(role => {
-    const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && role.recordStatus === 0) ||
-      (statusFilter === 'inactive' && role.recordStatus === 1);
-    return matchesSearch && matchesStatus;
-  });
+  const filteredRoles = useMemo(() => {
+    return rolesList.filter(role => {
+      const matchesSearch = role.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && role.recordStatus === 0) ||
+        (statusFilter === 'inactive' && role.recordStatus === 1);
+      return matchesSearch && matchesStatus;
+    });
+  }, [rolesList, searchTerm, statusFilter]);
 
-  // اعمال مرتب‌سازی بر روی داده‌های فیلتر شده
-  const sortedAndFilteredRoles = stableSort(filteredRoles, getComparator(order, orderBy));
+  const sortedAndFilteredRoles = useMemo(() => {
+    return stableSort(filteredRoles, getComparator(order, orderBy));
+  }, [filteredRoles, order, orderBy]);
 
-  const paginatedRoles = sortedAndFilteredRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedRoles = useMemo(() => {
+    return sortedAndFilteredRoles.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [sortedAndFilteredRoles, page, rowsPerPage]);
 
 
   return (
@@ -531,14 +549,14 @@ const SystemRole = () => {
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setName(e.target.value);
-                if (nameError && e.target.value.trim()) { // اگر قبلاً خطا وجود داشته و کاربر شروع به تایپ کرده است
-                  setNameError(false); // خطا را پاک کنید
-                  setNameHelperText(''); // پیام کمکی را پاک کنید
+                if (nameError && e.target.value.trim()) {
+                  setNameError(false);
+                  setNameHelperText('');
                 }
               }}
               inputRef={editFieldRef}
-              error={nameError} 
-              helperText={nameHelperText} 
+              error={nameError}
+              helperText={nameHelperText}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -610,7 +628,6 @@ const SystemRole = () => {
                 }}
               />
             </Grid>
-            {/* فیلتر وضعیت */}
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -679,7 +696,7 @@ const SystemRole = () => {
                       },
                     }}
                   >
-                    Etkin Değil
+                    Pasif
                   </ToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -695,7 +712,7 @@ const SystemRole = () => {
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
                     onClick={() => handleRequestSort('name')}
-                      style={{color: "#171c23"}}
+                    style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">İsim</Typography>
                   </TableSortLabel>
@@ -705,7 +722,7 @@ const SystemRole = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                    style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -715,7 +732,7 @@ const SystemRole = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                    style={{color: "#171c23"}}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>
@@ -788,7 +805,7 @@ const SystemRole = () => {
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
-                              Etkin değil
+                              Pasif Yap
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
@@ -798,7 +815,7 @@ const SystemRole = () => {
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>
-                              Aktif
+                              Aktif Yap
                             </MenuItem>
                           </CustomTooltip>
                         )}
@@ -864,13 +881,14 @@ const SystemRole = () => {
         onClose={handleClickCloseDeleteModal}
         rowIdToDelete={rowIdToDelete}
         onDeleteSuccess={getListRole}
-        showAlert={showAlert}
+        showAlert={showAlert} // showAlert به درستی به اینجا ارسال می‌شود
       />
 
+      {/* ListSystemOperationModal که باید رفرش نشود */}
       <ListSystemOperationModal
         openOperationModal={openOperationModal}
         onClose={handleClickCloseOperationModal}
-        roleId={roleIdForOperations}
+        roleId={roleIdForOperations?.toString() || null} 
         showAlert={showAlert}
       />
     </>

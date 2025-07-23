@@ -662,7 +662,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                     value="inactive"
                     aria-label="inactive tenders"
                   >
-                    Etkin Değil
+                    Pasif
                   </StyledToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -797,7 +797,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
                                 </ListItemIcon>
-                                Etkin değil
+                               Pasif Yap
                               </MenuItem>
                             </CustomTooltip>
                           ) : (
@@ -807,7 +807,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
                                 </ListItemIcon>
-                                Aktif
+                                Aktif Yap
                               </MenuItem>
                             </CustomTooltip>
                           )}

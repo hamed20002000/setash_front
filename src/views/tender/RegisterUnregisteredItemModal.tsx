@@ -444,8 +444,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
 
             if (response.data && response.data.success) {
                 showAlert('Yeni ürün başarıyla eklendi!', 'success');
-                // !! مهم: ارسال داده‌های آیتم ثبت شده به callback
-                onRegisterSuccess(response.data.data as ItemType); // فرض می‌کنیم response.data.data یک ItemType کامل است
+                onRegisterSuccess(response.data.data as ItemType); 
                 onClose(); // بستن مودال
             } else {
                 showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');

@@ -1,7 +1,7 @@
 // ListUsers.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'; // ✅ useCallback و useMemo اضافه شد
 import { useNavigate } from 'react-router-dom';
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -12,7 +12,7 @@ import {
   CardMedia, FormControlLabel, ListItemText,
   ToggleButton,
   ToggleButtonGroup,
-  TableSortLabel, // ✅ اضافه شد: برای آیکون‌های مرتب‌سازی
+  TableSortLabel,
 } from '@mui/material';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -37,8 +37,8 @@ interface UserType {
   id: string;
   username: string;
   email?: string;
-  status: string; // این برای نمایش وضعیت string استفاده می‌شود
-  recordStatus: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
+  status: string;
+  recordStatus: number;
   createAt: string;
   imageUrl?: string;
   roles: { id: number; name: string }[];
@@ -49,6 +49,7 @@ interface RoleType {
   name: string;
 }
 
+// تابع formatDate می تواند خارج از کامپوننت یا با useCallback باشد اگر به dependency نیاز ندارد
 const formatDate = (dateString: string): string => {
   try {
     const date = new Date(dateString);
@@ -64,8 +65,7 @@ const formatDate = (dateString: string): string => {
 
 const DEFAULT_IMAGE_URL = imagedefault;
 
-// توابع کمکی برای مرتب‌سازی (همانند فایل‌های قبلی)
-// این توابع بهتر است در یک فایل utility جداگانه قرار گیرند اگر در چندین کامپوننت استفاده می‌شوند.
+// توابع کمکی برای مرتب‌سازی (خارج از کامپوننت و بدون تغییر)
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
   b: T,
@@ -74,7 +74,6 @@ const descendingComparator = <T, Key extends keyof T>(
   const valA = a[orderBy];
   const valB = b[orderBy];
 
-  // Handle undefined/null values by pushing them to the end (or beginning) of the sort order
   if (valB === undefined || valB === null) {
     return valA === undefined || valA === null ? 0 : -1;
   }
@@ -82,14 +81,12 @@ const descendingComparator = <T, Key extends keyof T>(
     return 1;
   }
 
-  // Specific handling for string and number types
   if (typeof valB === 'string' && typeof valA === 'string') {
     return valB.localeCompare(valA);
   }
   if (typeof valB === 'number' && typeof valA === 'number') {
     return valB - valA;
   }
-  // Fallback to string comparison for other types or mixed types
   if (String(valB) < String(valA)) {
     return -1;
   }
@@ -99,10 +96,10 @@ const descendingComparator = <T, Key extends keyof T>(
   return 0;
 };
 
-const getComparator = <Key extends keyof UserType>( // اینجا UserType را استفاده می‌کنیم
+const getComparator = <Key extends keyof UserType>(
   order: 'asc' | 'desc',
   orderBy: Key,
-): (a: UserType, b: UserType) => number => { // و اینجا UserType
+): (a: UserType, b: UserType) => number => {
   return order === 'desc'
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
@@ -148,7 +145,7 @@ const ListUsers = () => {
   const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<string | null>(null);
 
   const [openOperationsModal, setOpenOperationsModal] = useState(false);
-  const [userIdForOperationsSelection, setUserIdForOperationsSelection] = useState<number | null>(null);
+  const [userIdForOperationsSelection, setUserIdForOperationsSelection] = useState<string | null>(null);
 
   const [openChangePasswordModal, setOpenChangePasswordModal] = useState(false);
   const [userIdForPasswordChange, setUserIdForPasswordChange] = useState<string | null>(null);
@@ -170,11 +167,9 @@ const ListUsers = () => {
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // ✅ اضافه شد: وضعیت برای مرتب‌سازی
-  const [orderBy, setOrderBy] = useState<keyof UserType>('createAt'); // ستون پیش‌فرض برای مرتب‌سازی
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // جهت پیش‌فرض مرتب‌سازی
+  const [orderBy, setOrderBy] = useState<keyof UserType>('createAt');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-  // **State های جدید برای مدیریت خطاهای ورودی**
   const [usernameError, setUsernameError] = useState<boolean>(false);
   const [usernameHelperText, setUsernameHelperText] = useState<string>('');
   const [roleError, setRoleError] = useState<boolean>(false);
@@ -184,95 +179,153 @@ const ListUsers = () => {
   const [confirmPasswordError, setConfirmPasswordError] = useState<boolean>(false);
   const [confirmPasswordHelperText, setConfirmPasswordHelperText] = useState<string>('');
 
+  // --- توابع بهینه شده با useCallback ---
 
-  const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => { debugger
+  const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
     setAlertSeverity(severity);
-  };
+  }, []); // ✅ این تابع دیگر در هر رندر جدید ساخته نمی شود.
 
-  const clearAlert = () => {
+  const clearAlert = useCallback(() => {
     setAlertMessage(null);
-  };
+  }, []); // ✅ این تابع دیگر در هر رندر جدید ساخته نمی شود.
 
-  // useEffect برای بستن خودکار Alert
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (alertMessage) {
-      timer = setTimeout(() => {
-        clearAlert();
-      }, 5000); // 5000 milliseconds = 5 seconds
+  // تابع getListUsers
+  const getListUsers = useCallback(() => {
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("No auth token found, redirecting to login.");
+      navigate("/");
+      return;
     }
-    return () => {
-      clearTimeout(timer); // پاک کردن تایمر در صورت unmount شدن کامپوننت یا تغییر alertMessage
-    };
-  }, [alertMessage]);
 
-  const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, user: UserType) => {
+    axios.get(server.baseurl + server.user + "get-users", {
+      headers: {
+        "Accept": "application/json",
+        "Authorization": `Bearer ${authToken}`
+      }
+    }).then((result) => {
+      if (result.data.httpStatusCode === 200) {
+        const formattedData = result.data.data.map((item: any) => ({
+          id: item.id,
+          username: item.username,
+          createAt: item.createAt,
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          imageUrl: item.imageSrc || DEFAULT_IMAGE_URL,
+          roles: item.roles || [],
+        }));
+        setUsersList(formattedData as UserType[]);
+      } else {
+        showAlert(result.data.message || 'Kullanıcı listesi alınırken bir hata oluştu.', 'error');
+      }
+    }).catch((e) => {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error fetching users list:", e);
+        showAlert('Kullanıcı listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
+    });
+  }, [navigate, showAlert]); // ✅ وابسته به navigate و showAlert
+
+  // تابع getListRoles
+  const getListRoles = useCallback(async () => {
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      console.warn("No auth token found, cannot fetch roles.");
+      return;
+    }
+    try {
+      const response = await axios.get(server.baseurl + server.user + "get-roles", {
+        headers: {
+          "Accept": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
+      if (response.data.httpStatusCode === 200) {
+        setAllRoles(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as RoleType[]);
+      } else {
+        showAlert(response.data.message || 'Roller alınırken bir hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      console.error("Error fetching roles:", e);
+      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    }
+  }, [showAlert]); // ✅ وابسته به showAlert
+
+  // --- هندلرهای مربوط به مودال ها و سایر UI ---
+
+  const handleClickMenu = useCallback((event: React.MouseEvent<HTMLButtonElement>, user: UserType) => {
     setAnchorEl(event.currentTarget);
     setSelectedUserForMenu(user);
-  };
+  }, []);
 
-  const handleCloseMenu = () => {
+  const handleCloseMenu = useCallback(() => {
     setAnchorEl(null);
     setSelectedUserForMenu(null);
-  };
+  }, []);
 
-  const handleClickOpenDeleteModal = () => {
+  const handleClickOpenDeleteModal = useCallback(() => {
     if (selectedUserForMenu) {
       setUserIdToDelete(Number(selectedUserForMenu.id));
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
-  };
+  }, [selectedUserForMenu, handleCloseMenu]);
 
-  const handleClickCloseDeleteModal = () => {
+  const handleClickCloseDeleteModal = useCallback(() => {
     setOpenDeleteModal(false);
     setUserIdToDelete(null);
-    getListUsers();
-  };
+    getListUsers(); // ✅ اینجا فراخوانی getListUsers باعث رفرش لیست می شود.
+  }, [getListUsers]);
 
-  const handleClickOpenRoleModal = () => {
+  const handleClickOpenRoleModal = useCallback(() => {
     if (selectedUserForMenu) {
       setUserIdForRoleSelection(selectedUserForMenu.id);
       setOpenRoleModal(true);
     }
     handleCloseMenu();
-  };
+  }, [selectedUserForMenu, handleCloseMenu]);
 
-  const handleClickCloseRoleModal = () => {
+  const handleClickCloseRoleModal = useCallback(() => {
     setOpenRoleModal(false);
     setUserIdForRoleSelection(null);
-    getListUsers();
-  };
+    getListUsers(); // ✅ اینجا فراخوانی getListUsers باعث رفرش لیست می شود.
+  }, [getListUsers]);
 
-  const handleClickOpenChangePasswordModal = () => {
+  const handleClickOpenChangePasswordModal = useCallback(() => {
     if (selectedUserForMenu) {
       setUserIdForPasswordChange(selectedUserForMenu.username);
       setOpenChangePasswordModal(true);
     }
     handleCloseMenu();
-  };
+  }, [selectedUserForMenu, handleCloseMenu]);
 
-  const handleClickCloseChangePasswordModal = () => {
+  const handleClickCloseChangePasswordModal = useCallback(() => {
     setOpenChangePasswordModal(false);
     setUserIdForPasswordChange(null);
     showAlert('Şifre değiştirme işlemi tamamlandı.', 'info');
-  };
+  }, [showAlert]);
 
-  const handleClickOpenOperationsModal = () => {
+  const handleClickOpenOperationsModal = useCallback(() => {
     if (selectedUserForMenu) {
-      setUserIdForOperationsSelection(Number(selectedUserForMenu.id));
+      setUserIdForOperationsSelection(selectedUserForMenu.id);
       setOpenOperationsModal(true);
     }
     handleCloseMenu();
-  };
+  }, [selectedUserForMenu, handleCloseMenu]);
 
-  const handleClickCloseOperationsModal = () => {
+  const handleClickCloseOperationsModal = useCallback(() => {
     setOpenOperationsModal(false);
     setUserIdForOperationsSelection(null);
-  };
+    getListUsers(); // ✅ اینجا فراخوانی getListUsers باعث رفرش لیست می شود.
+  }, [getListUsers]);
 
-  const generateRandomPass = () => {
+
+  const generateRandomPass = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
     const num ='0123456789';
     let newPass = '';
@@ -284,23 +337,23 @@ const ListUsers = () => {
     }
     setPassword(newPass);
     setConfirmPassword(newPass);
-  };
+  }, []);
 
-  const handleRandomPasswordCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRandomPasswordCheckboxChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setGenerateRandomPassword(event.target.checked);
     if (event.target.checked) {
       generateRandomPass();
-      setPasswordError(false); // Clear password error when generating random
+      setPasswordError(false);
       setPasswordHelperText('');
-      setConfirmPasswordError(false); // Clear confirm password error
+      setConfirmPasswordError(false);
       setConfirmPasswordHelperText('');
     } else {
       setPassword('');
       setConfirmPassword('');
     }
-  };
+  }, [generateRandomPass]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -314,9 +367,9 @@ const ListUsers = () => {
       setProfileImageBase64('');
       setProfileImageUrl(DEFAULT_IMAGE_URL);
     }
-  };
+  }, []);
 
-  const resetFormAndState = () => {
+  const resetFormAndState = useCallback(() => {
     setUsername('');
     setPassword('');
     setConfirmPassword('');
@@ -325,9 +378,7 @@ const ListUsers = () => {
     setProfileImageUrl(DEFAULT_IMAGE_URL);
     setGenerateRandomPassword(false);
     setEditingUserId(null);
-    // clearAlert();
 
-    // **پاک کردن وضعیت خطاها**
     setUsernameError(false);
     setUsernameHelperText('');
     setRoleError(false);
@@ -342,9 +393,9 @@ const ListUsers = () => {
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
       if (confirmPasswordFieldRef.current) confirmPasswordFieldRef.current.value = '';
     }, 0);
-  };
+  }, []);
 
-  const handleEditItemClick = () => {
+  const handleEditItemClick = useCallback(() => {
     if (selectedUserForMenu) {
       setUsername(selectedUserForMenu.username);
       setEditingUserId(Number(selectedUserForMenu.id));
@@ -352,19 +403,16 @@ const ListUsers = () => {
       setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
       setProfileImageBase64('');
 
-      // در حالت ویرایش، فیلدهای رمز عبور خالی می‌شوند و چک‌باکس تصادفی غیرفعال می‌شود
       setPassword('');
       setConfirmPassword('');
       setGenerateRandomPassword(false);
 
-      // نقش‌های فعلی کاربر را انتخاب می‌کند
       const currentRoleIds = selectedUserForMenu.roles.map(role => role.id);
       setSelectedRoles(currentRoleIds);
     }
     handleCloseMenu();
     clearAlert();
 
-    // **پاک کردن وضعیت خطاها هنگام ویرایش**
     setUsernameError(false);
     setUsernameHelperText('');
     setRoleError(false);
@@ -374,23 +422,27 @@ const ListUsers = () => {
     setConfirmPasswordError(false);
     setConfirmPasswordHelperText('');
 
-
     setTimeout(() => {
-      // ✅ اضافه شد: اسکرول به کادر ویرایش نام کاربری و فوکوس بر روی آن
       usernameFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       usernameFieldRef.current?.focus();
 
-      // مطمئن شوید که فیلدهای رمز عبور خالی هستند، حتی اگر رفرنس آنها بلافاصله آماده نباشد
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
       if (confirmPasswordFieldRef.current) confirmPasswordFieldRef.current.value = '';
-    }, 100); // تاخیر اندکی برای اطمینان از رندر شدن DOM
-  };
+    }, 100);
+  }, [selectedUserForMenu, handleCloseMenu, clearAlert]);
 
+
+  // توابع insertUser و editUser و sendStatusUpdate - چون اینها شامل منطق Axios و state هستند، useCallback برایشان پیچیده‌تر است
+  // و ممکن است نیاز به بازنگری dependencies داشته باشند. فعلا آنها را بدون useCallback می گذارم مگر اینکه
+  // مشخص شود که این توابع خودشان باعث لوپ هستند. اما فراخوانی getListUsers() در آنها باعث رفرش لیست می شود که مورد انتظار است.
+  // نکته: اگر این توابع (insertUser, editUser, sendStatusUpdate) به عنوان dependency برای useCallback های دیگر استفاده شوند،
+  // آنگاه باید آنها را نیز useCallback کنید و dependencies آنها را با دقت تنظیم کنید.
+  // در حال حاضر، به نظر نمی رسد این توابع به عنوان dependency به useCallback دیگری پاس داده شده باشند،
+  // مگر اینکه متغیرهای state که داخل آنها استفاده می شوند (مثل username, password, etc.) تغییر کنند.
 
   const insertUser = async () => {
-    let hasValidationError = false; // ✅ تغییر: نام متغیر به جای hasError برای جلوگیری از تداخل با متغیر های خود کنترل کننده خطا
+    let hasValidationError = false;
 
-    // **اعتبارسنجی فیلد نام کاربری**
     if (!username.trim()) {
       setUsernameError(true);
       setUsernameHelperText('Kullanıcı adı boş bırakılamaz.');
@@ -424,9 +476,8 @@ const ListUsers = () => {
         setConfirmPasswordError(true);
         setPasswordHelperText('Şifreler eşleşmiyor!');
         setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
-        hasValidationError = true; // ✅ تغییر: این را به hasValidationError اضافه کنید تا از ارسال جلوگیری شود
+        hasValidationError = true;
       } else {
-        // اگر قبلاً خطا بوده و حالا مطابق شده، خطاها را پاک کنید
         if (passwordError || confirmPasswordError) {
           setPasswordError(false);
           setPasswordHelperText('');
@@ -435,7 +486,7 @@ const ListUsers = () => {
         }
       }
     }
-    if (selectedRoles.length==0) {debugger
+    if (selectedRoles.length == 0) {
       setRoleError(true);
       setRoleHelperText('rol seçilmelidir!');
       hasValidationError = true;
@@ -444,8 +495,7 @@ const ListUsers = () => {
       setRoleHelperText('');
     }
 
-
-    if (hasValidationError) { // ✅ تغییر: بررسی hasValidationError
+    if (hasValidationError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
@@ -489,19 +539,19 @@ const ListUsers = () => {
       } else {
         showAlert(response.data.message || 'Yeni kullanıcı eklenirken bir hata oluştu.', 'error');
       }
-    } catch (e: any) {debugger
+    } catch (e: any) {
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
       console.error("Error inserting user:", e);
-      showAlert((e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifre en az bir küçük harf içermelidir.":
-        (e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifrede en az bir küçük harf bulunmalı.":
-          (e.response?.data?.message=="username must be longer than or equal to 5 characters"?"Kullanıcı adı en az 5 karakter olmalıdır.":
-            (e.response?.data?.message=="Some roles not found"?"Rol seçilmedi.":e.response?.data?.message)
+      showAlert((e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifre en az bir küçük harf içermelidir." :
+        (e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifrede en az bir küçük harf bulunmalı." :
+          (e.response?.data?.message == "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
+            (e.response?.data?.message == "Some roles not found" ? "Rol seçilmedi." : e.response?.data?.message)
           )))
-       || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -509,9 +559,8 @@ const ListUsers = () => {
 
   const editUser = async () => {
     if (editingUserId === null) return;
-    let hasValidationError = false; // ✅ تغییر: نام متغیر
+    let hasValidationError = false;
 
-    // **اعتبارسنجی فیلد نام کاربری برای ویرایش**
     if (!username.trim()) {
       setUsernameError(true);
       setUsernameHelperText('Kullanıcı adı boş olamaz!');
@@ -521,7 +570,7 @@ const ListUsers = () => {
       setUsernameHelperText('');
     }
 
-    if (hasValidationError) { // ✅ تغییر: بررسی hasValidationError
+    if (hasValidationError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
@@ -579,18 +628,18 @@ const ListUsers = () => {
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
       console.error("Error updating user:", e);
-      showAlert((e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifre en az bir küçük harf içermelidir.":
-        (e.response?.data?.message=="Password must contain at least one lowercase letter."?"Şifrede en az bir küçük harf bulunmalı.":
-          (e.response?.data?.message=="username must be longer than or equal to 5 characters"?"Kullanıcı adı en az 5 karakter olmalıdır.":
-            (e.response?.data?.message=="Some roles not found"?"Rol seçilmedi.":e.response?.data?.message)
+      showAlert((e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifre en az bir küçük harf içermelidir." :
+        (e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifrede en az bir küçük harf bulunmalı." :
+          (e.response?.data?.message == "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
+            (e.response?.data?.message == "Some roles not found" ? "Rol seçilmedi." : e.response?.data?.message)
           )))
-       || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   };
 
-  const sendStatusUpdate = async (userId: number, statusValue: number) => {
+  const sendStatusUpdate = useCallback(async (userId: number, statusValue: number) => {
     clearAlert();
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
@@ -629,81 +678,9 @@ const ListUsers = () => {
     } finally {
       handleCloseMenu();
     }
-  };
+  }, [clearAlert, showAlert, navigate, getListUsers, handleCloseMenu]); // ✅ getListUsers اضافه شد
 
-  function getListUsers() {
-    const authToken = localStorage.getItem('authToken');
-    if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
-      navigate("/");
-      return;
-    }
-
-    axios.get(server.baseurl + server.user + "get-users", {
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${authToken}`
-      }
-    }).then((result) => {
-      if (result.data.httpStatusCode === 200) {
-        const formattedData = result.data.data.map((item: any) => ({
-          id: item.id,
-          username: item.username,
-          createAt: item.createAt,
-          // اطمینان از اینکه recordStatus همیشه یک عدد است.
-          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
-          imageUrl: item.imageSrc || DEFAULT_IMAGE_URL,
-          roles: item.roles || [],
-        }));
-        // حذف مرتب‌سازی اولیه از اینجا، زیرا مرتب‌سازی نهایی پایین‌تر انجام می‌شود.
-        setUsersList(formattedData as UserType[]);
-      } else {
-        showAlert(result.data.message || 'Kullanıcı listesi alınırken bir hata oluştu.', 'error');
-      }
-    }).catch((e) => {
-      if (e.response && e.response.status === 401) {
-        localStorage.removeItem('authToken');
-        navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-      } else {
-        console.error("Error fetching users list:", e);
-        showAlert('Kullanıcı listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-      }
-    });
-  }
-
-  const getListRoles = async () => {
-    const authToken = localStorage.getItem('authToken');
-    if (!authToken) {
-      console.warn("No auth token found, cannot fetch roles.");
-      return;
-    }
-    try {
-      const response = await axios.get(server.baseurl + server.user + "get-roles", {
-        headers: {
-          "Accept": "application/json",
-          "Authorization": `Bearer ${authToken}`
-        }
-      });
-      if (response.data.httpStatusCode === 200) {
-        setAllRoles(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as RoleType[]);
-      } else {
-        showAlert(response.data.message || 'Roller alınırken bir hata oluştu.', 'error');
-      }
-    } catch (e: any) {
-      console.error("Error fetching roles:", e);
-      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-    }
-  };
-
-  useEffect(() => {
-    getListUsers();
-    getListRoles();
-  }, []);
-
-
-  const handleStatusFilterChange = (
+  const handleStatusFilterChange = useCallback((
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
@@ -712,45 +689,57 @@ const ListUsers = () => {
       setStatusFilter(newFilter);
       setPage(0);
     }
-  };
+  }, []);
 
-  const handleChangePage = (event: unknown, newPage: number) => {
+  const handleChangePage = useCallback((event: unknown, newPage: number) => {
     console.log(event)
     setPage(newPage);
-  };
+  }, []);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
+  }, []);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setPage(0);
-  };
+  }, []);
 
-  // ✅ اضافه شد: هندلر برای تغییر مرتب‌سازی
-  const handleRequestSort = (property: keyof UserType) => {
+  const handleRequestSort = useCallback((property: keyof UserType) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-    setPage(0); // هنگام تغییر مرتب‌سازی، به صفحه اول برگرد
-  };
+    setPage(0);
+  }, [order, orderBy]);
 
 
-  const filteredUsers = usersList.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'active' && user.recordStatus === 0) ||
-      (statusFilter === 'inactive' && user.recordStatus === 1);
-    return matchesSearch && matchesStatus;
-  });
+  const filteredUsers = useMemo(() => {
+    return usersList.filter(user => {
+      const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'active' && user.recordStatus === 0) ||
+        (statusFilter === 'inactive' && user.recordStatus === 1);
+      return matchesSearch && matchesStatus;
+    });
+  }, [usersList, searchTerm, statusFilter]);
 
-  // ✅ اعمال مرتب‌سازی بر روی داده‌های فیلتر شده
-  const sortedAndFilteredUsers = stableSort(filteredUsers, getComparator(order, orderBy));
+  const sortedAndFilteredUsers = useMemo(() => {
+    return stableSort(filteredUsers, getComparator(order, orderBy));
+  }, [filteredUsers, order, orderBy]);
 
-  const paginatedUsers = sortedAndFilteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  const paginatedUsers = useMemo(() => {
+    return sortedAndFilteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  }, [sortedAndFilteredUsers, page, rowsPerPage]);
+
+
+  // --- useEffect اصلی برای واکشی اولیه داده‌ها ---
+  useEffect(() => {
+    getListUsers();
+    getListRoles();
+  }, [getListUsers, getListRoles]); // ✅ اطمینان حاصل کنید که getListUsers و getListRoles در dependency array هستند
+
 
   return (
     <>
@@ -773,7 +762,6 @@ const ListUsers = () => {
                     value={username}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                       setUsername(e.target.value);
-                      // ✅ تغییر: اعتبار سنجی لحظه ای نام کاربری
                       if (!e.target.value.trim()) {
                         setUsernameError(true);
                         setUsernameHelperText('Kullanıcı adı boş bırakılamaz.');
@@ -803,7 +791,6 @@ const ListUsers = () => {
                         value={password}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           setPassword(e.target.value);
-                          // ✅ تغییر: اعتبار سنجی لحظه ای رمز عبور
                           if (!e.target.value.trim()) {
                             setPasswordError(true);
                             setPasswordHelperText('Şifre boş bırakılamaz.');
@@ -811,15 +798,14 @@ const ListUsers = () => {
                             setPasswordError(false);
                             setPasswordHelperText('');
                           }
-                          // ✅ تغییر: بررسی تطابق رمز عبور به محض تغییر
                           if (e.target.value !== confirmPassword && confirmPassword.trim() !== '') {
                             setConfirmPasswordError(true);
                             setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
-                            setPasswordError(true); // خطا را روی فیلد پسورد هم اعمال کنید
+                            setPasswordError(true);
                           } else {
                             setConfirmPasswordError(false);
                             setConfirmPasswordHelperText('');
-                            if (e.target.value === confirmPassword && e.target.value.trim() !== '') { // اگر حالا مطابق شدند و خالی نیستند
+                            if (e.target.value === confirmPassword && e.target.value.trim() !== '') {
                                 setPasswordError(false);
                                 setPasswordHelperText('');
                             }
@@ -860,25 +846,23 @@ const ListUsers = () => {
                         value={confirmPassword}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                           setConfirmPassword(e.target.value);
-                          // ✅ تغییر: اعتبار سنجی لحظه ای تایید رمز عبور
                           if (!e.target.value.trim()) {
                             setConfirmPasswordError(true);
                             setConfirmPasswordHelperText('Şifre tekrarı boş bırakılamaz.');
                           } else if (e.target.value !== password) {
                             setConfirmPasswordError(true);
                             setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
-                            setPasswordError(true); // خطا را روی فیلد پسورد هم اعمال کنید
-                            setPasswordHelperText('Şifreler eşleşmiyor!'); // و پیام را نشان دهید
+                            setPasswordError(true);
+                            setPasswordHelperText('Şifreler eşleşmiyor!');
                           }
                           else {
                             setConfirmPasswordError(false);
                             setConfirmPasswordHelperText('');
-                            setPasswordError(false); // اگر حالا مطابق شدند، خطا را از پسورد هم بردارید
+                            setPasswordError(false);
                             setPasswordHelperText('');
                           }
                         }}
                         disabled={generateRandomPassword}
-                        // ✅ تغییر: error و helperText اکنون بر اساس state های جداگانه تنظیم می شوند
                         error={confirmPasswordError}
                         helperText={confirmPasswordHelperText}
                         inputProps={{ autocomplete: 'new-password' }}
@@ -905,7 +889,7 @@ const ListUsers = () => {
                   <Grid item xs={12} md={12}>
                     <CustomFormLabel htmlFor="select-roles">Roller</CustomFormLabel>
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
-                      <FormControl fullWidth 
+                      <FormControl fullWidth
                         error={roleError}>
                         <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
                         <Select
@@ -915,7 +899,7 @@ const ListUsers = () => {
                           value={selectedRoles}
                           onChange={(e) => {
                             setSelectedRoles(e.target.value as number[])
-                            if (roleError) { // Clear error when a unit is selected
+                            if (roleError) {
                               setRoleError(false);
                               setRoleHelperText('');
                             }
@@ -947,7 +931,6 @@ const ListUsers = () => {
             </Grid>
           </Grid>
 
-          {/* بخش آپلود و نمایش عکس */}
           <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
             <CardMedia
               component="img"
@@ -972,46 +955,43 @@ const ListUsers = () => {
               </Button>
             </CustomTooltip>
           </Grid>
-          <Grid item xs={12}>
-            <Stack direction="row" spacing={1} justifyContent="flex-start" mt={2}>
-              {editingUserId !== null ? (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen kullanıcıyı güncelleyin" : ""}>
-                    <Button
-                      variant="contained"
-                      color="info"
-                      onClick={editUser}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Kullanıcıyı Güncelle'}
-                    </Button>
-                  </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni kullanıcı moduna dön" : ""}>
-                    <Button variant="outlined" color="secondary" onClick={resetFormAndState}>
-                      İptal Et
-                    </Button>
-                  </CustomTooltip>
-                </>
-              ) : (
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir kullanıcı ekle" : ""}>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    onClick={insertUser}
-                    disabled={loadingButton}
-                  >
-                    {loadingButton ? <>
-                      <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                    </> : 'Yeni Kullanıcı Ekle'}
-                  </Button>
-                </CustomTooltip>
-              )}
-            </Stack>
-          </Grid>
-
         </Grid>
+        <Stack direction="row" spacing={1} justifyContent="flex-start" mt={2}>
+          {editingUserId !== null ? (
+            <>
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen kullanıcıyı güncelleyin" : ""}>
+                <Button
+                  variant="contained"
+                  color="info"
+                  onClick={editUser}
+                  disabled={loadingButton}
+                >
+                  {loadingButton ? <>
+                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                  </> : 'Kullanıcıyı Güncelle'}
+                </Button>
+              </CustomTooltip>
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni kullanıcı moduna dön" : ""}>
+                <Button variant="outlined" color="secondary" onClick={resetFormAndState}>
+                  İptal Et
+                </Button>
+              </CustomTooltip>
+            </>
+          ) : (
+            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir kullanıcı ekle" : ""}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={insertUser}
+                disabled={loadingButton}
+              >
+                {loadingButton ? <>
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                </> : 'Yeni Kullanıcı Ekle'}
+              </Button>
+            </CustomTooltip>
+          )}
+        </Stack>
         {alertMessage && (
           <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
             <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1026,7 +1006,7 @@ const ListUsers = () => {
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={8}>
               <TextField
-                label="Birim Ara"
+                label="Kullanıcı Ara"
                 variant="outlined"
                 fullWidth
                 value={searchTerm}
@@ -1108,7 +1088,7 @@ const ListUsers = () => {
                       },
                     }}
                   >
-                    Etkin Değil
+                    Pasif
                   </ToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -1119,43 +1099,40 @@ const ListUsers = () => {
           <Table aria-label="user table">
             <TableHead style={{ background: "#f1f1f1" }}>
               <TableRow>
-                <TableCell 
-                      style={{color: "#171c23"}}>
+                <TableCell
+                  style={{ color: "#171c23" }}>
                   <Typography variant="h6">Resim</Typography>
                 </TableCell>
                 <TableCell>
-                  {/* ✅ اضافه شد: TableSortLabel برای ستون Kullanıcı Adı */}
                   <TableSortLabel
                     active={orderBy === 'username'}
                     direction={orderBy === 'username' ? order : 'asc'}
                     onClick={() => handleRequestSort('username')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Kullanıcı Adı</Typography>
                   </TableSortLabel>
                 </TableCell>
-                <TableCell 
-                      style={{color: "#171c23"}}>
+                <TableCell
+                  style={{ color: "#171c23" }}>
                   <Typography variant="h6">Rolleri</Typography>
                 </TableCell>
                 <TableCell>
-                  {/* ✅ اضافه شد: TableSortLabel برای ستون Oluşturulma Tarihi */}
                   <TableSortLabel
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  {/* ✅ اضافه شد: TableSortLabel برای ستون Durum */}
                   <TableSortLabel
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>
@@ -1320,7 +1297,7 @@ const ListUsers = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} align="center"> {/* اینجا تعداد ستون‌ها را به 6 تغییر دادم */}
+                  <TableCell colSpan={6} align="center">
                     <Typography variant="subtitle1" color="textSecondary">
                       Hiç kullanıcı bulunamadı.
                     </Typography>

@@ -706,7 +706,7 @@ const SystemOperation = () => {
                       },
                     }}
                   >
-                    Etkin Değil
+                    Pasif
                   </ToggleButton>
                 </CustomTooltip>
               </ToggleButtonGroup>
@@ -818,7 +818,7 @@ const SystemOperation = () => {
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
-                              Etkin değil
+                              Pasif Yap
                             </MenuItem>
                           </CustomTooltip>
                         ) : (
@@ -828,7 +828,7 @@ const SystemOperation = () => {
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>
-                              Aktif
+                              Aktif Yap
                             </MenuItem>
                           </CustomTooltip>
                         )}
