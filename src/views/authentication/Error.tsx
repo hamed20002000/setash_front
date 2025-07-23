@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+
 import { Box, Container, Typography, Button } from '@mui/material';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import ErrorImg from 'src/assets/images/backgrounds/errorimg.svg';
