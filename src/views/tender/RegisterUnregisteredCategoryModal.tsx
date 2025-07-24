@@ -187,17 +187,17 @@ interface RegisterCategoryInitialData {
     description?: string; // <--- تغییر به اختیاری (string?)
     eskiPoz?: string;     // <--- تغییر به اختیاری (string?)
     categoryPercentage?: number | null; // این قبلا هم اختیاری بود
-    isCategory?: boolean; // این هم به اختیاری تغییر کند، چون در TenderDetailRow هم optional هست
+    isCategory?: boolean; 
+    originalRowId?: number; // ADD THIS
+    
 }
 
 interface RegisterUnregisteredCategoryModalProps {
     open: boolean;
     onClose: () => void;
     // The onRegisterSuccess expects an ApiCategoryType structure, which is fine
-    onRegisterSuccess: (registeredCategory: ApiCategoryType) => void;
-    // onRegisterSuccess: (registeredCategory: { id: string; name: string; parentId: string | null; depth: number; }) => void;
-    // Now initialData uses our new, more specific interface
-    initialData: RegisterCategoryInitialData | null; // <-- Changed this line
+    onRegisterSuccess: (registeredCategory: ApiCategoryType, originalRowId?: number) => void; // ADD originalRowId
+    initialData: RegisterCategoryInitialData | null; // This type now includes originalRowId
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
@@ -353,7 +353,7 @@ const RegisterUnregisteredCategoryModal: React.FC<RegisterUnregisteredCategoryMo
                 // 🌟🌟🌟 Type Assertion برای response.data.data 🌟🌟🌟
                 // فرض می‌کنیم API `id`, `name`, `parentId`, `depth` را برمی‌گرداند.
                 // onRegisterSuccess(response.data.data as { id: string; name: string; parentId: string | null; depth: number; }); 
-                onRegisterSuccess(response.data.data as ApiCategoryType);
+                onRegisterSuccess(response.data.data as ApiCategoryType, initialData?.originalRowId); // Pass originalRowId
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kategori eklenirken bir hata oluştu.', 'error');

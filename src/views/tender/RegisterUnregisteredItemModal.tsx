@@ -22,6 +22,7 @@ import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
 import { IconSearch, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
 
+import { ApiItemType } from './TenderDetails';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 
@@ -203,14 +204,30 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
     );
 };
 
-
+interface RegisterItemInitialData {
+    id?: number;
+    description?: string;
+    olcuBrimi?: string;
+    eskiPoz?: string;
+    tedasNo?: number;
+    anaNo?: number;
+    altNo?: number;
+    aciklama?: string;
+    malzeme?: number;
+    malzemeYuklenici?: number;
+    montaj?: number;
+    demontaj?: number;
+    demontajMontaj?: number;
+    isCategory?: boolean;
+    originalRowId?: number; // ADD THIS
+}
 interface RegisterUnregisteredItemModalProps {
     open: boolean;
     onClose: () => void;
     // !! تغییر در نوع onRegisterSuccess
-    onRegisterSuccess: (registeredItem: ItemType) => void; // حالا داده‌های آیتم ثبت شده را برمی‌گرداند
-    initialData: Partial<ItemType> | null; // Data from the unregistered row in TenderDetails
-    
+       onRegisterSuccess: (registeredItem: ApiItemType, originalRowId?: number) => void; // ADD originalRowId
+       initialData: RegisterItemInitialData | null; // This type now includes originalRowId
+  
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
@@ -444,8 +461,8 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
 
             if (response.data && response.data.success) {
                 showAlert('Yeni ürün başarıyla eklendi!', 'success');
-                onRegisterSuccess(response.data.data as ItemType); 
-                onClose(); // بستن مودال
+                onRegisterSuccess(response.data.data as ApiItemType, initialData?.originalRowId); // Pass originalRowId
+                onClose();
             } else {
                 showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');
             }

@@ -99,7 +99,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
     clearAlert();
 
     try {
-      const LOGIN_API_URL = 'http://94.138.207.132:3001/api/auth/login';
+      const LOGIN_API_URL = 'https://setasportal.com/api/auth/login';
 
       // استفاده از axios به جای fetch
       const response = await axios.post(
