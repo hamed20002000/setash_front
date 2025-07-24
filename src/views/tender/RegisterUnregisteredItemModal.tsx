@@ -29,19 +29,19 @@ import server from 'src/assets/address.json';
 // Interfaces
 // مطمئن شوید که اینترفیس ItemType شامل تمام فیلدهایی باشد که API شما پس از ثبت آیتم برمی‌گرداند.
 // مخصوصاً id, name, category, و unit.
-interface ItemType {
-    id: number; // فرض می‌کنیم که id از نوع number است
-    name: string;
-    description: string;
-    abbreviation: string;
-    category: { id: string; name?: string; }; // فرض می‌کنیم category دارای id است
-    unit: { id: string; title: string; }; // فرض می‌کنیم unit دارای id و title است
-    aciklama?:string;
-    eskiPoz?: string;
-    tedasNo?: number;
-    anaNo?: number;
-    altNo?: number;
-}
+// interface ItemType {
+//     id: number; 
+//     name: string;
+//     description: string;
+//     abbreviation: string;
+//     category: { id: string; name?: string; }; 
+//     unit: { id: string; title: string; }; 
+//     aciklama?:string;
+//     eskiPoz?: string;
+//     tedasNo?: number;
+//     anaNo?: number;
+//     altNo?: number;
+// }
 
 interface UnitOptionType {
     id: string;
