@@ -1,14 +1,14 @@
 // ListTender.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react"; // Added useRef here
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup, ToggleButton as MuiToggleButton, CircularProgress,
-  TableSortLabel // ✅ Added: For sorting icons and functionality
+  TableSortLabel
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -21,23 +21,34 @@ import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteTender from './DeleteTender';
 
-// --- Imports for API Call ---
+import DefineWorkModal from './DefineWorkModal';
 import axios from 'axios';
 import server from '../../assets/address.json';
-// --- End Imports for API Call ---
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// تعریف نوع برای مزایده (Tender)
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import HighlightOffIcon from '@mui/icons-material/HighlightOff';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
+import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
+
+
+// İhale tipi tanımı
 interface TenderType {
   id: number;
-  title: string; // نام یا عنوان مزایده
+  title: string;
   createAt: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
-  status: string; // وضعیت متنی
+  recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
+  status: string; // Metinsel durum (recordStatus için)
+  tenderStatus?: number; // 0 = Beklemede, 1 = Onaylandı, 2 = Reddedildi (API'den gelen status için)
+  approvedTenderText?: string; // "Onaylanan İhale" sütunu için metin
+  approvedTenderDate?: string; // Onay/Red tarihi
+  showApprovedIcon?: boolean; // Onay ikonu için
+  showRejectedIcon?: boolean; // Red ikonu için
 }
 
-// **StyledToggleButton از SystemRole.tsx کپی شده است**
+// StyledToggleButton (SystemRole.tsx'ten kopyalandı)
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
     color: 'white',
@@ -61,8 +72,8 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
   },
 }));
 
-// --- Helper functions for sorting (reused from previous components) ---
-type SortableTenderKeys = keyof TenderType; // In this case, all direct properties are sortable
+// Sıralama için yardımcı fonksiyonlar
+type SortableTenderKeys = keyof Pick<TenderType, 'id' | 'title' | 'createAt' | 'status' | 'approvedTenderText' | 'approvedTenderDate'>;
 
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
@@ -112,14 +123,13 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
   });
   return stabilizedThis.map((el) => el[0]);
 };
-// --- End of Helper functions for sorting ---
 
 
 const ListTender = () => {
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState<string>(''); // نام یا عنوان مزایده
-  const [tendersList, setTendersList] = useState<TenderType[]>([]); // تغییر به آرایه خالی برای داده‌های واقعی
+  const [title, setTitle] = useState<string>('');
+  const [tendersList, setTendersList] = useState<TenderType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [originalTitle, setOriginalTitle] = useState<string>('');
 
@@ -139,22 +149,21 @@ const ListTender = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
-  const [loadingData, setLoadingData] = useState<boolean>(true); // اضافه شده برای نمایش لودینگ کلی
+  const [loadingData, setLoadingData] = useState<boolean>(true);
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // ✅ Added: State for sorting
-  const [orderBy, setOrderBy] = useState<SortableTenderKeys>('createAt'); // Default sort column
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
+  const [orderBy, setOrderBy] = useState<SortableTenderKeys>('createAt');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-  // ✅ Added: Ref for the tender title input field
   const tenderTitleInputRef = useRef<HTMLInputElement>(null);
 
-  // **New states for input validation error**
   const [titleError, setTitleError] = useState<boolean>(false);
   const [titleHelperText, setTitleHelperText] = useState<string>('');
+  const [openDefineWorkModal, setOpenDefineWorkModal] = useState<boolean>(false);
+  const [selectedTenderIdForWork, setSelectedTenderIdForWork] = useState<number | null>(null);
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TenderType) => {
@@ -178,7 +187,7 @@ const ListTender = () => {
   const handleClickCloseDeleteModal = () => {
     setOpenDeleteModal(false);
     setTenderIdToDelete(null);
-    getListTender(); // رفرش لیست مزایده‌ها بعد از حذف
+    getListTender();
   };
 
   const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -195,10 +204,10 @@ const ListTender = () => {
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
-      }, 5000); // 5000 milliseconds = 5 seconds
+      }, 5000);
     }
     return () => {
-      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+      clearTimeout(timer);
     };
   }, [alertMessage]);
 
@@ -208,15 +217,13 @@ const ListTender = () => {
       setOriginalTitle(selectedRowForMenu.title);
       setEditingId(selectedRowForMenu.id);
 
-      // **Clear input validation errors when editing**
       setTitleError(false);
       setTitleHelperText('');
 
-      // ✅ Added: Scroll to the tender title input and focus
       setTimeout(() => {
         tenderTitleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         tenderTitleInputRef.current?.focus();
-      }, 100); // Small delay to ensure DOM update
+      }, 100);
     }
     handleCloseMenu();
     clearAlert();
@@ -225,31 +232,30 @@ const ListTender = () => {
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
-    // **Clear input validation errors**
     setTitleError(false);
     setTitleHelperText('');
   };
 
-  // --- تابع ایجاد مزایده جدید ---
+  // Yeni ihale oluşturma
   const insertTender = async () => {
     if (!title.trim()) {
-      setTitleError(true); // Set error state to true
-      setTitleHelperText('Başlık boş olamaz!'); // Set helper text
-      showAlert('İsim boş olamaz!', 'warning');
+      setTitleError(true);
+      setTitleHelperText('Başlık boş olamaz!');
+      showAlert('Başlık boş olamaz!', 'warning');
       return;
     }
-    setTitleError(false); // Clear error if valid
-    setTitleHelperText(''); // Clear helper text if valid
+    setTitleError(false);
+    setTitleHelperText('');
 
     clearAlert();
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
+      console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
       navigate("/");
       return;
     }
-debugger
+
     setLoadingButton(true);
     try {
       const response = await axios.post(
@@ -276,24 +282,24 @@ debugger
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Error inserting tender:", e);
+      console.error("İhale eklenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'İhale eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   };
 
-  // --- تابع ویرایش مزایده ---
+  // İhale düzenleme
   const editTender = async () => {
     if (editingId === null) return;
     if (!title.trim()) {
-      setTitleError(true); // Set error state to true
-      setTitleHelperText('Başlık boş olamaz!'); // Set helper text
+      setTitleError(true);
+      setTitleHelperText('Başlık boş olamaz!');
       showAlert('Başlık boş olamaz!', 'warning');
       return;
     }
-    setTitleError(false); // Clear error if valid
-    setTitleHelperText(''); // Clear helper text if valid
+    setTitleError(false);
+    setTitleHelperText('');
 
     clearAlert();
 
@@ -305,17 +311,16 @@ debugger
 
     setLoadingButton(true);
     try {
-      // Replace with actual API call
       const authToken = localStorage.getItem('authToken');
       if (!authToken) {
         showAlert('Lütfen giriş yapın.', 'warning');
         navigate("/");
         return;
       }
-      debugger
+
       const response = await axios.put(
         server.baseurl + server.initialoperations + "update-tender",
-        { id: Number(editingId), title: title}, {
+        { id: Number(editingId), title: title }, {
         headers: {
           "Accept": "application/json",
           'Content-Type': 'application/json',
@@ -326,7 +331,7 @@ debugger
       if (response.data.httpStatusCode === 200) {
         showAlert('İhale başarıyla güncellendi!', 'success');
         resetFormAndState();
-        getListTender(); // Refresh list after actual API success
+        getListTender();
       } else {
         showAlert(response.data.message || 'İhale güncellenirken bir hata oluştu.', 'error');
       }
@@ -336,15 +341,15 @@ debugger
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Error updating tender:", e);
+      console.error("İhale güncellenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'İhale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   }
 
-  // --- تابع تغییر وضعیت مزایده (فعال/غیرفعال) ---
-  const sendStatusUpdate = async (id: number, statusValue: number) => {
+  // İhale durumunu güncelleme (aktif/pasif)
+  const sendRecordStatusUpdate = async (id: number, statusValue: number) => {
     clearAlert();
     try {
       const authToken = localStorage.getItem('authToken');
@@ -364,9 +369,9 @@ debugger
       });
 
       if (response.data.httpStatusCode === 200) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`İhale başarıyla ${statusText} olarak ayarlandı!`, 'success');
-        getListTender(); // Refresh list after actual API success
+        getListTender();
       } else {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
@@ -376,7 +381,7 @@ debugger
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Error updating status:", e);
+      console.error("Durum güncellenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
@@ -385,50 +390,156 @@ debugger
 
   const handleSetActive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
+      sendRecordStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
     }
   };
 
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Etkin değil
+      sendRecordStatusUpdate(selectedRowForMenu.id, 1); // 1 for Pasif
     }
   };
+
+  const handleSetActiveTender = () => {
+    if (selectedRowForMenu) {
+      handleApproveTender(selectedRowForMenu.id, 1); // 0 for Aktif
+    }
+  };
+
+  const handleSetInactiveTender = () => {
+    if (selectedRowForMenu) {
+      handleRejectTender(selectedRowForMenu.id, 2); // 1 for Pasif
+    }
+  };
+
+  // Yeni fonksiyonlar: İhale Onayla, İhale Reddet, İş Tanımla
+  const handleApproveTender = async (tenderId: number, statusValue: number) => {
+    clearAlert();
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        showAlert('Lütfen giriş yapın.', 'warning');
+        navigate("/");
+        return;
+      }
+
+      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender-status",
+        { id: Number(tenderId), status: statusValue }, {
+        headers: {
+          "Accept": "application/json",
+          'Content-Type': 'application/json',
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
+
+      if (response.data.httpStatusCode === 200) {
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
+        showAlert(`İhale başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        getListTender();
+      } else {
+        showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
+      console.error("Durum güncellenirken hata oluştu:", e);
+      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      handleCloseMenu();
+    }
+  };
+
+  const handleRejectTender = async (tenderId: number, statusValue: number) => {
+    clearAlert();
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        showAlert('Lütfen giriş yapın.', 'warning');
+        navigate("/");
+        return;
+      }
+
+      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender-status",
+        { id: Number(tenderId), status: statusValue }, {
+        headers: {
+          "Accept": "application/json",
+          'Content-Type': 'application/json',
+          "Authorization": `Bearer ${authToken}`
+        }
+      });
+
+      if (response.data.httpStatusCode === 200) {
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
+        showAlert(`İhale başarıyla ${statusText} olarak ayarlandı!`, 'success');
+        getListTender();
+      } else {
+        showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      }
+      console.error("Durum güncellenirken hata oluştu:", e);
+      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    } finally {
+      handleCloseMenu();
+    }
+  };
+
+  const handleDefineWork = (tenderId: number) => {
+    setSelectedTenderIdForWork(tenderId);
+    setOpenDefineWorkModal(true);
+    handleCloseMenu(); // Menüyü kapatmayı unutmayın
+  };
+  const handleWorkDefinedSuccess = (workId: number, tenderId: number) => {
+    // Burada kullanıcıya sorma mantığını DefineWorkModal içine taşıdık
+    // Direkt olarak work detay sayfasına yönlendirme yapabiliriz veya
+    // DefineWorkModal zaten sormuş olacağı için, burada sadece navigasyon yapabiliriz.
+    // Eğer modalda sormak istemiyorsanız, confirm logic'i buraya taşıyabilirsiniz.
+    navigate(`/work/work-details/${workId}?tenderId=${tenderId}`); // İş detay sayfanızın URL yapısına göre güncelleyin
+  };
+
 
   const resetFormAndState = () => {
     setTitle('');
     setEditingId(null);
     setOriginalTitle('');
-    // **Clear input validation errors**
     setTitleError(false);
     setTitleHelperText('');
   };
 
-  const formatDate = (dateString: string): string => {
+  const formatDate = (dateString: string | null): string => {
+    if (!dateString) return "N/A"; // Eğer tarih string'i yoksa "N/A" döndür
+
     try {
       const date = new Date(dateString);
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      const month = String(date.getMonth() + 1).padStart(2, '0'); // Ayı iki haneli yap (01-12)
+      const day = String(date.getDate()).padStart(2, '0');     // Günü iki haneli yap (01-31)
+      return `${year}-${month}-${day}`; // YYYY-MM-DD formatı
     } catch (e) {
-      console.error("Error formatting date:", e);
+      console.error("Tarih biçimlendirilirken hata oluştu:", e);
       return "Geçersiz Tarih";
     }
   };
 
-  // --- تابع اصلی دریافت لیست مزایده‌ها از API واقعی ---
+  // İhale listesini API'den alma
   function getListTender() {
-    setLoadingData(true); // Start loading
+    setLoadingData(true);
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
+      console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
       navigate("/");
-      setLoadingData(false); // Stop loading if no token
+      setLoadingData(false);
       return;
     }
-debugger
+
     axios.request({
       baseURL: server.baseurl + server.initialoperations + "get-tenders",
       method: "get",
@@ -438,19 +549,54 @@ debugger
       }
     }).then((result) => {
       if (result.data.httpStatusCode === 200) {
-        const formattedData = result.data.data.map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          recordStatus: item.recordStatus,
-          createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
-        }));
-        // Removed initial sorting here, as it will be handled by the new sorting logic
-        setTendersList(formattedData as TenderType[]);
-        setLoadingData(false)
+        const formattedData: TenderType[] = result.data.data.map((item: any) => {
+          // recordStatus için metin durumu
+          let recordStatusText = '';
+          if (item.recordStatus === 0) {
+            recordStatusText = 'Aktif';
+          } else if (item.recordStatus === 1) {
+            recordStatusText = 'Pasif';
+          } else {
+            recordStatusText = 'Silindi';
+          }
+
+          // item.status'a göre "Onaylanan İhale" ve "Onay/Red Tarihi" mantığı
+          let approvedTenderText = '';
+          let approvedTenderDate = null;
+          let showApprovedIcon = false;
+          let showRejectedIcon = false;
+
+          if (item.status === 0) {
+            approvedTenderText = 'Beklemede';
+          } else if (item.status === 1) {
+            approvedTenderText = 'Onaylandı';
+            showApprovedIcon = true;
+            approvedTenderDate = item.statusDate;
+          } else if (item.status === 2) {
+            approvedTenderText = 'Reddedildi';
+            showRejectedIcon = true;
+            approvedTenderDate = item.statusDate;
+          }
+
+          return {
+            id: item.id,
+            title: item.title,
+            recordStatus: item.recordStatus,
+            createAt: item.createAt,
+            status: recordStatusText,
+            tenderStatus: item.status, // Menü öğeleri için ham durum
+            approvedTenderText: approvedTenderText,
+            approvedTenderDate: approvedTenderDate,
+            showApprovedIcon: showApprovedIcon,
+            showRejectedIcon: showRejectedIcon,
+          };
+        });
+
+        setTendersList(formattedData);
+        setLoadingData(false);
       } else {
         showAlert(result.data.message || 'İhale listesi alınırken bir hata oluştu.', 'error');
-        setLoadingData(false)
+        setLoadingData(false);
       }
     }).catch((e) => {
       if (e.response && e.response.status === 401) {
@@ -461,16 +607,16 @@ debugger
         console.error("İhale listesi getirilirken hata oluştu:", e);
         showAlert('İhale listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
-      setLoadingData(false); // Stop loading on error
+      setLoadingData(false);
     });
   }
 
 
   useEffect(() => {
-    getListTender(); // در ابتدا، لیست مزایده‌ها را لود کن
+    getListTender();
   }, []);
 
-  // --- هندلر تغییر فیلتر وضعیت ---
+  // Durum filtresi değiştirme
   const handleStatusFilterChange = (
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
@@ -478,16 +624,16 @@ debugger
     if (newFilter !== null) {
       console.log(event)
       setStatusFilter(newFilter);
-      setPage(0); // با تغییر فیلتر، به صفحه اول برگرد
+      setPage(0);
     }
   };
 
-  // ✅ Added: Handler for changing sort order
+  // Sıralama yönünü değiştirme
   const handleRequestSort = (property: SortableTenderKeys) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-    setPage(0); // Reset to first page when sort changes
+    setPage(0);
   };
 
   const handleChangePage = (
@@ -507,7 +653,7 @@ debugger
     setPage(0);
   };
 
-  // Filter tenders based on search and status
+  // Arama ve duruma göre ihaleleri filtrele
   const filteredTenders = tendersList.filter(tender => {
     const matchesSearch = tender.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
@@ -517,20 +663,20 @@ debugger
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ Apply sorting to filtered data
+  // Filtrelenmiş veriye sıralamayı uygula
   const sortedAndFilteredTenders = stableSort(filteredTenders, getComparator(order, orderBy));
 
   const paginatedTenders = sortedAndFilteredTenders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
 
-  // --- تابع برای رفتن به صفحه جزئیات مزایده ---
-// const handleGoToDetails = (tenderId: number, tenderTitle: string) => {
-//   navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
-// };
-
-const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') => {
-  navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
-};
+  // İhale detay sayfasına gitme
+  const handleGoToDetails = (tenderId: number | undefined, tenderTitle: string | undefined) => {
+    if (tenderId && tenderTitle) {
+      navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
+    } else {
+      showAlert('İhale detayları için gerekli bilgiler eksik.', 'warning');
+    }
+  };
 
   return (
     <>
@@ -553,14 +699,14 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
               value={title}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setTitle(e.target.value);
-                if (titleError && e.target.value.trim()) { // If there was a previous error and user starts typing
-                  setTitleError(false); // Clear the error
-                  setTitleHelperText(''); // Clear the helper text
+                if (titleError && e.target.value.trim()) {
+                  setTitleError(false);
+                  setTitleHelperText('');
                 }
               }}
               inputRef={tenderTitleInputRef}
-              error={titleError} 
-              helperText={titleHelperText} 
+              error={titleError}
+              helperText={titleHelperText}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -568,7 +714,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili ihale güncelleyin" : ""}>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili ihaleyi güncelleyin" : ""}>
                     <Button
                       variant="contained"
                       color="info"
@@ -576,8 +722,8 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Düzenlemek'}
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
+                      </> : 'Düzenle'}
                     </Button>
                   </CustomTooltip>
                   <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni ihale moduna dön" : ""}>
@@ -596,7 +742,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                       disabled={loadingButton}
                     >
                       {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
                       </> : 'Yeni İhale Ekle'}
                     </Button>
                   </CustomTooltip>
@@ -632,35 +778,35 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                 }}
               />
             </Grid>
-            {/* Status Filter */}
+            {/* Durum Filtresi */}
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
                 exclusive
                 onChange={handleStatusFilterChange}
-                aria-label="Status filter"
+                aria-label="Durum filtresi"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaler göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaleleri göster" : ""}>
                   <StyledToggleButton
                     value="all"
-                    aria-label="all tenders"
+                    aria-label="Tüm ihaleler"
                   >
                     Tümü
                   </StyledToggleButton>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaler göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaleleri göster" : ""}>
                   <StyledToggleButton
                     value="active"
-                    aria-label="active tenders"
+                    aria-label="Aktif ihaleler"
                   >
                     Aktif
                   </StyledToggleButton>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaler göster" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaleleri göster" : ""}>
                   <StyledToggleButton
                     value="inactive"
-                    aria-label="inactive tenders"
+                    aria-label="Pasif ihaleler"
                   >
                     Pasif
                   </StyledToggleButton>
@@ -669,51 +815,68 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
             </Grid>
           </Grid>
         </Box>
-        {loadingData ? ( // نمایش لودینگ کلی
+        {loadingData ? (
           <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
             <CircularProgress />
             <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Yükleniyor...</Typography>
           </Stack>
         ) : (
           <TableContainer>
-            <Table aria-label="tender table">
+            <Table aria-label="ihale tablosu">
               <TableHead style={{ background: "#f1f1f1" }}>
                 <TableRow>
                   <TableCell>
-                    {/* Sortable Column: Başlık (Title) */}
                     <TableSortLabel
                       active={orderBy === 'title'}
                       direction={orderBy === 'title' ? order : 'asc'}
                       onClick={() => handleRequestSort('title')}
-                      style={{color: "#171c23"}}
+                      style={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Başlık</Typography>
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    {/* Sortable Column: Oluşturulma Tarihi (Creation Date) */}
                     <TableSortLabel
                       active={orderBy === 'createAt'}
                       direction={orderBy === 'createAt' ? order : 'asc'}
                       onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                      style={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Oluşturulma Tarihi</Typography>
                     </TableSortLabel>
                   </TableCell>
                   <TableCell>
-                    {/* Sortable Column: Durum (Status) */}
+                    <TableSortLabel
+                      active={orderBy === 'approvedTenderText'}
+                      direction={orderBy === 'approvedTenderText' ? order : 'asc'}
+                      onClick={() => handleRequestSort('approvedTenderText')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Onaylanan İhale</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>
+                    <TableSortLabel
+                      active={orderBy === 'approvedTenderDate'}
+                      direction={orderBy === 'approvedTenderDate' ? order : 'asc'}
+                      onClick={() => handleRequestSort('approvedTenderDate')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Onay/Red Tarihi</Typography>
+                    </TableSortLabel>
+                  </TableCell>
+                  <TableCell>
                     <TableSortLabel
                       active={orderBy === 'status'}
                       direction={orderBy === 'status' ? order : 'asc'}
                       onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                      style={{ color: "#171c23" }}
                     >
-                      <Typography variant="h6">Durum</Typography>
+                      <Typography variant="h6">Durum (Kayıt)</Typography>
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell 
-                      style={{color: "#171c23"}}>
+                  <TableCell
+                    style={{ color: "#171c23" }}>
                     <Typography variant="h6">Detaylar</Typography>
                   </TableCell>
                   <TableCell></TableCell>
@@ -738,6 +901,16 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                         </Stack>
                       </TableCell>
                       <TableCell>
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          {row.showApprovedIcon && <CheckCircleOutlineIcon color="success" fontSize="small" />}
+                          {row.showRejectedIcon && <HighlightOffIcon color="error" fontSize="small" />}
+                          <Typography variant="h6">{row.approvedTenderText}</Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="h6">{formatDate(row.approvedTenderDate || null)}</Typography>
+                      </TableCell>
+                      <TableCell>
                         <Chip
                           label={row.status}
                           sx={{
@@ -756,7 +929,6 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                           }}
                         />
                       </TableCell>
-                      {/* ستون "ثبت جزئیات" */}
                       <TableCell>
                         <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.title}" detaylarını kaydet/gör` : ""}>
                           <Button
@@ -790,19 +962,51 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                             'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                           }}
                         >
+                          {selectedRowForMenu?.tenderStatus === 0 && (
+                            <>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
+                                <MenuItem onClick={handleSetActiveTender}>
+                                  <ListItemIcon>
+                                    <ThumbUpAltIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İhaleyi Onayla
+                                </MenuItem>
+                              </CustomTooltip>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
+                                <MenuItem onClick={handleSetInactiveTender}>
+                                  <ListItemIcon>
+                                    <ThumbDownAltIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İhaleyi Reddet
+                                </MenuItem>
+                              </CustomTooltip>
+                            </>
+                          )}
+
+                          {selectedRowForMenu?.tenderStatus === 1 && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İş tanımla" : ""}>
+                              <MenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
+                                <ListItemIcon>
+                                  <AssignmentTurnedInIcon fontSize="small" />
+                                </ListItemIcon>
+                                İş Tanımla
+                              </MenuItem>
+                            </CustomTooltip>
+                          )}
+
                           {selectedRowForMenu?.recordStatus === 0 ? (
                             <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu ihale pasif yap" : ""}>
+                              title={isTooltipGloballyEnabled ? "Bu ihaleyi pasif yap" : ""}>
                               <MenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
                                 </ListItemIcon>
-                               Pasif Yap
+                                Pasif Yap
                               </MenuItem>
                             </CustomTooltip>
                           ) : (
                             <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu ihale aktif yap" : ""}>
+                              title={isTooltipGloballyEnabled ? "Bu ihaleyi aktif yap" : ""}>
                               <MenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
@@ -811,8 +1015,9 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                               </MenuItem>
                             </CustomTooltip>
                           )}
+
                           <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu ihale düzenle" : ""}>
+                            title={isTooltipGloballyEnabled ? "Bu ihaleyi düzenle" : ""}>
                             <MenuItem onClick={handleEditClick}>
                               <ListItemIcon>
                                 <IconEdit width={18} />
@@ -821,7 +1026,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                             </MenuItem>
                           </CustomTooltip>
                           <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu ihale sil" : ""}>
+                            title={isTooltipGloballyEnabled ? "Bu ihaleyi sil" : ""}>
                             <MenuItem onClick={handleClickOpenDeleteModal}>
                               <ListItemIcon>
                                 <IconTrash width={18} />
@@ -835,7 +1040,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={7} align="center">
                       <Typography variant="subtitle1" color="textSecondary">
                         Hiç ihale bulunamadı.
                       </Typography>
@@ -855,7 +1060,7 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
-          labelRowsPerPage="Satır başına düşen:"
+          labelRowsPerPage="Sayfa başına satır sayısı:"
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
         />
       </BlankCard>
@@ -867,10 +1072,16 @@ const handleGoToDetails = (tenderId: number = 15, tenderTitle: string = 'test') 
         onDeleteSuccess={getListTender}
         showAlert={showAlert}
       />
+
+      <DefineWorkModal
+        open={openDefineWorkModal}
+        onClose={() => setOpenDefineWorkModal(false)}
+        tenderId={selectedTenderIdForWork}
+        showAlert={showAlert}
+        onWorkDefinedSuccess={handleWorkDefinedSuccess}
+      />
     </>
   );
 };
-
-
 
 export default ListTender;

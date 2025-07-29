@@ -238,7 +238,7 @@ const ListCategory = () => {
         name: cat.name,
         createAt: cat.createAt,
         recordStatus: cat.recordStatus,
-        status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+        status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Pasif' : 'Silindi',
         parentId: cat.parentId,
         depth: cat.depth,
       }));
@@ -251,7 +251,7 @@ const ListCategory = () => {
           name: cat.name,
           createAt: cat.createAt,
           recordStatus: cat.recordStatus,
-          status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Pasif' : 'Silindi',
           parentId: cat.parentId,
           depth: cat.depth,
         }));
@@ -537,7 +537,7 @@ const ListCategory = () => {
       });
 
       if (response.data.httpStatusCode === 200) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`Kategori başarıyla ${statusText} olarak ayarlandı!`, 'success');
         await fetchCategories();
       } else {
@@ -648,7 +648,7 @@ const ListCategory = () => {
       name: selectedCategory.name,
       createAt: selectedCategory.createAt,
       recordStatus: selectedCategory.recordStatus,
-      status: selectedCategory.recordStatus === 0 ? 'Aktif' : selectedCategory.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+      status: selectedCategory.recordStatus === 0 ? 'Aktif' : selectedCategory.recordStatus === 1 ? 'Pasif' : 'Silindi',
       parentId: selectedCategory.parentId,
       depth: selectedCategory.depth,
     } : null);
@@ -767,7 +767,7 @@ const ListCategory = () => {
               }}
               inputRef={categoryNameInputRef}
               error={nameError}
-              helperText={nameHelperText} 
+              helperText={nameHelperText}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -891,7 +891,7 @@ const ListCategory = () => {
                       active={orderBy === 'name'}
                       direction={orderBy === 'name' ? order : 'asc'}
                       onClick={() => handleRequestSort('name')}
-                      style={{color: "#171c23"}}
+                      style={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">İsim</Typography>
                     </TableSortLabel>
@@ -902,7 +902,7 @@ const ListCategory = () => {
                       active={orderBy === 'createAt'}
                       direction={orderBy === 'createAt' ? order : 'asc'}
                       onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                      style={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Oluşturulma Tarihi</Typography>
                     </TableSortLabel>
@@ -913,13 +913,13 @@ const ListCategory = () => {
                       active={orderBy === 'status'}
                       direction={orderBy === 'status' ? order : 'asc'}
                       onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                      style={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Durum</Typography>
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell 
-                      style={{color: "#171c23"}}>
+                  <TableCell
+                    style={{ color: "#171c23" }}>
                     <Typography variant="h6">Alt Kategori</Typography> {/* This column is for navigation, not direct sort */}
                   </TableCell>
                   <TableCell></TableCell>

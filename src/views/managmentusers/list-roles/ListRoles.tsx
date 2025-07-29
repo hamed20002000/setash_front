@@ -31,7 +31,7 @@ interface RowType {
   id: number;
   status: string;
   name: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
+  recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
   createAt: string;
 }
 
@@ -143,7 +143,7 @@ const SystemRole = () => {
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
   }, []);
- const getListRole = useCallback(() => {
+  const getListRole = useCallback(() => {
     const authToken = localStorage.getItem('authToken');
 
     if (!authToken) {
@@ -166,7 +166,7 @@ const SystemRole = () => {
           name: item.name,
           recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
           createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
         setRolesList(formattedData as RowType[]);
       } else {
@@ -192,7 +192,7 @@ const SystemRole = () => {
   }, [getListRole]); // وابسته به getListRole
 
   // تابع getListRole هم باید useCallback شود چون در handleClickCloseOperationModal استفاده می‌شود و در useEffect اصلی
- 
+
   // -----------------------------------------------------
   // سایر توابع هندلر (برخی از قبل useCallback شده بودند، برخی را اضافه کردم)
   // -----------------------------------------------------
@@ -411,7 +411,7 @@ const SystemRole = () => {
       );
 
       if (response.data.httpStatusCode === 200) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`Rol başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListRole();
         resetFormAndState();
@@ -712,7 +712,7 @@ const SystemRole = () => {
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
                     onClick={() => handleRequestSort('name')}
-                    style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">İsim</Typography>
                   </TableSortLabel>
@@ -722,7 +722,7 @@ const SystemRole = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
-                    style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -732,7 +732,7 @@ const SystemRole = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                    style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>
@@ -765,13 +765,13 @@ const SystemRole = () => {
                           backgroundColor:
                             row.status === 'Silindi'
                               ? (theme) => theme.palette.primary.light
-                              : row.status === 'Etkin değil'
+                              : row.status === 'Pasif'
                                 ? (theme) => theme.palette.error.light
                                 : (theme) => theme.palette.success.light,
                           color:
                             row.status === 'Silindi'
                               ? (theme) => theme.palette.primary.main
-                              : row.status === 'Etkin değil'
+                              : row.status === 'Pasif'
                                 ? (theme) => theme.palette.error.main
                                 : (theme) => theme.palette.success.main,
                         }}
@@ -888,7 +888,7 @@ const SystemRole = () => {
       <ListSystemOperationModal
         openOperationModal={openOperationModal}
         onClose={handleClickCloseOperationModal}
-        roleId={roleIdForOperations?.toString() || null} 
+        roleId={roleIdForOperations?.toString() || null}
         showAlert={showAlert}
       />
     </>

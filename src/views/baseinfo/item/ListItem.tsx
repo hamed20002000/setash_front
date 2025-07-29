@@ -796,7 +796,7 @@ const ListItemComponent = () => {
       );
 
       if (response.data && response.data.success) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`Ürün başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListItem();
       } else {
@@ -951,7 +951,7 @@ const ListItemComponent = () => {
 
             createAt: item.unit.createAt,
           },
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
         // Removed initial sorting here, as it will be handled by the new sorting logic
         setItemsList(processedData as ItemType[]);
@@ -1091,7 +1091,7 @@ const ListItemComponent = () => {
           <Grid item xs={12} md={6}>
             <CustomFormLabel htmlFor="select-unit">Ölçü</CustomFormLabel>
             {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
-            <FormControl fullWidth error={unitIdError}> 
+            <FormControl fullWidth error={unitIdError}>
               <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
               <Select
                 labelId="select-unit-label"
@@ -1238,8 +1238,8 @@ const ListItemComponent = () => {
                   }
                 }}
                 inputProps={{ maxLength: 4 }}
-                error={abbreviationError} 
-                helperText={abbreviationHelperText} 
+                error={abbreviationError}
+                helperText={abbreviationHelperText}
               />
             </CustomTooltip>
           </Grid>
@@ -1392,7 +1392,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
                     onClick={() => handleRequestSort('name')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Ürün Adı</Typography>
                   </TableSortLabel>
@@ -1403,7 +1403,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'unit.title'} // Sorting by nested property 'unit.title'
                     direction={orderBy === 'unit.title' ? order : 'asc'}
                     onClick={() => handleRequestSort('unit.title')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Ölçü</Typography>
                   </TableSortLabel>
@@ -1414,7 +1414,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'category.name'} // Sorting by nested property 'category.name'
                     direction={orderBy === 'category.name' ? order : 'asc'}
                     onClick={() => handleRequestSort('category.name')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Kategori</Typography>
                   </TableSortLabel>
@@ -1425,13 +1425,13 @@ const ListItemComponent = () => {
                     active={orderBy === 'abbreviation'}
                     direction={orderBy === 'abbreviation' ? order : 'asc'}
                     onClick={() => handleRequestSort('abbreviation')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Kısaltma</Typography>
                   </TableSortLabel>
                 </TableCell>
-                <TableCell 
-                      style={{color: "#171c23"}}>
+                <TableCell
+                  style={{ color: "#171c23" }}>
                   <Typography variant="h6">Açıklama</Typography> {/* Description is not easily sortable */}
                 </TableCell>
                 <TableCell>
@@ -1440,7 +1440,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -1451,7 +1451,7 @@ const ListItemComponent = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>

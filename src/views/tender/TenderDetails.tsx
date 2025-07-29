@@ -41,6 +41,10 @@ import RegisterUnregisteredItemModal from './RegisterUnregisteredItemModal';
 import RegisterUnregisteredCategoryModal from './RegisterUnregisteredCategoryModal';
 
 
+import {RegisterItemInitialData} from './RegisterUnregisteredItemModal';
+import {RegisterCategoryInitialData} from './RegisterUnregisteredCategoryModal';
+
+
 // ===========================================================================
 // TYPE DEFINITIONS (UPDATED FOR NEW API STRUCTURE)
 // ===========================================================================
@@ -82,7 +86,10 @@ export interface ApiCategoryType {
     depth?: number;
     percent?: number;
     createAt?: string; // Added based on your API response
-    recordStatus?: number; // Added based on your API response
+    recordStatus?: number; 
+    description?:string;
+    eskiPoz?: string; // <-- اضافه شده
+    title?: string; // <-- اضافه شده
 }
 
 export interface ApiItemType {
@@ -136,29 +143,54 @@ interface GetItemByIdApiResponse {
 }
 
 // UPDATED: Assuming API now sends numbers directly, not strings like "$0.00"
+// interface TenderDetailFromApi {
+//     id: number;
+//     firmProcuredItemQuantities: number; // Changed to number
+//     eskiPoz: string | null; // Changed to string | null
+//     tedas: string | null;   // Changed to string | null
+//     ana: string | null;     // Changed to string | null
+//     alt: string | null;     // Changed to string | null
+//     ourProcuredItemQuantities: number; // Changed to number
+//     demontaj: number;         // Changed to number
+//     demontajMontaj: number;   // Changed to number
+//     firmProcuredItemPrice: number; // Changed to number
+//     ourProcuredItemPrice: number;  // Changed to number
+//     montajPrice: number;           // Changed to number
+//     demontajPrice: number;        // Changed to number
+//     demontajMontajPrice: number;   // Changed to number
+//     malzemeTutari: number;         // Added based on your API response
+//     montajTutari: number;          // Added based on your API response
+//     demontajTutari: number;        // Added based on your API response
+//     dMMTutari: number;             // Added based on your API response
+//     recordStatus: number; // Added based on your API response
+//     createAt: string;     // Added based on your API response
+//     item: ApiItemType;    // Added based on your API response
+// }
+
 interface TenderDetailFromApi {
-    id: number;
-    firmProcuredItemQuantities: number; // Changed to number
-    eskiPoz: string | null; // Changed to string | null
-    tedas: string | null;   // Changed to string | null
-    ana: string | null;     // Changed to string | null
-    alt: string | null;     // Changed to string | null
-    ourProcuredItemQuantities: number; // Changed to number
-    demontaj: number;         // Changed to number
-    demontajMontaj: number;   // Changed to number
-    firmProcuredItemPrice: number; // Changed to number
-    ourProcuredItemPrice: number;  // Changed to number
-    montajPrice: number;           // Changed to number
-    demontajPrice: number;        // Changed to number
-    demontajMontajPrice: number;   // Changed to number
-    malzemeTutari: number;         // Added based on your API response
-    montajTutari: number;          // Added based on your API response
-    demontajTutari: number;        // Added based on your API response
-    dMMTutari: number;             // Added based on your API response
-    recordStatus: number; // Added based on your API response
-    createAt: string;     // Added based on your API response
-    item: ApiItemType;    // Added based on your API response
+    id: number; // اگر از API به صورت string می آید، این را هم به string تغییر دهید
+    firmProcuredItemQuantities: string; // <-- تغییر به string
+    eskiPoz: string | null;
+    tedas: string | null;
+    ana: string | null;
+    alt: string | null;
+    ourProcuredItemQuantities: string; // <-- تغییر به string
+    demontaj: string; // <-- تغییر به string
+    demontajMontaj: string; // <-- تغییر به string
+    firmProcuredItemPrice: string; // <-- تغییر به string
+    ourProcuredItemPrice: string; // <-- تغییر به string
+    montajPrice: string; // <-- تغییر به string
+    demontajPrice: string; // <-- تغییر به string
+    demontajMontajPrice: string; // <-- تغییر به string
+    malzemeTutari: string; // <-- تغییر به string
+    montajTutari: string; // <-- تغییر به string
+    demontajTutari: string; // <-- تغییر به string
+    dMMTutari: string; // <-- تغییر به string
+    recordStatus: number;
+    createAt: string;
+    item: ApiItemType;
 }
+
 
 // UPDATED: Assuming 'id' is present and 'details' is 'tenderDetails'
 interface TenderCategoryFromApi {
@@ -168,6 +200,8 @@ interface TenderCategoryFromApi {
     recordStatus: number; // Added based on your API response
     createAt: string;     // Added based on your API response
     tenderDetails: TenderDetailFromApi[]; // Renamed 'details' to 'tenderDetails'
+    title?: string;  
+    eskiPoz?: string;
 }
 
 interface GetTenderByIdRawResponse {
@@ -283,29 +317,69 @@ const isItemDescriptionDuplicate = (
 };
 
 // KEPT for user inputs
-const parseAndCleanFloat = (value: string | number): number => {
+// const parseAndCleanFloat = (value: string | number): number => {
+//     if (typeof value === 'number') {
+//         return value;
+//     }
+//     let cleanedValue = String(value).replace(/,/g, '.');
+
+//     const parts = cleanedValue.split('.');
+//     if (parts.length > 2) {
+//         cleanedValue = parts[0] + '.' + parts.slice(1).join('');
+//     }
+
+//     cleanedValue = cleanedValue.replace(/[^0-9.]/g, '');
+
+//     const parsed = parseFloat(cleanedValue);
+//     return isNaN(parsed) ? 0 : parsed;
+// };
+
+// // KEPT for user inputs
+// const parseAndCleanInt = (value: string | number): number => {
+//     if (typeof value === 'number') {
+//         return value;
+//     }
+//     const cleanedValue = String(value).replace(/,/g, '').replace(/[^0-9]/g, '');
+//     const parsed = parseInt(cleanedValue, 10);
+//     return isNaN(parsed) ? 0 : parsed;
+// };
+
+
+const parseAndCleanFloat = (value: string | number | null | undefined): number => {
+    if (value === null || value === undefined) return 0; // اضافه شدن بررسی null/undefined
     if (typeof value === 'number') {
         return value;
     }
-    let cleanedValue = String(value).replace(/,/g, '.');
+    // حذف '$' و '،' (کاما)، و تبدیل کاما به نقطه برای اعشار
+    let cleanedValue = String(value)
+                        .replace(/\$/g, '') // حذف کاراکتر دلار
+                        .replace(/,/g, '.'); // تبدیل کاما به نقطه برای اعشار
 
+    // اگر چندین نقطه اعشار وجود داشت (مثلاً '1.000.000'), فقط اولین نقطه را نگه دار
     const parts = cleanedValue.split('.');
     if (parts.length > 2) {
         cleanedValue = parts[0] + '.' + parts.slice(1).join('');
     }
 
+    // حذف هر کاراکتر غیر عددی به جز نقطه
     cleanedValue = cleanedValue.replace(/[^0-9.]/g, '');
 
     const parsed = parseFloat(cleanedValue);
     return isNaN(parsed) ? 0 : parsed;
 };
 
-// KEPT for user inputs
-const parseAndCleanInt = (value: string | number): number => {
+// 💡 تابع parseAndCleanInt اصلاح شده:
+const parseAndCleanInt = (value: string | number | null | undefined): number => {
+    if (value === null || value === undefined) return 0; // اضافه شدن بررسی null/undefined
     if (typeof value === 'number') {
         return value;
     }
-    const cleanedValue = String(value).replace(/,/g, '').replace(/[^0-9]/g, '');
+    // حذف '$' و ',' و هر کاراکتر غیر عددی
+    const cleanedValue = String(value)
+                            .replace(/\$/g, '') // حذف کاراکتر دلار
+                            .replace(/,/g, '') // حذف کاما
+                            .replace(/[^0-9]/g, '');
+
     const parsed = parseInt(cleanedValue, 10);
     return isNaN(parsed) ? 0 : parsed;
 };
@@ -442,7 +516,9 @@ const TenderDetails = () => {
 
     // This ref should only indicate if initial tender details were loaded
     // not if general tree data was loaded
-    const initialTenderDetailsLoadRef = useRef(false);
+    // const initialTenderDetailsLoadRef = useRef(false);
+    const initialTenderDetailsLoadRef = useRef<{ [key: string]: boolean }>({}); // Store loaded status per tenderId
+
 
     const [newRecordRow, setNewRecordRow] = useState<TenderDetailRow>({
         id: 0, siraNo: 0, eskiPoz: '', tedasNo: 0, anaNo: 0, altNo: 0,
@@ -467,11 +543,18 @@ const TenderDetails = () => {
     const [editingRowId, setEditingRowId] = useState<number | null>(null);
     const [editingRowData, setEditingRowData] = useState<TenderDetailRow | null>(null);
 
+    // const [openRegisterItemModal, setOpenRegisterItemModal] = useState(false);
+    // const [itemToRegister, setItemToRegister] = useState<Partial<TenderDetailRow> | null>(null);
+
+    // const [openRegisterCategoryModal, setOpenRegisterCategoryModal] = useState(false);
+    // const [categoryToRegister, setCategoryToRegister] = useState<Partial<TenderDetailRow> | null>(null);
     const [openRegisterItemModal, setOpenRegisterItemModal] = useState(false);
-    const [itemToRegister, setItemToRegister] = useState<Partial<TenderDetailRow> | null>(null);
+    // تایپ رو به RegisterItemInitialData تغییر بدید
+    const [itemToRegister, setItemToRegister] = useState<RegisterItemInitialData | null>(null);
 
     const [openRegisterCategoryModal, setOpenRegisterCategoryModal] = useState(false);
-    const [categoryToRegister, setCategoryToRegister] = useState<Partial<TenderDetailRow> | null>(null);
+    // تایپ رو به RegisterCategoryInitialData تغییر بدید
+    const [categoryToRegister, setCategoryToRegister] = useState<RegisterCategoryInitialData | null>(null);
 
     const [templateWorkbookBuffer, setTemplateWorkbookBuffer] = useState<ArrayBuffer | null>(null);
 
@@ -712,10 +795,14 @@ const TenderDetails = () => {
         }
 
         // Only load if not already loaded for this tenderId
-        if (initialTenderDetailsLoadRef.current) {
-            console.log("--- loadExistingTenderDetails Skipped: Already loaded for this tenderId. ---");
-            return;
-        }
+        // if (initialTenderDetailsLoadRef.current) {
+        //     console.log("--- loadExistingTenderDetails Skipped: Already loaded for this tenderId. ---");
+        //     return;
+        // }
+        if (initialTenderDetailsLoadRef.current[tenderId]) { // Check loaded status for current tenderId
+        console.log("--- loadExistingTenderDetails Skipped: Already loaded for this tenderId. ---");
+        return;
+    }
 
         setLoading(true);
         const authToken = localStorage.getItem('authToken');
@@ -739,74 +826,183 @@ const TenderDetails = () => {
                 let loadedDetails: TenderDetailRow[] = [];
                 let currentLocalIdCounter = 1;
 
-                if (Array.isArray(tenderData.tenderCategories)) {
+                // if (Array.isArray(tenderData.tenderCategories)) {
+                //     tenderData.tenderCategories.forEach(category => {
+                //         const categoryRow: TenderDetailRow = calculateTotals({
+                //             id: currentLocalIdCounter++, siraNo: 0, eskiPoz: category.eskiPoz || "", 
+                //             tedasNo: 0, anaNo: 0, altNo: 0,
+                //             description: category.title  || "",
+                //             olcuBrimi: "", malzeme: 0, malzemeYuklenici: 0, montaj: 0, demontaj: 0, demontajMontaj: 0,
+                //             birimFiyatMalzeme: 0, birimFiyatMontaj: 0, birimFiyatDemontaj: 0, birimFiyatDemontajMontaj: 0,
+                //             toplamMalzeme: 0, toplamMontaj: 0, toplamDemontaj: 0, toplamDemontajdanMontaj: 0,
+                //             isUnregisteredItem: false, itemId: null, aciklama: category.description || "",
+                //             categoryPercentage: category.percent !== undefined && category.percent !== null ? category.percent : null,
+                //             isCategory: true, isFromExcel: false,
+                //         }, true);
+                //         loadedDetails.push(categoryRow);
+
+                //         if (Array.isArray(category.tenderDetails)) { // Changed 'details' to 'tenderDetails'
+                //             const itemDetails = category.tenderDetails.map((detail, index) => {
+                //                 // NO PARSING NEEDED HERE IF BACKEND SENDS NUMBERS
+                //                 const ourProcuredItemPriceNum = detail.ourProcuredItemPrice;
+                //                 const montajPriceNum = detail.montajPrice;
+                //                 const demontajPriceNum = detail.demontajPrice;
+                //                 const demontajMontajPriceNum = detail.demontajMontajPrice;
+
+                //                 // NO PARSING NEEDED HERE IF BACKEND SENDS NUMBERS
+                //                 const malzeme = detail.firmProcuredItemQuantities || 0;
+                //                 const malzemeYuklenici = detail.ourProcuredItemQuantities;
+                //                 const demontaj = detail.demontaj;
+                //                 const demontajMontaj = detail.demontajMontaj;
+
+                //                 // NO PARSING NEEDED HERE IF BACKEND SENDS NUMBERS (or handle null/undefined if possible)
+                //                 const tedasNo = detail.tedas !== null ? Number(detail.tedas) : 0;
+                //                 const anaNo = detail.ana !== null ? Number(detail.ana) : 0;
+                //                 const altNo = detail.alt !== null ? Number(detail.alt) : 0;
+
+                //                 const eskiPoz = String(detail.eskiPoz || '');
+
+                //                 let itemDescription: string = "";
+                //                 let itemUnit: string = "";
+                //                 // Use detail.item directly if available and matches ApiItemType structure
+                //                 const foundItemNode = detail.item ? findNodeByIdPure(combinedTreeData, `item-${detail.item.id}`) : undefined;
+
+                //                 if (foundItemNode && foundItemNode.type === 'item' && foundItemNode.originalData) {
+                //                     itemDescription = (foundItemNode.originalData as ApiItemType).name;
+                //                     itemUnit = (foundItemNode.originalData as ApiItemType).unit?.title || "";
+                //                 } else if (detail.item) {
+                //                     // Fallback if item is not found in local tree, but exists in API response
+                //                     itemDescription = detail.item.name || "";
+                //                     itemUnit = detail.item.unit?.title || "";
+                //                 }
+
+                //                 const aciklama = ""; // Your API response doesn't have 'aciklama' at this level
+
+                //                 const baseRow: Partial<TenderDetailRow> = {
+                //                     id: detail.id, siraNo: index + 1, eskiPoz: eskiPoz,
+                //                     tedasNo: tedasNo, anaNo: anaNo, altNo: altNo,
+                //                     description: itemDescription, olcuBrimi: itemUnit,
+                //                     malzeme: malzeme, malzemeYuklenici: malzemeYuklenici, montaj: (malzeme + malzemeYuklenici),
+                //                     demontaj: demontaj, demontajMontaj: demontajMontaj,
+                //                     birimFiyatMalzeme: ourProcuredItemPriceNum, birimFiyatMontaj: montajPriceNum,
+                //                     birimFiyatDemontaj: demontajPriceNum, birimFiyatDemontajMontaj: demontajMontajPriceNum,
+                //                     // Using totals directly from API if they exist, otherwise recalculate
+                //                     toplamMalzeme: detail.malzemeTutari, 
+                //                     toplamMontaj: detail.montajTutari, 
+                //                     toplamDemontaj: detail.demontajTutari, 
+                //                     toplamDemontajdanMontaj: detail.dMMTutari,
+                //                     isUnregisteredItem: !foundItemNode, itemId: detail.item?.id || null,
+                //                     aciklama: aciklama,
+                //                     categoryPercentage: category.percent !== undefined && category.percent !== null ? category.percent : null,
+                //                     isCategory: false, isFromExcel: false,
+                //                 };
+                //                 return calculateTotals(baseRow, true);
+                //             });
+                //             loadedDetails = loadedDetails.concat(itemDetails);
+                //         }
+                //     });
+                // }
+                 if (Array.isArray(tenderData.tenderCategories)) {
                     tenderData.tenderCategories.forEach(category => {
                         const categoryRow: TenderDetailRow = calculateTotals({
-                            id: currentLocalIdCounter++, siraNo: 0, eskiPoz: "",
-                            tedasNo: 0, anaNo: 0, altNo: 0, description: category.description || "Kategori",
-                            olcuBrimi: "", malzeme: 0, malzemeYuklenici: 0, montaj: 0, demontaj: 0, demontajMontaj: 0,
-                            birimFiyatMalzeme: 0, birimFiyatMontaj: 0, birimFiyatDemontaj: 0, birimFiyatDemontajMontaj: 0,
-                            toplamMalzeme: 0, toplamMontaj: 0, toplamDemontaj: 0, toplamDemontajdanMontaj: 0,
-                            isUnregisteredItem: false, itemId: null, aciklama: category.description || "",
+                            id: currentLocalIdCounter++,
+                            siraNo: 0,
+                            eskiPoz: category.eskiPoz || "",
+                            tedasNo: 0,
+                            anaNo: 0,
+                            altNo: 0,
+                            description: category.title || "", // از category.title استفاده کنید
+                            olcuBrimi: "",
+                            malzeme: 0,
+                            malzemeYuklenici: 0,
+                            montaj: 0,
+                            demontaj: 0,
+                            demontajMontaj: 0,
+                            birimFiyatMalzeme: 0,
+                            birimFiyatMontaj: 0,
+                            birimFiyatDemontaj: 0,
+                            birimFiyatDemontajMontaj: 0,
+                            toplamMalzeme: 0,
+                            toplamMontaj: 0,
+                            toplamDemontaj: 0,
+                            toplamDemontajdanMontaj: 0,
+                            isUnregisteredItem: false,
+                            itemId: null,
+                            aciklama: category.description || "",
                             categoryPercentage: category.percent !== undefined && category.percent !== null ? category.percent : null,
-                            isCategory: true, isFromExcel: false,
+                            isCategory: true,
+                            isFromExcel: false,
                         }, true);
                         loadedDetails.push(categoryRow);
 
-                        if (Array.isArray(category.tenderDetails)) { // Changed 'details' to 'tenderDetails'
+                        if (Array.isArray(category.tenderDetails)) {
                             const itemDetails = category.tenderDetails.map((detail, index) => {
-                                // NO PARSING NEEDED HERE IF BACKEND SENDS NUMBERS
-                                const ourProcuredItemPriceNum = detail.ourProcuredItemPrice;
-                                const montajPriceNum = detail.montajPrice;
-                                const demontajPriceNum = detail.demontajPrice;
-                                const demontajMontajPriceNum = detail.demontajMontajPrice;
+                                // 🌟🌟🌟 استفاده از توابع parseAndCleanFloat و parseAndCleanInt 🌟🌟🌟
+                                // برای تمام فیلدهایی که از API به صورت رشته‌ای با '$' و ',' می‌آیند
+                                const firmProcuredItemQuantities = parseAndCleanFloat(detail.firmProcuredItemQuantities);
+                                const ourProcuredItemQuantities = parseAndCleanFloat(detail.ourProcuredItemQuantities);
+                                const demontaj = parseAndCleanFloat(detail.demontaj);
+                                const demontajMontaj = parseAndCleanFloat(detail.demontajMontaj);
 
-                                // NO PARSING NEEDED HERE IF BACKEND SENDS NUMBERS
-                                const malzeme = detail.firmProcuredItemQuantities || 0;
-                                const malzemeYuklenici = detail.ourProcuredItemQuantities;
-                                const demontaj = detail.demontaj;
-                                const demontajMontaj = detail.demontajMontaj;
+                                const firmProcuredItemPrice = parseAndCleanFloat(detail.firmProcuredItemPrice);
+                                // const ourProcuredItemPrice = parseAndCleanFloat(detail.ourProcuredItemPrice);
+                                const montajPrice = parseAndCleanFloat(detail.montajPrice);
+                                const demontajPrice = parseAndCleanFloat(detail.demontajPrice);
+                                const demontajMontajPrice = parseAndCleanFloat(detail.demontajMontajPrice);
 
-                                // NO PARSING NEEDED HERE IF BACKEND SENDS NUMBERS (or handle null/undefined if possible)
-                                const tedasNo = detail.tedas !== null ? Number(detail.tedas) : 0;
-                                const anaNo = detail.ana !== null ? Number(detail.ana) : 0;
-                                const altNo = detail.alt !== null ? Number(detail.alt) : 0;
+                                const malzemeTutari = parseAndCleanFloat(detail.malzemeTutari);
+                                const montajTutari = parseAndCleanFloat(detail.montajTutari);
+                                const demontajTutari = parseAndCleanFloat(detail.demontajTutari);
+                                const dMMTutari = parseAndCleanFloat(detail.dMMTutari);
 
-                                const eskiPoz = String(detail.eskiPoz || '');
+                                const tedasNo = parseAndCleanInt(detail.tedas); // استفاده از parseAndCleanInt
+                                const anaNo = parseAndCleanInt(detail.ana);   // استفاده از parseAndCleanInt
+                                const altNo = parseAndCleanInt(detail.alt);   // استفاده از parseAndCleanInt
 
-                                let itemDescription: string = "N/A";
+                                const eskiPoz = String(detail.eskiPoz || ''); // این نیازی به parse عددی ندارد
+
+                                let itemDescription: string = "";
                                 let itemUnit: string = "";
-                                // Use detail.item directly if available and matches ApiItemType structure
                                 const foundItemNode = detail.item ? findNodeByIdPure(combinedTreeData, `item-${detail.item.id}`) : undefined;
 
                                 if (foundItemNode && foundItemNode.type === 'item' && foundItemNode.originalData) {
                                     itemDescription = (foundItemNode.originalData as ApiItemType).name;
                                     itemUnit = (foundItemNode.originalData as ApiItemType).unit?.title || "";
                                 } else if (detail.item) {
-                                    // Fallback if item is not found in local tree, but exists in API response
-                                    itemDescription = detail.item.name || "N/A";
+                                    itemDescription = detail.item.name || "";
                                     itemUnit = detail.item.unit?.title || "";
                                 }
 
-                                const aciklama = ""; // Your API response doesn't have 'aciklama' at this level
+                                const aciklama = ""; // از API شما در این سطح aciklama وجود ندارد
 
                                 const baseRow: Partial<TenderDetailRow> = {
-                                    id: detail.id, siraNo: index + 1, eskiPoz: eskiPoz,
-                                    tedasNo: tedasNo, anaNo: anaNo, altNo: altNo,
-                                    description: itemDescription, olcuBrimi: itemUnit,
-                                    malzeme: malzeme, malzemeYuklenici: malzemeYuklenici, montaj: (malzeme + malzemeYuklenici),
-                                    demontaj: demontaj, demontajMontaj: demontajMontaj,
-                                    birimFiyatMalzeme: ourProcuredItemPriceNum, birimFiyatMontaj: montajPriceNum,
-                                    birimFiyatDemontaj: demontajPriceNum, birimFiyatDemontajMontaj: demontajMontajPriceNum,
-                                    // Using totals directly from API if they exist, otherwise recalculate
-                                    toplamMalzeme: detail.malzemeTutari, 
-                                    toplamMontaj: detail.montajTutari, 
-                                    toplamDemontaj: detail.demontajTutari, 
-                                    toplamDemontajdanMontaj: detail.dMMTutari,
-                                    isUnregisteredItem: !foundItemNode, itemId: detail.item?.id || null,
+                                    id: Number(detail.id), // فرض بر این است که detail.id همیشه به عدد تبدیل می‌شود
+                                    siraNo: index + 1,
+                                    eskiPoz: eskiPoz,
+                                    tedasNo: tedasNo,
+                                    anaNo: anaNo,
+                                    altNo: altNo,
+                                    description: itemDescription,
+                                    olcuBrimi: itemUnit,
+                                    malzeme: firmProcuredItemQuantities,
+                                    malzemeYuklenici: ourProcuredItemQuantities,
+                                    montaj: (firmProcuredItemQuantities + ourProcuredItemQuantities), // montaj: (malzeme + malzemeYuklenici)
+                                    demontaj: demontaj,
+                                    demontajMontaj: demontajMontaj,
+                                    birimFiyatMalzeme: firmProcuredItemPrice,
+                                    birimFiyatMontaj: montajPrice,
+                                    birimFiyatDemontaj: demontajPrice,
+                                    birimFiyatDemontajMontaj: demontajMontajPrice,
+                                    toplamMalzeme: malzemeTutari,
+                                    toplamMontaj: montajTutari,
+                                    toplamDemontaj: demontajTutari,
+                                    toplamDemontajdanMontaj: dMMTutari,
+                                    isUnregisteredItem: !foundItemNode,
+                                    itemId: detail.item?.id || null,
                                     aciklama: aciklama,
                                     categoryPercentage: category.percent !== undefined && category.percent !== null ? category.percent : null,
-                                    isCategory: false, isFromExcel: false,
+                                    isCategory: false,
+                                    isFromExcel: false,
                                 };
                                 return calculateTotals(baseRow, true);
                             });
@@ -817,12 +1013,14 @@ const TenderDetails = () => {
                 setGridData(loadedDetails);
                 console.log("--- loadExistingTenderDetails: setGridData (API Loaded). New gridData length:", loadedDetails.length);
                 showAlert('İhale detayları başarıyla yüklendi.', 'success');
-                initialTenderDetailsLoadRef.current = true; // Set to true ONLY on successful initial load
+                // initialTenderDetailsLoadRef.current = true; 
+                 initialTenderDetailsLoadRef.current[tenderId] = true;
             } else {
                 setGridData([]);
                 console.log("--- loadExistingTenderDetails: No tender details found or invalid API response. gridData set to empty. ---");
                 showAlert('Bu ihale için detay bulunamadı veya API yanıtı geçersiz.', 'info');
-                initialTenderDetailsLoadRef.current = false; // Keep false if load fails
+                // initialTenderDetailsLoadRef.current = false; 
+                initialTenderDetailsLoadRef.current[tenderId] = false;
             }
         } catch (error: any) {
             if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
@@ -834,7 +1032,8 @@ const TenderDetails = () => {
             showAlert('İhale detayları yüklenirken bir hata oluştu.', 'error');
             setGridData([]);
             console.log("--- loadExistingTenderDetails: Error loading tender details. gridData set to empty. ---");
-            initialTenderDetailsLoadRef.current = false; // Keep false if load fails
+            // initialTenderDetailsLoadRef.current = false; 
+            initialTenderDetailsLoadRef.current[tenderId] = false;
         } finally {
             setLoading(false);
         }
@@ -855,19 +1054,22 @@ const TenderDetails = () => {
         }
 
         // Phase 2: Load tender details only AFTER tree is loaded AND only once per tenderId
-        if (tenderId && isTreeDataLoaded && !initialTenderDetailsLoadRef.current) {
-            console.log("--- Master useEffect: Calling loadExistingTenderDetails ---");
-            loadExistingTenderDetails();
-            // Note: initialTenderDetailsLoadRef.current is set to true INSIDE loadExistingTenderDetails
-            // to ensure it's marked as loaded only if the API call is successful.
+        // if (tenderId && isTreeDataLoaded && !initialTenderDetailsLoadRef.current) {
+        //     console.log("--- Master useEffect: Calling loadExistingTenderDetails ---");
+        //     loadExistingTenderDetails();
+        // }
+
+        if (tenderId && isTreeDataLoaded && !initialTenderDetailsLoadRef.current[tenderId]) {
+        console.log("--- Master useEffect: Calling loadExistingTenderDetails ---");
+        loadExistingTenderDetails();
         }
 
         // Cleanup: Reset initialTenderDetailsLoadRef if tenderId changes (component remounts for new tender)
         // or if this useEffect is re-fired for a new tenderId.
-        return () => {
-            console.log("--- Master useEffect Cleanup: Resetting initialTenderDetailsLoadRef.current to false on unmount/re-fire. ---");
-            initialTenderDetailsLoadRef.current = false;
-        };
+        // return () => {
+        //     console.log("--- Master useEffect Cleanup: Resetting initialTenderDetailsLoadRef.current to false on unmount/re-fire. ---");
+        //     initialTenderDetailsLoadRef.current = false;
+        // };
     }, [tenderId, isTreeDataLoaded, fetchDataAndBuildTree, loadExistingTenderDetails]);
 
 
@@ -1309,6 +1511,7 @@ const TenderDetails = () => {
                 eskiPoz: row.eskiPoz,
                 categoryPercentage: row.categoryPercentage,
                 isCategory: true,
+                originalRowId: row.id,
             });
             setOpenRegisterCategoryModal(true);
         } else {
@@ -1326,67 +1529,107 @@ const TenderDetails = () => {
                 demontaj: row.demontaj,
                 demontajMontaj: row.demontajMontaj,
                 isCategory: false,
+                originalRowId: row.id, 
             });
             setOpenRegisterItemModal(true);
         }
     }, []);
 
     
-    const handleUpdateRegisteredItemInGrid = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
+   const handleUpdateRegisteredItemInGrid = useCallback(async (registeredData: ApiItemType | ApiCategoryType, originalRowId?: number) => {
+        // این تابع پس از ثبت موفقیت‌آمیز یک آیتم/کتگوری در مودال فراخوانی می‌شود.
+        // وظیفه آن، به‌روزرسانی سطر مربوطه در `gridData` و حذف بوردر و آیکون "ثبت‌نشده" است.
+
         console.log("--- handleUpdateRegisteredItemInGrid Called ---");
         console.log("gridData length before update:", gridData.length);
-        
-        // فراخوانی تابع جدید برای رفرش درخت
+        console.log("originalRowId received from modal:", originalRowId); // لاگ برای عیب‌یابی
+
+        // 1. به‌روزرسانی درخت دسته‌بندی/آیتم‌ها:
+        // این گام ضروری است تا `combinedTreeData` که در `processedAndFilteredGridData` استفاده می‌شود،
+        // شامل آیتم یا کتگوری تازه ثبت شده باشد.
         await refreshCombinedTreeData();
-        
-        // ... (بقیه منطق آپدیت محلی gridData) ...
+
+        // 2. به‌روزرسانی `gridData` به صورت ایمیوتِبل (Immutable Update):
+        // از `setGridData` با یک تابع (updater function) استفاده می‌کنیم تا به `prevGridData` (آخرین وضعیت `gridData`) دسترسی داشته باشیم.
         setGridData(prevGridData => {
             const registeredDataName = 'name' in registeredData ? registeredData.name : '';
-            const registeredDataId = 'id' in registeredData ? String(registeredData.id) : null;
 
-            const rowIndex = prevGridData.findIndex(row =>
-                row.isUnregisteredItem && 
-                normalizeString(row.description) === normalizeString(registeredDataName) &&
-                row.isCategory === ('categories' in registeredData)
-            );
+            let rowIndex = -1;
 
+            // **استفاده از originalRowId برای یافتن دقیق سطر:**
+            // این مهمترین قسمت برای جلوگیری از رفرش ناخواسته و از دست رفتن دیتا است.
+            // اگر originalRowId از مودال ارسال شده باشد (که باید باشد)، از آن برای یافتن سطر استفاده می‌کنیم.
+            if (originalRowId !== undefined && originalRowId !== null) {
+                rowIndex = prevGridData.findIndex(row => row.id === originalRowId);
+            }
+
+            // اگر سطر با originalRowId پیدا نشد (که نباید اتفاق بیفتد اگر منطق modal درست باشد)،
+            // به عنوان یک fallback، می‌توانیم بر اساس description و isUnregisteredItem جستجو کنیم.
+            // اما توصیه می‌شود که `originalRowId` همیشه صحیح باشد.
             if (rowIndex === -1) {
-                console.log("--- handleUpdateRegisteredItemInGrid: Row to update not found, returning previous gridData. ---");
+                console.warn("--- handleUpdateRegisteredItemInGrid: originalRowId not found, falling back to description match. This indicates a potential issue in passing originalRowId from modal. ---");
+                rowIndex = prevGridData.findIndex(row =>
+                    row.isUnregisteredItem && // فقط سطرهای ثبت‌نشده را در نظر بگیرید
+                    normalizeString(row.description) === normalizeString(registeredDataName) &&
+                    row.isCategory === ('categories' in registeredData) // نوع (کتگوری یا آیتم) هم باید مطابقت داشته باشد
+                );
+            }
+
+            // اگر سطر مورد نظر برای به‌روزرسانی پیدا نشد، وضعیت قبلی `gridData` را برمی‌گردانیم.
+            if (rowIndex === -1) {
+                console.warn("--- handleUpdateRegisteredItemInGrid: Row to update could not be found in gridData. Returning previous state. ---");
                 return prevGridData;
             }
 
+            // یک کپی جدید از آرایه `gridData` ایجاد می‌کنیم تا State را به صورت ایمیوتِبل به‌روز کنیم.
             const newGridData = [...prevGridData];
-            const rowToUpdate = { ...newGridData[rowIndex] };
+            // یک کپی از سطر مورد نظر برای به‌روزرسانی ایجاد می‌کنیم.
+            let rowToUpdate = { ...newGridData[rowIndex] };
 
+            // 3. اعمال تغییرات به سطر:
+            // پرچم `isUnregisteredItem` را به `false` تغییر می‌دهیم تا بوردر قرمز و آیکون پلاس برداشته شوند.
             rowToUpdate.isUnregisteredItem = false;
+            // توضیحات سطر را با نام جدید آیتم/کتگوری ثبت شده به‌روز می‌کنیم.
             rowToUpdate.description = registeredDataName;
+            // این سطر دیگر "از اکسل" (یعنی جدید و نیاز به ثبت) نیست.
+            rowToUpdate.isFromExcel = false;
 
+            // به‌روزرسانی `itemId` و `olcuBrimi` بر اساس نوع ثبت شده (آیتم یا کتگوری)
             if ('categories' in registeredData) {
-                rowToUpdate.itemId = null;
+                // اگر یک کتگوری ثبت شده است:
+                rowToUpdate.itemId = null; // کتگوری‌ها `itemId` ندارند.
                 rowToUpdate.isCategory = true;
+                // درصد کتگوری (اگر موجود بود) را اعمال می‌کنیم.
                 if ('percent' in registeredData) {
                     rowToUpdate.categoryPercentage = registeredData.percent as number | null;
                 }
             } else {
+                // اگر یک آیتم ثبت شده است:
                 rowToUpdate.isCategory = false;
-                rowToUpdate.categoryPercentage = null;
-                if (registeredDataId !== null) {
-                    rowToUpdate.itemId = Number(registeredDataId);
+                rowToUpdate.categoryPercentage = null; // آیتم‌ها درصد کتگوری ندارند.
+                // `itemId` را با ID واقعی آیتم ثبت شده به‌روز می‌کنیم.
+                if (registeredData.id !== undefined && registeredData.id !== null) {
+                    rowToUpdate.itemId = Number(registeredData.id);
                 }
+                // `olcuBrimi` (واحد اندازه‌گیری) را از داده‌های ثبت شده (اگر موجود بود) اعمال می‌کنیم.
                 if ('unit' in registeredData && (registeredData as ApiItemType).unit?.title) {
                     rowToUpdate.olcuBrimi = (registeredData as ApiItemType).unit.title;
                 }
             }
 
+            // 4. باز محاسبه‌ی `toplam`ها:
+            // پس از به‌روزرسانی مقادیر، totals را برای سطر باز محاسبه می‌کنیم.
             newGridData[rowIndex] = calculateTotals(rowToUpdate, true);
 
-            showAlert(`Liste başarıyla güncellendi و "${registeredDataName}" öğesinin durumu ayarlandı!`, 'success');
-            console.log("--- handleUpdateRegisteredItemInGrid: setGridData (Local Update). Old gridData length:", prevGridData.length, "New gridData length:", newGridData.length);
+            // 5. نمایش پیام موفقیت:
+            showAlert(`Liste başarıyla güncellendi ve "${registeredDataName}" öğesinin durumu ayarlandı!`, 'success');
+            console.log("--- handleUpdateRegisteredItemInGrid: setGridData (Local Update) applied. New gridData length:", newGridData.length);
+
+            // آرایه `gridData` به‌روز شده را برمی‌گردانیم.
             return newGridData;
         });
 
-    }, [showAlert, navigate, calculateTotals, refreshCombinedTreeData, gridData.length]); // Added gridData.length to dependencies to ensure correct prevGridData access
-
+    }, [showAlert, refreshCombinedTreeData, calculateTotals]);
 
     const handleRegistrationSuccess = useCallback((registeredData: ApiItemType | ApiCategoryType) => {
         setOpenRegisterItemModal(false);
@@ -1826,6 +2069,359 @@ const TenderDetails = () => {
 
    // ... (Your existing code) ...
 
+// const handleSaveAllData = async () => {
+//     setIsLoading(true);
+
+//     const authToken = localStorage.getItem('authToken');
+//     if (!authToken) {
+//         showAlert('Oturumunuzun süresi doldu.', 'error');
+//         navigate("/");
+//         setIsLoading(false);
+//         return;
+//     }
+//     if (gridData.length === 0) {
+//         showAlert('Kaydedilecek veri bulunamadı.', 'warning');
+//         setIsLoading(false);
+//         return;
+//     }
+//     if (editingRowId !== null) {
+//         showAlert('Lütfen önce açık olan düzenlemeyi tamamlayın veya iptal edin.', 'warning');
+//         setIsLoading(false);
+//         return;
+//     }
+//     if (processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory)) {
+//         showAlert('Kaydedilmemiş ürünler var. Lütfen tüm ürünleri ekleyin veya listeden seçin.', 'warning');
+//         setIsLoading(false);
+//         return;
+//     }
+
+//     setIsSavingAll(true);
+//     setAlertMessage(null);
+
+//     // =======================================================================
+//     // START: Constructing the Payload for PUT request
+//     // =======================================================================
+
+//     // Group gridData by category for the new API structure
+//     const groupedData: { [categoryIdentifier: string]: { categoryInfo: { id: string | null; percent: number; description: string; recordStatus: number; createAt: string | null; }, items: TenderDetailRow[] } } = {};
+    
+//     // Iterate through all gridData to build the grouped structure
+//     gridData.forEach(row => {
+//         let categoryIdentifier: string; // This will be the key for groupedData (e.g., normalized category name)
+//         let categoryIdForApi: string | null = null;
+//         let categoryPercentForApi: number = 0; // Default to 0 as per API Type
+//         let categoryDescriptionForApi: string = ""; // This will hold the "AÇIKLAMA" for the category payload
+//         let categoryRecordStatusForApi: number = 0;
+//         let categoryCreateAtForApi: string | null = null;
+
+//         if (row.isCategory) {
+//             // For rows that are explicitly marked as categories in the gridData
+//             categoryIdentifier = normalizeString(row.description); // Use the row's description (category name) for grouping key
+//             categoryIdForApi = (findNodeByNameAndTypePure(combinedTreeData, categoryIdentifier, 'category')?.originalData as ApiCategoryType)?.id ?? null;
+//             categoryPercentForApi = row.categoryPercentage ?? 0; // Use row's percentage for categories
+//             categoryDescriptionForApi = row.aciklama // **این خط اصلاح شده است**: از 'aciklama' استفاده کنید.
+
+//             // For initial load, if the category came from API, it might have original recordStatus/createAt
+//             // For new categories from Excel, these might be defaulted.
+//             const existingCategoryNode = findNodeByNameAndTypePure(combinedTreeData, categoryIdentifier, 'category');
+//             if (existingCategoryNode && existingCategoryNode.originalData && 'recordStatus' in existingCategoryNode.originalData) {
+//                 categoryRecordStatusForApi = (existingCategoryNode.originalData as ApiCategoryType).recordStatus ?? 0;
+//                 categoryCreateAtForApi = (existingCategoryNode.originalData as ApiCategoryType).createAt ?? null;
+//             } else {
+//                  categoryRecordStatusForApi = 0; // Default for new/unmatched categories
+//                  categoryCreateAtForApi = new Date().toISOString(); // Default for new/unmatched categories
+//             }
+
+//         } else {
+//             // For item rows, find their parent category from combinedTreeData
+//             if (row.itemId !== null) {
+//                 const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
+//                 if (itemNode && itemNode.originalData && 'category' in itemNode.originalData && itemNode.originalData.category?.id) {
+//                     const parentCategoryNode = findNodeByIdPure(combinedTreeData, `cat-${itemNode.originalData.category.id}`);
+//                     if (parentCategoryNode && parentCategoryNode.type === 'category' && parentCategoryNode.originalData) {
+//                         categoryIdentifier = normalizeString(parentCategoryNode.name); // Use parent category name as grouping key
+//                         categoryIdForApi = (parentCategoryNode.originalData as ApiCategoryType).id;
+//                         categoryPercentForApi = (parentCategoryNode.originalData as ApiCategoryType).percent ?? 0;
+//                         categoryDescriptionForApi = (parentCategoryNode.originalData as ApiCategoryType).description || ""; // **این خط اصلاح شده است**: از 'description' در 'originalData' استفاده کنید.
+//                         categoryRecordStatusForApi = (parentCategoryNode.originalData as ApiCategoryType).recordStatus ?? 0;
+//                         categoryCreateAtForApi = (parentCategoryNode.originalData as ApiCategoryType).createAt ?? null;
+//                     } else {
+//                         // Fallback if item has category ID but category node not found (shouldn't happen if tree is consistent)
+//                         categoryIdentifier = "Uncategorized";
+//                         categoryDescriptionForApi = "";
+//                     }
+//                 } else {
+//                     // Fallback for item without category info (e.g., unregistered item added manually)
+//                     categoryIdentifier = "Uncategorized";
+//                     categoryDescriptionForApi = "";
+//                 }
+//             } else {
+//                 // Default for items that are not linked to a category (e.g., manual entries without selection)
+//                 categoryIdentifier = "Uncategorized";
+//                 categoryDescriptionForApi = "";
+//             }
+//         }
+        
+//         // Ensure the category entry exists in groupedData
+//         if (!groupedData[categoryIdentifier]) {
+//             groupedData[categoryIdentifier] = {
+//                 categoryInfo: {
+//                     id: categoryIdForApi,
+//                     percent: categoryPercentForApi,
+//                     description: categoryDescriptionForApi, // این فیلد اکنون مقدار صحیح را خواهد داشت
+//                     recordStatus: categoryRecordStatusForApi,
+//                     createAt: categoryCreateAtForApi,
+//                 },
+//                 items: []
+//             };
+//         }
+
+//         // Only push actual items into 'tenderDetails' array. Category rows themselves don't go into tenderDetails.
+//         if (!row.isCategory) { 
+//             groupedData[categoryIdentifier].items.push(row);
+//         }
+//     });
+
+//     // Transform grouped data into the API's expected 'tenderCategories' array
+//     const categoriesPayload = Object.values(groupedData).map(group => {
+//         return {
+//             id: group.categoryInfo.id,
+//             percent: group.categoryInfo.percent,
+//             description: group.categoryInfo.description, // این الان درست است
+//             recordStatus: group.categoryInfo.recordStatus,
+//             createAt: group.categoryInfo.createAt,
+//             tenderDetails: group.items.map(itemRow => ({
+//                 id: itemRow.id,
+//                 firmProcuredItemQuantities: itemRow.malzeme,
+//                 eskiPoz: itemRow.eskiPoz,
+//                 tedas: String(itemRow.tedasNo),
+//                 ana: String(itemRow.anaNo),
+//                 alt: String(itemRow.altNo),
+//                 ourProcuredItemQuantities: itemRow.malzemeYuklenici,
+//                 demontaj: itemRow.demontaj,
+//                 demontajMontaj: itemRow.demontajMontaj,
+//                 firmProcuredItemPrice: itemRow.birimFiyatMalzeme,
+//                 ourProcuredItemPrice: itemRow.birimFiyatMalzeme,
+//                 montajPrice: itemRow.birimFiyatMontaj,
+//                 demontajPrice: itemRow.birimFiyatDemontaj,
+//                 demontajMontajPrice: itemRow.birimFiyatDemontajMontaj,
+//                 malzemeTutari: itemRow.toplamMalzeme,
+//                 montajTutari: itemRow.toplamMontaj,
+//                 demontajTutari: itemRow.toplamDemontaj,
+//                 dMMTutari: itemRow.toplamDemontajdanMontaj,
+//                 recordStatus: 0,
+//                 createAt: new Date().toISOString(),
+//                 item: {
+//                     id: itemRow.itemId!,
+//                     name: itemRow.description,
+//                     unit: {
+//                         title: itemRow.olcuBrimi,
+//                     },
+//                     category: {
+//                         id: (findNodeByIdPure(combinedTreeData, `item-${itemRow.itemId}`)?.originalData as ApiItemType)?.category.id || "default-cat-id"
+//                     }
+//                 }
+//             }))
+//         };
+//     });
+
+//     const payload = {
+//         id: Number(tenderId),
+//         tenderCategories: categoriesPayload,
+//     };
+    
+//     // =======================================================================
+//     // END: Constructing the Payload for PUT request
+//     // =======================================================================
+// debugger
+//     try {
+//         const response = await axios.put(
+//             server.baseurl + server.initialoperations + "update-tender",
+//             payload,
+//             {
+//                 headers: {
+//                     "Accept": "application/json",
+//                     'Content-Type': 'application/json',
+//                     "Authorization": `Bearer ${authToken}`
+//                 }
+//             }
+//         );
+
+//         if (response.status === 200) {
+//             showAlert('İhale detayları başarıyla güncellendi!', 'success');
+//         } else {
+//             showAlert(`Güncelleme başarısız oldu: ${response.data?.message || 'Bilinmeyen bir hata oluştu.'}`, 'error');
+//         }
+//     } catch (error: any) {
+//         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+//             localStorage.removeItem('authToken');
+//             navigate("/");
+//             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+//         }
+//         console.error("Error updating tender details:", error);
+//         showAlert(`İhale detayları güncellenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
+//     } finally {
+//         setIsSavingAll(false);
+//         setIsLoading(false);
+//     }
+// };
+
+// const handleSaveAllData = async () => {
+//     setIsLoading(true);
+
+//     const authToken = localStorage.getItem('authToken');
+//     if (!authToken) {
+//         showAlert('Oturumunuzun süresi doldu.', 'error');
+//         navigate("/");
+//         setIsLoading(false);
+//         return;
+//     }
+//     if (gridData.length === 0) {
+//         showAlert('Kaydedilecek veri bulunamadı.', 'warning');
+//         setIsLoading(false);
+//         return;
+//     }
+//     if (editingRowId !== null) {
+//         showAlert('Lütfen ابتدا ویرایش فعال را تکمیل یا لغو کنید.', 'warning');
+//         setIsLoading(false);
+//         return;
+//     }
+//     if (processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory)) {
+//         showAlert('آیتم‌های ثبت نشده‌ای وجود دارد. لطفاً قبل از ذخیره، همه آیتم‌ها را اضافه یا از لیست انتخاب کنید.', 'warning');
+//         setIsLoading(false);
+//         return;
+//     }
+
+//     setIsSavingAll(true);
+//     setAlertMessage(null);
+
+//     // =======================================================================
+//     // START: Constructing the Payload for PUT request
+//     // =======================================================================
+
+//     // Group gridData by category for the new API structure
+//     const groupedData: { [categoryIdentifier: string]: { categoryInfo: { percent: number; description: string; }, items: TenderDetailRow[] } } = {};
+    
+//     // Iterate through all gridData to build the grouped structure
+//     gridData.forEach(row => {
+//         let categoryIdentifier: string;
+//         let categoryPercentForApi: number = 0;
+//         let categoryDescriptionForApi: string = "";
+
+//         if (row.isCategory) {
+//             categoryIdentifier = normalizeString(row.description);
+//             categoryPercentForApi = row.categoryPercentage ?? 0;
+//             categoryDescriptionForApi = row.aciklama; // استفاده از aciklama برای توضیحات دسته‌بندی
+
+//         } else {
+//             if (row.itemId !== null) {
+//                 const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
+//                 if (itemNode && itemNode.originalData && 'category' in itemNode.originalData && itemNode.originalData.category?.id) {
+//                     const parentCategoryNode = findNodeByIdPure(combinedTreeData, `cat-${itemNode.originalData.category.id}`);
+//                     if (parentCategoryNode && parentCategoryNode.type === 'category' && parentCategoryNode.originalData) {
+//                         categoryIdentifier = normalizeString(parentCategoryNode.name);
+//                         categoryPercentForApi = (parentCategoryNode.originalData as ApiCategoryType).percent ?? 0;
+//                         categoryDescriptionForApi = (parentCategoryNode.originalData as ApiCategoryType).description || "";
+//                     } else {
+//                         categoryIdentifier = "Uncategorized";
+//                         categoryDescriptionForApi = "";
+//                     }
+//                 } else {
+//                     categoryIdentifier = "Uncategorized";
+//                     categoryDescriptionForApi = "";
+//                 }
+//             } else {
+//                 categoryIdentifier = "Uncategorized";
+//                 categoryDescriptionForApi = "";
+//             }
+//         }
+        
+//         // Ensure the category entry exists in groupedData
+//         if (!groupedData[categoryIdentifier]) {
+//             groupedData[categoryIdentifier] = {
+//                 categoryInfo: {
+//                     percent: categoryPercentForApi,
+//                     description: categoryDescriptionForApi,
+//                 },
+//                 items: []
+//             };
+//         }
+
+//         // Only push actual items into 'details' array. Category rows themselves don't go into details.
+//         if (!row.isCategory) { 
+//             groupedData[categoryIdentifier].items.push(row);
+//         }
+//     });
+
+//     // Transform grouped data into the API's expected 'categories' array
+//     const categoriesPayload = Object.values(groupedData).map(group => {
+//         return {
+//             percent: group.categoryInfo.percent,
+//             description: group.categoryInfo.description,
+//             details: group.items.map(itemRow => ({ // تغییر نام از tenderDetails به details
+//                 eskiPoz: itemRow.eskiPoz,
+//                 tedas: String(itemRow.tedasNo),
+//                 ana: String(itemRow.anaNo),
+//                 alt: String(itemRow.altNo),
+//                 firmProcuredItemQuantities: itemRow.malzeme,
+//                 ourProcuredItemQuantities: itemRow.malzemeYuklenici,
+//                 demontaj: itemRow.demontaj,
+//                 demontajMontaj: itemRow.demontajMontaj,
+//                 firmProcuredItemPrice: String(itemRow.birimFiyatMalzeme), // اطمینان از ارسال به عنوان string
+//                 ourProcuredItemPrice: String(itemRow.birimFiyatMalzeme), // اطمینان از ارسال به عنوان string
+//                 montajPrice: String(itemRow.birimFiyatMontaj), // اطمینان از ارسال به عنوان string
+//                 demontajPrice: String(itemRow.birimFiyatDemontaj), // اطمینان از ارسال به عنوان string
+//                 demontajMontajPrice: String(itemRow.birimFiyatDemontajMontaj), // اطمینان از ارسال به عنوان string
+//                 malzemeTutari: String(itemRow.toplamMalzeme), // اطمینان از ارسال به عنوان string
+//                 montajTutari: String(itemRow.toplamMontaj), // اطمینان از ارسال به عنوان string
+//                 demontajTutari: String(itemRow.toplamDemontaj), // اطمینان از ارسال به عنوان string
+//                 dMMTutari: String(itemRow.toplamDemontajdanMontaj), // اطمینان از ارسال به عنوان string
+//                 itemId: itemRow.itemId!,
+//             }))
+//         };
+//     });
+
+//     const payload = {
+//         id: Number(tenderId), // Tender ID از URL
+//         title: tenderTitle, // استفاده از tenderTitle استیت
+//         categories: categoriesPayload, // تغییر نام از tenderCategories به categories
+//     };
+    
+//     // =======================================================================
+//     // END: Constructing the Payload for PUT request
+//     // =======================================================================
+// debugger
+//     try {
+//         const response = await axios.put(
+//             server.baseurl + server.initialoperations + "update-tender",
+//             payload,
+//             {
+//                 headers: {
+//                     "Accept": "application/json",
+//                     'Content-Type': 'application/json',
+//                     "Authorization": `Bearer ${authToken}`
+//                 }
+//             }
+//         );
+
+//         if (response.status === 200) {
+//             showAlert('İhale detayları başarıyla güncellendi!', 'success');
+//         } else {
+//             showAlert(`Güncelleme başarısız oldu: ${response.data?.message || 'Bilinmeyen bir hata oluştu.'}`, 'error');
+//         }
+//     } catch (error: any) {
+//         if (axios.isAxiosError(error) && error.response && error.response.status === 401) {
+//             localStorage.removeItem('authToken');
+//             navigate("/");
+//             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+//         }
+//         showAlert(`İhale detayları güncellenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
+//     } finally {
+//         setIsSavingAll(false);
+//         setIsLoading(false);
+//     }
+// };
+
 const handleSaveAllData = async () => {
     setIsLoading(true);
 
@@ -1842,12 +2438,12 @@ const handleSaveAllData = async () => {
         return;
     }
     if (editingRowId !== null) {
-        showAlert('Lütfen önce açık olan düzenlemeyi tamamlayın veya iptal edin.', 'warning');
+        showAlert('Lütfen ابتدا ویرایش فعال را تکمیل یا لغو کنید.', 'warning');
         setIsLoading(false);
         return;
     }
     if (processedAndFilteredGridData.some(row => row.isUnregisteredItem && !row.isCategory)) {
-        showAlert('Kaydedilmemiş ürünler var. Lütfen tüm ürünleri ekleyin veya listeden seçin.', 'warning');
+        showAlert('آیتم‌های ثبت نشده‌ای وجود دارد. لطفاً قبل از ذخیره، همه آیتم‌ها را اضافه یا از لیست انتخاب کنید.', 'warning');
         setIsLoading(false);
         return;
     }
@@ -1856,128 +2452,135 @@ const handleSaveAllData = async () => {
     setAlertMessage(null);
 
     // =======================================================================
-    // START: Constructing the Payload for PUT request
+    // START: Constructing the Payload for PUT request (UPDATED)
     // =======================================================================
 
     // Group gridData by category for the new API structure
-    const groupedData: { [categoryDescription: string]: { categoryInfo: {id: string | null; percent: number | null; description: string; recordStatus: number; createAt: string | null; }, items: TenderDetailRow[] } } = {};
-    
+    const groupedData: {
+        [categoryIdentifier: string]: {
+            categoryInfo: {
+                // اضافه شدن فیلدهای جدید title و eskiPoz به categoryInfo
+                eskiPoz: string | null;
+                title: string | null;
+                percent: number;
+                description: string;
+            };
+            items: TenderDetailRow[];
+        };
+    } = {};
+
     // Iterate through all gridData to build the grouped structure
     gridData.forEach(row => {
-        let categoryKey: string = "Uncategorized"; // Default key for items without a clear category in gridData
-        let categoryId: string | null = null;
-        let categoryPercent: number | null = null;
-        let categoryRecordStatus: number = 0; // Default or infer from existing data
-        let categoryCreateAt: string | null = null; // Default or infer from existing data
-
+        let categoryIdentifier: string;
+        let categoryPercentForApi: number = 0;
+        let categoryDescriptionForApi: string = "";
+        let categoryEskiPozForApi: string | null = null; // متغیر برای eskiPoz جدید
+        let categoryTitleForApi: string | null = null; // متغیر برای title جدید
 
         if (row.isCategory) {
-            // For category rows, use their description as the key
-            categoryKey = normalizeString(row.description);
-            // Try to find the actual category ID from the tree if it exists
-            const existingCategoryNode = findNodeByNameAndTypePure(combinedTreeData, categoryKey, 'category');
-            categoryId = (existingCategoryNode?.originalData as ApiCategoryType)?.id ?? null;
-            categoryPercent = row.categoryPercentage;
-            // Assuming createAt and recordStatus for existing categories in the gridData are not relevant for sending back
-            // or need to be fetched/handled differently if the backend expects them on a new category post.
+            // برای سطر‌هایی که در gridData به صراحت به عنوان دسته (Category) مشخص شده‌اند
+            categoryIdentifier = normalizeString(row.description);
+            categoryPercentForApi = row.categoryPercentage ?? 0;
+            categoryDescriptionForApi = row.aciklama; // استفاده از aciklama برای توضیحات دسته
+            categoryEskiPozForApi = row.eskiPoz; // **مقداردهی eskiPoz از سطر دسته**
+            categoryTitleForApi = row.description; // **مقداردهی title از description سطر دسته**
+
         } else {
-            // For item rows, find their parent category from combinedTreeData
+            // برای سطرهای آیتم، دسته والد آن‌ها را از combinedTreeData پیدا می‌کنیم
             if (row.itemId !== null) {
                 const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
                 if (itemNode && itemNode.originalData && 'category' in itemNode.originalData && itemNode.originalData.category?.id) {
                     const parentCategoryNode = findNodeByIdPure(combinedTreeData, `cat-${itemNode.originalData.category.id}`);
                     if (parentCategoryNode && parentCategoryNode.type === 'category' && parentCategoryNode.originalData) {
-                        categoryKey = normalizeString(parentCategoryNode.name);
-                        categoryId = (parentCategoryNode.originalData as ApiCategoryType).id;
-                        categoryPercent = (parentCategoryNode.originalData as ApiCategoryType).percent ?? null;
-                        categoryRecordStatus = (parentCategoryNode.originalData as ApiCategoryType).recordStatus ?? 0;
-                        categoryCreateAt = (parentCategoryNode.originalData as ApiCategoryType).createAt ?? null;
+                        categoryIdentifier = normalizeString(parentCategoryNode.name);
+                        categoryPercentForApi = (parentCategoryNode.originalData as ApiCategoryType).percent ?? 0;
+                        categoryDescriptionForApi = (parentCategoryNode.originalData as ApiCategoryType).description || "";
+                        // اگر ApiCategoryType شما این فیلدها رو نداره، باید به Any cast کنید یا ApiCategoryType رو به‌روزرسانی کنید.
+                        // فرض می‌کنیم در ApiCategoryType، این فیلدها هستند یا با 'any' مدیریت می‌شوند.
+                        categoryEskiPozForApi = (parentCategoryNode.originalData as any).eskiPoz || null; // از originalData دسته والد
+                        categoryTitleForApi = (parentCategoryNode.originalData as any).title || parentCategoryNode.name; // از originalData دسته والد
+                    } else {
+                        categoryIdentifier = "Uncategorized";
+                        categoryDescriptionForApi = "";
+                        categoryEskiPozForApi = null; // برای دسته‌بندی نشده
+                        categoryTitleForApi = null;  // برای دسته‌بندی نشده
                     }
+                } else {
+                    categoryIdentifier = "Uncategorized";
+                    categoryDescriptionForApi = "";
+                    categoryEskiPozForApi = null; // برای دسته‌بندی نشده
+                    categoryTitleForApi = null;  // برای دسته‌بندی نشده
                 }
+            } else {
+                // Default for items that are not linked to a category (e.g., manual entries without selection)
+                categoryIdentifier = "Uncategorized";
+                categoryDescriptionForApi = "";
+                categoryEskiPozForApi = null; // برای دسته‌بندی نشده
+                categoryTitleForApi = null;  // برای دسته‌بندی نشده
             }
         }
-        
-        // Ensure the category entry exists in groupedData
-        if (!groupedData[categoryKey]) {
-            groupedData[categoryKey] = {
+
+        // اطمینان حاصل کنید که ورودی دسته در groupedData وجود دارد
+        if (!groupedData[categoryIdentifier]) {
+            groupedData[categoryIdentifier] = {
                 categoryInfo: {
-                    id: categoryId, // Actual category ID from master data
-                    percent: categoryPercent,
-                    description: categoryKey,
-                    recordStatus: categoryRecordStatus,
-                    createAt: categoryCreateAt,
+                    eskiPoz: categoryEskiPozForApi, // **مقداردهی فیلد جدید**
+                    title: categoryTitleForApi,    // **مقداردهی فیلد جدید**
+                    percent: categoryPercentForApi,
+                    description: categoryDescriptionForApi,
                 },
                 items: []
             };
         }
 
-        // Now push the current row into the items array of its determined category
-        // If the current row is itself a category, its details should be empty or handled separately if API expects it
-        if (!row.isCategory) { // Only push actual items into 'details' array
-             groupedData[categoryKey].items.push(row);
+        // فقط آیتم‌های واقعی را به آرایه 'details' اضافه کنید. سطرهای دسته خودشان به 'details' نمی‌روند.
+        if (!row.isCategory) {
+            groupedData[categoryIdentifier].items.push(row);
         }
     });
 
     // Transform grouped data into the API's expected 'categories' array
     const categoriesPayload = Object.values(groupedData).map(group => {
         return {
-            id: group.categoryInfo.id, // Use the actual category ID
-            percent: group.categoryInfo.percent || 0, // Ensure it's a number, default to 0
+            eskiPoz: group.categoryInfo.eskiPoz, // **استفاده از eskiPoz از categoryInfo**
+            title: group.categoryInfo.title,    // **استفاده از title از categoryInfo**
+            percent: group.categoryInfo.percent,
             description: group.categoryInfo.description,
-            recordStatus: group.categoryInfo.recordStatus, // Include recordStatus
-            createAt: group.categoryInfo.createAt,         // Include createAt
-            tenderDetails: group.items.map(itemRow => ({
-                id: itemRow.id, // Assuming API expects this ID back for existing items (from GET response)
-                firmProcuredItemQuantities: itemRow.malzeme, // Values are already numbers
+            details: group.items.map(itemRow => ({
                 eskiPoz: itemRow.eskiPoz,
-                tedas: String(itemRow.tedasNo), // Convert back to string for API if needed (your API spec was string)
+                tedas: String(itemRow.tedasNo),
                 ana: String(itemRow.anaNo),
                 alt: String(itemRow.altNo),
+                firmProcuredItemQuantities: itemRow.malzeme,
                 ourProcuredItemQuantities: itemRow.malzemeYuklenici,
                 demontaj: itemRow.demontaj,
                 demontajMontaj: itemRow.demontajMontaj,
-                firmProcuredItemPrice: itemRow.birimFiyatMalzeme,
-                ourProcuredItemPrice: itemRow.birimFiyatMalzeme, 
-                montajPrice: itemRow.birimFiyatMontaj,
-                demontajPrice: itemRow.birimFiyatDemontaj,
-                demontajMontajPrice: itemRow.birimFiyatDemontajMontaj,
-                malzemeTutari: itemRow.toplamMalzeme, // Send totals back too if API expects
-                montajTutari: itemRow.toplamMontaj,
-                demontajTutari: itemRow.toplamDemontaj,
-                dMMTutari: itemRow.toplamDemontajdanMontaj,
-                recordStatus: 0, // Assuming a default or you have it in TenderDetailRow
-                createAt: new Date().toISOString(), // Or from actual row data if available
-                item: { // Reconstruct item details for the payload based on current TenderDetailRow state
-                    id: itemRow.itemId!, // itemId is guaranteed not null if isUnregisteredItem is false
-                    name: itemRow.description,
-                    unit: {
-                        title: itemRow.olcuBrimi,
-                    },
-                    // Add other item properties if your API expects them on PUT
-                    // e.g., category: { id: itemCategory.id }, code: null, description: itemRow.aciklama, etc.
-                    // This part might need more precise mapping based on your backend's PUT DTO for item.
-                    category: {
-                        id: (findNodeByIdPure(combinedTreeData, `item-${itemRow.itemId}`)?.originalData as ApiItemType)?.category.id || "default-cat-id"
-                    }
-                }
+                firmProcuredItemPrice: String(itemRow.birimFiyatMalzeme),
+                ourProcuredItemPrice: String(itemRow.birimFiyatMalzeme),
+                montajPrice: String(itemRow.birimFiyatMontaj),
+                demontajPrice: String(itemRow.birimFiyatDemontaj),
+                demontajMontajPrice: String(itemRow.birimFiyatDemontajMontaj),
+                malzemeTutari: String(itemRow.toplamMalzeme),
+                montajTutari: String(itemRow.toplamMontaj),
+                demontajTutari: String(itemRow.toplamDemontaj),
+                dMMTutari: String(itemRow.toplamDemontajdanMontaj),
+                itemId: itemRow.itemId!,
             }))
         };
     });
 
     const payload = {
-        id: Number(tenderId), // Tender ID from URL params
-        // title: tenderTitle, // NOT in your provided new API structure for PUT (in raw response)
-        tenderCategories: categoriesPayload, // NEW: Renamed from 'categories' to 'tenderCategories' for consistency with GET
+        id: Number(tenderId),
+        title: tenderTitle, // استفاده از tenderTitle استیت برای title ریشه payload
+        categories: categoriesPayload, // تغییر نام از tenderCategories به categories
     };
-    
-    // =======================================================================
-    // END: Constructing the Payload for PUT request
-    // =======================================================================
+
+    debugger; // برای بررسی payload نهایی در زمان اجرا
 
     try {
         const response = await axios.put(
             server.baseurl + server.initialoperations + "update-tender",
-            payload, // Send the constructed payload
+            payload,
             {
                 headers: {
                     "Accept": "application/json",
@@ -1989,10 +2592,6 @@ const handleSaveAllData = async () => {
 
         if (response.status === 200) {
             showAlert('İhale detayları başarıyla güncellendi!', 'success');
-            // After successful save, you might want to reload the data from API
-            // to ensure the UI is fully consistent with the backend, especially if
-            // backend makes further changes (e.g., re-calculates totals or assigns new IDs).
-            // loadExistingTenderDetails(); // Consider calling this here
         } else {
             showAlert(`Güncelleme başarısız oldu: ${response.data?.message || 'Bilinmeyen bir hata oluştu.'}`, 'error');
         }
@@ -2002,14 +2601,12 @@ const handleSaveAllData = async () => {
             navigate("/");
             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
         }
-        console.error("Error updating tender details:", error);
         showAlert(`İhale detayları güncellenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
     } finally {
         setIsSavingAll(false);
         setIsLoading(false);
     }
 };
-
 
     const handleDeleteGridRow = useCallback((rowId: number) => {
         setGridData(prev => {
@@ -2422,7 +3019,7 @@ const handleSaveAllData = async () => {
                                     <TableCell sx={{ backgroundColor: theme.palette.background.paper, borderTop: '1px solid ' + theme.palette.divider, borderBottom: '1px solid ' + theme.palette.divider, borderRight: '1px solid ' + theme.palette.divider }}></TableCell>
                                     <TableCell sx={{ borderRight: '1px solid ' + theme.palette.divider }}></TableCell>
 
-                                    <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME</TableCell>
+                                    <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME (GDZ)</TableCell>
                                     <TableCell align="center" sx={{ minWidth: 100 }}>MALZEME MİKTARI</TableCell>
                                     <TableCell align="center" sx={{ minWidth: 100 }}>MONTAJ MİKTARI</TableCell>
                                     <TableCell align="center" sx={{ minWidth: 100 }}>DEMONTAJ MİKTARI</TableCell>
@@ -2701,7 +3298,7 @@ const handleSaveAllData = async () => {
                                             onChange={handleNewRecordInputChange}
                                             sx={{ width: 90, '& input': { textAlign: 'center' } }}
                                             disabled={!newRecordRow.isCategory || loading || isSavingAll || isLoading}
-                                            placeholder={newRecordRow.isCategory ? "%n" : "N/A"}
+                                            placeholder={newRecordRow.isCategory ? "%n" : ""}
                                         />
                                     </TableCell>
                                     <TableCell>
@@ -3098,7 +3695,7 @@ const handleSaveAllData = async () => {
                                                         onChange={handleEditRowInputChange}
                                                         sx={{ width: 90, '& input': { textAlign: 'center' } }}
                                                         disabled={!editingRowData?.isCategory}
-                                                        placeholder={editingRowData?.isCategory ? "%n" : "N/A"}
+                                                        placeholder={editingRowData?.isCategory ? "%n" : ""}
                                                     />
                                                 ) : (
                                                     <Typography variant="body2" sx={{ textAlign: 'center', color: row.isCategory ? 'text.primary' : 'text.secondary' }}>

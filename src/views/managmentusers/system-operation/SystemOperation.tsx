@@ -32,7 +32,7 @@ interface RowType {
   id: number;
   status: string;
   name: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
+  recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
   createAt: string;
 }
 
@@ -319,7 +319,7 @@ const SystemOperation = () => {
       );
 
       if (response.data.httpStatusCode === 200) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`İşlem başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListOperation();
         resetFormAndState();
@@ -396,7 +396,7 @@ const SystemOperation = () => {
           name: item.name,
           recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
           createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi', // 'Silindi' به جای 'askıda olması'
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi', // 'Silindi' به جای 'askıda olması'
         }));
         // ✅ حذف مرتب‌سازی اولیه از اینجا، زیرا مرتب‌سازی نهایی پایین‌تر انجام می‌شود.
         // const sortedData = formattedData.sort((a: RowType, b: RowType) => {
@@ -564,8 +564,8 @@ const SystemOperation = () => {
                 }
               }}
               inputRef={editFieldRef}
-              error={nameError} 
-              helperText={nameHelperText} 
+              error={nameError}
+              helperText={nameHelperText}
             />
           </Grid>
           <Grid item xs={12} sm={1}></Grid>
@@ -723,7 +723,7 @@ const SystemOperation = () => {
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
                     onClick={() => handleRequestSort('name')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">İsim</Typography>
                   </TableSortLabel>
@@ -734,7 +734,7 @@ const SystemOperation = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -745,7 +745,7 @@ const SystemOperation = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>
@@ -778,13 +778,13 @@ const SystemOperation = () => {
                           backgroundColor:
                             row.status === 'Silindi'
                               ? (theme) => theme.palette.primary.light
-                              : row.status === 'Etkin değil'
+                              : row.status === 'Pasif'
                                 ? (theme) => theme.palette.error.light
                                 : (theme) => theme.palette.success.light,
                           color:
                             row.status === 'Silindi'
                               ? (theme) => theme.palette.primary.main
-                              : row.status === 'Etkin değil'
+                              : row.status === 'Pasif'
                                 ? (theme) => theme.palette.error.main
                                 : (theme) => theme.palette.success.main,
                         }}

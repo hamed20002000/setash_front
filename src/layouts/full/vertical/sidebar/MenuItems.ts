@@ -12,6 +12,9 @@ import {
   IconBuilding,
   IconPackage,
   IconGavel,
+  IconPlus,
+  IconChecklist,
+  IconRoute
 } from '@tabler/icons-react';
 
 // مسیر صحیح به فایل JSON آدرس دهی شما
@@ -42,7 +45,10 @@ const getIconComponent = (iconName: string): any => {
     case 'IconBuilding': return IconBuilding;
     case 'IconPackage': return IconPackage;
     case 'IconGavel': return IconGavel;
-    default: return IconApps; // آیکون پیش‌فرض
+    case 'IconChecklist': return IconChecklist;
+    case 'IconRoute ': return IconRoute;
+    case 'IconPlus': return IconPlus;
+    default: return IconPlus; // آیکون پیش‌فرض
   }
 };
 
@@ -59,7 +65,7 @@ const mapApiDataToMenuItems = (apiData: any[]): MenuitemsType[] => {
         id: item.id || uniqueId(),
         title: item.name,
         href: item.url === '#' ? undefined : item.url,
-        icon: getIconComponent(item.iconName || item.name), // فرض بر این است که API فیلد iconName را دارد
+        icon: getIconComponent(item.icon || item.name), // فرض بر این است که API فیلد iconName را دارد
         chipColor: 'secondary',
       };
 
@@ -128,15 +134,15 @@ export const getDynamicMenuItems = async (): Promise<MenuitemsType[]> => {
   } catch (error) {
     console.error('Error fetching dynamic menu items in getDynamicMenuItems:', error);
     if (axios.isAxiosError(error)) {
-        console.error('Axios error details:', error.response?.status, error.response?.data);
-        // اگر خطای 401 Unauthorized بود، می‌توانید کاربر را به صفحه لاگین هدایت کنید.
-        // اما بهتر است این منطق در یک اینترسپتور Axios یا در کامپوننت والد مدیریت شود.
-        if (error.response?.status === 401) {
-          localStorage.removeItem('authToken');
-          // اگر navigate در این فایل در دسترس نیست، می‌توانید یک رویداد کاستوم صادر کنید
-          // یا این مدیریت را به کامپوننت SidebarItems بسپارید.
-          // window.location.href = '/'; // این یک راه سریع برای ریدایرکت است، اما React Router بهتر است.
-        }
+      console.error('Axios error details:', error.response?.status, error.response?.data);
+      // اگر خطای 401 Unauthorized بود، می‌توانید کاربر را به صفحه لاگین هدایت کنید.
+      // اما بهتر است این منطق در یک اینترسپتور Axios یا در کامپوننت والد مدیریت شود.
+      if (error.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        // اگر navigate در این فایل در دسترس نیست، می‌توانید یک رویداد کاستوم صادر کنید
+        // یا این مدیریت را به کامپوننت SidebarItems بسپارید.
+        // window.location.href = '/'; // این یک راه سریع برای ریدایرکت است، اما React Router بهتر است.
+      }
     }
     return [];
   }

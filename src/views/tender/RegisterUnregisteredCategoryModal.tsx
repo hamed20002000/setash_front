@@ -182,7 +182,7 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
 
 // NEW: Define an interface for the initialData expected by this modal
 // This should match the fields you actually use/expect from TenderDetails.tsx for a category
-interface RegisterCategoryInitialData {
+export interface RegisterCategoryInitialData {
     id?: number;
     description?: string; // <--- تغییر به اختیاری (string?)
     eskiPoz?: string;     // <--- تغییر به اختیاری (string?)

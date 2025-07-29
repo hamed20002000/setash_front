@@ -29,7 +29,7 @@ interface UnitType {
   id: number;
   name: string;
   createAt: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Etkin değil, 2 = Silindi
+  recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
   status: string; // وضعیت متنی
 }
 
@@ -346,7 +346,7 @@ const ListUnit = () => {
       );
 
       if (response.data.httpStatusCode === 200) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`Ölçü başarıyla ${statusText} olarak ayarlandı!`, 'success');
         getListUnit();
         resetFormAndState();
@@ -373,7 +373,7 @@ const ListUnit = () => {
 
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Etkin değil
+      sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Pasif
     }
   };
 
@@ -424,7 +424,7 @@ const ListUnit = () => {
           name: item.title, // Assuming 'title' from API corresponds to 'name' in UnitType
           recordStatus: item.recordStatus,
           createAt: item.createAt,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
         // Removed initial sorting here, as it will be handled by the new sorting logic
         setUnitsList(formattedData as UnitType[]);
@@ -653,7 +653,7 @@ const ListUnit = () => {
                     aria-label="inactive units"
                     sx={{
                       '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.error.main + ' !important', // Red for Etkin Değil
+                        backgroundColor: (theme) => theme.palette.error.main + ' !important', // Red for Pasif
                         color: 'white !important',
                         '&:hover': {
                           backgroundColor: (theme) => theme.palette.error.dark + ' !important',
@@ -682,7 +682,7 @@ const ListUnit = () => {
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
                     onClick={() => handleRequestSort('name')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">İsim</Typography>
                   </TableSortLabel>
@@ -693,7 +693,7 @@ const ListUnit = () => {
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
                     onClick={() => handleRequestSort('createAt')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
@@ -704,7 +704,7 @@ const ListUnit = () => {
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
                     onClick={() => handleRequestSort('status')}
-                      style={{color: "#171c23"}}
+                    style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>

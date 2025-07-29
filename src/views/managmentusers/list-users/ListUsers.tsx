@@ -205,13 +205,14 @@ const ListUsers = () => {
         "Authorization": `Bearer ${authToken}`
       }
     }).then((result) => {
+      debugger
       if (result.data.httpStatusCode === 200) {
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
           username: item.username,
           createAt: item.createAt,
           recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
-          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Etkin değil' : 'Silindi',
+          status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
           imageUrl: item.imageSrc || DEFAULT_IMAGE_URL,
           roles: item.roles || [],
         }));
@@ -327,12 +328,12 @@ const ListUsers = () => {
 
   const generateRandomPass = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
-    const num ='0123456789';
+    const num = '0123456789';
     let newPass = '';
     for (let i = 0; i < 10; i++) {
       newPass += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    for(let j=0;j<2;j++){
+    for (let j = 0; j < 2; j++) {
       newPass += num.charAt(Math.floor(Math.random() * num.length));
     }
     setPassword(newPass);
@@ -639,7 +640,7 @@ const ListUsers = () => {
     }
   };
 
-  const sendStatusUpdate = useCallback(async (userId: number, statusValue: number) => {
+  const sendStatusUpdate = useCallback(async (userId: string, statusValue: number) => {
     clearAlert();
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
@@ -647,6 +648,7 @@ const ListUsers = () => {
       navigate("/");
       return;
     }
+    debugger
     try {
       const response = await axios.put(
         server.baseurl + server.user + "update-user",
@@ -661,7 +663,7 @@ const ListUsers = () => {
       );
 
       if (response.data.httpStatusCode === 200) {
-        const statusText = statusValue === 0 ? 'Aktif' : 'Etkin değil';
+        const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         getListUsers();
         showAlert(`Kullanıcı başarıyla ${statusText} olarak ayarlandı!`, 'success');
       } else {
@@ -806,8 +808,8 @@ const ListUsers = () => {
                             setConfirmPasswordError(false);
                             setConfirmPasswordHelperText('');
                             if (e.target.value === confirmPassword && e.target.value.trim() !== '') {
-                                setPasswordError(false);
-                                setPasswordHelperText('');
+                              setPasswordError(false);
+                              setPasswordHelperText('');
                             }
                           }
                         }}
@@ -1223,7 +1225,7 @@ const ListUsers = () => {
                         {selectedUserForMenu?.recordStatus === 0 ? (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
-                            <MenuItem onClick={() => sendStatusUpdate(Number(selectedUserForMenu.id), 1)}>
+                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
@@ -1233,7 +1235,7 @@ const ListUsers = () => {
                         ) : (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
-                            <MenuItem onClick={() => sendStatusUpdate(Number(selectedUserForMenu!.id), 0)}>
+                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>

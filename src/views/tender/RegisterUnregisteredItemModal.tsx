@@ -204,7 +204,7 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
     );
 };
 
-interface RegisterItemInitialData {
+export interface RegisterItemInitialData {
     id?: number;
     description?: string;
     olcuBrimi?: string;
