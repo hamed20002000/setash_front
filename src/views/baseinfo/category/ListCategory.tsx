@@ -1,7 +1,7 @@
 // ListCategory.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useCallback, useRef } from "react"; // Add useRef here
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer,
@@ -28,7 +28,7 @@ import {
   Paper,
   ToggleButtonGroup,
   ToggleButton as MuiToggleButton,
-  TableSortLabel, // ✅ Added: For sorting icons and functionality
+  TableSortLabel,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -50,6 +50,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 interface ApiCategoryType {
   id: string;
   name: string;
+  code: string; // 🟢 اضافه شده: فیلد code
   depth: number;
   recordStatus: number;
   createAt: string;
@@ -60,6 +61,7 @@ interface ApiCategoryType {
 interface CategoryType {
   id: string;
   name: string;
+  code: string; // 🟢 اضافه شده: فیلد code
   createAt: string;
   recordStatus: number;
   status: string; // Derived from recordStatus
@@ -107,7 +109,7 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 
 // --- Helper functions for sorting, reused from previous components ---
 // Define a new type for the sortable keys
-type SortableCategoryKeys = keyof CategoryType; // Here, all direct properties of CategoryType are sortable
+type SortableCategoryKeys = keyof Pick<CategoryType, 'name' | 'code' | 'createAt' | 'status' | 'depth'>; // 🟢 'code' اضافه شد
 
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
@@ -164,6 +166,7 @@ const ListCategory = () => {
   const navigate = useNavigate();
 
   const [name, setName] = useState<string>('');
+  const [code, setCode] = useState<string>(''); // 🟢 اضافه شده: State برای code
   // داده‌های اصلی و کامل از API به صورت Nested
   const [rawApiCategories, setRawApiCategories] = useState<ApiCategoryType[]>([]);
   // دسته‌بندی‌هایی که در جدول فعلی نمایش داده می‌شوند (فقط زیرمجموعه‌های مستقیم والد فعلی)
@@ -209,9 +212,11 @@ const ListCategory = () => {
   // ✅ Added: Ref for the category name input field
   const categoryNameInputRef = useRef<HTMLInputElement>(null);
 
-  // **State جدید برای مدیریت خطای ورودی نام**
+  // **State جدید برای مدیریت خطای ورودی نام و کد**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
+  const [codeError, setCodeError] = useState<boolean>(false); // 🟢 اضافه شده
+  const [codeHelperText, setCodeHelperText] = useState<string>(''); // 🟢 اضافه شده
 
 
   // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
@@ -236,6 +241,7 @@ const ListCategory = () => {
       directChildren = categories.filter(cat => cat.parentId === null).map(cat => ({
         id: cat.id,
         name: cat.name,
+        code: cat.code, // 🟢 اضافه شده
         createAt: cat.createAt,
         recordStatus: cat.recordStatus,
         status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Pasif' : 'Silindi',
@@ -249,6 +255,7 @@ const ListCategory = () => {
         directChildren = parent.categories.map(cat => ({
           id: cat.id,
           name: cat.name,
+          code: cat.code, // 🟢 اضافه شده
           createAt: cat.createAt,
           recordStatus: cat.recordStatus,
           status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Pasif' : 'Silindi',
@@ -309,12 +316,15 @@ const ListCategory = () => {
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
+      setCode(selectedRowForMenu.code); // 🟢 اضافه شده: ست کردن code هنگام ویرایش
       setEditingId(selectedRowForMenu.id);
       setEditingParentId(selectedRowForMenu.parentId);
 
       // **پاک کردن وضعیت خطاها هنگام ویرایش**
       setNameError(false);
       setNameHelperText('');
+      setCodeError(false); // 🟢 پاک کردن خطای code
+      setCodeHelperText(''); // 🟢 پاک کردن متن کمکی code
 
       // ✅ Added: Scroll to the category name input and focus
       setTimeout(() => {
@@ -332,6 +342,8 @@ const ListCategory = () => {
     // **پاک کردن وضعیت خطاها**
     setNameError(false);
     setNameHelperText('');
+    setCodeError(false); // 🟢 پاک کردن خطای code
+    setCodeHelperText(''); // 🟢 پاک کردن متن کمکی code
   };
 
   // --- توابع فراخوانی API ---
@@ -365,7 +377,7 @@ const ListCategory = () => {
         return false;
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -390,6 +402,16 @@ const ListCategory = () => {
     setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
     setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
 
+    // 🟢 اضافه شده: اعتبارسنجی فیلد Code
+    if (!code.trim()) {
+      setCodeError(true);
+      setCodeHelperText('Kategori kodu boş bırakılamaz!');
+      showAlert('Kod boş bırakılamaz!', 'warning');
+      return;
+    }
+    setCodeError(false);
+    setCodeHelperText('');
+
     clearAlert();
     setLoadingButton(true);
 
@@ -407,10 +429,11 @@ const ListCategory = () => {
       // داده‌هایی که باید به API ارسال شوند
       const newCategoryData = {
         name: name,
+        code: code, // 🟢 اضافه شده: ارسال code به API
         // API expects `parentId` as number if it's not null, or 0 if it's null (or simply omit)
         parentId: categoryParentId ? Number(categoryParentId) : null // Ensure parentId is number or null
       };
-      debugger
+
       // فراخوانی API برای ایجاد دسته‌بندی جدید
       const response = await axios.request({
         baseURL: server.baseurl + server.baseinfo + "create-category", // آدرس API برای ایجاد دسته‌بندی
@@ -432,7 +455,7 @@ const ListCategory = () => {
       }
 
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -457,6 +480,16 @@ const ListCategory = () => {
     setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
     setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
 
+    // 🟢 اضافه شده: اعتبارسنجی فیلد Code برای ویرایش
+    if (!code.trim()) {
+      setCodeError(true);
+      setCodeHelperText('Kategori kodu boş bırakılamaz!');
+      showAlert('Kod boş bırakılamaz!', 'warning');
+      return;
+    }
+    setCodeError(false);
+    setCodeHelperText('');
+
     clearAlert();
 
     setLoadingButton(true);
@@ -474,6 +507,7 @@ const ListCategory = () => {
       const updateData = {
         id: Number(editingId), // ID دسته بندی مورد نظر برای بروزرسانی
         newname: name, // نام جدید
+        code: code, // 🟢 اضافه شده: ارسال code به API برای ویرایش
         parentId: editingParentId ? Number(editingParentId) : null // ParentId را به number یا null تبدیل می‌کنیم
       };
 
@@ -498,7 +532,7 @@ const ListCategory = () => {
       }
 
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -544,7 +578,7 @@ const ListCategory = () => {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -571,11 +605,14 @@ const ListCategory = () => {
 
   const resetFormAndState = () => {
     setName('');
+    setCode(''); // 🟢 اضافه شده: ریست کردن code
     setEditingId(null);
     setEditingParentId(null); // اضافه شده
     // **پاک کردن وضعیت خطاها**
     setNameError(false);
     setNameHelperText('');
+    setCodeError(false); // 🟢 پاک کردن خطای code
+    setCodeHelperText(''); // 🟢 پاک کردن متن کمکی code
   };
 
   const formatDate = (dateString: string): string => {
@@ -606,7 +643,8 @@ const ListCategory = () => {
 
     // 2. Filter these children by search term and status
     const filteredBySearchAndStatus = directChildren.filter(category => {
-      const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        category.code.toLowerCase().includes(searchTerm.toLowerCase()); // 🟢 جستجو بر اساس code
       const matchesStatus =
         statusFilter === 'all' ||
         (statusFilter === 'active' && category.recordStatus === 0) ||
@@ -646,6 +684,7 @@ const ListCategory = () => {
     setCurrentParentCategory(selectedCategory ? {
       id: selectedCategory.id,
       name: selectedCategory.name,
+      code: selectedCategory.code, // 🟢 اضافه شده
       createAt: selectedCategory.createAt,
       recordStatus: selectedCategory.recordStatus,
       status: selectedCategory.recordStatus === 0 ? 'Aktif' : selectedCategory.recordStatus === 1 ? 'Pasif' : 'Silindi',
@@ -752,7 +791,7 @@ const ListCategory = () => {
               İsim
             </CustomFormLabel>
           </Grid>
-          <Grid item xs={12} sm={7}>
+          <Grid item xs={12} sm={5}>
             <CustomTextField
               id="category-name"
               placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
@@ -770,7 +809,32 @@ const ListCategory = () => {
               helperText={nameHelperText}
             />
           </Grid>
-          <Grid item xs={12} sm={1}></Grid>
+
+          {/* 🟢 اضافه شده: فیلد Code */}
+          <Grid item xs={12} sm={1} display="flex" alignItems="center">
+            <CustomFormLabel htmlFor="category-code" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+              Kod
+            </CustomFormLabel>
+          </Grid>
+          <Grid item xs={12} sm={2}>
+            <CustomTextField
+              id="category-code"
+              placeholder="Kategori Kodu"
+              fullWidth
+              value={code}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                setCode(e.target.value);
+                if (codeError && e.target.value.trim()) { // اعتبارسنجی زنده
+                  setCodeError(false);
+                  setCodeHelperText('');
+                }
+              }}
+              error={codeError}
+              helperText={codeHelperText}
+            />
+          </Grid>
+
+          {/* <Grid item xs={12} sm={1}></Grid> */}
           <Grid item xs={12} sm={3}>
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
@@ -896,6 +960,17 @@ const ListCategory = () => {
                       <Typography variant="h6">İsim</Typography>
                     </TableSortLabel>
                   </TableCell>
+                  {/* 🟢 اضافه شده: ستون Kod */}
+                  <TableCell>
+                    <TableSortLabel
+                      active={orderBy === 'code'}
+                      direction={orderBy === 'code' ? order : 'asc'}
+                      onClick={() => handleRequestSort('code')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Kod</Typography>
+                    </TableSortLabel>
+                  </TableCell>
                   <TableCell>
                     {/* Sortable Column: Oluşturulma Tarihi (Creation Date) */}
                     <TableSortLabel
@@ -920,7 +995,7 @@ const ListCategory = () => {
                   </TableCell>
                   <TableCell
                     style={{ color: "#171c23" }}>
-                    <Typography variant="h6">Alt Kategori</Typography> {/* This column is for navigation, not direct sort */}
+                    <Typography variant="h6">Alt Kategori</Typography>
                   </TableCell>
                   <TableCell></TableCell>
                 </TableRow>
@@ -935,6 +1010,10 @@ const ListCategory = () => {
                             <Typography variant="h6">{row.name}</Typography>
                           </Box>
                         </Stack>
+                      </TableCell>
+                      {/* 🟢 اضافه شده: نمایش Kod */}
+                      <TableCell>
+                        <Typography variant="h6">{row.code}</Typography>
                       </TableCell>
                       <TableCell>
                         <Stack direction="row" alignItems="center" spacing={2}>
@@ -1052,7 +1131,7 @@ const ListCategory = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} align="center">
+                    <TableCell colSpan={6} align="center"> {/* 🟢 colSpan را به 6 تغییر دادم (با اضافه شدن ستون کد) */}
                       <Typography variant="subtitle1" color="textSecondary">
                         Hiç kategori bulunamadı.
                       </Typography>
@@ -1080,7 +1159,7 @@ const ListCategory = () => {
         openModal={openDeleteModal}
         onClose={handleClickCloseDeleteModal}
         categoryIdToDelete={categoryIdToDelete}
-        onDeleteSuccess={() => fetchCategories()} // Re-fetch after delete
+        onDeleteSuccess={() => fetchCategories()}
         showAlert={showAlert}
       />
     </>

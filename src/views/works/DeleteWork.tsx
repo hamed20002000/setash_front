@@ -1,4 +1,4 @@
-// src/views/work/DeleteWork.tsx  (یا src/components/modals/DeleteWork.tsx)
+// src/views/work/DeleteWork.tsx  (or src/components/modals/DeleteWork.tsx)
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import React, { useState } from 'react';
@@ -32,6 +32,9 @@ const DeleteWork = ({ openModal, workIdToDelete, workTitleToDelete, onClose, onD
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
+    // 🟢 NEW STATE for the "Work In Use" modal
+    const [openWorkInUseModal, setOpenWorkInUseModal] = useState<boolean>(false);
+
     const handleDeleteOperation = async () => {
         if (workIdToDelete === null) {
             showAlert('Silinecek iş seçilmedi.', 'warning');
@@ -60,7 +63,7 @@ const DeleteWork = ({ openModal, workIdToDelete, workTitleToDelete, onClose, onD
             );
 
             // بررسی وضعیت HTTP
-            if (response.status === 200) { // axios به صورت خودکار response.data.httpStatusCode را نمی‌دهد، بلکه status خود HTTP را برمی‌گرداند.
+            if (response.status === 200) {
                 // اگر API شما httpStatusCode را در data برمی‌گرداند، می‌توانید از response.data.httpStatusCode نیز استفاده کنید.
                 showAlert(`'${workTitleToDelete}' başlıklı iş başarıyla silindi!`, 'success');
                 onDeleteSuccess();
@@ -71,64 +74,96 @@ const DeleteWork = ({ openModal, workIdToDelete, workTitleToDelete, onClose, onD
             }
         } catch (e: any) {
             console.error("İş silinirken hata oluştu:", e);
-            let errorMessage = 'İş silinirken bir hata oluştu, lütfen tekrar deneyin.';
-            if (e.response) {
-                if (e.response.status === 401) {
-                    localStorage.removeItem('authToken');
-                    navigate("/");
-                    showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-                    return;
-                } else if (e.response.data && e.response.data.message) {
-                    errorMessage = e.response.data.message;
-                }
+
+            // 🟢 Check for 500 status code (Work in Use scenario)
+            if (e.response && e.response.status === 500) {
+                onClose(); // Close the current delete confirmation modal
+                setOpenWorkInUseModal(true); // Open the specific "work in use" modal
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                navigate("/");
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            } else {
+                // General error handling for other network or API errors
+                const errorMessage = e.response?.data?.message || 'İş silinirken bir hata oluştu, lütfen tekrar deneyin.';
+                showAlert(errorMessage, 'error');
+                onClose(); // Close the modal for general errors too
             }
-            showAlert(errorMessage, 'error');
-            onClose();
         } finally {
             setLoading(false);
         }
     };
 
+    // 🟢 Handler to close the "Work In Use" modal
+    const handleCloseWorkInUseModal = () => {
+        setOpenWorkInUseModal(false);
+    };
+
     return (
-        <Dialog
-            open={openModal}
-            onClose={onClose}
-            aria-labelledby="alert-dialog-title"
-            aria-describedby="alert-dialog-description">
-            <DialogTitle id="alert-dialog-title">
-                {"Bu işi silmek istediğinizden emin misiniz?"}
-            </DialogTitle>
-            <DialogContent>
-                <DialogContentText id="alert-dialog-description">
-                    <span style={{ fontWeight: "bold" }}>"{workTitleToDelete}"</span> başlıklı işi silmek üzeresiniz.
-                    Eğer silerseniz, geri almanın bir yolu yoktur.
-                    Kaydı silmek istediğinizden eminseniz,
-                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
-                </DialogContentText>
-            </DialogContent>
-            <DialogActions>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "İşlemi iptal et" : ""}>
-                    <Button onClick={onClose} disabled={loading}>İptal et</Button>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen işi kalıcı olarak sil" : ""}>
-                    <Button
-                        color="error"
-                        variant="contained"
-                        onClick={handleDeleteOperation}
-                        autoFocus
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <>
-                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor....
-                            </>
-                        ) : (
-                            'Silmek'
-                        )}
+        <>
+            {/* Main Delete Confirmation Dialog */}
+            <Dialog
+                open={openModal}
+                onClose={onClose}
+                aria-labelledby="alert-dialog-title"
+                aria-describedby="alert-dialog-description">
+                <DialogTitle id="alert-dialog-title">
+                    {"Bu işi silmek istediğinizden emin misiniz?"}
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="alert-dialog-description">
+                        <span style={{ fontWeight: "bold" }}>"{workTitleToDelete}"</span> başlıklı işi silmek üzeresiniz.
+                        Eğer silerseniz, geri almanın bir yolu yoktur.
+                        Kaydı silmek istediğinizden eminseniz,
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "İşlemi iptal et" : ""}>
+                        <Button onClick={onClose} disabled={loading}>İptal et</Button>
+                    </CustomTooltip>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen işi kalıcı olarak sil" : ""}>
+                        <Button
+                            color="error"
+                            variant="contained"
+                            onClick={handleDeleteOperation}
+                            autoFocus
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <>
+                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor....
+                                </>
+                            ) : (
+                                'Silmek'
+                            )}
+                        </Button>
+                    </CustomTooltip>
+                </DialogActions>
+            </Dialog>
+
+            {/* 🟢 NEW Dialog for "Work In Use" */}
+            <Dialog
+                open={openWorkInUseModal}
+                onClose={handleCloseWorkInUseModal}
+                aria-labelledby="work-in-use-dialog-title"
+                aria-describedby="work-in-use-dialog-description"
+            >
+                <DialogTitle id="work-in-use-dialog-title">
+                    {"Hata: İş Silinemez!"}
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="work-in-use-dialog-description">
+                        Bu iş şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseWorkInUseModal} autoFocus>
+                        Tamam
                     </Button>
-                </CustomTooltip>
-            </DialogActions>
-        </Dialog>
+                </DialogActions>
+            </Dialog>
+        </>
     );
 }
 

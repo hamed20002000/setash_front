@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  // CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -29,6 +28,9 @@ const DeleteUnit = ({ openModal, unitIdToDelete, onClose, onDeleteSuccess, showA
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
 
+  // New state for the "Unit In Use" modal
+  const [openUnitInUseModal, setOpenUnitInUseModal] = useState<boolean>(false); // 🟢 New State
+
   const handleDeleteUnit = async () => {
     if (unitIdToDelete === null) {
       showAlert('Silinecek birim seçilmedi.', 'warning');
@@ -41,7 +43,7 @@ const DeleteUnit = ({ openModal, unitIdToDelete, onClose, onDeleteSuccess, showA
       showAlert('Lütfen giriş yapın.', 'warning');
       return;
     }
-debugger
+
     setLoading(true);
     try {
       const response = await axios.delete(
@@ -57,25 +59,43 @@ debugger
       if (response.data.httpStatusCode === 200) {
         showAlert('Birim başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose();
+        onClose(); // Close the main delete confirmation modal
       } else {
+        // If your API returns 200 but with an error message in data.message
         showAlert(response.data.message || 'Birim silinirken bir hata oluştu.', 'error');
+        onClose(); // Close the modal even if it's a business error
       }
     } catch (e: any) {
       console.error("Error deleting unit:", e);
-      const errorMessage = e.response?.data?.message || 'Birim silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
-      if (e.response && e.response.status === 401) {
+
+      // Check for 500 status code (Unit in Use scenario)
+      if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
+        onClose(); // Close the main delete confirmation modal
+        setOpenUnitInUseModal(true); // Open the specific "unit in use" modal
+      } else if (e.response && e.response.status === 401) {
+        // Handle unauthorized
         localStorage.removeItem('authToken');
-        navigate("/");
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+        navigate("/"); // Redirect to login
+      } else {
+        // General error handling for other network or API errors
+        const errorMessage = e.response?.data?.message || 'Birim silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+        showAlert(errorMessage, 'error');
+        onClose(); // Close the modal for general errors too
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Handler to close the "Unit In Use" modal
+  const handleCloseUnitInUseModal = () => { // 🟢 New Handler
+    setOpenUnitInUseModal(false);
+  };
+
   return (
     <>
+      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -86,10 +106,10 @@ debugger
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-                      Eğer silerseniz, geri almanın bir yolu yoktur.
-                      Kaydı silmek istediğinizden eminseniz, 
-                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
-                    </DialogContentText>
+            Eğer silerseniz, geri almanın bir yolu yoktur.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
@@ -105,13 +125,35 @@ debugger
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'
               )}
             </Button>
           </CustomTooltip>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🟢 New Dialog for "Unit In Use" */}
+      <Dialog
+        open={openUnitInUseModal}
+        onClose={handleCloseUnitInUseModal}
+        aria-labelledby="unit-in-use-dialog-title"
+        aria-describedby="unit-in-use-dialog-description"
+      >
+        <DialogTitle id="unit-in-use-dialog-title">
+          {"Hata: Birim Silinemez!"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="unit-in-use-dialog-description">
+            Bu birim şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseUnitInUseModal} autoFocus>
+            Tamam
+          </Button>
         </DialogActions>
       </Dialog>
     </>

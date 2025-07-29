@@ -6,7 +6,8 @@ import {
     Typography, Chip, Box, Stack, Grid, Button, Alert,
     TablePagination, TextField, InputAdornment, CircularProgress,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    Menu, MenuItem, IconButton, ListItemIcon
+    Menu, MenuItem, IconButton, ListItemIcon,
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, // ✅ اضافه شده: برای مودال توضیحات کامل
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { format } from 'date-fns';
@@ -34,8 +35,8 @@ import DeleteNetwork from './DeleteNetwork'; // Lütfen bu yolu kendi projenize 
 // Interface'ler
 interface NetworkType {
     id: string; // ID'nin string olduğunu varsayıyoruz
-    name: string; // Şebekeler adı
-    description: string; // Şebekeler açıklaması
+    name: string; // Şebeke adı
+    description: string; // Şebeke açıklaması
     createAt: string;
     status: string;
     recordStatus?: number; // 0: Aktif, 1: Pasif, 2: Silindi
@@ -72,10 +73,10 @@ const ListNetwork = () => {
     const [searchParams] = useSearchParams();
     const tenderId = searchParams.get('tenderId');
 
-    // Şebekeler kaydı formu için state
+    // Şebeke kaydı formu için state
     const [newNetworkData, setNewNetworkData] = useState({
-        title: '', // Şebekeler adı
-        description: '', // Şebekeler açıklaması (ReactQuill ile yönetiliyor)
+        title: '', // Şebeke adı
+        description: '', // Şebeke açıklaması (ReactQuill ile yönetiliyor)
         workId: workId ? parseInt(workId) : 0,
     });
 
@@ -83,7 +84,7 @@ const ListNetwork = () => {
     const [workTitleForDisplay, setWorkTitleForDisplay] = useState('');
     const [tenderTitleForDisplay, setTenderTitleForDisplay] = useState('');
 
-    // Mevcut Şebekelerın listesi için state
+    // Mevcut Şebekın listesi için state
     const [networks, setNetworks] = useState<NetworkType[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
@@ -109,20 +110,24 @@ const ListNetwork = () => {
     // ✅ Düzenleme modu için state'ler (ListUnit.tsx'deki gibi)
     const [editingId, setEditingId] = useState<string | null>(null);
     const [originalTitle, setOriginalTitle] = useState<string>('');
-    // const [originalDescription, setOriginalDescription] = useState<string>('');
+    // const [originalDescription, setOriginalDescription, ] = useState<string>(''); // این خط دیگه لازم نیست
 
     // ✅ Input validation error states (ListUnit.tsx'deki gibi)
     const [titleError, setTitleError] = useState<boolean>(false);
     const [descriptionError, setDescriptionError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
 
-    // Şebekeler başlığı TextField'ına odaklanmak için ref
+    // Şebeke başlığı TextField'ına odaklanmak için ref
     const networkTitleInputRef = useRef<HTMLInputElement>(null);
 
     // ✅ Delete Modal states (ListUnit.tsx'deki gibi)
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [networkIdToDelete, setNetworkIdToDelete] = useState<string | null>(null);
     const [networkTitleToDelete, setNetworkTitleToDelete] = useState<string>('');
+
+    // ✅ State برای مودال توضیحات کامل (جدید)
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
     useEffect(() => {
@@ -224,7 +229,7 @@ const ListNetwork = () => {
                 }));
                 setNetworks(formattedData);
             } else {
-                showAlert(response.data.message || 'Şebekeler listesi alınırken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Şebeke listesi alınırken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -232,8 +237,8 @@ const ListNetwork = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                console.error("Şebekeler listesi getirilirken hata oluştu:", e);
-                showAlert(e.response?.data?.message || 'Şebekeler listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                console.error("Şebeke listesi getirilirken hata oluştu:", e);
+                showAlert(e.response?.data?.message || 'Şebeke listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
         } finally {
             setLoadingData(false);
@@ -271,7 +276,7 @@ const ListNetwork = () => {
 
         if (!newNetworkData.title.trim()) {
             setTitleError(true);
-            setFormErrors("Şebekeler adı boş olamaz!");
+            setFormErrors("Şebeke adı boş olamaz!");
             isValid = false;
         } else {
             setTitleError(false);
@@ -307,7 +312,7 @@ const ListNetwork = () => {
         setFormErrors(null);
     };
 
-    // ✅ Yeni Şebekeler Ekleme İşlevi (ListUnit.tsx'deki insertUnit gibi)
+    // ✅ Yeni Şebeke Ekleme İşlevi (ListUnit.tsx'deki insertUnit gibi)
     const insertNetwork = async () => {
         if (!validateForm()) {
             return;
@@ -330,7 +335,7 @@ const ListNetwork = () => {
                 workId: newNetworkData.workId,
                 // tenderId artık payload'a dahil edilmiyor
             };
-            console.log("Yeni Şebekeler için Payload:", payload);
+            console.log("Yeni Şebeke için Payload:", payload);
 
             const response = await axios.post(
                 server.baseurl + server.initialoperations + "create-network",
@@ -345,11 +350,11 @@ const ListNetwork = () => {
             );
 
             if (response.data.httpStatusCode === 201) {
-                showAlert('Yeni Şebekeler başarıyla eklendi!', 'success');
+                showAlert('Yeni Şebeke başarıyla eklendi!', 'success');
                 resetFormAndState();
                 fetchNetworksByWorkId();
             } else {
-                showAlert(response.data.message || 'Yeni Şebekeler eklenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Yeni Şebeke eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -357,15 +362,15 @@ const ListNetwork = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                console.error("Yeni Şebekeler oluşturulurken hata:", e);
-                showAlert(e.response?.data?.message || 'Şebekeler eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                console.error("Yeni Şebeke oluşturulurken hata:", e);
+                showAlert(e.response?.data?.message || 'Şebeke eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
         } finally {
             setLoadingButton(false);
         }
     };
 
-    // ✅ Şebekeler Güncelleme İşlevi (ListUnit.tsx'deki editUnit gibi)
+    // ✅ Şebeke Güncelleme İşlevi (ListUnit.tsx'deki editUnit gibi)
     const editNetwork = async () => {
         if (editingId === null) return; // Düzenleme modunda değilsek çık
 
@@ -373,12 +378,19 @@ const ListNetwork = () => {
             return;
         }
 
-        // Eğer hiçbir değişiklik yapılmamışsa
-        if (newNetworkData.title === originalTitle) {
-            showAlert('Şebekeler bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
+        // اگر هیچ تغییری در عنوان و توضیحات ایجاد نشده باشد، یک هشدار نمایش داده و تابع را پایان می دهد
+        // این بخش نیاز به بررسی دقیق تر دارد که آیا مقادیر فعلی ReactQuill و TextField با مقادیر اولیه یکسان هستند
+        // به دلیل پیچیدگی مقایسه دقیق محتوای HTML از ReactQuill، می توان این بررسی را ساده تر کرد
+        // یا فرض کرد که اگر کاربر دکمه "güncelle" را فشار دهد، قصدی برای اعمال تغییر دارد.
+        // برای سادگی، فعلاً مقایسه توضیحات HTML را حذف کرده و فقط عنوان را چک می کنیم.
+        const isDescriptionChanged = newNetworkData.description !== selectedRowForMenu?.description;
+
+        if (newNetworkData.title === originalTitle && !isDescriptionChanged) {
+            showAlert('Şebeke bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
             resetFormAndState();
             return;
         }
+
 
         setLoadingButton(true);
 
@@ -397,9 +409,9 @@ const ListNetwork = () => {
                 title: newNetworkData.title,
                 description: newNetworkData.description,
                 // workId burada da gönderilebilir eğer API bekliyorsa, aksi halde gereksizdir
-                workId: newNetworkData.workId,
+                // workId: newNetworkData.workId,
             };
-            console.log("Şebekeler güncelleniyor, Payload:", payload);
+            console.log("Şebeke güncelleniyor, Payload:", payload);
 
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-network", // Güncelleme API endpointi
@@ -414,11 +426,11 @@ const ListNetwork = () => {
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Şebekeler başarıyla güncellendi!', 'success');
+                showAlert('Şebeke başarıyla güncellendi!', 'success');
                 resetFormAndState();
-                fetchNetworksByWorkId(); // Şebekeler listesini yenile
+                fetchNetworksByWorkId(); // Şebeke listesini yenile
             } else {
-                showAlert(response.data.message || 'Şebekeler güncellenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Şebeke güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -426,8 +438,8 @@ const ListNetwork = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                console.error("Şebekeler güncellenirken hata:", e);
-                showAlert(e.response?.data?.message || 'Şebekeler güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                console.error("Şebeke güncellenirken hata:", e);
+                showAlert(e.response?.data?.message || 'Şebeke güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
         } finally {
             setLoadingButton(false);
@@ -471,7 +483,7 @@ const ListNetwork = () => {
 
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Pasif' : 'Silindi';
-                showAlert(`Şebekeler başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                showAlert(`Şebeke başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 fetchNetworksByWorkId();
             } else {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
@@ -512,7 +524,7 @@ const ListNetwork = () => {
             });
             setEditingId(selectedRowForMenu.id);
             setOriginalTitle(selectedRowForMenu.name);
-            // setOriginalDescription(selectedRowForMenu.description);
+            // setOriginalDescription(selectedRowForMenu.description); // این خط دیگه لازم نیست
 
             // Hata state'lerini temizle
             setTitleError(false);
@@ -549,6 +561,18 @@ const ListNetwork = () => {
     const handleViewNetworkDetails = (networkId: string) => {
         navigate(`/network/${networkId}/details`);
     };
+
+    // ✅ توابع جدید برای مدیریت مودال توضیحات (جدید)
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
 
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(event.target.value);
@@ -597,7 +621,7 @@ const ListNetwork = () => {
         return (
             <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
                 <CircularProgress />
-                <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Şebekeler yükleniyor...</Typography>
+                <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Şebeke yükleniyor...</Typography>
             </Stack>
         );
     }
@@ -618,15 +642,15 @@ const ListNetwork = () => {
 
 
             <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider", mb: 2, mt: 2 }}>
-                <Typography variant="h5" mb={2}>{editingId ? 'Şebekelerı Düzenle' : 'Yeni Şebekeler Kaydı'}</Typography> {/* Başlığı dinamik hale getirdik */}
+                <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography> {/* Başlığı dinamik hale getirdik */}
                 <form> {/* Formun onSubmit'i artık doğrudan insertNetwork veya editNetwork'ü çağırmıyor */}
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="network-name">Şebekeler Adı:</CustomFormLabel>
+                            <CustomFormLabel htmlFor="network-name">Şebeke Adı:</CustomFormLabel>
                             <CustomTextField
                                 id="network-name"
                                 name="title"
-                                placeholder="Şebekeler Adı"
+                                placeholder="Şebeke Adı"
                                 fullWidth
                                 value={newNetworkData.title}
                                 onChange={handleNetworkNameChange}
@@ -635,7 +659,7 @@ const ListNetwork = () => {
                                 sx={{ mb: 1 }}
                                 inputRef={networkTitleInputRef}
                                 error={titleError}
-                                helperText={titleError ? "Şebekeler adı boş olamaz!" : ""}
+                                helperText={titleError ? "Şebeke adı boş olamaz!" : ""}
                             />
                         </Grid>
                         <Grid item xs={12}>
@@ -659,25 +683,25 @@ const ListNetwork = () => {
                         <Grid item xs={12} sx={{ mt: 2 }}>
                             <input type="hidden" name="workId" value={newNetworkData.workId} />
                             {editingId ? ( // Düzenleme modundaysa Güncelle düğmesi
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Şebekeleri güncelle" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke güncelle" : ""}>
                                     <Button
                                         variant="contained"
                                         color="info" // Düzenleme için farklı renk
                                         onClick={editNetwork} // editNetwork'ü çağır
                                         disabled={loadingButton}
                                     >
-                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebekeleri Güncelle'}
+                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Güncelle'}
                                     </Button>
                                 </CustomTooltip>
                             ) : ( // Yeni kayıt modundaysa Ekle düğmesi
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebekeleri kaydet" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke kaydet" : ""}>
                                     <Button
                                         variant="contained"
                                         color="primary"
                                         onClick={insertNetwork} // insertNetwork'ü çağır
                                         disabled={loadingButton}
                                     >
-                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebekeler Ekle'}
+                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
                                     </Button>
                                 </CustomTooltip>
                             )}
@@ -711,11 +735,11 @@ const ListNetwork = () => {
 
 
             <Box sx={{ p: 2, mt: 4 }}>
-                <Typography variant="h5" mb={2}>Mevcut Şebekeler</Typography>
+                <Typography variant="h5" mb={2}>Mevcut Şebeke</Typography>
                 <Grid container spacing={2} alignItems="center" mb={2}>
                     <Grid item xs={12} md={6}>
                         <TextField
-                            label="Şebekeler Ara"
+                            label="Şebeke Ara"
                             variant="outlined"
                             fullWidth
                             value={searchTerm}
@@ -737,13 +761,13 @@ const ListNetwork = () => {
                             aria-label="Durum filtresi"
                             fullWidth
                         >
-                            <StyledToggleButton value="all" aria-label="Tüm Şebekeler">
+                            <StyledToggleButton value="all" aria-label="Tüm Şebeke">
                                 Tümü
                             </StyledToggleButton>
-                            <StyledToggleButton value="active" aria-label="Aktif Şebekeler">
+                            <StyledToggleButton value="active" aria-label="Aktif Şebeke">
                                 Aktif
                             </StyledToggleButton>
-                            <StyledToggleButton value="inactive" aria-label="Pasif Şebekeler">
+                            <StyledToggleButton value="inactive" aria-label="Pasif Şebeke">
                                 Pasif
                             </StyledToggleButton>
                         </ToggleButtonGroup>
@@ -751,11 +775,11 @@ const ListNetwork = () => {
                 </Grid>
 
                 <TableContainer>
-                    <Table aria-label="Şebekeler tablosu">
+                    <Table aria-label="Şebeke tablosu">
                         <TableHead style={{ background: "#f1f1f1" }}>
                             <TableRow>
-                                <TableCell><Typography variant="h6">Şebekeler Adı</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
+                                <TableCell><Typography variant="h6">Şebeke Adı</Typography></TableCell>
+                                <TableCell><Typography variant="h6">Açıklama</Typography></TableCell> {/* ✅ این سلول برای نمایش توضیحات کوتاه یا دکمه مشاهده است */}
                                 <TableCell><Typography variant="h6">Kayıt Tarihi</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Durum</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Detaylar</Typography></TableCell>
@@ -767,7 +791,27 @@ const ListNetwork = () => {
                                 paginatedNetworks.map((row) => (
                                     <TableRow key={row.id}>
                                         <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
-                                        <TableCell><Typography variant="h6" dangerouslySetInnerHTML={{ __html: row.description }}></Typography></TableCell>
+                                        {/* ✅ سلول توضیحات با محدودیت ارتفاع و دکمه مشاهده */}
+                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                            <Box sx={{
+                                                maxHeight: '5em', // محدودیت نمایش به حدود 2-3 خط (حدود 5em برای متن معمولی)
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 3, // نمایش حداکثر 3 خط
+                                                WebkitBoxOrient: 'vertical',
+                                            }}>
+                                                <div dangerouslySetInnerHTML={{ __html: row.description }} />
+                                            </Box>
+                                            {/* فقط اگر توضیحات طولانی بود دکمه مشاهده را نمایش بده */}
+                                            {row.description && row.description.length > 50 && ( // می‌توانید این شرط را بر اساس طول واقعی HTML یا تعداد کلمات تنظیم کنید
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                    <Button size="small" onClick={() => handleOpenDescriptionModal(row.description)} sx={{ p: 0, minWidth: 'auto' }}>
+                                                        Görüntüle
+                                                    </Button>
+                                                </CustomTooltip>
+                                            )}
+                                        </TableCell>
                                         <TableCell><Typography variant="h6">{format(new Date(row.createAt), 'yyyy/MM/dd')}</Typography></TableCell>
                                         <TableCell>
                                             <Chip
@@ -789,7 +833,7 @@ const ListNetwork = () => {
                                             />
                                         </TableCell>
                                         <TableCell>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Şebekeler detaylarını görüntüle" : ""}>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke detaylarını görüntüle" : ""}>
                                                 <Button
                                                     variant="outlined"
                                                     size="small"
@@ -822,7 +866,7 @@ const ListNetwork = () => {
                                                 }}
                                             >
                                                 {selectedRowForMenu?.recordStatus === 0 ? (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebekeleri pasif yap" : ""}>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke pasif yap" : ""}>
                                                         <MenuItem onClick={handleSetInactive}>
                                                             <ListItemIcon>
                                                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -831,7 +875,7 @@ const ListNetwork = () => {
                                                         </MenuItem>
                                                     </CustomTooltip>
                                                 ) : (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebekeleri aktif yap" : ""}>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke aktif yap" : ""}>
                                                         <MenuItem onClick={handleSetActive}>
                                                             <ListItemIcon>
                                                                 <DoneRoundedIcon width={18} />
@@ -841,7 +885,7 @@ const ListNetwork = () => {
                                                     </CustomTooltip>
                                                 )}
 
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebekeleri düzenle" : ""}>
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke düzenle" : ""}>
                                                     <MenuItem onClick={handleEditClick}>
                                                         <ListItemIcon>
                                                             <IconEdit width={18} />
@@ -849,7 +893,7 @@ const ListNetwork = () => {
                                                         Düzenlemek
                                                     </MenuItem>
                                                 </CustomTooltip>
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebekeleri sil" : ""}>
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke sil" : ""}>
                                                     <MenuItem onClick={handleClickOpenDeleteModal}> {/* Modalı aç */}
                                                         <ListItemIcon>
                                                             <IconTrash width={18} />
@@ -865,7 +909,7 @@ const ListNetwork = () => {
                                 <TableRow>
                                     <TableCell colSpan={6} align="center">
                                         <Typography variant="subtitle1" color="textSecondary">
-                                            Bu iş için hiç Şebekeler bulunamadı.
+                                            Bu iş için hiç Şebeke bulunamadı.
                                         </Typography>
                                     </TableCell>
                                 </TableRow>
@@ -895,6 +939,26 @@ const ListNetwork = () => {
                 showAlert={showAlert} // showAlert fonksiyonu modala gönderiliyor
                 onDeleteSuccess={() => fetchNetworksByWorkId()} // Silme sonrası listeyi yenileme işlevi
             />
+
+            {/* ✅ Full Description Modal (جدید) */}
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </div>
     );
 };

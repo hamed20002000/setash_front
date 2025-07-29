@@ -112,7 +112,10 @@ export const fetchAllRoles = async (): Promise<RoleType[]> => {
   try {
     const response = await axios.get(server.baseurl + server.user + "get-roles", { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` } });
     if (response.data.httpStatusCode === 200) {
-      return response.data.data.map((item: any) => ({ id: item.id, name: item.name })) as RoleType[];
+      // 🟢 تغییر در اینجا: فیلتر کردن بر اساس recordStatus === 0
+      return response.data.data
+        .filter((item: any) => item.recordStatus === 0) // <--- این خط اضافه شد
+        .map((item: any) => ({ id: item.id, name: item.name })) as RoleType[];
     }
     console.warn('Rol listesi alınırken bir hata oluştu.', response.data); return [];
   } catch (error: any) { console.error("Error fetching all roles:", error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return []; }
@@ -121,38 +124,38 @@ export const fetchAllRoles = async (): Promise<RoleType[]> => {
 // 🔴 تغییر: این تابع حالا از API `get-user-with-role-and-operations/{userId}` استفاده می‌کند
 // و نقش‌های اختصاص یافته و دسترسی‌های پیش‌فرض آن‌ها را برای نمایش برمی‌گرداند.
 export const fetchUserRolesAndPermissions = async (userId: string): Promise<{
-    assignedRoleIds: string[],
-    rolePermissions: RolePermissionAssignment[]
+  assignedRoleIds: string[],
+  rolePermissions: RolePermissionAssignment[]
 }> => {
-    const authToken = localStorage.getItem('authToken');
-    if (!authToken) { console.warn("No auth token found for user roles and operations."); return { assignedRoleIds: [], rolePermissions: [] }; }
-    try {
-        const response = await axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`, {
-            headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-        });
-        if (response.data.success && response.data.data) {
-            const userRoles = response.data.data.userRoles || []; // آرایه نقش‌های کاربر
-            const assignedRoleIds = userRoles.map((ur: any) => ur.role.id) as string[]; // ID نقش‌ها
-            
-            // اگر API دسترسی‌های منو/عملیات پیش‌فرض هر نقش را در اینجا برمی‌گرداند (مثلاً در userRoles[i].role.permissions)
-            // باید آن را نیز نگاشت کنید. فعلاً فرض می‌کنیم این اطلاعات از API `get-user-roles-and-permissions` می‌آمد
-            // و این API (get-user-with-role-and-operations) فقط نقش‌ها را می‌دهد.
-            // اگر userMenuOperations دسترسی‌های خاص کاربر را نمایش می‌دهد، می‌توانید از آن استفاده کنید.
-            // برای هدف "فقط نمایش دسترسی‌های پیش‌فرض رول"، این بخش را ساده نگه می‌داریم.
-            const rolePermissions: RolePermissionAssignment[] = userRoles.map((ur:any) => ({
-                roleId: ur.role.id,
-                // فرض می‌کنیم دسترسی‌های پیش‌فرض رول از جای دیگری واکشی شده یا در اینجا موجود نیست.
-                // در غیر این صورت، این اطلاعات باید از یک API دیگر برای هر رول واکشی شود.
-                // برای این کامپوننت که فقط نمایش می‌دهد، این قسمت را فعلاً با آبجکت خالی پر می‌کنیم
-                // تا زمانی که یک API برای 'default_permissions_for_role_X' داشته باشیم.
-                permissions: ur.role.defaultMenuOperations || {} // اگر بک‌اند شما defaultMenuOperations را برمی‌گرداند
-            }));
+  const authToken = localStorage.getItem('authToken');
+  if (!authToken) { console.warn("No auth token found for user roles and operations."); return { assignedRoleIds: [], rolePermissions: [] }; }
+  try {
+    const response = await axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`, {
+      headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+    });
+    if (response.data.success && response.data.data) {
+      const userRoles = response.data.data.userRoles || []; // آرایه نقش‌های کاربر
+      const assignedRoleIds = userRoles.map((ur: any) => ur.role.id) as string[]; // ID نقش‌ها
 
-            return { assignedRoleIds, rolePermissions };
-        }
-        console.warn('API response for user roles and operations was not successful or data was empty.', response.data);
-        return { assignedRoleIds: [], rolePermissions: [] };
-    } catch (error: any) { console.error(`Error fetching user roles and operations for userId ${userId}:`, error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return { assignedRoleIds: [], rolePermissions: [] }; }
+      // اگر API دسترسی‌های منو/عملیات پیش‌فرض هر نقش را در اینجا برمی‌گرداند (مثلاً در userRoles[i].role.permissions)
+      // باید آن را نیز نگاشت کنید. فعلاً فرض می‌کنیم این اطلاعات از API `get-user-roles-and-permissions` می‌آمد
+      // و این API (get-user-with-role-and-operations) فقط نقش‌ها را می‌دهد.
+      // اگر userMenuOperations دسترسی‌های خاص کاربر را نمایش می‌دهد، می‌توانید از آن استفاده کنید.
+      // برای هدف "فقط نمایش دسترسی‌های پیش‌فرض رول"، این بخش را ساده نگه می‌داریم.
+      const rolePermissions: RolePermissionAssignment[] = userRoles.map((ur: any) => ({
+        roleId: ur.role.id,
+        // فرض می‌کنیم دسترسی‌های پیش‌فرض رول از جای دیگری واکشی شده یا در اینجا موجود نیست.
+        // در غیر این صورت، این اطلاعات باید از یک API دیگر برای هر رول واکشی شود.
+        // برای این کامپوننت که فقط نمایش می‌دهد، این قسمت را فعلاً با آبجکت خالی پر می‌کنیم
+        // تا زمانی که یک API برای 'default_permissions_for_role_X' داشته باشیم.
+        permissions: ur.role.defaultMenuOperations || {} // اگر بک‌اند شما defaultMenuOperations را برمی‌گرداند
+      }));
+
+      return { assignedRoleIds, rolePermissions };
+    }
+    console.warn('API response for user roles and operations was not successful or data was empty.', response.data);
+    return { assignedRoleIds: [], rolePermissions: [] };
+  } catch (error: any) { console.error(`Error fetching user roles and operations for userId ${userId}:`, error); if (axios.isAxiosError(error) && error.response?.status === 401) { localStorage.removeItem('authToken'); } return { assignedRoleIds: [], rolePermissions: [] }; }
 };
 
 
@@ -161,7 +164,7 @@ export const saveUserRolesAndPermissions = async (userId: string, selectedRoleId
   if (!authToken) { console.warn("No auth token found for saving user roles."); return false; }
   try {
     const roleIdsAsNumbers = selectedRoleIds.map(id => Number(id));
-debugger
+    debugger
     const payload = { UserId: userId, roleIds: roleIdsAsNumbers };
     const response = await axios.post(`${server.baseurl}${server.user}assign-user-roles`, payload, {
       headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` }
@@ -259,7 +262,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
     });
   }, []);
 
-   const handleToggleRoleAccordion = useCallback((roleId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+  const handleToggleRoleAccordion = useCallback((roleId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
     // از event.stopPropagation() استفاده کنید اگر نمی‌خواهید کلیک به عناصر والد منتقل شود
     event.stopPropagation(); // جلوگیری از انتشار کلیک به آیتم لیست والد
     setExpandedRoleAccordions(prev => {
@@ -314,7 +317,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
     return { menuIds, operationIds: Array.from(new Set(operationIds)) };
   }, []);
 
- const handleAccordionChangeForMenu = useCallback((currentRoleId: string, menuId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
+  const handleAccordionChangeForMenu = useCallback((currentRoleId: string, menuId: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
     event.stopPropagation(); // جلوگیری از انتشار کلیک به Summary آکاردئون والد
     setExpandedMenusForRole(prevExpanded => {
       const newExpanded = { ...prevExpanded };
@@ -405,7 +408,7 @@ const ListUsersModal = ({ openRoleModal, onClose, userId, showAlert }: Props) =>
                 allChildMenusSelected = false;
               }
               if (getIndeterminateStatus(child)) {
-                  anyChildMenuSelected = true;
+                anyChildMenuSelected = true;
               }
             });
 

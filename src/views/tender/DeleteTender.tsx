@@ -29,6 +29,9 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
 
+  // New state for the "Tender In Use" modal
+  const [openTenderInUseModal, setOpenTenderInUseModal] = useState<boolean>(false); // 🟢 New State
+
   const handleDeleteTender = async () => {
     if (tenderIdToDelete === null) {
       showAlert('Silinecek ihale seçilmedi.', 'warning');
@@ -59,25 +62,40 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
       if (response.data.httpStatusCode === 200) {
         showAlert('Müzayede başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose();
+        onClose(); // Close the main delete confirmation modal
       } else {
         showAlert(response.data.message || 'Müzayede silinirken bir hata oluştu.', 'error');
+        onClose(); // Close the modal even if it's a business error
       }
     } catch (e: any) {
       console.error("Error deleting tender:", e);
-      const errorMessage = e.response?.data?.message || 'Müzayede silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
-      if (e.response && e.response.status === 401) {
+
+      // Check for 500 status code (Tender in Use scenario)
+      if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
+        onClose(); // Close the main delete confirmation modal
+        setOpenTenderInUseModal(true); // Open the specific "tender in use" modal
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
+      } else {
+        const errorMessage = e.response?.data?.message || 'Müzayede silinirken bir hata oluştu, lütfen tekrar deneyin.';
+        showAlert(errorMessage, 'error');
+        onClose(); // Close the modal for general errors too
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Handler to close the "Tender In Use" modal
+  const handleCloseTenderInUseModal = () => { // 🟢 New Handler
+    setOpenTenderInUseModal(false);
+  };
+
   return (
     <>
+      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -87,10 +105,10 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
           {"Bu ihaleyi silmek istediğinizden emin misiniz?"}
         </DialogTitle>
         <DialogContent>
-         <DialogContentText id="alert-dialog-description">
+          <DialogContentText id="alert-dialog-description">
             Eğer silerseniz, geri almanın bir yolu yoktur.
-            Kaydı silmek istediğinizden eminseniz, 
-            <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -107,13 +125,35 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....                 
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'
               )}
             </Button>
           </CustomTooltip>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🟢 New Dialog for "Tender In Use" */}
+      <Dialog
+        open={openTenderInUseModal}
+        onClose={handleCloseTenderInUseModal}
+        aria-labelledby="tender-in-use-dialog-title"
+        aria-describedby="tender-in-use-dialog-description"
+      >
+        <DialogTitle id="tender-in-use-dialog-title">
+          {"Hata: İhale Silinemez!"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="tender-in-use-dialog-description">
+            Bu ihale şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTenderInUseModal} autoFocus>
+            Tamam
+          </Button>
         </DialogActions>
       </Dialog>
     </>

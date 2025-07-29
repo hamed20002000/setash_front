@@ -466,6 +466,7 @@ const ListWorks = () => {
             navigate("/");
             return;
         }
+        debugger
         try {
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-work",
@@ -606,9 +607,52 @@ const ListWorks = () => {
         });
     }
 
+    // const getTenderOptions = async () => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) return;
+
+    //     try {
+    //         const response = await axios.get(
+    //             server.baseurl + server.initialoperations + "get-tenders",
+    //             {
+    //                 headers: {
+    //                     "Accept": "application/json",
+    //                     "Authorization": `Bearer ${authToken}`
+    //                 }
+    //             }
+    //         );
+    //         if (response.data.httpStatusCode === 200) {
+    //             const approvedTenders = response.data.data
+    //                 .filter((item: any) => item.status === 1)
+    //                 .map((item: any) => ({
+    //                     id: item.id,
+    //                     title: item.title,
+    //                     status: item.status
+    //                 }));
+    //             setTenderOptions(approvedTenders);
+    //         } else {
+    //             showAlert(response.data.message || 'İhale seçenekleri yüklenirken bir hata oluştu.', 'error');
+    //         }
+    //     } catch (e: any) {
+    //         if (e.response && e.response.status === 401) {
+    //             localStorage.removeItem('authToken');
+    //             navigate("/");
+    //             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+    //         } else {
+    //             console.error("İhale seçenekleri getirilirken hata oluştu:", e);
+    //             showAlert('İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    //         }
+    //     }
+    // };
+
     const getTenderOptions = async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) return;
+        if (!authToken) {
+            console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+            // showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error'); // اگر می‌خواهید پیام نمایش داده شود
+            navigate("/");
+            return;
+        }
 
         try {
             const response = await axios.get(
@@ -621,14 +665,15 @@ const ListWorks = () => {
                 }
             );
             if (response.data.httpStatusCode === 200) {
-                const approvedTenders = response.data.data
-                    .filter((item: any) => item.status === 1)
+                // 🟢 تغییر در اینجا: فیلتر کردن بر اساس recordStatus === 0
+                const activeTenders = response.data.data
+                    .filter((item: any) => item.recordStatus === 0) // <--- این خط اضافه شد
                     .map((item: any) => ({
                         id: item.id,
                         title: item.title,
                         status: item.status
                     }));
-                setTenderOptions(approvedTenders);
+                setTenderOptions(activeTenders);
             } else {
                 showAlert(response.data.message || 'İhale seçenekleri yüklenirken bir hata oluştu.', 'error');
             }
@@ -639,12 +684,10 @@ const ListWorks = () => {
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
                 console.error("İhale seçenekleri getirilirken hata oluştu:", e);
-                showAlert('İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                showAlert(e.response?.data?.message || 'İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
         }
     };
-
-
     useEffect(() => {
         getListWork();
         getTenderOptions();

@@ -42,7 +42,6 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
     }
 
     setLoading(true);
-    // debugger // معمولاً در کد نهایی حذف می‌شود
     try {
       const response = await axios.delete(
         `${server.baseurl}${server.baseinfo}delete-category/${Number(categoryIdToDelete)}`,

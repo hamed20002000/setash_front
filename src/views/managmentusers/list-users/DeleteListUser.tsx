@@ -18,7 +18,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // ای�
 
 type Props = {
   openModal: boolean;
-  userIdToDelete: number | null;
+  userIdToDelete: string | null;
   onClose: () => void;
   onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -44,7 +44,7 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
       navigate("/");
       return;
     }
-debugger
+    debugger
     setLoading(true);
     try {
       const response = await axios.delete(
@@ -90,10 +90,10 @@ debugger
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-                      Eğer silerseniz, geri almanın bir yolu yoktur.
-                      Kaydı silmek istediğinizden eminseniz, 
-                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
-                    </DialogContentText>
+            Eğer silerseniz, geri almanın bir yolu yoktur.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           {/* **Tooltip برای دکمه "İptal Et"** */}
@@ -111,7 +111,7 @@ debugger
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

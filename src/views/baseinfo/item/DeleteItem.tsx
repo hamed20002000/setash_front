@@ -8,7 +8,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  // CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
@@ -28,6 +27,9 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
+
+  // New state for the "Item In Use" modal
+  const [openItemInUseModal, setOpenItemInUseModal] = useState<boolean>(false); // 🟢 New State
 
   const handleDeleteItem = async () => {
     if (itemIdToDelete === null) {
@@ -59,25 +61,40 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
       if (response.data.httpStatusCode === 200) {
         showAlert('Ürün başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose();
+        onClose(); // Close the main delete confirmation modal
       } else {
         showAlert(response.data.message || 'Ürün silinirken bir hata oluştu.', 'error');
+        onClose(); // Close the modal even if it's a business error
       }
     } catch (e: any) {
       console.error("Error deleting item:", e);
-      const errorMessage = e.response?.data?.message || 'Ürün silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
-      if (e.response && e.response.status === 401) {
+
+      // Check for 500 status code (Item in Use scenario)
+      if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
+        onClose(); // Close the main delete confirmation modal
+        setOpenItemInUseModal(true); // Open the specific "item in use" modal
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
+      } else {
+        const errorMessage = e.response?.data?.message || 'Ürün silinirken bir hata oluştu, lütfen tekrar deneyin.';
+        showAlert(errorMessage, 'error');
+        onClose(); // Close the modal for general errors too
       }
     } finally {
       setLoading(false);
     }
   };
 
+  // Handler to close the "Item In Use" modal
+  const handleCloseItemInUseModal = () => { // 🟢 New Handler
+    setOpenItemInUseModal(false);
+  };
+
   return (
     <>
+      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -88,10 +105,10 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-                      Eğer silerseniz, geri almanın bir yolu yoktur.
-                      Kaydı silmek istediğinizden eminseniz, 
-                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
-                    </DialogContentText>
+            Eğer silerseniz, geri almanın bir yolu yoktur.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
@@ -107,13 +124,35 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'
               )}
             </Button>
           </CustomTooltip>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🟢 New Dialog for "Item In Use" */}
+      <Dialog
+        open={openItemInUseModal}
+        onClose={handleCloseItemInUseModal}
+        aria-labelledby="item-in-use-dialog-title"
+        aria-describedby="item-in-use-dialog-description"
+      >
+        <DialogTitle id="item-in-use-dialog-title">
+          {"Hata: Ürün Silinemez!"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="item-in-use-dialog-description">
+            Bu ürün şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseItemInUseModal} autoFocus>
+            Tamam
+          </Button>
         </DialogActions>
       </Dialog>
     </>

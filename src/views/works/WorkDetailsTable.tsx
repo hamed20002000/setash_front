@@ -90,10 +90,11 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({ subEntry }) => {
                                 Alt Öğeler:
                             </Typography>
                             {subEntry.itemDetails && subEntry.itemDetails.length > 0 ? (
-                                <Stack direction="column" spacing={0.5} sx={{ pl: 2, pb: 1 }}> {/* نمایش آیتم‌ها به صورت عمودی با فاصله کم */}
+                                <Stack direction="row" spacing={0.5} sx={{ pl: 2, pb: 1 }}> {/* نمایش آیتم‌ها به صورت عمودی با فاصله کم */}
                                     {subEntry.itemDetails.map((itemDetail, idx) => (
-                                        <Typography key={itemDetail.tempId || idx} variant="body2">
-                                            - **{itemDetail.name}:** {itemDetail.value}
+                                        <Typography key={itemDetail.tempId || idx} variant="body2"
+                                            style={{ border: "1px solid", borderRadius: "4px", padding: "5px" }}>
+                                            {itemDetail.name}: <span style={{ fontWeight: "bold" }}>{itemDetail.value}</span>
                                         </Typography>
                                     ))}
                                 </Stack>

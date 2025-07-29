@@ -829,6 +829,46 @@ const ListItemComponent = () => {
     }
   };
 
+  // const getUnitOptions = async () => {
+  //   setLoadingUnits(true);
+  //   const authToken = localStorage.getItem('authToken');
+  //   if (!authToken) {
+  //     console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+  //     navigate("/");
+  //     showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+  //     setLoadingUnits(false);
+  //     return;
+  //   }
+  //   try {
+  //     const response = await axios.get(server.baseurl + server.baseinfo + "get-item-units", {
+  //       headers: {
+  //         "Accept": "application/json",
+  //         "Authorization": `Bearer ${authToken}`
+  //       }
+  //     });
+  //     if (response.data && response.data.success) {
+  //       setUnitOptions(response.data.data.map((unit: any) => ({
+  //         id: unit.id,
+  //         title: unit.title
+  //       })));
+  //     } else {
+  //       console.error("Failed to fetch units:", response.data.message);
+  //       showAlert('Ölçüler yüklenirken hata oluştu.', 'error');
+  //     }
+  //   } catch (e: any) {
+  //     if (e.response && e.response.status === 401) {
+  //       localStorage.removeItem('authToken');
+  //       navigate("/");
+  //       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+  //     } else {
+  //       console.error("Error fetching units:", e);
+  //       showAlert('Ölçüler sunucudan alınamadı.', 'error');
+  //     }
+  //   } finally {
+  //     setLoadingUnits(false);
+  //   }
+  // };
+
   const getUnitOptions = async () => {
     setLoadingUnits(true);
     const authToken = localStorage.getItem('authToken');
@@ -847,16 +887,18 @@ const ListItemComponent = () => {
         }
       });
       if (response.data && response.data.success) {
-        setUnitOptions(response.data.data.map((unit: any) => ({
-          id: unit.id,
-          title: unit.title
-        })));
+        setUnitOptions(response.data.data
+          .filter((unit: any) => unit.recordStatus === 0) // 🟢 اضافه شده: فیلتر کردن واحدهای با recordStatus = 0
+          .map((unit: any) => ({
+            id: unit.id,
+            title: unit.title
+          })));
       } else {
         console.error("Failed to fetch units:", response.data.message);
         showAlert('Ölçüler yüklenirken hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) { // Changed to use axios.isAxiosError for type narrowing
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -868,6 +910,43 @@ const ListItemComponent = () => {
       setLoadingUnits(false);
     }
   };
+  // const getAllCategories = async () => {
+  //   setLoadingCategories(true);
+  //   const authToken = localStorage.getItem('authToken');
+  //   if (!authToken) {
+  //     console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
+  //     navigate("/");
+  //     showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+  //     setLoadingCategories(false);
+  //     return;
+  //   }
+  //   try {
+  //     const response = await axios.get(server.baseurl + server.baseinfo + "get-categories", {
+  //       headers: {
+  //         "Accept": "application/json",
+  //         "Authorization": `Bearer ${authToken}`
+  //       }
+  //     });
+  //     if (response.data && response.data.success) {
+  //       const flattened = flattenCategories(response.data.data);
+  //       setAllCategoriesFlat(flattened);
+  //     } else {
+  //       console.error("Failed to fetch categories:", response.data.message);
+  //       showAlert('Kategoriler yüklenirken hata oluştu.', 'error');
+  //     }
+  //   } catch (e: any) {
+  //     if (e.response && e.response.status === 401) {
+  //       localStorage.removeItem('authToken');
+  //       navigate("/");
+  //       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+  //     } else {
+  //       console.error("Error fetching categories:", e);
+  //       showAlert('Kategoriler sunucudan alınamadı.', 'error');
+  //     }
+  //   } finally {
+  //     setLoadingCategories(false);
+  //   }
+  // };
 
   const getAllCategories = async () => {
     setLoadingCategories(true);
@@ -887,14 +966,41 @@ const ListItemComponent = () => {
         }
       });
       if (response.data && response.data.success) {
-        const flattened = flattenCategories(response.data.data);
+        // 🟢 اضافه شده: فیلتر کردن دسته‌بندی‌ها در تابع mapApiMenuToModalMenuItem یا قبل از آن
+        // در اینجا فرض می‌کنیم که داده‌ها در `response.data.data` به صورت Nested هستند
+        // و flattenedCategories باید ابتدا فیلتر شود
+        const filteredNestedCategories = response.data.data
+          .filter((cat: any) => cat.recordStatus === 0) // فیلتر کردن سطح اول
+          .map((cat: any) => {
+            // تابع بازگشتی برای فیلتر کردن زیردسته‌ها
+            const filterChildren = (children: any[]): CategoryOptionType[] => {
+              return children
+                .filter((child: any) => child.recordStatus === 0)
+                .map((child: any) => ({
+                  id: child.id,
+                  name: child.name,
+                  parentId: child.parentId || null,
+                  depth: child.depth,
+                  categories: child.categories && child.categories.length > 0 ? filterChildren(child.categories) : undefined,
+                }));
+            };
+            return {
+              id: cat.id,
+              name: cat.name,
+              parentId: cat.parentId || null,
+              depth: cat.depth,
+              categories: cat.categories && cat.categories.length > 0 ? filterChildren(cat.categories) : undefined,
+            };
+          });
+
+        const flattened = flattenCategories(filteredNestedCategories); // از داده‌های فیلتر شده استفاده کنید
         setAllCategoriesFlat(flattened);
       } else {
         console.error("Failed to fetch categories:", response.data.message);
         showAlert('Kategoriler yüklenirken hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (axios.isAxiosError(e) && e.response?.status === 401) { // Changed to use axios.isAxiosError for type narrowing
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -906,8 +1012,6 @@ const ListItemComponent = () => {
       setLoadingCategories(false);
     }
   };
-
-
   const getListItem = async () => {
     setLoadingItems(true);
     const authToken = localStorage.getItem('authToken');

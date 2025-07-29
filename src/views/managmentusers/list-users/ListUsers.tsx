@@ -139,7 +139,7 @@ const ListUsers = () => {
   const openMenu = Boolean(anchorEl);
 
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
-  const [userIdToDelete, setUserIdToDelete] = useState<number | null>(null);
+  const [userIdToDelete, setUserIdToDelete] = useState<string | null>(null);
 
   const [openRoleModal, setOpenRoleModal] = useState(false);
   const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<string | null>(null);
@@ -271,7 +271,7 @@ const ListUsers = () => {
 
   const handleClickOpenDeleteModal = useCallback(() => {
     if (selectedUserForMenu) {
-      setUserIdToDelete(Number(selectedUserForMenu.id));
+      setUserIdToDelete(selectedUserForMenu.id);
       setOpenDeleteModal(true);
     }
     handleCloseMenu();
@@ -369,6 +369,18 @@ const ListUsers = () => {
       setProfileImageUrl(DEFAULT_IMAGE_URL);
     }
   }, []);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (alertMessage) {
+      timer = setTimeout(() => {
+        clearAlert();
+      }, 5000); // 5000 milliseconds = 5 seconds
+    }
+    return () => {
+      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+    };
+  }, [alertMessage]);
 
   const resetFormAndState = useCallback(() => {
     setUsername('');

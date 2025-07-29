@@ -264,11 +264,11 @@ const ListProductTypes = () => {
                 }
             );
             if (response.data.httpStatusCode === 201) {
-                showAlert('Yeni Ölçü başarıyla eklendi!', 'success');
+                showAlert('Yeni Direk başarıyla eklendi!', 'success');
                 resetFormAndState();
                 getListProductTypes();
             } else {
-                showAlert(response.data.message || 'Yeni Ölçü eklenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Yeni Direk eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -277,7 +277,7 @@ const ListProductTypes = () => {
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
             console.error("Error inserting ProductTypes:", e);
-            showAlert(e.response?.data?.message || 'Ölçü eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'Direk eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -325,14 +325,14 @@ const ListProductTypes = () => {
                 }
             );
             if (response.data.httpStatusCode === 200) {
-                showAlert('Ölçü başarıyla güncellendi!', 'success');
+                showAlert('Direk başarıyla güncellendi!', 'success');
                 setProductTypesList(prevList =>
                     prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
                 );
                 resetFormAndState();
                 getListProductTypes();
             } else {
-                showAlert(response.data.message || 'Ölçü güncellenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Direk güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -341,7 +341,7 @@ const ListProductTypes = () => {
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
             console.error("Error updating ProductTypes:", e);
-            showAlert(e.response?.data?.message || 'Ölçü güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'Direk güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -372,7 +372,7 @@ const ListProductTypes = () => {
 
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
-                showAlert(`Ölçü başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                showAlert(`Direk başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 getListProductTypes();
                 resetFormAndState();
             } else {
@@ -537,7 +537,7 @@ const ListProductTypes = () => {
                     <Grid item xs={12} sm={7}>
                         <CustomTextField
                             id="ProductTypes-name"
-                            placeholder="Ölçü Adı"
+                            placeholder="Direk Adı"
                             fullWidth
                             value={name}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -557,7 +557,7 @@ const ListProductTypes = () => {
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
                             {editingId !== null ? (
                                 <>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili Ölçüi güncelleyin" : ""}>
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili Direki güncelleyin" : ""}>
                                         <Button
                                             variant="contained"
                                             color="info"
@@ -569,7 +569,7 @@ const ListProductTypes = () => {
                                             </> : 'Düzenlemek'}
                                         </Button>
                                     </CustomTooltip>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Ölçü moduna dön" : ""}>
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Direk moduna dön" : ""}>
                                         <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
                                             İptal Et
                                         </Button>
@@ -577,7 +577,7 @@ const ListProductTypes = () => {
                                 </>
                             ) : (
                                 <>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Ölçü ekle" : ""}>
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Direk ekle" : ""}>
                                         <Button
                                             variant="contained"
                                             color="success"
@@ -586,7 +586,7 @@ const ListProductTypes = () => {
                                         >
                                             {loadingButton ? <>
                                                 <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                                            </> : 'Yeni Ölçü Ekle'}
+                                            </> : 'Yeni Direk Ekle'}
                                         </Button>
                                     </CustomTooltip>
                                 </>
@@ -607,7 +607,7 @@ const ListProductTypes = () => {
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>
                             <TextField
-                                label="Ölçü Ara"
+                                label="Direk Ara"
                                 variant="outlined"
                                 fullWidth
                                 value={searchTerm}
@@ -629,7 +629,7 @@ const ListProductTypes = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Ölçüleri göster" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Direkleri göster" : ""}>
                                     <StyledToggleButton // استفاده از StyledToggleButton
                                         value="all"
                                         aria-label="all ProductTypes"
@@ -637,7 +637,7 @@ const ListProductTypes = () => {
                                         Tümü
                                     </StyledToggleButton>
                                 </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Ölçüleri göster" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Direkleri göster" : ""}>
                                     <StyledToggleButton // استفاده از StyledToggleButton
                                         value="active"
                                         aria-label="active ProductTypes"
@@ -645,7 +645,7 @@ const ListProductTypes = () => {
                                         Aktif
                                     </StyledToggleButton>
                                 </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Ölçüleri göster" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Direkleri göster" : ""}>
                                     <StyledToggleButton // استفاده از StyledToggleButton
                                         value="inactive"
                                         aria-label="inactive ProductTypes"
@@ -754,7 +754,7 @@ const ListProductTypes = () => {
                                             >
                                                 {selectedRowForMenu?.recordStatus === 0 ? (
                                                     <CustomTooltip placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu Ölçüi pasif yap" : ""}>
+                                                        title={isTooltipGloballyEnabled ? "Bu Direki pasif yap" : ""}>
                                                         <MenuItem onClick={handleSetInactive}>
                                                             <ListItemIcon>
                                                                 <DoNotDisturbOnRoundedIcon width={18} />
@@ -764,7 +764,7 @@ const ListProductTypes = () => {
                                                     </CustomTooltip>
                                                 ) : (
                                                     <CustomTooltip placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu Ölçüi aktif yap" : ""}>
+                                                        title={isTooltipGloballyEnabled ? "Bu Direki aktif yap" : ""}>
                                                         <MenuItem onClick={handleSetActive}>
                                                             <ListItemIcon>
                                                                 <DoneRoundedIcon width={18} />
@@ -774,7 +774,7 @@ const ListProductTypes = () => {
                                                     </CustomTooltip>
                                                 )}
                                                 <CustomTooltip placement="left"
-                                                    title={isTooltipGloballyEnabled ? "Bu Ölçüi düzenle" : ""}>
+                                                    title={isTooltipGloballyEnabled ? "Bu Direki düzenle" : ""}>
                                                     <MenuItem onClick={handleEditClick}>
                                                         <ListItemIcon>
                                                             <IconEdit width={18} />
@@ -783,7 +783,7 @@ const ListProductTypes = () => {
                                                     </MenuItem>
                                                 </CustomTooltip>
                                                 <CustomTooltip placement="left"
-                                                    title={isTooltipGloballyEnabled ? "Bu Ölçüi sil" : ""}>
+                                                    title={isTooltipGloballyEnabled ? "Bu Direki sil" : ""}>
                                                     <MenuItem onClick={handleClickOpenDeleteModal}>
                                                         <ListItemIcon>
                                                             <IconTrash width={18} />
@@ -799,7 +799,7 @@ const ListProductTypes = () => {
                                 <TableRow>
                                     <TableCell colSpan={4} align="center">
                                         <Typography variant="subtitle1" color="textSecondary">
-                                            Hiç Ölçü bulunamadı.
+                                            Hiç Direk bulunamadı.
                                         </Typography>
                                     </TableCell>
                                 </TableRow>

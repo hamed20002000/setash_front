@@ -29,6 +29,9 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
+    // New state for the "Product Type In Use" modal
+    const [openProductTypeInUseModal, setOpenProductTypeInUseModal] = useState<boolean>(false); // 🟢 New State
+
     const handleDeleteProductType = async () => {
         if (ProductTypesIdToDelete === null) {
             showAlert('Silinecek birim seçilmedi.', 'warning');
@@ -41,7 +44,7 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
             showAlert('Lütfen giriş yapın.', 'warning');
             return;
         }
-        debugger
+
         setLoading(true);
         try {
             const response = await axios.delete(
@@ -57,25 +60,40 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
             if (response.data.httpStatusCode === 200) {
                 showAlert('Birim başarıyla silindi!', 'success');
                 onDeleteSuccess();
-                onClose();
+                onClose(); // Close the main delete confirmation modal
             } else {
-                showAlert(response.data.message || 'Birim silinirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Birim silinirken bir hata oluşo.', 'error');
+                onClose(); // Close the modal even if it's a business error
             }
         } catch (e: any) {
             console.error("Error deleting ProductType:", e);
-            const errorMessage = e.response?.data?.message || 'Birim silinirken bir hata oluştu, lütfen tekrar deneyin.';
-            showAlert(errorMessage, 'error');
-            if (e.response && e.response.status === 401) {
+
+            // Check for 500 status code (Product Type in Use scenario)
+            if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
+                onClose(); // Close the main delete confirmation modal
+                setOpenProductTypeInUseModal(true); // Open the specific "product type in use" modal
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
+            } else {
+                const errorMessage = e.response?.data?.message || 'Birim silinirken bir hata oluştu, lütfen tekrar deneyin.';
+                showAlert(errorMessage, 'error');
+                onClose(); // Close the modal for general errors too
             }
         } finally {
             setLoading(false);
         }
     };
 
+    // Handler to close the "Product Type In Use" modal
+    const handleCloseProductTypeInUseModal = () => { // 🟢 New Handler
+        setOpenProductTypeInUseModal(false);
+    };
+
     return (
         <>
+            {/* Main Delete Confirmation Dialog */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -112,6 +130,28 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                             )}
                         </Button>
                     </CustomTooltip>
+                </DialogActions>
+            </Dialog>
+
+            {/* 🟢 New Dialog for "Product Type In Use" */}
+            <Dialog
+                open={openProductTypeInUseModal}
+                onClose={handleCloseProductTypeInUseModal}
+                aria-labelledby="product-type-in-use-dialog-title"
+                aria-describedby="product-type-in-use-dialog-description"
+            >
+                <DialogTitle id="product-type-in-use-dialog-title">
+                    {"Hata: Ürün Tipi Silinemez!"}
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="product-type-in-use-dialog-description">
+                        Bu ürün tipi şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseProductTypeInUseModal} autoFocus>
+                        Tamam
+                    </Button>
                 </DialogActions>
             </Dialog>
         </>
