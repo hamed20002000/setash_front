@@ -568,18 +568,18 @@ const ListItemComponent = () => {
     }
 
     // Validate Abbreviation
-    if (!abbreviation.trim()) {
-      setAbbreviationError(true);
-      setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
-      hasError = true;
-    } else if (abbreviation.length !== 4) {
-      setAbbreviationError(true);
-      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
-      hasError = true;
-    } else {
-      setAbbreviationError(false);
-      setAbbreviationHelperText('');
-    }
+    // if (!abbreviation.trim()) {
+    //   setAbbreviationError(true);
+    //   setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
+    //   hasError = true;
+    // } else if (abbreviation.length !== 4) {
+    //   setAbbreviationError(true);
+    //   setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
+    //   hasError = true;
+    // } else {
+    //   setAbbreviationError(false);
+    //   setAbbreviationHelperText('');
+    // }
 
     // Validate Description
     // if (!description.trim() || description === '<p><br></p>') { // Check for empty or just a line break from Quill
@@ -614,7 +614,7 @@ const ListItemComponent = () => {
         {
           name,
           description,
-          abbreviation,
+          abbreviation: abbreviation == "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
           itemUnitId: Number(selectedUnitId) // Use selectedUnitId, renamed as per API spec
         },
@@ -683,18 +683,18 @@ const ListItemComponent = () => {
     }
 
     // Validate Abbreviation
-    if (!abbreviation.trim()) {
-      setAbbreviationError(true);
-      setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
-      hasError = true;
-    } else if (abbreviation.length !== 4) {
-      setAbbreviationError(true);
-      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
-      hasError = true;
-    } else {
-      setAbbreviationError(false);
-      setAbbreviationHelperText('');
-    }
+    // if (!abbreviation.trim()) {
+    //   setAbbreviationError(true);
+    //   setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
+    //   hasError = true;
+    // } else if (abbreviation.length !== 4) {
+    //   setAbbreviationError(true);
+    //   setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
+    //   hasError = true;
+    // } else {
+    //   setAbbreviationError(false);
+    //   setAbbreviationHelperText('');
+    // }
 
     // Validate Description
     // if (!description.trim() || description === '<p><br></p>') {
@@ -711,7 +711,9 @@ const ListItemComponent = () => {
       return;
     }
 
-    if (name === originalName && selectedUnitId === selectedRowForMenu?.unit.id && selectedCategoryId === selectedRowForMenu?.category.id && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description) {
+    if (name === originalName && selectedUnitId === selectedRowForMenu?.unit.id
+      && selectedCategoryId === selectedRowForMenu?.category.id
+      && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description) {
       showAlert('Herhangi bir değişiklik yapmadınız.', 'info');
       resetFormAndState();
       return;
@@ -735,7 +737,7 @@ const ListItemComponent = () => {
           id: Number(editingId),
           newName: name,
           description,
-          abbreviation,
+          abbreviation: abbreviation == "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
           itemUnitId: Number(selectedUnitId) // Use selectedUnitId, renamed as per API spec
         },
