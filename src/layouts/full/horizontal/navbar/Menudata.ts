@@ -4,8 +4,8 @@ import {
   IconUserCircle,
   IconCircles,
   IconCategory,
-  IconBuilding, 
-  IconPackage,  
+  IconBuilding,
+  IconPackage,
 } from '@tabler/icons-react';
 import { uniqueId } from 'lodash';
 

@@ -29,7 +29,7 @@ const NavListing = () => {
                 hideMenu={hideMenu}
                 pathWithoutLastPart={pathWithoutLastPart}
                 level={1}
-                key={item.id} onClick={undefined}              />
+                key={item.id} onClick={undefined} />
             );
 
             // {/********If Sub No Menu**********/}
@@ -37,7 +37,7 @@ const NavListing = () => {
             return (
               <NavItem item={item} key={item.id} pathDirect={pathDirect} hideMenu={hideMenu} onClick={function (): void {
                 throw new Error('Function not implemented.');
-              } } />
+              }} />
             );
           }
         })}

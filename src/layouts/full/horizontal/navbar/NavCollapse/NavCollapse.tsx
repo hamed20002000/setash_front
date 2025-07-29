@@ -100,7 +100,7 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu }:
           level={level + 1}
           pathWithoutLastPart={pathWithoutLastPart}
           pathDirect={pathDirect}
-          hideMenu={hideMenu} onClick={undefined}        />
+          hideMenu={hideMenu} onClick={undefined} />
       );
     } else {
       return (
@@ -111,7 +111,7 @@ const NavCollapse = ({ menu, level, pathWithoutLastPart, pathDirect, hideMenu }:
           pathDirect={pathDirect}
           hideMenu={hideMenu} onClick={function (): void {
             throw new Error('Function not implemented.');
-          } }        />
+          }} />
       );
     }
   });
