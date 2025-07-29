@@ -1,9 +1,10 @@
 // DeleteCategory.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
-import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-  //  CircularProgress
-   } from '@mui/material';
+import {
+  Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+  // CircularProgress // اگر استفاده نمی‌کنید، می‌توانید حذف کنید
+} from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
@@ -23,6 +24,9 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
 
+  // ✅ NEW STATE FOR CATEGORY IN USE MODAL
+  const [openCategoryInUseModal, setOpenCategoryInUseModal] = useState<boolean>(false);
+
   const handleDeleteCategory = async () => {
     if (categoryIdToDelete === null) {
       showAlert('Silinecek kategori seçilmedi.', 'warning');
@@ -33,13 +37,13 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Lütfen giriş yapın.', 'warning');
+      // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
       return;
     }
 
     setLoading(true);
+    // debugger // معمولاً در کد نهایی حذف می‌شود
     try {
-      // **نکته:** آدرس API حذف دسته‌بندی و نحوه ارسال ID
-      // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-category/{id})
       const response = await axios.delete(
         `${server.baseurl}${server.baseinfo}delete-category/${Number(categoryIdToDelete)}`,
         {
@@ -53,25 +57,42 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
       if (response.data.httpStatusCode === 200) {
         showAlert('Kategori başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose();
+        onClose(); // مودال اصلی حذف بسته شود
       } else {
+        // اگر API شما برای خطای بیزینسی کد 200 برگرداند ولی در Message وضعیت خطا باشد
         showAlert(response.data.message || 'Kategori silinirken bir hata oluştu.', 'error');
+        onClose(); // در این حالت هم مودال بسته شود
       }
     } catch (e: any) {
       console.error("Error deleting category:", e);
-      const errorMessage = e.response?.data?.message || 'Kategori silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
-      if (e.response && e.response.status === 401) {
+
+      // ✅ CHECK FOR 500 STATUS CODE
+      if (e.response && e.response.status === 500) {
+        onClose(); // Close the current delete confirmation modal
+        setOpenCategoryInUseModal(true); // Open the specific "category in use" modal
+      } else if (e.response && e.response.status === 401) {
+        // Handle unauthorized
         localStorage.removeItem('authToken');
-        navigate("/");
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+        navigate("/"); // Redirect to login
+      } else {
+        // General error handling for other network or API errors
+        const errorMessage = e.response?.data?.message || 'Kategori silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+        showAlert(errorMessage, 'error');
+        onClose(); // Close the modal for general errors too
       }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleCloseCategoryInUseModal = () => {
+    setOpenCategoryInUseModal(false);
+  };
+
   return (
     <>
+      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -82,10 +103,10 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-                      Eğer silerseniz, geri almanın bir yolu yoktur.
-                      Kaydı silmek istediğinizden eminseniz, 
-                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
-                    </DialogContentText>
+            Eğer silerseniz, geri almanın bir yolu yoktur.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
@@ -101,13 +122,35 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'
               )}
             </Button>
           </CustomTooltip>
+        </DialogActions>
+      </Dialog>
+
+      {/* ✅ NEW Dialog for Category In Use */}
+      <Dialog
+        open={openCategoryInUseModal}
+        onClose={handleCloseCategoryInUseModal}
+        aria-labelledby="category-in-use-dialog-title"
+        aria-describedby="category-in-use-dialog-description"
+      >
+        <DialogTitle id="category-in-use-dialog-title">
+          {"Hata: Kategori Silinemez!"}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="category-in-use-dialog-description">
+            Bu kategori şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCategoryInUseModal} autoFocus>
+            Tamam
+          </Button>
         </DialogActions>
       </Dialog>
     </>
