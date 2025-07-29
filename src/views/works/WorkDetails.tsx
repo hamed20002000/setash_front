@@ -456,6 +456,187 @@ const WorkDetails = () => {
         showAlert(`${fileName} başarıyla indirildi!`, 'success');
     }, [excelTemplateBuffer, showAlert]);
 
+    // const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    //     const file = event.target.files?.[0];
+    //     if (!file) {
+    //         showAlert('Lütfen bir Excel dosyası seçin.', 'warning');
+    //         return;
+    //     }
+
+    //     const allowedTypes = [
+    //         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    //         'application/vnd.ms-excel', // .xls
+    //         'text/csv'
+    //     ];
+    //     if (!allowedTypes.includes(file.type)) {
+    //         showAlert('Sadece Excel dosyaları (.xlsx, .xls, .csv) kabul edilir.', 'error');
+    //         return;
+    //     }
+
+    //     setLoadingFileUpload(true);
+    //     showAlert('Excel dosyası işleniyor...', 'info');
+
+    //     try {
+    //         const data = await file.arrayBuffer();
+    //         const workbook = XLSX.read(new Uint8Array(data), { type: 'array' });
+
+    //         if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+    //             showAlert('Excel dosyası geçersiz veya içinde hiçbir sayfa bulunamadı.', 'error');
+    //             setLoadingFileUpload(false);
+    //             return;
+    //         }
+
+    //         const sheetName = workbook.SheetNames[0]!;
+    //         const worksheet = workbook.Sheets[sheetName];
+
+    //         if (!worksheet) {
+    //             showAlert('Belirtilen sayfaya sahip çalışma sayfası bulunamadı.', 'error');
+    //             setLoadingFileUpload(false);
+    //             return;
+    //         }
+
+    //         if (!worksheet['!ref']) {
+    //             showAlert('Excel dosyası formatı geçersiz: Sayfa aralığı bilgisi bulunamadı.', 'error');
+    //             setLoadingFileUpload(false);
+    //             return;
+    //         }
+
+    //         const range = XLSX.utils.decode_range(worksheet['!ref']);
+
+    //         if (range.e.r < 3 || range.e.c < 4) {
+    //             showAlert('Excel dosyası boş veya formatı geçersiz (minimum 5 ana sütun ve en az 4 satır veri bekleniyor).', 'error');
+    //             setLoadingFileUpload(false);
+    //             return;
+    //         }
+
+    //         const getCleanCellValue = (rowIdx: number, colIdx: number): string => {
+    //             const cellAddress = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+    //             const cell = worksheet[cellAddress];
+    //             return cell && cell.v !== undefined && cell.v !== null ? String(cell.v).trim() : '';
+    //         };
+
+    //         const itemDefinitions: { name: string; nameColIdx: number; valueColIdx: number }[] = [];
+
+    //         for (let C = 5; C <= range.e.c; C++) {
+    //             const headerNameCandidate = getCleanCellValue(2, C);
+
+    //             if (headerNameCandidate !== '') {
+    //                 const valueColIdx = C + 1;
+
+    //                 if (valueColIdx <= range.e.c) {
+    //                     itemDefinitions.push({
+    //                         name: headerNameCandidate,
+    //                         nameColIdx: C,
+    //                         valueColIdx: valueColIdx
+    //                     });
+    //                     C++;
+    //                 } else {
+    //                     console.warn(
+    //                         `Excel'de "${headerNameCandidate}" öğesi için beklenen değer sütunu (${XLSX.utils.encode_col(valueColIdx)}) ` +
+    //                         `bulunamadı (kullanılan alanın dışında). Bu öğe başlığı ve ilgili veriler atlanacaktır.`
+    //                     );
+    //                     showAlert(
+    //                         `Excel'de "${headerNameCandidate}" öğesi için değer sütunu bulunamadı. Bu öğe başlığı atlandı.`,
+    //                         'warning'
+    //                     );
+    //                 }
+    //             }
+    //         }
+
+    //         let currentTrAdiRow: WorkDetailRow | null = null;
+    //         let currentSubEntryIdCounter = 1;
+    //         // از یک کپی برای جلوگیری از تغییر مستقیم حالت استفاده کنید
+    //         const newRegisteredWorkEntries: WorkDetailRow[] = [...registeredWorkEntries];
+
+
+    //         for (let R = 3; R <= range.e.r; R++) {
+    //             const trAdiFromExcel = getCleanCellValue(R, 0);
+    //             const dnFromExcel = getCleanCellValue(R, 1);
+    //             const yeniFromExcel = getCleanCellValue(R, 2);
+    //             const dmmFromExcel = getCleanCellValue(R, 3);
+    //             const mevcutFromExcel = getCleanCellValue(R, 4);
+
+    //             if (trAdiFromExcel !== '') {
+    //                 // Try to find an existing row with the same TR ADI to append to
+    //                 currentTrAdiRow = newRegisteredWorkEntries.find(row => row.trAdi === trAdiFromExcel) || null;
+
+    //                 if (!currentTrAdiRow) {
+    //                     currentTrAdiRow = {
+    //                         id: `tradi-${Date.now()}-${newRegisteredWorkEntries.length}`,
+    //                         trAdi: trAdiFromExcel,
+    //                         subEntries: []
+    //                     };
+    //                     newRegisteredWorkEntries.push(currentTrAdiRow);
+    //                 }
+    //             }
+
+    //             if (!currentTrAdiRow) {
+    //                 showAlert('Excel dosyasının formatı geçersiz: İlk satırlarda TR ADI bulunamadı.', 'error');
+    //                 setLoadingFileUpload(false);
+    //                 return;
+    //             }
+
+    //             const hasSubEntryData = (
+    //                 dnFromExcel !== '' ||
+    //                 yeniFromExcel !== '' ||
+    //                 dmmFromExcel !== '' ||
+    //                 mevcutFromExcel !== '' ||
+    //                 itemDefinitions.some(itemDef => getCleanCellValue(R, itemDef.nameColIdx) !== '' || getCleanCellValue(R, itemDef.valueColIdx) !== '')
+    //             );
+
+    //             if (hasSubEntryData) {
+    //                 const newItemDetails: WorkItemDetail[] = [];
+    //                 itemDefinitions.forEach(itemDef => {
+    //                     const itemName = getCleanCellValue(R, itemDef.nameColIdx);
+    //                     const itemValue = getCleanCellValue(R, itemDef.valueColIdx);
+
+    //                     if (itemValue !== '') {
+    //                         newItemDetails.push({
+    //                             id: `item-${Date.now()}-${newItemDetails.length}`,
+    //                             tempId: String(Date.now() + newItemDetails.length + Math.random()), // Make tempId more unique
+    //                             name: itemName !== '' ? itemName : itemDef.name,
+    //                             value: itemValue
+    //                         });
+    //                     }
+    //                 });
+
+    //                 const newSubEntry: WorkDetailSubEntry = {
+    //                     id: `${currentTrAdiRow.id}-sub-${currentSubEntryIdCounter++}`,
+    //                     trAdiParentId: currentTrAdiRow.id,
+    //                     dn: dnFromExcel,
+    //                     yeni: yeniFromExcel,
+    //                     dmm: dmmFromExcel,
+    //                     mevcut: mevcutFromExcel,
+    //                     itemDetails: newItemDetails,
+    //                 };
+    //                 currentTrAdiRow.subEntries.push(newSubEntry);
+    //             }
+    //         }
+
+    //         setRegisteredWorkEntries(newRegisteredWorkEntries);
+    //         showAlert('Excel dosyası başarıyla yüklendi ve tablo güncellendi!', 'success');
+    //         // Check if any new entries were added to set trAdiRegistered
+    //         if (newRegisteredWorkEntries.length > 0) {
+    //             setTrAdi(newRegisteredWorkEntries[newRegisteredWorkEntries.length - 1]?.trAdi || '');
+    //             setTrAdiRegistered(true); // Assuming we are now working with a registered TR ADI
+    //         } else {
+    //             setTrAdi('');
+    //             setTrAdiRegistered(false);
+    //         }
+    //         resetMainFormFields();
+    //         setItemsToRegister([]);
+
+    //     } catch (error: any) {
+    //         console.error("Excel işleme hatası:", error);
+    //         showAlert('Excel dosyası işlenirken bir hata oluştu. Lütfen dosyanın formatını kontrol edin.', 'error');
+    //     } finally {
+    //         setLoadingFileUpload(false);
+    //         if (fileInputRef.current) {
+    //             fileInputRef.current.value = '';
+    //         }
+    //     }
+    // };
+
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) {
@@ -503,98 +684,181 @@ const WorkDetails = () => {
 
             const range = XLSX.utils.decode_range(worksheet['!ref']);
 
-            if (range.e.r < 3 || range.e.c < 4) {
-                showAlert('Excel dosyası boş veya formatı geçersiz (minimum 5 ana sütun ve en az 4 satır veri bekleniyor).', 'error');
+            // Minimum Excel row 4 (index 3), Minimum Excel Col G (index 6) for initial check
+            if (range.e.r < 3 || range.e.c < 6) {
+                showAlert('Excel dosyası boş veya formatı geçersiz (minimum 4 ردیف و 7 ستون (A-G) انتظار می‌رود).', 'error');
                 setLoadingFileUpload(false);
                 return;
             }
 
-            const getCleanCellValue = (rowIdx: number, colIdx: number): string => {
+            // --- IMPROVED: Helper to get cell value, intelligently handling merged cells and CSVs ---
+            const getCellValueIntelligently = (rowIdx: number, colIdx: number): string => {
                 const cellAddress = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
                 const cell = worksheet[cellAddress];
-                return cell && cell.v !== undefined && cell.v !== null ? String(cell.v).trim() : '';
+
+                // Direct value if exists
+                if (cell && typeof cell.v === 'number') {
+                    return String(cell.v);
+                }
+                if (cell && cell.v !== undefined && cell.v !== null) {
+                    return String(cell.v).trim();
+                }
+
+                // For .xlsx, check if this cell is part of a merged range and fetch value from the top-left cell
+                if (worksheet['!merges']) {
+                    for (const merge of worksheet['!merges']) {
+                        if (rowIdx >= merge.s.r && rowIdx <= merge.e.r &&
+                            colIdx >= merge.s.c && colIdx <= merge.e.c) {
+                            const mergedTopLeftCellAddress = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
+                            const mergedTopLeftCell = worksheet[mergedTopLeftCellAddress];
+                            if (mergedTopLeftCell && mergedTopLeftCell.v !== undefined && mergedTopLeftCell.v !== null) {
+                                return String(mergedTopLeftCell.v).trim();
+                            }
+                        }
+                    }
+                }
+                // If it's a CSV or merge info is not found/relevant, return empty string for empty cells.
+                return '';
             };
 
+            // --- CRITICAL FIX: Dynamically determine item definitions from row 3 (Excel row 4) ---
             const itemDefinitions: { name: string; nameColIdx: number; valueColIdx: number }[] = [];
 
-            for (let C = 5; C <= range.e.c; C++) {
-                const headerNameCandidate = getCleanCellValue(2, C);
+            let lastHeaderName = '';
+            let lastHeaderStartCol = -1; // This will be the col index where the name first appears (e.g., F for F-G merge)
 
-                if (headerNameCandidate !== '') {
-                    const valueColIdx = C + 1;
+            // Iterate through header row (row 3, index 2) to find item name groups
+            for (let C = 5; C <= range.e.c; C++) { // Start from F (index 5)
+                const currentHeaderCellContent = getCellValueIntelligently(2, C); // Get header from row 3 (index 2)
 
-                    if (valueColIdx <= range.e.c) {
-                        itemDefinitions.push({
-                            name: headerNameCandidate,
-                            nameColIdx: C,
-                            valueColIdx: valueColIdx
-                        });
-                        C++;
-                    } else {
-                        console.warn(
-                            `Excel'de "${headerNameCandidate}" öğesi için beklenen değer sütunu (${XLSX.utils.encode_col(valueColIdx)}) ` +
-                            `bulunamadı (kullanılan alanın dışında). Bu öğe başlığı ve ilgili veriler atlanacaktır.`
-                        );
-                        showAlert(
-                            `Excel'de "${headerNameCandidate}" öğesi için değer sütunu bulunamadı. Bu öğe başlığı atlandı.`,
-                            'warning'
-                        );
+                // If we find content in the header row
+                if (currentHeaderCellContent !== '') {
+                    // If we were tracking a previous header group, that group is now complete.
+                    // We assume the value column is immediately after the starting column of the name group (lastHeaderStartCol + 1).
+                    // This covers cases where name is 1 col or 2 merged cols and value is in the next cell.
+                    if (lastHeaderName !== '' && lastHeaderStartCol !== -1) {
+                        // *** THIS IS THE CHANGED LINE FROM +2 TO +1 ***
+                        const valueColForPreviousItem = lastHeaderStartCol;
+
+                        if (valueColForPreviousItem <= range.e.c) { // Ensure value column is within sheet bounds
+                            itemDefinitions.push({
+                                name: lastHeaderName,
+                                nameColIdx: lastHeaderStartCol,
+                                valueColIdx: valueColForPreviousItem
+                            });
+                        } else {
+                            console.warn(`Previous header '${lastHeaderName}' at column ${XLSX.utils.encode_col(lastHeaderStartCol)} has no valid value column within sheet range. Skipping.`);
+                        }
+                    }
+
+                    // Start tracking the new header
+                    lastHeaderName = currentHeaderCellContent;
+                    lastHeaderStartCol = C;
+
+                } else {
+                    // If the current cell in the header row is empty, it might be part of a merged cell
+                    // or just an empty cell. We let 'lastHeaderName' carry over implicitly.
+                    // We only stop if we encounter a significant gap.
+                    if (lastHeaderName === '' && lastHeaderStartCol === -1) {
+                        let allRemainingEmpty = true;
+                        for (let nextC = C + 1; nextC <= range.e.c; nextC++) {
+                            if (getCellValueIntelligently(2, nextC) !== '') {
+                                allRemainingEmpty = false;
+                                break;
+                            }
+                        }
+                        if (allRemainingEmpty) {
+                            break; // No more headers found in this row
+                        }
                     }
                 }
             }
 
+            // After the loop, add the very last header group if it exists
+            if (lastHeaderName !== '' && lastHeaderStartCol !== -1) {
+                // *** THIS IS THE CHANGED LINE FROM +2 TO +1 ***
+                const valueColForLastItem = lastHeaderStartCol;
+                if (valueColForLastItem <= range.e.c) {
+                    itemDefinitions.push({
+                        name: lastHeaderName,
+                        nameColIdx: lastHeaderStartCol,
+                        valueColIdx: valueColForLastItem
+                    });
+                } else {
+                    console.warn(`Last header '${lastHeaderName}' at column ${XLSX.utils.encode_col(lastHeaderStartCol)} has no valid value column within sheet range. Skipping.`);
+                }
+            }
+
+            console.log("Detected Item Definitions:", itemDefinitions); // Log for debugging
+
             let currentTrAdiRow: WorkDetailRow | null = null;
             let currentSubEntryIdCounter = 1;
-            // از یک کپی برای جلوگیری از تغییر مستقیم حالت استفاده کنید
+            // Start with a copy of current registered entries, so we can append new data
             const newRegisteredWorkEntries: WorkDetailRow[] = [...registeredWorkEntries];
 
-
+            // Loop through data rows starting from Excel row 4 (index 3)
             for (let R = 3; R <= range.e.r; R++) {
-                const trAdiFromExcel = getCleanCellValue(R, 0);
-                const dnFromExcel = getCleanCellValue(R, 1);
-                const yeniFromExcel = getCleanCellValue(R, 2);
-                const dmmFromExcel = getCleanCellValue(R, 3);
-                const mevcutFromExcel = getCleanCellValue(R, 4);
+                const trAdiFromExcel = getCellValueIntelligently(R, 0); // Column A (index 0)
+                let dnFromExcel = getCellValueIntelligently(R, 1);   // Column B (index 1)
+                const yeniFromExcel = getCellValueIntelligently(R, 2);  // Column C (index 2)
+                const dmmFromExcel = getCellValueIntelligently(R, 3);   // Column D (index 3)
+                const mevcutFromExcel = getCellValueIntelligently(R, 4); // Column E (index 4)
 
+                // If TR ADI is present, it's either a new main row or continuation of existing
                 if (trAdiFromExcel !== '') {
-                    // Try to find an existing row with the same TR ADI to append to
-                    currentTrAdiRow = newRegisteredWorkEntries.find(row => row.trAdi === trAdiFromExcel) || null;
-
-                    if (!currentTrAdiRow) {
-                        currentTrAdiRow = {
-                            id: `tradi-${Date.now()}-${newRegisteredWorkEntries.length}`,
-                            trAdi: trAdiFromExcel,
-                            subEntries: []
-                        };
-                        newRegisteredWorkEntries.push(currentTrAdiRow);
+                    if (trAdiFromExcel.toUpperCase() === 'TOPLAM') {
+                        // This is a "TOPLAM" row, it should be a sub-entry for the last active TR ADI
+                        if (!currentTrAdiRow) {
+                            showAlert(`"TOPLAM" satırı için eşleşen TR ADI bulunamadı (satır ${R + 1}). Bu satır atlandı.`, 'warning');
+                            continue;
+                        }
+                        // For TOPLAM row, set DN to "TOPLAM" if it's empty, or keep what's there
+                        if (dnFromExcel === '') {
+                            dnFromExcel = 'TOPLAM'; // Ensure 'TOPLAM' is displayed for this sub-entry's DN
+                        }
+                    } else {
+                        // It's a new TR ADI or an existing one we want to append to
+                        // Check if an existing row with this TR ADI already exists in the new data set
+                        const existingRow = newRegisteredWorkEntries.find(row => row.trAdi === trAdiFromExcel);
+                        if (existingRow) {
+                            currentTrAdiRow = existingRow;
+                        } else {
+                            currentTrAdiRow = {
+                                id: `tradi-${Date.now()}-${newRegisteredWorkEntries.length + 1}-${Math.random().toString(36).substring(7)}`,
+                                trAdi: trAdiFromExcel,
+                                subEntries: []
+                            };
+                            newRegisteredWorkEntries.push(currentTrAdiRow);
+                        }
                     }
                 }
 
+                // If we still don't have a currentTrAdiRow, it means the first data row didn't have a TR ADI, which is an error in format
                 if (!currentTrAdiRow) {
-                    showAlert('Excel dosyasının formatı geçersiz: İlk satırlarda TR ADI bulunamadı.', 'error');
+                    showAlert('Excel dosyasının formatı geçersiz: İlk veri satırında TR ADI bulunamadı veya TOPLAM satırı için TR ADI belirlenemedi.', 'error');
                     setLoadingFileUpload(false);
                     return;
                 }
 
+                // Check if this row contains any data for a sub-entry (any of the 5 main columns or any item detail)
                 const hasSubEntryData = (
                     dnFromExcel !== '' ||
                     yeniFromExcel !== '' ||
                     dmmFromExcel !== '' ||
                     mevcutFromExcel !== '' ||
-                    itemDefinitions.some(itemDef => getCleanCellValue(R, itemDef.nameColIdx) !== '' || getCleanCellValue(R, itemDef.valueColIdx) !== '')
+                    itemDefinitions.some(itemDef => getCellValueIntelligently(R, itemDef.valueColIdx) !== '')
                 );
 
                 if (hasSubEntryData) {
                     const newItemDetails: WorkItemDetail[] = [];
                     itemDefinitions.forEach(itemDef => {
-                        const itemName = getCleanCellValue(R, itemDef.nameColIdx);
-                        const itemValue = getCleanCellValue(R, itemDef.valueColIdx);
+                        const itemValue = getCellValueIntelligently(R, itemDef.valueColIdx);
 
                         if (itemValue !== '') {
                             newItemDetails.push({
-                                id: `item-${Date.now()}-${newItemDetails.length}`,
-                                tempId: String(Date.now() + newItemDetails.length + Math.random()), // Make tempId more unique
-                                name: itemName !== '' ? itemName : itemDef.name,
+                                id: `item-${Date.now()}-${newItemDetails.length}-${Math.random().toString(36).substring(7)}`,
+                                tempId: String(Date.now() + newItemDetails.length + Math.random()),
+                                name: itemDef.name,
                                 value: itemValue
                             });
                         }
@@ -614,11 +878,12 @@ const WorkDetails = () => {
             }
 
             setRegisteredWorkEntries(newRegisteredWorkEntries);
-            showAlert('Excel dosyası başarıyla yüklendi ve tablo güncellendi!', 'success');
-            // Check if any new entries were added to set trAdiRegistered
+            showAlert('Excel dosyası başarıyla yüklendi و tablo güncellendi!', 'success');
+
+            // Update the form's TR ADI and its status based on the last processed TR ADI row
             if (newRegisteredWorkEntries.length > 0) {
                 setTrAdi(newRegisteredWorkEntries[newRegisteredWorkEntries.length - 1]?.trAdi || '');
-                setTrAdiRegistered(true); // Assuming we are now working with a registered TR ADI
+                setTrAdiRegistered(true);
             } else {
                 setTrAdi('');
                 setTrAdiRegistered(false);
@@ -628,7 +893,7 @@ const WorkDetails = () => {
 
         } catch (error: any) {
             console.error("Excel işleme hatası:", error);
-            showAlert('Excel dosyası işlenirken bir hata oluştu. Lütfen dosyanın formatını kontrol edin.', 'error');
+            showAlert('Excel dosyası işlenirken bir hata oluştu. Lütfen dosyanın formatını kontrol edin veya خطا در کنسول را بررسی کنید.', 'error');
         } finally {
             setLoadingFileUpload(false);
             if (fileInputRef.current) {
