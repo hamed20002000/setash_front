@@ -18,16 +18,7 @@ import BlankCard from '../../components/shared/BlankCard';
 import axios from 'axios';
 import server from '../../assets/address.json';
 
-import WorkItemInputForm, { AvailableItemOption } from './WorkItemInputForm';
-import WorkDetailsTable from './WorkDetailsTable';
-
-import { IconDownload, IconUpload, IconPlus } from '@tabler/icons-react'; // IconPlus is correctly imported now
-import * as XLSX from 'xlsx';
-import { CustomTooltip } from 'src/context/TooltipContext';
-
-// =======================================================================
-// INTERFACES
-// =======================================================================
+// ✅ تغییر: اینترفیس‌ها را export کنید تا WorkDetailsTable بتواند آنها را ایمپورت کند
 export interface WorkItemDetail {
     id: string;
     tempId: string;
@@ -35,7 +26,7 @@ export interface WorkItemDetail {
     value: string;
 }
 
-interface WorkDetailSubEntry {
+export interface WorkDetailSubEntry {
     id: string;
     trAdiParentId: string;
     dn: string;
@@ -45,11 +36,20 @@ interface WorkDetailSubEntry {
     itemDetails: WorkItemDetail[];
 }
 
-interface WorkDetailRow {
+export interface WorkDetailRow {
     id: string;
     trAdi: string;
     subEntries: WorkDetailSubEntry[];
 }
+
+
+// ✅ WorkItemInputForm, WorkDetailsTable را ایمپورت کنید
+import WorkItemInputForm, { AvailableItemOption } from './WorkItemInputForm';
+import WorkDetailsTable from './WorkDetailsTable';
+
+import { IconDownload, IconUpload, IconPlus } from '@tabler/icons-react';
+import * as XLSX from 'xlsx';
+import { CustomTooltip } from 'src/context/TooltipContext';
 
 interface ProductTypesTypeFromAPI {
     id: number;
@@ -119,6 +119,10 @@ const WorkDetails = () => {
     const [newDirectNameHelperText, setNewDirectNameHelperText] = useState<string>('');
     const [loadingNewDirectButton, setLoadingNewDirectButton] = useState<boolean>(false); // For the new product type save button
 
+    // ✅ NEW States for editing sub-entries
+    const [editingSubEntry, setEditingSubEntry] = useState<WorkDetailSubEntry | null>(null);
+    const [isEditingSubEntry, setIsEditingSubEntry] = useState<boolean>(false);
+
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -140,7 +144,7 @@ const WorkDetails = () => {
     }, [alertMessage, clearAlert]);
 
 
-    const resetMainFormFields = () => {
+    const resetMainFormFields = useCallback(() => { // ✅ Add useCallback
         setSelectedProduct(null);
         setYeniValue('');
         setDmmValue('');
@@ -154,7 +158,11 @@ const WorkDetails = () => {
         setDmmHelperText('');
         setMevcutError(false);
         setMevcutHelperText('');
-    };
+        setItemsToRegister([]); // ✅ Reset items to register when resetting form
+        setEditingSubEntry(null); // ✅ Reset editing state
+        setIsEditingSubEntry(false); // ✅ Reset editing state
+    }, []); // ✅ Empty dependency array as this function doesn't depend on other state
+
 
     const getListProductTypes = useCallback(() => {
         setLoadingProductTypes(true);
@@ -277,6 +285,10 @@ const WorkDetails = () => {
 
 
     const getInitialData = useCallback(() => {
+        // Burada eğer workId یا tenderId از URL موجود باشد،
+        // می‌توانید اطلاعات ثبت شده کار را از API واکشی کنید
+        // و setRegisteredWorkEntries را با آنها پر کنید.
+        // در حال حاضر این تابع خالی است.
     }, []);
 
     useEffect(() => {
@@ -391,8 +403,8 @@ const WorkDetails = () => {
         const dnValueForDisplay = selectedProduct ? selectedProduct.name : 'Bilinmeyen';
 
         const newSubEntry: WorkDetailSubEntry = {
-            id: String(Date.now()),
-            trAdiParentId: '',
+            id: String(Date.now()), // Unique ID for sub-entry
+            trAdiParentId: '', // Will be set below
             dn: dnValueForDisplay,
             yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
             dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
@@ -412,7 +424,7 @@ const WorkDetails = () => {
         } else {
             setRegisteredWorkEntries(prevEntries =>
                 prevEntries.map(row => {
-                    if (row.trAdi === trAdi) {
+                    if (row.trAdi === trAdi) { // Match by trAdi name if trAdiRegistered is true
                         return { ...row, subEntries: [...row.subEntries, { ...newSubEntry, trAdiParentId: row.id }] };
                     }
                     return row;
@@ -421,13 +433,7 @@ const WorkDetails = () => {
         }
 
         showAlert('Yeni giriş başarıyla tabloya eklendi!', 'success');
-        setItemsToRegister([]);
-        setSelectedProduct(null);
-        setYeniValue('');
-        setDmmValue('');
-        setMevcutValue('');
-        setSelectedRadioOption('yeni');
-
+        resetMainFormFields(); // ✅ ریست کردن تمام فیلدها و حالت ویرایش
         setLoadingRegisterButton(false);
     };
 
@@ -539,7 +545,9 @@ const WorkDetails = () => {
 
             let currentTrAdiRow: WorkDetailRow | null = null;
             let currentSubEntryIdCounter = 1;
+            // از یک کپی برای جلوگیری از تغییر مستقیم حالت استفاده کنید
             const newRegisteredWorkEntries: WorkDetailRow[] = [...registeredWorkEntries];
+
 
             for (let R = 3; R <= range.e.r; R++) {
                 const trAdiFromExcel = getCleanCellValue(R, 0);
@@ -549,12 +557,17 @@ const WorkDetails = () => {
                 const mevcutFromExcel = getCleanCellValue(R, 4);
 
                 if (trAdiFromExcel !== '') {
-                    currentTrAdiRow = {
-                        id: `tradi-${Date.now()}-${newRegisteredWorkEntries.length}`,
-                        trAdi: trAdiFromExcel,
-                        subEntries: []
-                    };
-                    newRegisteredWorkEntries.push(currentTrAdiRow);
+                    // Try to find an existing row with the same TR ADI to append to
+                    currentTrAdiRow = newRegisteredWorkEntries.find(row => row.trAdi === trAdiFromExcel) || null;
+
+                    if (!currentTrAdiRow) {
+                        currentTrAdiRow = {
+                            id: `tradi-${Date.now()}-${newRegisteredWorkEntries.length}`,
+                            trAdi: trAdiFromExcel,
+                            subEntries: []
+                        };
+                        newRegisteredWorkEntries.push(currentTrAdiRow);
+                    }
                 }
 
                 if (!currentTrAdiRow) {
@@ -580,7 +593,7 @@ const WorkDetails = () => {
                         if (itemValue !== '') {
                             newItemDetails.push({
                                 id: `item-${Date.now()}-${newItemDetails.length}`,
-                                tempId: String(Date.now() + newItemDetails.length),
+                                tempId: String(Date.now() + newItemDetails.length + Math.random()), // Make tempId more unique
                                 name: itemName !== '' ? itemName : itemDef.name,
                                 value: itemValue
                             });
@@ -602,11 +615,13 @@ const WorkDetails = () => {
 
             setRegisteredWorkEntries(newRegisteredWorkEntries);
             showAlert('Excel dosyası başarıyla yüklendi ve tablo güncellendi!', 'success');
-            setTrAdiRegistered(true);
+            // Check if any new entries were added to set trAdiRegistered
             if (newRegisteredWorkEntries.length > 0) {
                 setTrAdi(newRegisteredWorkEntries[newRegisteredWorkEntries.length - 1]?.trAdi || '');
+                setTrAdiRegistered(true); // Assuming we are now working with a registered TR ADI
             } else {
                 setTrAdi('');
+                setTrAdiRegistered(false);
             }
             resetMainFormFields();
             setItemsToRegister([]);
@@ -698,6 +713,214 @@ const WorkDetails = () => {
     };
 
 
+    // ✅ NEW: Function to edit TR ADI from the table
+    const handleEditTrAdiFromTable = useCallback((trAdiId: string, newTrAdiName: string) => {
+        setRegisteredWorkEntries(prevEntries =>
+            prevEntries.map(row =>
+                row.id === trAdiId ? { ...row, trAdi: newTrAdiName } : row
+            )
+        );
+        showAlert(`'${newTrAdiName}' adlı TR ADI başarıyla güncellendi!`, 'success');
+    }, [showAlert]);
+
+    // ✅ NEW: Function to delete TR ADI from the table
+    const handleDeleteTrAdiFromTable = useCallback((trAdiId: string) => {
+        setRegisteredWorkEntries(prevEntries => {
+            const updatedEntries = prevEntries.filter(row => row.id !== trAdiId);
+            // اگر TR ADI فعلی که در حال کار با آن بودیم حذف شد، فرم را ریست کن
+            if (prevEntries.some(row => row.id === trAdiId && row.trAdi === trAdi)) {
+                setTrAdi('');
+                setTrAdiRegistered(false);
+                resetMainFormFields();
+            }
+            return updatedEntries;
+        });
+        showAlert('TR ADI ve tüm alt öğeleri başarıyla silindi!', 'success');
+    }, [showAlert, trAdi, resetMainFormFields]);
+
+
+    // ✅ NEW: Function to load sub-entry data into the form for editing
+    const handleLoadSubEntryForEdit = useCallback((subEntry: WorkDetailSubEntry) => {
+        // Find the parent TR ADI and set it
+        const parentTrAdi = registeredWorkEntries.find(row => row.id === subEntry.trAdiParentId)?.trAdi;
+        if (parentTrAdi) {
+            setTrAdi(parentTrAdi);
+            setTrAdiRegistered(true); // We are now working with a registered TR ADI
+        } else {
+            setTrAdi('');
+            setTrAdiRegistered(false);
+        }
+
+        // Set D.N
+        // We need to find the actual AvailableItemOption object from productTypesList
+        const product = productTypesList.find(p => p.name === subEntry.dn);
+        setSelectedProduct(product || null);
+
+
+        // Set YENI, DMM, MEVCUT values and corresponding radio option
+        setYeniValue(subEntry.yeni);
+        setDmmValue(subEntry.dmm);
+        setMevcutValue(subEntry.mevcut);
+
+        if (subEntry.yeni) {
+            setSelectedRadioOption('yeni');
+        } else if (subEntry.dmm) {
+            setSelectedRadioOption('dmm');
+        } else if (subEntry.mevcut) {
+            setSelectedRadioOption('mevcut');
+        } else {
+            setSelectedRadioOption('yeni'); // Default if none are set
+        }
+
+        // Load item details for WorkItemInputForm
+        setItemsToRegister([...subEntry.itemDetails]);
+        setEditingSubEntry(subEntry); // Store the sub-entry being edited
+        setIsEditingSubEntry(true); // Activate edit mode
+        showAlert('Alt öğe formu düzenleme için yüklendi.', 'info');
+    }, [showAlert, registeredWorkEntries, productTypesList]);
+
+
+    // ✅ NEW: Function to update an existing sub-entry after editing in the form
+    const handleUpdateSubEntry = useCallback(() => {
+        if (!editingSubEntry) {
+            showAlert('Düzenlenecek alt öğe bulunamadı.', 'error');
+            return;
+        }
+
+        clearAlert();
+        let hasError = false;
+
+        if (!selectedProduct) {
+            setSelectedProductError(true);
+            setSelectedProductHelperText('D.N alanı boş bırakılamaz!');
+            showAlert('D.N alanı boş bırakılamaz!', 'warning');
+            hasError = true;
+        } else {
+            setSelectedProductError(false);
+            setSelectedProductHelperText('');
+        }
+
+        let selectedValue: string = '';
+
+        if (selectedRadioOption === 'yeni') {
+            selectedValue = yeniValue;
+            if (!yeniValue.trim()) {
+                setYeniError(true);
+                setYeniHelperText('YENİ miktarı boş bırakılamaz!');
+                showAlert('YENİ miktarı boş bırakılamaz!', 'warning');
+                hasError = true;
+            } else {
+                setYeniError(false);
+                setYeniHelperText('');
+            }
+        } else if (selectedRadioOption === 'dmm') {
+            selectedValue = dmmValue;
+            if (!dmmValue.trim()) {
+                setDmmError(true);
+                setDmmHelperText('DMM miktarı boş bırakılamaz!');
+                showAlert('DMM miktarı boş bırakılamaz!', 'warning');
+                hasError = true;
+            } else {
+                setDmmError(false);
+                setDmmHelperText('');
+            }
+        } else if (selectedRadioOption === 'mevcut') {
+            selectedValue = mevcutValue;
+            if (!mevcutValue.trim()) {
+                setMevcutError(true);
+                setMevcutHelperText('MEVCUT miktarı boş bırakılamaz!');
+                showAlert('MEVCUT miktarı boş bırakılamaz!', 'warning');
+                hasError = true;
+            } else {
+                setMevcutError(false);
+                setMevcutHelperText('');
+            }
+        }
+
+        if (itemsToRegister.length === 0) {
+            showAlert('Lütfen en az bir öğe ve miktar ekleyin!', 'warning');
+            hasError = true;
+        }
+
+        if (hasError) {
+            return;
+        }
+
+        setLoadingRegisterButton(true);
+
+        const updatedSubEntry: WorkDetailSubEntry = {
+            ...editingSubEntry,
+            dn: selectedProduct ? selectedProduct.name : '',
+            yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
+            dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
+            mevcut: selectedRadioOption === 'mevcut' ? selectedValue : '',
+            itemDetails: [...itemsToRegister],
+        };
+
+        setRegisteredWorkEntries(prevEntries =>
+            prevEntries.map(row => {
+                if (row.id === updatedSubEntry.trAdiParentId) {
+                    return {
+                        ...row,
+                        subEntries: row.subEntries.map(sub =>
+                            sub.id === updatedSubEntry.id ? updatedSubEntry : sub
+                        )
+                    };
+                }
+                return row;
+            })
+        );
+        showAlert('Alt öğe başarıyla güncellendi!', 'success');
+        resetMainFormFields();
+        setLoadingRegisterButton(false);
+    }, [editingSubEntry, selectedProduct, selectedRadioOption, yeniValue, dmmValue, mevcutValue, itemsToRegister, showAlert, resetMainFormFields, clearAlert]);
+
+
+    // ✅ NEW: Function to delete a sub-entry from the table
+    const handleDeleteSubEntryFromTable = useCallback((trAdiParentId: string, subEntryId: string) => {
+        setRegisteredWorkEntries(prevEntries => {
+            const updatedEntries = prevEntries.map(row => {
+                if (row.id === trAdiParentId) {
+                    const newSubEntries = row.subEntries.filter(sub => sub.id !== subEntryId);
+                    // If no sub-entries remain for this TR ADI, remove the TR ADI row
+                    if (newSubEntries.length === 0) {
+                        return null; // Marker for removal
+                    }
+                    return { ...row, subEntries: newSubEntries };
+                }
+                return row;
+            }).filter(Boolean) as WorkDetailRow[]; // Filter out null rows
+
+            // If the deleted sub-entry was the one being edited, reset the form
+            if (editingSubEntry && editingSubEntry.id === subEntryId) {
+                resetMainFormFields();
+                setTrAdi(''); // Also reset trAdi if the parent row might be gone
+                setTrAdiRegistered(false);
+            } else if (updatedEntries.length === 0) { // If all entries are deleted
+                setTrAdi('');
+                setTrAdiRegistered(false);
+                resetMainFormFields();
+            }
+
+            return updatedEntries;
+        });
+        showAlert('Alt öğe başarıyla silindi!', 'success');
+    }, [showAlert, editingSubEntry, resetMainFormFields, trAdi]);
+
+
+    // ✅ NEW: Function called from WorkDetailsTable to synchronize TR ADI field in parent form
+    // This is useful if TR ADI is edited directly in the table.
+    const handleTrAdiEditedInTable = useCallback((trAdiId: string, trAdiName: string) => {
+        // Only update if the currently displayed trAdi in the form matches the edited one
+        // or if no trAdi is currently displayed (meaning a new entry would be created)
+        const currentTrAdiRow = registeredWorkEntries.find(row => row.id === trAdiId);
+        if (currentTrAdiRow) {
+            setTrAdi(trAdiName);
+            setTrAdiRegistered(true); // It's now a registered TR ADI
+        }
+    }, [setTrAdi, setTrAdiRegistered, registeredWorkEntries]);
+
+
     if (loadingProductTypes || loadingItemsForWorkItemForm || loadingExcelTemplate || loadingFileUpload) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
@@ -717,16 +940,16 @@ const WorkDetails = () => {
                 <Grid container spacing={2}>
                     <Grid item xs={12}>
                         <Stack
-                            direction={{ xs: 'column', sm: 'row' }} // 🟢 Responsive direction
+                            direction={{ xs: 'column', sm: 'row' }}
                             justifyContent="space-between"
-                            alignItems={{ xs: 'stretch', sm: 'center' }} // 🟢 Responsive alignment
-                            spacing={1} // 🟢 Spacing between items
+                            alignItems={{ xs: 'stretch', sm: 'center' }}
+                            spacing={1}
                             sx={{ mb: 2 }}
                         >
                             <Typography variant="h4" gutterBottom>
                                 İş Detayları:
                             </Typography>
-                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}> {/* 🟢 Responsive direction for buttons */}
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                                 <Button
                                     variant="contained"
                                     color="primary"
@@ -768,9 +991,9 @@ const WorkDetails = () => {
                             onChange={(e) => setTrAdi(e.target.value)}
                             variant="outlined"
                             size="small"
-                            disabled={trAdiRegistered}
+                            disabled={trAdiRegistered && !isEditingSubEntry} // ✅ TR ADI وقتی در حال ویرایش یک SubEntry هستیم هم باید غیرفعال بماند
                         />
-                        {trAdiRegistered && (
+                        {trAdiRegistered && !isEditingSubEntry && ( // ✅ وقتی در حال ویرایش SubEntry هستیم، این دکمه نمایش داده نشود
                             <Button
                                 variant="outlined"
                                 color="secondary"
@@ -783,13 +1006,13 @@ const WorkDetails = () => {
                     </Grid>
                     {/* D.N için Autocomplete bileşeni */}
                     <Grid item xs={12} sm={6}>
-                        <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%', mb: 0.5 }}> {/* 🟢 Added width: '100%' and mb for spacing from Autocomplete */}
-                            <CustomFormLabel htmlFor="product-type-autocomplete" sx={{ mb: 0, flexShrink: 0 }}>D.N</CustomFormLabel> {/* 🟢 flexShrink to prevent label from shrinking */}
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%', mb: 0.5 }}>
+                            <CustomFormLabel htmlFor="product-type-autocomplete" sx={{ mb: 0, flexShrink: 0 }}>D.N</CustomFormLabel>
                             <Button
                                 variant="outlined"
                                 size="small"
                                 onClick={handleOpenNewDirectModal}
-                                sx={{ minWidth: 'auto', p: 0.8, ml: 'auto' }} // Pushed to right
+                                sx={{ minWidth: 'auto', p: 0.8, ml: 'auto' }}
                             >
                                 <CustomTooltip title="Yeni Direk Kaydet">
                                     <IconPlus size={20} />
@@ -838,9 +1061,8 @@ const WorkDetails = () => {
                     <Grid item xs={12}>
                         <FormControl component="fieldset" error={yeniError || dmmError || mevcutError} fullWidth>
                             <FormLabel component="legend">Miktar Tipi</FormLabel>
-                            {/* 🔴 تغییر اصلی در اینجا اعمال می‌شود: `row` را بر اساس اندازه صفحه تنظیم می‌کنیم */}
                             <RadioGroup
-                                row={false} // 🔴 در حالت پیش‌فرض (xs) زیر هم قرار می‌گیرند (column)
+                                row={false}
                                 name="quantity-type"
                                 value={selectedRadioOption}
                                 onChange={(e) => {
@@ -852,21 +1074,18 @@ const WorkDetails = () => {
                                     setDmmValue('');
                                     setMevcutValue('');
                                 }}
-                                // 🔴 از sx برای ریسپانسیو کردن جهت استفاده می‌کنیم
                                 sx={{
-                                    flexDirection: { xs: 'column', sm: 'row' }, // در سایز کوچک (xs) ستونی، در سایز sm به بالا ردیفی
-                                    flexWrap: 'wrap', // اجازه می‌دهیم که اگر جا نبود، به خط بعدی برود
-                                    // 🔴 اضافه کردن فاصله بین آیتم‌ها در حالت ستونی
+                                    flexDirection: { xs: 'column', sm: 'row' },
+                                    flexWrap: 'wrap',
                                     '& .MuiFormControlLabel-root': {
-                                        marginBottom: { xs: 1, sm: 0 }, // در xs فاصله پایین، در sm صفر
-                                        marginRight: { xs: 0, sm: 1 }, // در xs صفر، در sm فاصله راست
-                                        width: { xs: '100%', sm: 'auto' }, // در xs عرض کامل، در sm اتوماتیک
+                                        marginBottom: { xs: 1, sm: 0 },
+                                        marginRight: { xs: 0, sm: 1 },
+                                        width: { xs: '100%', sm: 'auto' },
                                     },
-                                    // 🔴 تنظیمات برای TextField ها داخل RadioGroup
                                     '& .MuiTextField-root': {
-                                        width: { xs: '100%', sm: '100px' }, // در xs عرض کامل، در sm عرض ثابت
-                                        marginBottom: { xs: 1, sm: 0 }, // در xs فاصله پایین، در sm صفر
-                                        marginRight: { xs: 0, sm: 2 }, // در xs صفر، در sm فاصله راست
+                                        width: { xs: '100%', sm: '100px' },
+                                        marginBottom: { xs: 1, sm: 0 },
+                                        marginRight: { xs: 0, sm: 2 },
                                     },
                                 }}
                             >
@@ -874,13 +1093,11 @@ const WorkDetails = () => {
                                     value="yeni"
                                     control={<Radio size="small" />}
                                     label="YENİ"
-                                // sx={{ mr: { xs: 0, sm: 1 } }} // ✅ این خطوط را از اینجا حذف می‌کنیم چون در sx مربوط به RadioGroup تنظیم شدند
                                 />
                                 <TextField
                                     id="yeni-input"
                                     placeholder="Miktar"
                                     size="small"
-                                    // sx={{ width: { xs: '90px', sm: '100px' }, mr: { xs: 1, sm: 2 } }} // ✅ این خطوط را از اینجا حذف می‌کنیم چون در sx مربوط به RadioGroup تنظیم شدند
                                     value={yeniValue}
                                     onChange={(e) => setYeniValue(e.target.value)}
                                     disabled={selectedRadioOption !== 'yeni'}
@@ -892,13 +1109,11 @@ const WorkDetails = () => {
                                     value="dmm"
                                     control={<Radio size="small" />}
                                     label="DMM"
-                                // sx={{ mr: { xs: 0, sm: 1 } }} // ✅ این خطوط را از اینجا حذف می‌کنیم چون در sx مربوط به RadioGroup تنظیم شدند
                                 />
                                 <TextField
                                     id="dmm-input"
                                     placeholder="Miktar"
                                     size="small"
-                                    // sx={{ width: { xs: '90px', sm: '100px' }, mr: { xs: 1, sm: 2 } }} // ✅ این خطوط را از اینجا حذف می‌کنیم چون در sx مربوط به RadioGroup تنظیم شدند
                                     value={dmmValue}
                                     onChange={(e) => setDmmValue(e.target.value)}
                                     disabled={selectedRadioOption !== 'dmm'}
@@ -910,13 +1125,11 @@ const WorkDetails = () => {
                                     value="mevcut"
                                     control={<Radio size="small" />}
                                     label="MEVCUT"
-                                // sx={{ mr: { xs: 0, sm: 1 } }} // ✅ این خطوط را از اینجا حذف می‌کنیم چون در sx مربوط به RadioGroup تنظیم شدند
                                 />
                                 <TextField
                                     id="mevcut-input"
                                     placeholder="Miktar"
                                     size="small"
-                                    // sx={{ width: { xs: '90px', sm: '100px' } }} // ✅ این خطوط را از اینجا حذف می‌کنیم چون در sx مربوط به RadioGroup تنظیم شدند
                                     value={mevcutValue}
                                     onChange={(e) => setMevcutValue(e.target.value)}
                                     disabled={selectedRadioOption !== 'mevcut'}
@@ -951,16 +1164,26 @@ const WorkDetails = () => {
                             <Button
                                 variant="contained"
                                 color="primary"
-                                onClick={handleRegisterNewEntry}
+                                onClick={isEditingSubEntry ? handleUpdateSubEntry : handleRegisterNewEntry} // ✅ اینجا
                                 disabled={loadingRegisterButton || itemsToRegister.length === 0}
                             >
                                 {loadingRegisterButton ? (
                                     <>
                                         <CircularProgress size={20} sx={{ mr: 1 }} /> Kaydediliyor...
                                     </>
-                                ) : 'Yeni Kayıt Yap'}
+                                ) : isEditingSubEntry ? 'Güncelle' : 'Yeni Kayıt Yap'} {/* ✅ اینجا */}
                             </Button>
-                            {registeredWorkEntries.length > 0 && (
+                            {isEditingSubEntry && ( // ✅ دکمه لغو در حالت ویرایش زیرمجموعه
+                                <Button
+                                    variant="outlined"
+                                    color="secondary"
+                                    onClick={resetMainFormFields}
+                                    disabled={loadingRegisterButton}
+                                >
+                                    İptal
+                                </Button>
+                            )}
+                            {registeredWorkEntries.length > 0 && ( // نمایش "Tüm Kayıtları Gönder" فقط زمانی که ورودی ثبت شده باشد
                                 <Button
                                     variant="contained"
                                     color="success"
@@ -985,7 +1208,15 @@ const WorkDetails = () => {
             <BlankCard>
                 <Box sx={{ p: 2 }}>
                     <Typography variant="h5" mb={2}>Kayıtlı İş Detayları Tablosu</Typography>
-                    <WorkDetailsTable registeredWorkEntries={registeredWorkEntries} />
+                    <WorkDetailsTable
+                        registeredWorkEntries={registeredWorkEntries}
+                        onEditTrAdi={handleEditTrAdiFromTable}
+                        onDeleteTrAdi={handleDeleteTrAdiFromTable}
+                        // onEditSubEntry={() => { }}
+                        onDeleteSubEntry={handleDeleteSubEntryFromTable}
+                        onTrAdiEditedInTable={handleTrAdiEditedInTable} // ✅ ارسال تابع جدید
+                        onLoadSubEntryForEdit={handleLoadSubEntryForEdit} // ✅ ارسال تابع جدید
+                    />
                 </Box>
             </BlankCard>
 
@@ -1025,7 +1256,7 @@ const WorkDetails = () => {
                     <Button
                         variant="contained"
                         color="primary"
-                        onClick={handleSaveNewDirect} // 🟢 Call the new save function
+                        onClick={handleSaveNewDirect}
                         disabled={loadingNewDirectButton}
                     >
                         {loadingNewDirectButton ? (
