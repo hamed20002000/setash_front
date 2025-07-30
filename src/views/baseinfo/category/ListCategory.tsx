@@ -81,29 +81,21 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     color: 'white',
     ...(value === 'all' && selected && {
       backgroundColor: theme.palette.primary.main,
-      '&:hover': {
-        backgroundColor: theme.palette.primary.dark,
-      },
+      '&:hover': { backgroundColor: theme.palette.primary.dark },
     }),
     ...(value === 'active' && selected && {
       backgroundColor: theme.palette.success.main,
-      '&:hover': {
-        backgroundColor: theme.palette.success.dark,
-      },
+      '&:hover': { backgroundColor: theme.palette.success.dark },
     }),
     ...(value === 'inactive' && selected && {
       backgroundColor: theme.palette.error.main,
-      '&:hover': {
-        backgroundColor: theme.palette.error.dark,
-      },
+      '&:hover': { backgroundColor: theme.palette.error.dark },
     }),
   },
   '&:not(.Mui-selected)': {
     color: theme.palette.text.primary,
     borderColor: theme.palette.divider,
-    '&:hover': {
-      backgroundColor: theme.palette.action.hover,
-    },
+    '&:hover': { backgroundColor: theme.palette.action.hover },
   },
 }));
 
@@ -911,30 +903,30 @@ const ListCategory = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm kategorileri göster" : ""}>
-                  <StyledToggleButton
-                    value="all"
-                    aria-label="all categories"
-                  >
-                    Tümü
-                  </StyledToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif kategorileri göster" : ""}>
-                  <StyledToggleButton
-                    value="active"
-                    aria-label="active categories"
-                  >
-                    Aktif
-                  </StyledToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif kategorileri göster" : ""}>
-                  <StyledToggleButton
-                    value="inactive"
-                    aria-label="inactive categories"
-                  >
-                    Pasif
-                  </StyledToggleButton>
-                </CustomTooltip>
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm kategorileri göster" : ""}> */}
+                <StyledToggleButton
+                  value="all"
+                  aria-label="all categories"
+                >
+                  Tümü
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif kategorileri göster" : ""}> */}
+                <StyledToggleButton
+                  value="active"
+                  aria-label="active categories"
+                >
+                  Aktif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif kategorileri göster" : ""}> */}
+                <StyledToggleButton
+                  value="inactive"
+                  aria-label="inactive categories"
+                >
+                  Pasif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>

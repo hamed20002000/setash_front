@@ -937,30 +937,30 @@ const ListWorks = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm İşleri göster" : ""}>
-                                    <StyledToggleButton
-                                        value="all"
-                                        aria-label="all works"
-                                    >
-                                        Tümü
-                                    </StyledToggleButton>
-                                </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif İşleri göster" : ""}>
-                                    <StyledToggleButton
-                                        value="active"
-                                        aria-label="active works"
-                                    >
-                                        Aktif
-                                    </StyledToggleButton>
-                                </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif İşleri göster" : ""}>
-                                    <StyledToggleButton
-                                        value="inactive"
-                                        aria-label="inactive works"
-                                    >
-                                        Pasif
-                                    </StyledToggleButton>
-                                </CustomTooltip>
+                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm İşleri göster" : ""}> */}
+                                <StyledToggleButton
+                                    value="all"
+                                    aria-label="all works"
+                                >
+                                    Tümü
+                                </StyledToggleButton>
+                                {/* </CustomTooltip> */}
+                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif İşleri göster" : ""}> */}
+                                <StyledToggleButton
+                                    value="active"
+                                    aria-label="active works"
+                                >
+                                    Aktif
+                                </StyledToggleButton>
+                                {/* </CustomTooltip> */}
+                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif İşleri göster" : ""}> */}
+                                <StyledToggleButton
+                                    value="inactive"
+                                    aria-label="inactive works"
+                                >
+                                    Pasif
+                                </StyledToggleButton>
+                                {/* </CustomTooltip> */}
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>

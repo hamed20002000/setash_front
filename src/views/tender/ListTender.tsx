@@ -792,30 +792,30 @@ const ListTender = () => {
                 aria-label="Durum filtresi"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaleleri göster" : ""}>
-                  <StyledToggleButton
-                    value="all"
-                    aria-label="Tüm ihaleler"
-                  >
-                    Tümü
-                  </StyledToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaleleri göster" : ""}>
-                  <StyledToggleButton
-                    value="active"
-                    aria-label="Aktif ihaleler"
-                  >
-                    Aktif
-                  </StyledToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaleleri göster" : ""}>
-                  <StyledToggleButton
-                    value="inactive"
-                    aria-label="Pasif ihaleler"
-                  >
-                    Pasif
-                  </StyledToggleButton>
-                </CustomTooltip>
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaleleri göster" : ""}> */}
+                <StyledToggleButton
+                  value="all"
+                  aria-label="Tüm ihaleler"
+                >
+                  Tümü
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaleleri göster" : ""}> */}
+                <StyledToggleButton
+                  value="active"
+                  aria-label="Aktif ihaleler"
+                >
+                  Aktif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaleleri göster" : ""}> */}
+                <StyledToggleButton
+                  value="inactive"
+                  aria-label="Pasif ihaleler"
+                >
+                  Pasif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>

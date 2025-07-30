@@ -10,10 +10,12 @@ import {
   TextField,
   FormControl, InputLabel, Select, OutlinedInput,
   CardMedia, FormControlLabel, ListItemText,
-  ToggleButton,
+  ToggleButton as MuiToggleButton,
   ToggleButtonGroup,
   TableSortLabel,
 } from '@mui/material';
+
+import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -32,6 +34,31 @@ import server from '../../../assets/address.json';
 import imagedefault from '../../../assets/images/profile/user-d.svg';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+
+
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+  '&.Mui-selected': {
+    color: 'white',
+    ...(value === 'all' && selected && {
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': { backgroundColor: theme.palette.primary.dark },
+    }),
+    ...(value === 'active' && selected && {
+      backgroundColor: theme.palette.success.main,
+      '&:hover': { backgroundColor: theme.palette.success.dark },
+    }),
+    ...(value === 'inactive' && selected && {
+      backgroundColor: theme.palette.error.main,
+      '&:hover': { backgroundColor: theme.palette.error.dark },
+    }),
+  },
+  '&:not(.Mui-selected)': {
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
+    '&:hover': { backgroundColor: theme.palette.action.hover },
+  },
+}));
+
 
 interface UserType {
   id: string;
@@ -1034,6 +1061,8 @@ const ListUsers = () => {
                 }}
               />
             </Grid>
+
+
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -1042,69 +1071,31 @@ const ListUsers = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm birimleri göster" : ""}>
-                  <ToggleButton
-                    value="all"
-                    aria-label="all units"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.primary.main + ' !important',
-                        color: 'white !important',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.primary.dark + ' !important',
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Tümü
-                  </ToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif birimleri göster" : ""}>
-                  <ToggleButton
-                    value="active"
-                    aria-label="active units"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.success.main + ' !important',
-                        color: 'white !important',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.success.dark + ' !important',
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Aktif
-                  </ToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif birimleri göster" : ""}>
-                  <ToggleButton
-                    value="inactive"
-                    aria-label="inactive units"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.error.main + ' !important',
-                        color: 'white !important',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.error.dark + ' !important',
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Pasif
-                  </ToggleButton>
-                </CustomTooltip>
+                {/* ✅ تغییر: استفاده از StyledToggleButton به جای ToggleButton معمولی */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="all"
+                  aria-label="all units"
+                >
+                  Tümü
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="active"
+                  aria-label="active units"
+                >
+                  Aktif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="inactive"
+                  aria-label="inactive units"
+                >
+                  Pasif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>

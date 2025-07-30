@@ -7,11 +7,11 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  ToggleButtonGroup,
-  ToggleButton,
+  ToggleButtonGroup, ToggleButton as MuiToggleButton,
   TableSortLabel,
 } from '@mui/material';
 
+import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -36,6 +36,31 @@ interface RowType {
 }
 
 const initialRows: RowType[] = [];
+
+
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+  '&.Mui-selected': {
+    color: 'white',
+    ...(value === 'all' && selected && {
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': { backgroundColor: theme.palette.primary.dark },
+    }),
+    ...(value === 'active' && selected && {
+      backgroundColor: theme.palette.success.main,
+      '&:hover': { backgroundColor: theme.palette.success.dark },
+    }),
+    ...(value === 'inactive' && selected && {
+      backgroundColor: theme.palette.error.main,
+      '&:hover': { backgroundColor: theme.palette.error.dark },
+    }),
+  },
+  '&:not(.Mui-selected)': {
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
+    '&:hover': { backgroundColor: theme.palette.action.hover },
+  },
+}));
+
 
 // Helper functions for sorting - placed outside the component for reusability
 const descendingComparator = <T, Key extends keyof T>(
@@ -528,6 +553,7 @@ const SystemRole = () => {
   }, [sortedAndFilteredRoles, page, rowsPerPage]);
 
 
+
   return (
     <>
       <div style={{
@@ -636,69 +662,31 @@ const SystemRole = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}>
-                  <ToggleButton
-                    value="all"
-                    aria-label="all roles"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.primary.main,
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.primary.dark,
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Tümü
-                  </ToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}>
-                  <ToggleButton
-                    value="active"
-                    aria-label="active roles"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.success.main,
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.success.dark,
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Aktif
-                  </ToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}>
-                  <ToggleButton
-                    value="inactive"
-                    aria-label="inactive roles"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.error.main,
-                        color: 'white',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.error.dark,
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Pasif
-                  </ToggleButton>
-                </CustomTooltip>
+                {/* ✅ تغییر: استفاده از StyledToggleButton به جای ToggleButton معمولی */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="all"
+                  aria-label="all roles"
+                >
+                  Tümü
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="active"
+                  aria-label="active roles"
+                >
+                  Aktif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="inactive"
+                  aria-label="inactive roles"
+                >
+                  Pasif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>

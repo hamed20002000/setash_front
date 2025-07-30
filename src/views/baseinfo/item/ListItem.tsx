@@ -1460,30 +1460,30 @@ const ListItemComponent = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ürünleri göster" : ""}>
-                  <StyledToggleButton
-                    value="all"
-                    aria-label="all items"
-                  >
-                    Tümü
-                  </StyledToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ürünleri göster" : ""}>
-                  <StyledToggleButton
-                    value="active"
-                    aria-label="active items"
-                  >
-                    Aktif
-                  </StyledToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ürünleri göster" : ""}>
-                  <StyledToggleButton
-                    value="inactive"
-                    aria-label="inactive items"
-                  >
-                    Pasif
-                  </StyledToggleButton>
-                </CustomTooltip>
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ürünleri göster" : ""}> */}
+                <StyledToggleButton
+                  value="all"
+                  aria-label="all items"
+                >
+                  Tümü
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ürünleri göster" : ""}> */}
+                <StyledToggleButton
+                  value="active"
+                  aria-label="active items"
+                >
+                  Aktif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ürünleri göster" : ""}> */}
+                <StyledToggleButton
+                  value="inactive"
+                  aria-label="inactive items"
+                >
+                  Pasif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>

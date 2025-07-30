@@ -7,10 +7,11 @@ import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-  ToggleButtonGroup, ToggleButton,
+  ToggleButtonGroup, ToggleButton as MuiToggleButton,
   TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
 
+import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -24,6 +25,30 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+  '&.Mui-selected': {
+    color: 'white',
+    ...(value === 'all' && selected && {
+      backgroundColor: theme.palette.primary.main,
+      '&:hover': { backgroundColor: theme.palette.primary.dark },
+    }),
+    ...(value === 'active' && selected && {
+      backgroundColor: theme.palette.success.main,
+      '&:hover': { backgroundColor: theme.palette.success.dark },
+    }),
+    ...(value === 'inactive' && selected && {
+      backgroundColor: theme.palette.error.main,
+      '&:hover': { backgroundColor: theme.palette.error.dark },
+    }),
+  },
+  '&:not(.Mui-selected)': {
+    color: theme.palette.text.primary,
+    borderColor: theme.palette.divider,
+    '&:hover': { backgroundColor: theme.palette.action.hover },
+  },
+}));
+
 
 interface UnitType {
   id: number;
@@ -597,6 +622,8 @@ const ListUnit = () => {
                 }}
               />
             </Grid>
+
+
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -605,69 +632,31 @@ const ListUnit = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Ölçüleri göster" : ""}>
-                  <ToggleButton
-                    value="all"
-                    aria-label="all units"
-                    sx={{
-                      '&.Mui-selected': { // Style for selected state
-                        backgroundColor: (theme) => theme.palette.primary.main + ' !important', // Blue for All
-                        color: 'white !important',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.primary.dark + ' !important',
-                        },
-                      },
-                      '&:not(.Mui-selected)': { // Style for unselected state
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Tümü
-                  </ToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Ölçüleri göster" : ""}>
-                  <ToggleButton
-                    value="active"
-                    aria-label="active units"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.success.main + ' !important', // Green for Aktif
-                        color: 'white !important',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.success.dark + ' !important',
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Aktif
-                  </ToggleButton>
-                </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Ölçüleri göster" : ""}>
-                  <ToggleButton
-                    value="inactive"
-                    aria-label="inactive units"
-                    sx={{
-                      '&.Mui-selected': {
-                        backgroundColor: (theme) => theme.palette.error.main + ' !important', // Red for Pasif
-                        color: 'white !important',
-                        '&:hover': {
-                          backgroundColor: (theme) => theme.palette.error.dark + ' !important',
-                        },
-                      },
-                      '&:not(.Mui-selected)': {
-                        color: (theme) => theme.palette.text.primary,
-                        borderColor: (theme) => theme.palette.divider,
-                      },
-                    }}
-                  >
-                    Pasif
-                  </ToggleButton>
-                </CustomTooltip>
+                {/* ✅ تغییر: استفاده از StyledToggleButton به جای ToggleButton معمولی */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="all"
+                  aria-label="all units"
+                >
+                  Tümü
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="active"
+                  aria-label="active units"
+                >
+                  Aktif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
+                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}> */}
+                <StyledToggleButton // ✅ اینجا
+                  value="inactive"
+                  aria-label="inactive units"
+                >
+                  Pasif
+                </StyledToggleButton>
+                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>

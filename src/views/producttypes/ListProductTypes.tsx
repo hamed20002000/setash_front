@@ -629,30 +629,30 @@ const ListProductTypes = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Direkleri göster" : ""}>
-                                    <StyledToggleButton // استفاده از StyledToggleButton
-                                        value="all"
-                                        aria-label="all ProductTypes"
-                                    >
-                                        Tümü
-                                    </StyledToggleButton>
-                                </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Direkleri göster" : ""}>
-                                    <StyledToggleButton // استفاده از StyledToggleButton
-                                        value="active"
-                                        aria-label="active ProductTypes"
-                                    >
-                                        Aktif
-                                    </StyledToggleButton>
-                                </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Direkleri göster" : ""}>
-                                    <StyledToggleButton // استفاده از StyledToggleButton
-                                        value="inactive"
-                                        aria-label="inactive ProductTypes"
-                                    >
-                                        Pasif
-                                    </StyledToggleButton>
-                                </CustomTooltip>
+                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Direkleri göster" : ""}> */}
+                                <StyledToggleButton // استفاده از StyledToggleButton
+                                    value="all"
+                                    aria-label="all ProductTypes"
+                                >
+                                    Tümü
+                                </StyledToggleButton>
+                                {/* </CustomTooltip> */}
+                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Direkleri göster" : ""}> */}
+                                <StyledToggleButton // استفاده از StyledToggleButton
+                                    value="active"
+                                    aria-label="active ProductTypes"
+                                >
+                                    Aktif
+                                </StyledToggleButton>
+                                {/* </CustomTooltip> */}
+                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Direkleri göster" : ""}> */}
+                                <StyledToggleButton // استفاده از StyledToggleButton
+                                    value="inactive"
+                                    aria-label="inactive ProductTypes"
+                                >
+                                    Pasif
+                                </StyledToggleButton>
+                                {/* </CustomTooltip> */}
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
