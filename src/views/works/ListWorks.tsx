@@ -9,7 +9,8 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, TableSortLabel, Autocomplete,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    ListItemIcon
+    ListItemIcon,
+    Paper // ✅ اضافه شد: برای ایجاد کادر
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -291,6 +292,7 @@ const ListWorks = () => {
 
     const validateForm = (): boolean => {
         let isValid = true;
+        setFormErrors(null);
         if (!title.trim()) {
             setTitleError(true);
             isValid = false;
@@ -392,16 +394,13 @@ const ListWorks = () => {
 
         clearAlert();
 
-        // const currentTenderId = selectedTenderOption ? selectedTenderOption.id : null;
-        // const originalTenderIdValue = originalSelectedTenderOption ? originalSelectedTenderOption.id : null;
-
         const isChanged = title !== originalTitle ||
             (startDate && originalStartDate && format(startDate, 'yyyy-MM-dd') !== format(originalStartDate, 'yyyy-MM-dd')) ||
             (endDate && originalEndDate && format(endDate, 'yyyy-MM-dd') !== format(originalEndDate, 'yyyy-MM-dd')) ||
             // tenderId در حالت ویرایش نیازی به بررسی تغییر ندارد زیرا در مودال ویرایش ثابت است
             // اگر کاربر بتواند tenderId را در حالت ویرایش تغییر دهد، این خط را فعال کنید
-            // currentTenderId !== originalTenderIdValue;
-            false; // فرض می‌کنیم tenderId در حالت ویرایش ثابت است
+            // (selectedTenderOption?.id !== originalSelectedTenderOption?.id); // این خط را برای مقایسه TenderId اضافه کنید
+            false;
 
         if (!isChanged) {
             showAlert('İş bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
@@ -481,7 +480,7 @@ const ListWorks = () => {
             );
 
             if (response.data.httpStatusCode === 200) {
-                const statusText = statusValue === 0 ? 'Aktif' : 'Pasif'; // فقط Aktif و Pasif
+                const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
                 showAlert(`İş başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 getListWork();
                 resetFormAndState();
@@ -607,44 +606,6 @@ const ListWorks = () => {
         });
     }
 
-    // const getTenderOptions = async () => {
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) return;
-
-    //     try {
-    //         const response = await axios.get(
-    //             server.baseurl + server.initialoperations + "get-tenders",
-    //             {
-    //                 headers: {
-    //                     "Accept": "application/json",
-    //                     "Authorization": `Bearer ${authToken}`
-    //                 }
-    //             }
-    //         );
-    //         if (response.data.httpStatusCode === 200) {
-    //             const approvedTenders = response.data.data
-    //                 .filter((item: any) => item.status === 1)
-    //                 .map((item: any) => ({
-    //                     id: item.id,
-    //                     title: item.title,
-    //                     status: item.status
-    //                 }));
-    //             setTenderOptions(approvedTenders);
-    //         } else {
-    //             showAlert(response.data.message || 'İhale seçenekleri yüklenirken bir hata oluştu.', 'error');
-    //         }
-    //     } catch (e: any) {
-    //         if (e.response && e.response.status === 401) {
-    //             localStorage.removeItem('authToken');
-    //             navigate("/");
-    //             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-    //         } else {
-    //             console.error("İhale seçenekleri getirilirken hata oluştu:", e);
-    //             showAlert('İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-    //         }
-    //     }
-    // };
-
     const getTenderOptions = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -667,7 +628,7 @@ const ListWorks = () => {
             if (response.data.httpStatusCode === 200) {
                 // 🟢 تغییر در اینجا: فیلتر کردن بر اساس recordStatus === 0
                 const activeTenders = response.data.data
-                    .filter((item: any) => item.recordStatus === 0) // <--- این خط اضافه شد
+                    .filter((item: any) => item.recordStatus === 0)
                     .map((item: any) => ({
                         id: item.id,
                         title: item.title,
@@ -684,10 +645,11 @@ const ListWorks = () => {
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
                 console.error("İhale seçenekleri getirilirken hata oluştu:", e);
-                showAlert(e.response?.data?.message || 'İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                showAlert('İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
         }
     };
+
     useEffect(() => {
         getListWork();
         getTenderOptions();
@@ -755,17 +717,17 @@ const ListWorks = () => {
 
     return (
         <>
-            <div style={{
-                borderBottom: "1px solid",
-                margin: "10px 0 30px 0",
-                padding: "10px 15px 30px 15px"
-            }}>
+            {/* ✅ شروع کادر جدید با Paper */}
+            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h5" mb={2}>
+                    {editingId ? 'İşi Düzenle' : 'Yeni İş Kaydı'}
+                </Typography>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
                         <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
                             İhale Seç
                         </CustomFormLabel>
-                        {editingId !== null ? ( // اگر در حال ویرایش باشیم
+                        {editingId !== null ? (
                             <Typography variant="body1" sx={{
                                 border: '1px solid #ccc',
                                 borderRadius: '4px',
@@ -777,7 +739,7 @@ const ListWorks = () => {
                             }}>
                                 {selectedTenderOption ? selectedTenderOption.title : 'İhale Seçilmedi'}
                             </Typography>
-                        ) : ( // اگر در حال افزودن جدید باشیم
+                        ) : (
                             <Autocomplete
                                 id="tender-autocomplete"
                                 options={tenderOptions}
@@ -889,8 +851,9 @@ const ListWorks = () => {
                         </LocalizationProvider>
                     </Grid>
 
-                    <Grid item xs={12} display="flex" justifyContent="flex-end">
-                        <Stack direction="row" spacing={1}>
+                    {/* ✅ اعمال فاصله در حالت موبایل */}
+                    <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}> {/* mt: {xs: 2, sm: 0} برای فاصله */}
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
                             {editingId !== null ? (
                                 <>
                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili işi güncelleyin" : ""}>
@@ -944,7 +907,8 @@ const ListWorks = () => {
                         </Alert>
                     </Stack>
                 )}
-            </div>
+            </Paper> {/* ✅ پایان کادر جدید با Paper */}
+
 
             <BlankCard>
                 <Box sx={{ p: 2 }}>
@@ -1063,7 +1027,7 @@ const ListWorks = () => {
                                     </TableCell>
                                     <TableCell
                                         style={{ color: "#171c23" }}>
-                                        <Typography variant="h6">Şebekeler</Typography> {/* ✅ تغییر عنوان ستون */}
+                                        <Typography variant="h6">Şebekeler</Typography>
                                     </TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
@@ -1114,9 +1078,8 @@ const ListWorks = () => {
                                                     <Button
                                                         variant="outlined"
                                                         size="small"
-                                                        // ✅ تغییر در اینجا: فراخوانی تابع جدید برای ناوبری به ListNetwork
                                                         onClick={() => handleGoToNetworks(row.id, row.tenderId)}
-                                                        startIcon={<BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} />} // آیکون را تغییر دادم برای نمایش شبکه
+                                                        startIcon={<BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} />}
                                                     >
                                                         Şebekeleri Görüntüle
                                                     </Button>
@@ -1172,7 +1135,7 @@ const ListWorks = () => {
                                                         </MenuItem>
                                                     </CustomTooltip>
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}> {/* ✅ تغییر اینجا: فراخوانی مودال حذف جدید */}
+                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon>
                                                                 <IconTrash width={18} />
                                                             </ListItemIcon>
@@ -1215,9 +1178,9 @@ const ListWorks = () => {
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
                 workIdToDelete={workIdToDelete}
-                workTitleToDelete={workTitleToDelete} // ارسال عنوان کار به مودال
+                workTitleToDelete={workTitleToDelete}
                 showAlert={showAlert}
-                onDeleteSuccess={getListWork} // اگر بعد از حذف موفق لیست باید رفرش شود
+                onDeleteSuccess={getListWork}
             />
         </>
     );

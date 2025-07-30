@@ -1,4 +1,6 @@
 // src/views/networks/ListNetwork.tsx
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -7,7 +9,7 @@ import {
     TablePagination, TextField, InputAdornment, CircularProgress,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     Menu, MenuItem, IconButton, ListItemIcon,
-    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, // ✅ اضافه شده: برای مودال توضیحات کامل
+    Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { format } from 'date-fns';
@@ -85,7 +87,7 @@ const ListNetwork = () => {
     const [tenderTitleForDisplay, setTenderTitleForDisplay] = useState('');
 
     // Mevcut Şebekın listesi için state
-    const [networks, setNetworks] = useState<NetworkType[]>([]);
+    const [networks, setNetworks] = useState<NetworkType[]>([]);// @ts-ignore
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
 
@@ -238,7 +240,7 @@ const ListNetwork = () => {
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
                 console.error("Şebeke listesi getirilirken hata oluştu:", e);
-                showAlert(e.response?.data?.message || 'Şebeke listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                showAlert(e.response?.data?.message || 'Şebeke listesi yüklenirken bir hata oluştu.', 'error');
             }
         } finally {
             setLoadingData(false);
@@ -633,17 +635,12 @@ const ListNetwork = () => {
                 <Typography variant="h4" gutterBottom>
                     İhale: <span style={{ color: '#007bff' }}>{tenderTitleForDisplay}</span> içindeki İş: <span style={{ color: '#28a745' }}>{workTitleForDisplay}</span>
                 </Typography>
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Work listesine geri dön" : ""}>
-                    <Button onClick={() => navigate(-1)} variant="outlined">
-                        Work Listesine Geri Dön
-                    </Button>
-                </CustomTooltip> */}
             </Box>
 
-
-            <Box sx={{ p: 2, borderBottom: "1px solid", borderColor: "divider", mb: 2, mt: 2 }}>
-                <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography> {/* Başlığı dinamik hale getirdik */}
-                <form> {/* Formun onSubmit'i artık doğrudan insertNetwork veya editNetwork'ü çağırmıyor */}
+            {/* ✅ کادر ثبت جدید داخل یک Paper قرار بگیره */}
+            <Box component="div" sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", mb: 4 }}>
+                <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography>
+                <form>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel htmlFor="network-name">Şebeke Adı:</CustomFormLabel>
@@ -680,44 +677,47 @@ const ListNetwork = () => {
                                 </Typography>
                             )}
                         </Grid>
-                        <Grid item xs={12} sx={{ mt: 2 }}>
-                            <input type="hidden" name="workId" value={newNetworkData.workId} />
-                            {editingId ? ( // Düzenleme modundaysa Güncelle düğmesi
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke güncelle" : ""}>
-                                    <Button
-                                        variant="contained"
-                                        color="info" // Düzenleme için farklı renk
-                                        onClick={editNetwork} // editNetwork'ü çağır
-                                        disabled={loadingButton}
-                                    >
-                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Güncelle'}
-                                    </Button>
-                                </CustomTooltip>
-                            ) : ( // Yeni kayıt modundaysa Ekle düğmesi
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke kaydet" : ""}>
-                                    <Button
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={insertNetwork} // insertNetwork'ü çağır
-                                        disabled={loadingButton}
-                                    >
-                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
-                                    </Button>
-                                </CustomTooltip>
-                            )}
-                            {editingId && ( // Düzenleme modundaysa İptal düğmesi
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Düzenlemeyi iptal et ve yeni kayıt moduna dön" : ""}>
-                                    <Button
-                                        variant="outlined"
-                                        color="secondary"
-                                        onClick={resetFormAndState}
-                                        disabled={loadingButton}
-                                        sx={{ ml: 2 }}
-                                    >
-                                        İptal Et
-                                    </Button>
-                                </CustomTooltip>
-                            )}
+                        {/* ✅ دکمه ثبت/ویرایش و لغو با فاصله مناسب در حالت موبایل */}
+                        <Grid item xs={12} sx={{ mt: { xs: 5, sm: 2 } }}> {/* mt: { xs: 5, sm: 2 } برای فاصله در موبایل */}
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <input type="hidden" name="workId" value={newNetworkData.workId} />
+                                {editingId ? (
+                                    <>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke güncelle" : ""}>
+                                            <Button
+                                                variant="contained"
+                                                color="info"
+                                                onClick={editNetwork}
+                                                disabled={loadingButton}
+                                            >
+                                                {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Güncelle'}
+                                            </Button>
+                                        </CustomTooltip>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Düzenlemeyi iptal et ve yeni kayıt moduna dön" : ""}>
+                                            <Button
+                                                variant="outlined"
+                                                color="secondary"
+                                                onClick={resetFormAndState}
+                                                disabled={loadingButton}
+                                                sx={{ ml: 2 }}
+                                            >
+                                                İptal Et
+                                            </Button>
+                                        </CustomTooltip>
+                                    </>
+                                ) : (
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke kaydet" : ""}>
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            onClick={insertNetwork}
+                                            disabled={loadingButton}
+                                        >
+                                            {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
+                                        </Button>
+                                    </CustomTooltip>
+                                )}
+                            </Stack>
                         </Grid>
                     </Grid>
                 </form>
@@ -779,11 +779,11 @@ const ListNetwork = () => {
                         <TableHead style={{ background: "#f1f1f1" }}>
                             <TableRow>
                                 <TableCell><Typography variant="h6">Şebeke Adı</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Açıklama</Typography></TableCell> {/* ✅ این سلول برای نمایش توضیحات کوتاه یا دکمه مشاهده است */}
+                                <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Kayıt Tarihi</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Durum</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Detaylar</Typography></TableCell>
-                                <TableCell></TableCell> {/* Menü işlem başlığı */}
+                                <TableCell></TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>

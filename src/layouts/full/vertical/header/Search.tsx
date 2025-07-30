@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   IconButton,
   Dialog,
@@ -11,67 +11,85 @@ import {
   Typography,
   TextField,
   ListItemButton,
+  CircularProgress
 } from '@mui/material';
 import { IconSearch, IconX } from '@tabler/icons-react';
-import Menuitems from '../sidebar/MenuItems';
 import { Link } from 'react-router-dom';
-
-// اینترفیس MenuitemsType را از فایل MenuItems.tsx اینجا هم import کنید یا دوباره تعریف کنید.
-// بهتر است که اینترفیس را در یک فایل جداگانه (مثلاً types/index.ts) تعریف کرده و در هر دو جا import کنید.
-// فعلا برای سادگی، آن را اینجا کپی می‌کنیم:
-interface MenuitemsType {
-  id?: string;
-  navlabel?: boolean;
-  subheader?: string; // این حالا برای آیتم‌های اصلی که صرفاً یک هدینگ هستند استفاده می‌شود
-  title?: string; // عنوان آیتم منو یا والد
-  icon?: any;
-  href?: string;
-  children?: MenuitemsType[]; // آرایه‌ای از زیرمجموعه‌ها
-  chip?: string;
-  chipColor?: string;
-  variant?: string;
-  external?: boolean;
-}
+import { getDynamicMenuItems, MenuitemsType } from '../../vertical/sidebar/MenuItems';
 
 const Search = () => {
   const [showDrawer2, setShowDrawer2] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(''); // تغییر نام state به searchTerm برای وضوح بیشتر
+  const [searchTerm, setSearchTerm] = useState('');
+  const [allDynamicMenus, setAllDynamicMenus] = useState<MenuitemsType[]>([]);
+  const [loadingMenus, setLoadingMenus] = useState(false);
+
+  const loadMenus = useCallback(async () => {
+    setLoadingMenus(true);
+    try {
+      const menus = await getDynamicMenuItems();
+      setAllDynamicMenus(menus);
+    } catch (error) {
+      console.error("Error loading dynamic menus for search:", error);
+    } finally {
+      setLoadingMenus(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showDrawer2 && allDynamicMenus.length === 0 && !loadingMenus) {
+      loadMenus();
+    }
+  }, [showDrawer2, allDynamicMenus.length, loadingMenus, loadMenus]);
 
   const handleDrawerClose2 = () => {
     setShowDrawer2(false);
+    setSearchTerm('');
   };
 
-  // تابع بازگشتی برای فیلتر کردن منوها در تمام سطوح
-  const filterRoutes = (items: MenuitemsType[], searchTerm: string): MenuitemsType[] => {
-    if (!searchTerm) return []; // اگر جستجویی نیست، لیست خالی برگردان
-    
+  // ✅ تابع بازگشتی اصلاح شده برای فیلتر کردن منوها در تمام سطوح بر اساس searchTerm
+  const filterRoutes = useCallback((items: MenuitemsType[], currentSearchTerm: string): MenuitemsType[] => {
     const results: MenuitemsType[] = [];
-    const lowerCaseSearchTerm = searchTerm.toLocaleLowerCase();
+    if (!currentSearchTerm) return [];
+
+    const lowerCaseSearchTerm = currentSearchTerm.toLocaleLowerCase();
 
     items.forEach((item) => {
-      // اگر آیتم والد دارای عنوان است و با عبارت جستجو مطابقت دارد
-      if (item.title && item.title.toLocaleLowerCase().includes(lowerCaseSearchTerm)) {
-        // اگر این آیتم یک والد با children باشد، فقط والد را اضافه کنید و اجازه دهید کاربر آن را باز کند
-        // اگر هم یک آیتم ساده است، آن را اضافه کنید.
+      // ✅ نیازی به چک کردن recordStatus=0 در اینجا نیست، چون getDynamicMenuItems از قبل این کار رو کرده.
+      // بررسی می‌کنیم که آیا عنوان آیتم فعلی با عبارت جستجو مطابقت دارد
+      const currentItemMatches = item.title && item.title.toLocaleLowerCase().includes(lowerCaseSearchTerm);
+
+      // اگر آیتم فرزندان دارد، به صورت بازگشتی روی فرزندان جستجو کنید
+      const childrenResults: MenuitemsType[] = [];
+      if (item.children && item.children.length > 0) {
+        // ✅ children از قبل فیلتر شده‌اند (recordStatus=0)
+        const filteredChildren = item.children; // از قبل فیلتر شده
+        childrenResults.push(...filterRoutes(filteredChildren, currentSearchTerm));
+      }
+
+      // ✅ منطق جدید:
+      // 1. اگر خود آیتم با عبارت جستجو مطابقت دارد، آن را اضافه کنید.
+      // 2. اگر خود آیتم مطابقت ندارد ولی یکی از فرزندانش (که در childrenResults آمده) مطابقت دارد،
+      //    شما می توانید انتخاب کنید که والد را نیز به عنوان یک آیتم قابل نمایش اضافه کنید (برای حفظ ساختار سلسله مراتبی در نتایج)
+      //    در این مثال، اگر والد خودش لینک داشته باشد، اضافه می شود. در غیر اینصورت، فقط نتایج فرزندان.
+      //    اگر می‌خواهید والد بدون لینک هم نمایش داده شود، می‌توانید این منطق را تغییر دهید.
+      if (currentItemMatches) {
         results.push(item);
-      } else if (item.children && item.children.length > 0) {
-        // اگر آیتم فرزندان دارد، به صورت بازگشتی روی فرزندان جستجو کنید
-        const childrenResults = filterRoutes(item.children, searchTerm);
-        // اگر هر یک از فرزندان مطابقت داشتند، آنها را به نتایج اضافه کنید
-        // شما می‌توانید انتخاب کنید که والد را هم در این حالت اضافه کنید یا فقط فرزندان را.
-        // در این مثال، ما فقط فرزندانی که مطابقت دارند را اضافه می‌کنیم.
+      } else if (childrenResults.length > 0) {
+        // اگر فرزندان مطابقت دارند، و آیتم والد خودش href ندارد، اما یک گروه والد است
+        // می‌توانید یک نسخه ساده از والد را به نتایج اضافه کنید تا مسیر نمایش داده شود.
+        // اگر آیتم والد خودش یک لینک است و جستجو به زیرمجموعه اش رسیده، می تونید انتخاب کنید والد هم نشون داده بشه.
+        // اما بهترین راه اینه که فقط آیتم‌های قابل کلیک (دارای href) نمایش داده بشن.
+        // پس فقط فرزندان منطبق رو اضافه می کنیم، و شرط href در map پایین اعمال میشه.
         results.push(...childrenResults);
       }
-      // اگر آیتم یک subheader قدیمی است (اگر هنوز در Menuitems دارید)، آن را نادیده بگیرید
-      // مگر اینکه بخواهید subheader ها خودشان قابل جستجو باشند.
-      // با ساختار جدید، اکثر subheader ها تبدیل به title+children شده‌اند.
     });
 
     return results;
-  };
+  }, []);
 
-  // هر بار که searchTerm تغییر می کند، جستجو را انجام دهید
-  const searchResults = filterRoutes(Menuitems, searchTerm);
+  const searchResults = useMemo(() => {
+    return filterRoutes(allDynamicMenus, searchTerm);
+  }, [allDynamicMenus, searchTerm, filterRoutes]);
 
   return (
     <>
@@ -87,7 +105,7 @@ const Search = () => {
       </IconButton>
       <Dialog
         open={showDrawer2}
-        onClose={() => setShowDrawer2(false)}
+        onClose={handleDrawerClose2}
         fullWidth
         maxWidth={'sm'}
         aria-labelledby="alert-dialog-title"
@@ -100,7 +118,8 @@ const Search = () => {
               id="tb-search"
               placeholder="Burada ara"
               fullWidth
-              onChange={(e) => setSearchTerm(e.target.value)} // تغییر به setSearchTerm
+              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchTerm}
               inputProps={{ 'aria-label': 'Search here' }}
             />
             <IconButton size="small" onClick={handleDrawerClose2}>
@@ -114,36 +133,39 @@ const Search = () => {
             Hızlı Sayfa Bağlantıları
           </Typography>
           <Box>
-            <List component="nav">
-              {searchResults.length > 0 ? (
-                searchResults.map((menu: MenuitemsType) => ( // تغییر نام به menu و استفاده از MenuitemsType
-                  // اینجا باید تصمیم بگیرید که آیتم‌های والد را هم نمایش دهید یا فقط برگ‌ها (leaf nodes)
-                  // این کد فقط آیتم‌هایی را که href دارند و در نتیجه قابل کلیک هستند نمایش می‌دهد
-                  // و آیتم‌هایی که children دارند را به عنوان لینک مستقیم نمایش نمی‌دهد
-                  // مگر اینکه خود والد هم href داشته باشد.
-                  // منطق ساده شده برای نمایش هر آیتمی که پیدا شده و href دارد:
-                  menu.href ? ( // اگر آیتم خودش href دارد، نمایش بده
-                    <ListItemButton
-                      sx={{ py: 0.5, px: 1 }}
-                      to={menu.href}
-                      component={Link}
-                      key={menu.id || menu.title} // استفاده از id یا title به عنوان key
-                      onClick={handleDrawerClose2} // بستن دیالوگ پس از کلیک
-                    >
-                      <ListItemText
-                        primary={menu.title}
-                        secondary={menu.href}
-                        sx={{ my: 0, py: 0.5 }}
-                      />
-                    </ListItemButton>
-                  ) : null // اگر href ندارد (مثل والد بدون href)، فعلاً نمایش نده
-                ))
-              ) : (
-                <Typography variant="body2" color="textSecondary" align="center" mt={2}>
-                  Hiçbir sonuç bulunamadı.
-                </Typography>
-              )}
-            </List>
+            {loadingMenus ? (
+              <Box display="flex" justifyContent="center" alignItems="center" height="100px">
+                <CircularProgress size={20} />
+                <Typography ml={1}>Menüler yükleniyor...</Typography>
+              </Box>
+            ) : (
+              <List component="nav">
+                {searchResults.length > 0 ? (
+                  // ✅ اینجا فقط آیتم‌هایی را نمایش می‌دهیم که href دارند
+                  searchResults.map((menu: MenuitemsType) => (
+                    menu.href ? (
+                      <ListItemButton
+                        sx={{ py: 0.5, px: 1 }}
+                        to={menu.href}
+                        component={Link}
+                        key={menu.id || menu.title}
+                        onClick={handleDrawerClose2}
+                      >
+                        <ListItemText
+                          primary={menu.title}
+                          secondary={menu.href}
+                          sx={{ my: 0, py: 0.5 }}
+                        />
+                      </ListItemButton>
+                    ) : null
+                  ))
+                ) : (
+                  <Typography variant="body2" color="textSecondary" align="center" mt={2}>
+                    {searchTerm ? 'Hiçbir sonuç bulunamadı.' : 'Lütfen aramak için yazmaya başlayın.'}
+                  </Typography>
+                )}
+              </List>
+            )}
           </Box>
         </Box>
       </Dialog>

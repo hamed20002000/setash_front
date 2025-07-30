@@ -32,6 +32,7 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
 
 // İhale tipi tanımı
@@ -46,6 +47,7 @@ interface TenderType {
   approvedTenderDate?: string; // Onay/Red tarihi
   showApprovedIcon?: boolean; // Onay ikonu için
   showRejectedIcon?: boolean; // Red ikonu için
+  showPendingIcon?: boolean;
 }
 
 // StyledToggleButton (SystemRole.tsx'ten kopyalandı)
@@ -565,9 +567,11 @@ const ListTender = () => {
           let approvedTenderDate = null;
           let showApprovedIcon = false;
           let showRejectedIcon = false;
+          let showPendingIcon = false;
 
           if (item.status === 0) {
             approvedTenderText = 'Beklemede';
+            showPendingIcon = true;
           } else if (item.status === 1) {
             approvedTenderText = 'Onaylandı';
             showApprovedIcon = true;
@@ -589,6 +593,7 @@ const ListTender = () => {
             approvedTenderDate: approvedTenderDate,
             showApprovedIcon: showApprovedIcon,
             showRejectedIcon: showRejectedIcon,
+            showPendingIcon: showPendingIcon,
           };
         });
 
@@ -904,6 +909,7 @@ const ListTender = () => {
                         <Stack direction="row" alignItems="center" spacing={1}>
                           {row.showApprovedIcon && <CheckCircleOutlineIcon color="success" fontSize="small" />}
                           {row.showRejectedIcon && <HighlightOffIcon color="error" fontSize="small" />}
+                          {row.showPendingIcon && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
                           <Typography variant="h6">{row.approvedTenderText}</Typography>
                         </Stack>
                       </TableCell>
