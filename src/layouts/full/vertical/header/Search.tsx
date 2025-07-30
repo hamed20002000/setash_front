@@ -15,7 +15,9 @@ import {
 } from '@mui/material';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
+// ✅ مسیر را به دقت بررسی کنید و اگر متفاوت است، اصلاح کنید
 import { getDynamicMenuItems, MenuitemsType } from '../../vertical/sidebar/MenuItems';
+// در مسیر بالا، فرض شده است که MenuItems در src/layouts/full/shared/sidebar قرار دارد.
 
 const Search = () => {
   const [showDrawer2, setShowDrawer2] = useState(false);
@@ -30,6 +32,7 @@ const Search = () => {
       setAllDynamicMenus(menus);
     } catch (error) {
       console.error("Error loading dynamic menus for search:", error);
+      // می‌توانید اینجا showAlert نمایش دهید
     } finally {
       setLoadingMenus(false);
     }
@@ -39,11 +42,16 @@ const Search = () => {
     if (showDrawer2 && allDynamicMenus.length === 0 && !loadingMenus) {
       loadMenus();
     }
+    // اگر دیالوگ بسته شد، ترم جستجو را پاک کنید و نتایج را ریست کنید
+    if (!showDrawer2) {
+      setSearchTerm('');
+      // allDynamicMenus را لازم نیست خالی کنید، چون ممکن است دوباره باز شود.
+    }
   }, [showDrawer2, allDynamicMenus.length, loadingMenus, loadMenus]);
 
   const handleDrawerClose2 = () => {
     setShowDrawer2(false);
-    setSearchTerm('');
+    setSearchTerm(''); // پاک کردن عبارت جستجو هنگام بستن دیالوگ
   };
 
   // ✅ تابع بازگشتی اصلاح شده برای فیلتر کردن منوها در تمام سطوح بر اساس searchTerm
@@ -54,33 +62,31 @@ const Search = () => {
     const lowerCaseSearchTerm = currentSearchTerm.toLocaleLowerCase();
 
     items.forEach((item) => {
-      // ✅ نیازی به چک کردن recordStatus=0 در اینجا نیست، چون getDynamicMenuItems از قبل این کار رو کرده.
       // بررسی می‌کنیم که آیا عنوان آیتم فعلی با عبارت جستجو مطابقت دارد
       const currentItemMatches = item.title && item.title.toLocaleLowerCase().includes(lowerCaseSearchTerm);
 
       // اگر آیتم فرزندان دارد، به صورت بازگشتی روی فرزندان جستجو کنید
       const childrenResults: MenuitemsType[] = [];
       if (item.children && item.children.length > 0) {
-        // ✅ children از قبل فیلتر شده‌اند (recordStatus=0)
-        const filteredChildren = item.children; // از قبل فیلتر شده
-        childrenResults.push(...filterRoutes(filteredChildren, currentSearchTerm));
+        // children از قبل در getDynamicMenuItems فیلتر شده‌اند (recordStatus=0)
+        childrenResults.push(...filterRoutes(item.children, currentSearchTerm));
       }
 
-      // ✅ منطق جدید:
+      // ✅ منطق اصلی:
       // 1. اگر خود آیتم با عبارت جستجو مطابقت دارد، آن را اضافه کنید.
-      // 2. اگر خود آیتم مطابقت ندارد ولی یکی از فرزندانش (که در childrenResults آمده) مطابقت دارد،
-      //    شما می توانید انتخاب کنید که والد را نیز به عنوان یک آیتم قابل نمایش اضافه کنید (برای حفظ ساختار سلسله مراتبی در نتایج)
-      //    در این مثال، اگر والد خودش لینک داشته باشد، اضافه می شود. در غیر اینصورت، فقط نتایج فرزندان.
-      //    اگر می‌خواهید والد بدون لینک هم نمایش داده شود، می‌توانید این منطق را تغییر دهید.
+      // 2. اگر آیتم خودش مطابقت ندارد، اما فرزندان مطابقت‌یافته‌ای دارد:
+      //    یک کپی از والد را با فرزندان فیلتر شده ایجاد کرده و اضافه کنید.
+      //    این کار به حفظ ساختار سلسله مراتبی در نتایج کمک می‌کند.
       if (currentItemMatches) {
         results.push(item);
       } else if (childrenResults.length > 0) {
-        // اگر فرزندان مطابقت دارند، و آیتم والد خودش href ندارد، اما یک گروه والد است
-        // می‌توانید یک نسخه ساده از والد را به نتایج اضافه کنید تا مسیر نمایش داده شود.
-        // اگر آیتم والد خودش یک لینک است و جستجو به زیرمجموعه اش رسیده، می تونید انتخاب کنید والد هم نشون داده بشه.
-        // اما بهترین راه اینه که فقط آیتم‌های قابل کلیک (دارای href) نمایش داده بشن.
-        // پس فقط فرزندان منطبق رو اضافه می کنیم، و شرط href در map پایین اعمال میشه.
-        results.push(...childrenResults);
+        // ✅ اگر والد خودش مطابقت ندارد ولی فرزندانش مطابقت دارند،
+        // والد را با فرزندان فیلتر شده‌اش اضافه کنید.
+        // این تضمین می‌کند که مسیر کامل به آیتم‌های یافت شده دیده شود.
+        results.push({
+          ...item,
+          children: childrenResults, // فقط فرزندان مطابقت‌یافته را نگه می‌داریم
+        });
       }
     });
 
@@ -141,23 +147,10 @@ const Search = () => {
             ) : (
               <List component="nav">
                 {searchResults.length > 0 ? (
-                  // ✅ اینجا فقط آیتم‌هایی را نمایش می‌دهیم که href دارند
                   searchResults.map((menu: MenuitemsType) => (
-                    menu.href ? (
-                      <ListItemButton
-                        sx={{ py: 0.5, px: 1 }}
-                        to={menu.href}
-                        component={Link}
-                        key={menu.id || menu.title}
-                        onClick={handleDrawerClose2}
-                      >
-                        <ListItemText
-                          primary={menu.title}
-                          secondary={menu.href}
-                          sx={{ my: 0, py: 0.5 }}
-                        />
-                      </ListItemButton>
-                    ) : null
+                    // ✅ نمایش آیتم‌ها به صورت سلسله مراتبی (والد و فرزندان)
+                    // این تابع کمکی برای رندر کردن آیتم‌های درختی است.
+                    <RenderSearchResultItem key={menu.id || menu.title} item={menu} onClose={handleDrawerClose2} />
                   ))
                 ) : (
                   <Typography variant="body2" color="textSecondary" align="center" mt={2}>
@@ -174,3 +167,59 @@ const Search = () => {
 };
 
 export default Search;
+
+
+// ✅ کامپوننت کمکی جدید برای رندر کردن نتایج جستجوی سلسله مراتبی
+interface RenderSearchResultItemProps {
+  item: MenuitemsType;
+  onClose: () => void;
+  level?: number; // برای تو رفتگی (indentation)
+}
+
+const RenderSearchResultItem: React.FC<RenderSearchResultItemProps> = ({ item, onClose, level = 0 }) => {
+  // اگر آیتم خودش href دارد، قابل کلیک است
+  const isClickable = !!item.href;
+
+  return (
+    <>
+      <ListItemButton
+        sx={{
+          py: 0.5,
+          px: 1,
+          paddingLeft: `${level * 20 + 8}px`, // برای تو رفتگی
+          fontWeight: item.children && item.children.length > 0 ? 'bold' : 'normal', // والدین پررنگ‌تر
+          pointerEvents: isClickable ? 'auto' : 'none', // فقط آیتم‌های دارای لینک قابل کلیک باشند
+          opacity: isClickable ? 1 : 0.7, // آیتم‌های غیرقابل کلیک کمی کم‌رنگ‌تر باشند
+          // اگر آیتم والد است و href ندارد، پس خودش نباید لینک باشد
+          // اما اگر فرزندانش نمایش داده می شوند، آن را به عنوان یک "سرگروه" بصری نمایش می دهیم.
+        }}
+        // اگر آیتم قابل کلیک است، آن را به عنوان Link کامپوننت رندر کن
+        component={isClickable ? Link : 'div'}
+        to={isClickable ? item.href : undefined}
+        onClick={isClickable ? onClose : undefined}
+        disabled={!isClickable} // اگر قابل کلیک نیست، disable باشد
+      >
+        <ListItemText
+          primary={item.title}
+          secondary={isClickable ? item.href : undefined}
+          primaryTypographyProps={{ variant: 'body2', noWrap: true }}
+          sx={{ my: 0, py: 0.5 }}
+        />
+      </ListItemButton>
+
+      {/* رندر کردن فرزندان (اگر وجود دارند) */}
+      {item.children && item.children.length > 0 && (
+        <List component="div" disablePadding>
+          {item.children.map(child => (
+            <RenderSearchResultItem
+              key={child.id || child.title}
+              item={child}
+              onClose={onClose}
+              level={level + 1}
+            />
+          ))}
+        </List>
+      )}
+    </>
+  );
+};

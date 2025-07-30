@@ -254,8 +254,8 @@ const ListWorks = () => {
             setTitle(selectedRowForMenu.title);
             setStartDate(new Date(selectedRowForMenu.startDate));
             setEndDate(new Date(selectedRowForMenu.endDate));
-
-            const foundTender = tenderOptions.find(t => t.id === selectedRowForMenu.tenderId);
+            debugger
+            const foundTender = tenderOptions.find(t => Number(t.id) === selectedRowForMenu.tenderId);
             setSelectedTenderOption(foundTender || null);
 
             setOriginalTitle(selectedRowForMenu.title);
@@ -354,7 +354,7 @@ const ListWorks = () => {
                 title: title,
                 startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
                 endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
-                tenderId: selectedTenderOption ? selectedTenderOption.id : 0,
+                tenderId: selectedTenderOption ? Number(selectedTenderOption.id) : 0,
             };
 
             const response = await axios.post(
@@ -407,7 +407,7 @@ const ListWorks = () => {
             resetFormAndState();
             return;
         }
-
+        debugger
         setLoadingButton(true);
         try {
             const authToken = localStorage.getItem('authToken');
@@ -423,7 +423,7 @@ const ListWorks = () => {
                 startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
                 endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
                 // tenderId در حالت ویرایش باید همان مقدار اصلی را ارسال کند
-                tenderId: originalSelectedTenderOption ? originalSelectedTenderOption.id : 0,
+                tenderId: originalSelectedTenderOption ? Number(originalSelectedTenderOption.id) : 0,
             };
 
             const response = await axios.put(
