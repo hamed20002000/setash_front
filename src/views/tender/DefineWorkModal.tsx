@@ -28,8 +28,6 @@ interface DefineWorkModalProps {
         message: string,
         severity: "success" | "error" | "warning" | "info"
     ) => void;
-    // ✅ تغییر در اینجا: onWorkDefinedSuccess باید workId و tenderId را بپذیرد.
-    // این تابع مسئول ناوبری به صفحه بعدی خواهد بود.
     onWorkDefinedSuccess: (workId: number, tenderId: number) => void;
 }
 
@@ -38,7 +36,6 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
     onClose,
     tenderId,
     showAlert,
-    // onWorkDefinedSuccess,
 }) => {
     const navigate = useNavigate();
     const [title, setTitle] = useState<string>("");
@@ -49,8 +46,6 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
     const [startDateError, setStartDateError] = useState<boolean>(false);
     const [endDateError, setEndDateError] = useState<boolean>(false);
     const [formError, setFormError] = useState<string | null>(null);
-
-    // Yeni state'ler (New States)
     const [openConfirmationModal, setOpenConfirmationModal] = useState<boolean>(false);
     const [newlyCreatedWorkId, setNewlyCreatedWorkId] = useState<number | null>(null);
 
@@ -63,11 +58,10 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
             setStartDateError(false);
             setEndDateError(false);
             setFormError(null);
-            setOpenConfirmationModal(false); // Modalı açtığımızda konfirmasyon modalını kapat
-            setNewlyCreatedWorkId(null); // Yeni iş ID'sini sıfırla
+            setOpenConfirmationModal(false);
+            setNewlyCreatedWorkId(null);
         }
     }, [open]);
-
     const handleSaveWork = async () => {
         let hasError = false;
         if (!title.trim()) {
@@ -76,21 +70,18 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
         } else {
             setTitleError(false);
         }
-
         if (!startDate) {
             setStartDateError(true);
             hasError = true;
         } else {
             setStartDateError(false);
         }
-
         if (!endDate) {
             setEndDateError(true);
             hasError = true;
         } else {
             setEndDateError(false);
         }
-
         if (startDate && endDate && startDate > endDate) {
             setEndDateError(true);
             setFormError("Bitiş tarihi başlangıç tarihinden önce olamaz.");
@@ -98,20 +89,14 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
         } else {
             if (!endDateError) setFormError(null);
         }
-
         if (hasError) {
             showAlert("Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.", "warning");
             return;
         }
-
         setLoading(true);
         setFormError(null);
         const authToken = localStorage.getItem("authToken");
-
         if (!authToken) {
-            console.warn(
-                "Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor."
-            );
             navigate("/");
             setLoading(false);
             showAlert(
@@ -120,14 +105,12 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
             );
             return;
         }
-
         const payload = {
             title: title,
             startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
             endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
             tenderId: Number(tenderId),
         };
-
         try {
             const response = await axios.post(
                 server.baseurl + server.initialoperations + "create-work",
@@ -140,11 +123,10 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                     },
                 }
             );
-
             if (response.data.httpStatusCode === 201) {
                 showAlert("İş başarıyla tanımlandı!", "success");
-                setNewlyCreatedWorkId(response.data.data.id); // Yeni iş ID'sini kaydet
-                setOpenConfirmationModal(true); // Konfirmasyon modalını aç
+                setNewlyCreatedWorkId(response.data.data.id);
+                setOpenConfirmationModal(true);
             } else {
                 setFormError(response.data.message || "İş tanımlanırken bir hata oluştu.");
                 showAlert(
@@ -175,25 +157,17 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
             setLoading(false);
         }
     };
-
-    // Konfirmasyon modalı için handler'lar
     const handleConfirmYes = () => {
         if (newlyCreatedWorkId && tenderId) {
-            // ✅ حالا به جای رفتن به WorkDetails، به صفحه NetworkList می‌رویم
-            // onWorkDefinedSuccess(newlyCreatedWorkId, tenderId); // این خط قبلا ناوبری را انجام می‌داد
-            // اکنون مستقیماً با navigate هدایت می‌کنیم
             navigate(`/work/${newlyCreatedWorkId}/networks?tenderId=${tenderId}`);
         }
         setOpenConfirmationModal(false);
-        onClose(); // Ana DefineWorkModal'ı kapat
+        onClose();
     };
-
     const handleConfirmNo = () => {
         setOpenConfirmationModal(false);
-        onClose(); // Ana DefineWorkModal'ı kapat
+        onClose();
     };
-
-
     return (
         <>
             <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
@@ -230,7 +204,6 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                         setFormError(null);
                                     }
                                 }}
-                                // @ts-ignore: inputFormat için geçici çözüm
                                 inputFormat="yyyy/MM/dd"
                                 renderInput={(params) => (
                                     <TextField
@@ -257,7 +230,6 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                         setFormError(null);
                                     }
                                 }}
-                                // @ts-ignore: inputFormat için geçici çözüm
                                 inputFormat="yyyy/MM/dd"
                                 renderInput={(params) => (
                                     <TextField
@@ -294,11 +266,9 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                     </Button>
                 </DialogActions>
             </Dialog>
-
-            {/* Yeni Konfirmasyon Modalı (New Confirmation Modal) */}
             <Dialog
                 open={openConfirmationModal}
-                onClose={() => setOpenConfirmationModal(false)} // Dışarı tıklamayla kapanmasını önle
+                onClose={() => setOpenConfirmationModal(false)}
                 maxWidth="sm"
                 fullWidth
             >

@@ -1,47 +1,50 @@
-// DeleteProductType.tsx
+// DeleteRegion.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogContentText,
-    DialogActions,
+    Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+    // CircularProgress // اگر استفاده نمی‌کنید، می‌توانید حذف کنید
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../assets/address.json';
+
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    ProductTypesIdToDelete: number | null;
+    regionIdToDelete: string | null; // ✅ تغییر نام: ID منطقه برای حذف
     onClose: () => void;
-    onDeleteSuccess: () => void;
+    onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteRegion = ({ openModal, regionIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => { // ✅ تغییر نام کامپوننت و props
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
-    const [openProductTypeInUseModal, setOpenProductTypeInUseModal] = useState<boolean>(false);
-    const handleDeleteProductType = async () => {
-        if (ProductTypesIdToDelete === null) {
-            showAlert('Silinecek birim seçilmedi.', 'warning');
+
+    // ✅ NEW STATE FOR REGION IN USE MODAL
+    const [openRegionInUseModal, setOpenRegionInUseModal] = useState<boolean>(false); // ✅ تغییر نام state
+
+    const handleDeleteRegion = async () => { // ✅ تغییر نام تابع
+        if (regionIdToDelete === null) { // ✅ تغییر نام prop
+            showAlert('Silinecek bölge seçilmedi.', 'warning');
             onClose();
             return;
         }
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
+            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
+
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-product-type/${ProductTypesIdToDelete}`,
+                `${server.baseurl}${server.baseinfo}delete-region/${Number(regionIdToDelete)}`, // ✅ تغییر آدرس API
                 {
                     headers: {
                         "Accept": "application/json",
@@ -49,34 +52,43 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     }
                 }
             );
+
             if (response.data.httpStatusCode === 200) {
-                showAlert('Birim başarıyla silindi!', 'success');
+                showAlert('Bölge başarıyla silindi!', 'success');
                 onDeleteSuccess();
-                onClose();
+                onClose(); // مودال اصلی حذف بسته شود
             } else {
-                showAlert(response.data.message || 'Birim silinirken bir hata oluşo.', 'error');
-                onClose();
+                // اگر API شما برای خطای بیزینسی کد 200 برگرداند ولی در Message وضعیت خطا باشد
+                showAlert(response.data.message || 'Bölge silinirken bir hata oluştu.', 'error');
+                onClose(); // در این حالت هم مودال بسته شود
             }
         } catch (e: any) {
+            console.error("Error deleting region:", e);
+
+            // ✅ CHECK FOR 500 STATUS CODE
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenProductTypeInUseModal(true);
+                onClose(); // Close the current delete confirmation modal
+                setOpenRegionInUseModal(true); // ✅ تغییر نام modal
             } else if (e.response && e.response.status === 401) {
+                // Handle unauthorized
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-                navigate("/");
+                navigate("/"); // Redirect to login
             } else {
-                const errorMessage = e.response?.data?.message || 'Birim silinirken bir hata oluştu, lütfen tekrar deneyin.';
+                // General error handling for other network or API errors
+                const errorMessage = e.response?.data?.message || 'Bölge silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
-                onClose();
+                onClose(); // Close the modal for general errors too
             }
         } finally {
             setLoading(false);
         }
     };
-    const handleCloseProductTypeInUseModal = () => {
-        setOpenProductTypeInUseModal(false);
+
+    const handleCloseRegionInUseModal = () => { // ✅ تغییر نام تابع
+        setOpenRegionInUseModal(false);
     };
+
     return (
         <>
             <Dialog
@@ -85,7 +97,7 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu birimi silmek istediğinizden emin misiniz?"}
+                    {"Bu bölgeyi silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
@@ -98,11 +110,11 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen birimi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen bölgeyi sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteProductType}
+                            onClick={handleDeleteRegion}
                             autoFocus
                             disabled={loading}
                         >
@@ -117,22 +129,24 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     </CustomTooltip>
                 </DialogActions>
             </Dialog>
+
+            {/* ✅ NEW Dialog for Region In Use */}
             <Dialog
-                open={openProductTypeInUseModal}
-                onClose={handleCloseProductTypeInUseModal}
-                aria-labelledby="product-type-in-use-dialog-title"
-                aria-describedby="product-type-in-use-dialog-description"
+                open={openRegionInUseModal}
+                onClose={handleCloseRegionInUseModal}
+                aria-labelledby="region-in-use-dialog-title" // ✅ تغییر id
+                aria-describedby="region-in-use-dialog-description" // ✅ تغییر id
             >
-                <DialogTitle id="product-type-in-use-dialog-title">
-                    {"Hata: Ürün Tipi Silinemez!"}
+                <DialogTitle id="region-in-use-dialog-title">
+                    {"Hata: Bölge Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="product-type-in-use-dialog-description">
-                        Bu ürün tipi şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="region-in-use-dialog-description">
+                        Bu bölge şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseProductTypeInUseModal} autoFocus>
+                    <Button onClick={handleCloseRegionInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
@@ -141,4 +155,4 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
     );
 }
 
-export default DeleteProductType;
+export default DeleteRegion; // ✅ تغییر نام کامپوننت

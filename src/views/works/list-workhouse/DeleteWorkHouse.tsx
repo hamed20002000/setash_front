@@ -1,47 +1,51 @@
-// DeleteProductType.tsx
+// src/views/workhouse/DeleteWorkhouse.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogContentText,
-    DialogActions,
+    Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../assets/address.json';
+import server from '../../../assets/address.json'; // مسیر فایل address.json را تنظیم کنید
+
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+// --- Props interface ---
 type Props = {
     openModal: boolean;
-    ProductTypesIdToDelete: number | null;
+    workhouseIdToDelete: number | null;
+    workhouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
-    const [openProductTypeInUseModal, setOpenProductTypeInUseModal] = useState<boolean>(false);
-    const handleDeleteProductType = async () => {
-        if (ProductTypesIdToDelete === null) {
-            showAlert('Silinecek birim seçilmedi.', 'warning');
+
+    // State for Workhouse In Use modal
+    const [openWorkhouseInUseModal, setOpenWorkhouseInUseModal] = useState<boolean>(false);
+
+    const handleDeleteWorkhouse = async () => {
+        if (workhouseIdToDelete === null) {
+            showAlert('Silinecek şantiye seçilmedi.', 'warning');
             onClose();
             return;
         }
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
+            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
+
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-product-type/${ProductTypesIdToDelete}`,
+                `${server.baseurl}${server.initialoperations}delete-workhouse/${workhouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
                 {
                     headers: {
                         "Accept": "application/json",
@@ -49,24 +53,27 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     }
                 }
             );
+
             if (response.data.httpStatusCode === 200) {
-                showAlert('Birim başarıyla silindi!', 'success');
+                showAlert('Şantiye başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Birim silinirken bir hata oluşo.', 'error');
+                showAlert(response.data.message || 'Şantiye silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
+            console.error("Error deleting workhouse:", e);
+
             if (e.response && e.response.status === 500) {
                 onClose();
-                setOpenProductTypeInUseModal(true);
+                setOpenWorkhouseInUseModal(true); // ✅ تغییر نام modal
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Birim silinirken bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Şantiye silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
                 onClose();
             }
@@ -74,22 +81,25 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
             setLoading(false);
         }
     };
-    const handleCloseProductTypeInUseModal = () => {
-        setOpenProductTypeInUseModal(false);
+
+    const handleCloseWorkhouseInUseModal = () => {
+        setOpenWorkhouseInUseModal(false);
     };
+
     return (
         <>
+            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu birimi silmek istediğinizden emin misiniz?"}
+                    {"Bu şantiyeyi silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        Eğer silerseniz, geri almanın bir yolu yoktur.
+                        **{workhouseNameToDelete}** adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -98,17 +108,17 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen birimi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen şantiyeyi sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteProductType}
+                            onClick={handleDeleteWorkhouse}
                             autoFocus
                             disabled={loading}
                         >
                             {loading ? (
                                 <>
-                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
                                 </>
                             ) : (
                                 'Silmek'
@@ -117,28 +127,30 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     </CustomTooltip>
                 </DialogActions>
             </Dialog>
+
+            {/* Dialog for Workhouse In Use */}
             <Dialog
-                open={openProductTypeInUseModal}
-                onClose={handleCloseProductTypeInUseModal}
-                aria-labelledby="product-type-in-use-dialog-title"
-                aria-describedby="product-type-in-use-dialog-description"
+                open={openWorkhouseInUseModal}
+                onClose={handleCloseWorkhouseInUseModal}
+                aria-labelledby="workhouse-in-use-dialog-title"
+                aria-describedby="workhouse-in-use-dialog-description"
             >
-                <DialogTitle id="product-type-in-use-dialog-title">
-                    {"Hata: Ürün Tipi Silinemez!"}
+                <DialogTitle id="workhouse-in-use-dialog-title">
+                    {"Hata: Şantiye Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="product-type-in-use-dialog-description">
-                        Bu ürün tipi şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="workhouse-in-use-dialog-description">
+                        Bu şantiye şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseProductTypeInUseModal} autoFocus>
+                    <Button onClick={handleCloseWorkhouseInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
             </Dialog>
         </>
     );
-}
+};
 
-export default DeleteProductType;
+export default DeleteWorkhouse;

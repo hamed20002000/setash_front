@@ -363,7 +363,7 @@ const ListCategory = () => {
       });
 
       if (response.data.httpStatusCode === 200) {
-        setRawApiCategories(response.data.data); // ذخیره داده‌های خام و Nested
+        setRawApiCategories(response.data.data);
         return true;
       } else {
         showAlert(response.data.message || 'Kategoriler yüklenirken bir hata oluştu.', 'error');
@@ -939,7 +939,7 @@ const ListCategory = () => {
             </Box>
           ) : (
             <Table aria-label="category table">
-              <TableHead style={{ background: "#f1f1f1" }}>
+              <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
                   <TableCell>
                     {/* Sortable Column: İsim (Name) */}

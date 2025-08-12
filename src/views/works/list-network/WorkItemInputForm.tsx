@@ -1,13 +1,14 @@
 // src/views/works/WorkItemInputForm.tsx
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useRef } from 'react';
 import {
     FormControl, InputLabel, Select, MenuItem as MuiMenuItem,
     TextField, Button, Stack, Box, Typography, InputAdornment, IconButton,
     Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-    ListSubheader // ✅ ListSubheader'ı import edin
+    ListSubheader
 } from '@mui/material';
 import { IconPlus, IconSearch, IconX, IconEdit, IconTrash } from '@tabler/icons-react';
-import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
+import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import BlankCard from 'src/components/shared/BlankCard';
 
 interface WorkItemDetail {
@@ -44,22 +45,21 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
     const [selectedItemId, setSelectedItemId] = useState<string>('');
     const [inputValue, setInputValue] = useState<string>('');
     const [itemSearchTerm, setItemSearchTerm] = useState<string>('');
-
     const [itemError, setItemError] = useState<boolean>(false);
     const [itemHelperText, setItemHelperText] = useState<string>('');
     const [valueError, setValueError] = useState<boolean>(false);
     const [valueHelperText, setValueHelperText] = useState<string>('');
-
     const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
     const [itemToDeleteTempId, setItemToDeleteTempId] = useState<string | null>(null);
-
     const [isSelectOpen, setIsSelectOpen] = useState(false);
-
+    const searchInputRef = useRef<HTMLInputElement>(null);
+    const selectRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (itemToEdit) {
             setSelectedItemId(itemToEdit.id);
             setInputValue(itemToEdit.value);
+            setItemSearchTerm('');
             setIsSelectOpen(false);
         } else {
             setSelectedItemId('');
@@ -72,10 +72,17 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
         }
     }, [itemToEdit]);
 
-
+    useEffect(() => {
+        if (isSelectOpen && searchInputRef.current) {
+            const currentCursorPosition = searchInputRef.current.selectionStart;
+            searchInputRef.current.focus();
+            if (currentCursorPosition !== null) {
+                searchInputRef.current.setSelectionRange(currentCursorPosition, currentCursorPosition);
+            }
+        }
+    }, [isSelectOpen, itemSearchTerm]);
     const handleAddOrUpdateClick = () => {
         let hasError = false;
-
         if (!selectedItemId) {
             setItemError(true);
             setItemHelperText('Lütfen bir öğe seçin!');
@@ -84,7 +91,6 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
             setItemError(false);
             setItemHelperText('');
         }
-
         if (!inputValue.trim()) {
             setValueError(true);
             setValueHelperText('Lütfen bir miktar girin!');
@@ -93,11 +99,9 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
             setValueError(false);
             setValueHelperText('');
         }
-
         if (hasError) {
             return;
         }
-
         const selectedItem = availableItems.find(item => item.id === selectedItemId);
         if (selectedItem) {
             const newItemDetail: WorkItemDetail = {
@@ -113,12 +117,9 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
             setIsSelectOpen(false);
         }
     };
-
-    // Filitrelenmiş öğeleri arama terimine göre filtrele
     const filteredAvailableItems = availableItems.filter(item =>
         item.name.toLowerCase().includes(itemSearchTerm.toLowerCase())
     );
-
     const selectableItems = filteredAvailableItems.filter(
         (availableItem) => {
             const isRegistered = itemsToRegister.some(
@@ -129,17 +130,14 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
             return !isRegistered;
         }
     );
-
     const handleOpenDeleteConfirm = (tempId: string) => {
         setItemToDeleteTempId(tempId);
         setOpenDeleteConfirm(true);
     };
-
     const handleCloseDeleteConfirm = () => {
         setOpenDeleteConfirm(false);
         setItemToDeleteTempId(null);
     };
-
     const handleConfirmDelete = () => {
         if (itemToDeleteTempId) {
             onRemoveItem(itemToDeleteTempId);
@@ -147,7 +145,6 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
         }
         handleCloseDeleteConfirm();
     };
-
     return (
         <BlankCard sx={{ p: 1, mb: 3 }}>
             <Stack spacing={2} sx={{ p: 2 }}>
@@ -168,23 +165,29 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                                 }
                             }}
                             open={isSelectOpen}
-                            onOpen={() => setIsSelectOpen(true)}
+                            onOpen={() => {
+                                setIsSelectOpen(true);
+                                setTimeout(() => {
+                                    if (searchInputRef.current) {
+                                        searchInputRef.current.focus();
+                                    }
+                                }, 50);
+                            }}
                             onClose={() => {
                                 setIsSelectOpen(false);
                                 setItemSearchTerm('');
                             }}
                             MenuProps={{
                                 sx: { maxHeight: 300 },
-                                // ✅ TextField'ı ListSubheader olarak Menü içine taşıyın
                                 PaperProps: {
                                     sx: {
                                         "& .MuiListSubheader-root": {
-                                            padding: 0 // ListSubheader'ın padding'ini sıfırlayın
+                                            padding: 0
                                         }
                                     }
                                 },
                                 MenuListProps: {
-                                    subheader: ( // subheader prop'unu ListSubheader bileşeni ile kullanın
+                                    subheader: (
                                         <ListSubheader disableSticky sx={{ p: 1, pb: 0 }}>
                                             <TextField
                                                 autoFocus
@@ -192,8 +195,8 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                                                 placeholder="Öğe Ara..."
                                                 value={itemSearchTerm}
                                                 onChange={(e) => setItemSearchTerm(e.target.value)}
-                                                onClick={(e) => e.stopPropagation()} // tıklamayı durdurur
-                                                onKeyDown={(e) => e.stopPropagation()} // tuş olaylarını durdurur
+                                                onClick={(e) => e.stopPropagation()}
+                                                onKeyDown={(e) => e.stopPropagation()}
                                                 InputProps={{
                                                     startAdornment: (
                                                         <InputAdornment position="start">
@@ -202,6 +205,7 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                                                     ),
                                                 }}
                                                 size="small"
+                                                inputRef={searchInputRef}
                                             />
                                         </ListSubheader>
                                     )
@@ -209,11 +213,11 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                             }}
                             disabled={!!itemToEdit || loadingAvailableItems}
                             size="small"
+                            ref={selectRef}
                         >
                             {loadingAvailableItems ? (
                                 <MuiMenuItem disabled>Yükleniyor...</MuiMenuItem>
                             ) : (
-                                // <> Fragment'ı kaldırın
                                 selectableItems.length > 0 ? (
                                     selectableItems.map((item) => (
                                         <MuiMenuItem key={item.id} value={item.id}>
@@ -223,7 +227,6 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                                 ) : (
                                     <MuiMenuItem disabled>Hiç öğe bulunamadı.</MuiMenuItem>
                                 )
-                                // </> Fragment'ı kaldırın
                             )}
                             {itemToEdit && (
                                 <MuiMenuItem key={itemToEdit.id} value={itemToEdit.id} disabled>
@@ -270,7 +273,6 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                         </Button>
                     )}
                 </Stack>
-
                 {itemsToRegister.length > 0 && (
                     <Box mt={2}>
                         <Typography variant="subtitle1" mb={1}>Eklenen Öğeler:</Typography>
@@ -322,7 +324,6 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                     </Box>
                 )}
             </Stack>
-
             <Dialog
                 open={openDeleteConfirm}
                 onClose={handleCloseDeleteConfirm}

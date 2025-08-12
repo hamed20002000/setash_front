@@ -13,14 +13,13 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../assets/address.json'; // مطمئن شو مسیر درسته
-
+import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type DeleteWorkProps = {
     openModal: boolean;
     workIdToDelete: number | null;
-    workTitleToDelete: string; // برای نمایش عنوان کار در پیام حذف
+    workTitleToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
@@ -29,79 +28,60 @@ type DeleteWorkProps = {
 const DeleteWork = ({ openModal, workIdToDelete, workTitleToDelete, onClose, onDeleteSuccess, showAlert }: DeleteWorkProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
-
     const { isTooltipGloballyEnabled } = useTooltip();
-
-    // 🟢 NEW STATE for the "Work In Use" modal
     const [openWorkInUseModal, setOpenWorkInUseModal] = useState<boolean>(false);
-
     const handleDeleteOperation = async () => {
         if (workIdToDelete === null) {
             showAlert('Silinecek iş seçilmedi.', 'warning');
             onClose();
             return;
         }
-
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
             navigate("/");
             return;
         }
-
         setLoading(true);
         try {
-            // ✅ استفاده از API DELETE که شما مشخص کرده بودید
             const response = await axios.delete(
                 `${server.baseurl}${server.initialoperations}delete-work/${workIdToDelete}`,
                 {
                     headers: {
-                        "Accept": "text/plain", // یا application/json بر اساس نوع پاسخ API شما
+                        "Accept": "text/plain",
                         "Authorization": `Bearer ${authToken}`,
                     }
                 }
             );
-
-            // بررسی وضعیت HTTP
             if (response.status === 200) {
-                // اگر API شما httpStatusCode را در data برمی‌گرداند، می‌توانید از response.data.httpStatusCode نیز استفاده کنید.
                 showAlert(`'${workTitleToDelete}' başlıklı iş başarıyla silindi!`, 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                // اگر API شما پیام خطا را در response.data.message برمی‌گرداند
                 showAlert(response.data?.message || 'İş silinirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("İş silinirken hata oluştu:", e);
-
-            // 🟢 Check for 500 status code (Work in Use scenario)
             if (e.response && e.response.status === 500) {
-                onClose(); // Close the current delete confirmation modal
-                setOpenWorkInUseModal(true); // Open the specific "work in use" modal
+                onClose();
+                setOpenWorkInUseModal(true);
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                // General error handling for other network or API errors
                 const errorMessage = e.response?.data?.message || 'İş silinirken bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
-                onClose(); // Close the modal for general errors too
+                onClose();
             }
         } finally {
             setLoading(false);
         }
     };
-
-    // 🟢 Handler to close the "Work In Use" modal
     const handleCloseWorkInUseModal = () => {
         setOpenWorkInUseModal(false);
     };
 
     return (
         <>
-            {/* Main Delete Confirmation Dialog */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -141,8 +121,6 @@ const DeleteWork = ({ openModal, workIdToDelete, workTitleToDelete, onClose, onD
                     </CustomTooltip>
                 </DialogActions>
             </Dialog>
-
-            {/* 🟢 NEW Dialog for "Work In Use" */}
             <Dialog
                 open={openWorkInUseModal}
                 onClose={handleCloseWorkInUseModal}

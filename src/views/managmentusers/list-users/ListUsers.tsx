@@ -1,7 +1,8 @@
-// ListUsers.tsx
+// src/views/users/ListUsers.tsx
+
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react'; // ✅ useCallback و useMemo اضافه شد
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -13,9 +14,10 @@ import {
   ToggleButton as MuiToggleButton,
   ToggleButtonGroup,
   TableSortLabel,
+  SelectChangeEvent
 } from '@mui/material';
 
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -25,14 +27,13 @@ import {
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import ListUsersModal from './ListUsersModal';
+import ListUsersModal from './ListUsersRolesModal';
 import ListUserOperationsModal from './ListUserOperationsModal';
 import ChangeUserPasswordModal from './ChangeUserPasswordModal';
 import DeleteListUser from './DeleteListUser';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 import imagedefault from '../../../assets/images/profile/user-d.svg';
-
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 
@@ -68,15 +69,19 @@ interface UserType {
   recordStatus: number;
   createAt: string;
   imageUrl?: string;
-  roles: { id: number; name: string }[];
+  roles: {
+    id: string;
+    name: string;
+    recordStatus?: number;
+  }[];
 }
 
 interface RoleType {
-  id: number;
+  id: string;
   name: string;
+  recordStatus?: number;
 }
 
-// تابع formatDate می تواند خارج از کامپوننت یا با useCallback باشد اگر به dependency نیاز ندارد
 const formatDate = (dateString: string): string => {
   try {
     const date = new Date(dateString);
@@ -85,14 +90,13 @@ const formatDate = (dateString: string): string => {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   } catch (e) {
-    console.error("Error formatting date:", e);
+    console.log("Error formatting date:", e);
     return "Geçersiz Tarih";
   }
 };
 
 const DEFAULT_IMAGE_URL = imagedefault;
 
-// توابع کمکی برای مرتب‌سازی (خارج از کامپوننت و بدون تغییر)
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
   b: T,
@@ -145,58 +149,44 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 
 const ListUsers = () => {
   const navigate = useNavigate();
-
+  const theme = useTheme();
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
-  const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [allRoles, setAllRoles] = useState<RoleType[]>([]);
   const [profileImageBase64, setProfileImageBase64] = useState<string>('');
   const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_IMAGE_URL);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [usersList, setUsersList] = useState<UserType[]>([]);
-  const [editingUserId, setEditingUserId] = useState<number | null>(null);
-
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedUserForMenu, setSelectedUserForMenu] = useState<UserType | null>(null);
   const openMenu = Boolean(anchorEl);
-
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [userIdToDelete, setUserIdToDelete] = useState<string | null>(null);
-
   const [openRoleModal, setOpenRoleModal] = useState(false);
   const [userIdForRoleSelection, setUserIdForRoleSelection] = useState<string | null>(null);
-
   const [openOperationsModal, setOpenOperationsModal] = useState(false);
   const [userIdForOperationsSelection, setUserIdForOperationsSelection] = useState<string | null>(null);
-
   const [openChangePasswordModal, setOpenChangePasswordModal] = useState(false);
   const [userIdForPasswordChange, setUserIdForPasswordChange] = useState<string | null>(null);
-
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [generateRandomPassword, setGenerateRandomPassword] = useState<boolean>(false);
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
-
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
-
   const usernameFieldRef = useRef<HTMLInputElement>(null);
   const passwordFieldRef = useRef<HTMLInputElement>(null);
   const confirmPasswordFieldRef = useRef<HTMLInputElement>(null);
-
   const { isTooltipGloballyEnabled } = useTooltip();
-
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-
+  const [selectedRoleFilterId, setSelectedRoleFilterId] = useState<string>('all');
   const [orderBy, setOrderBy] = useState<keyof UserType>('createAt');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
-
   const [usernameError, setUsernameError] = useState<boolean>(false);
   const [usernameHelperText, setUsernameHelperText] = useState<string>('');
   const [roleError, setRoleError] = useState<boolean>(false);
@@ -205,43 +195,38 @@ const ListUsers = () => {
   const [passwordHelperText, setPasswordHelperText] = useState<string>('');
   const [confirmPasswordError, setConfirmPasswordError] = useState<boolean>(false);
   const [confirmPasswordHelperText, setConfirmPasswordHelperText] = useState<string>('');
-
-  // --- توابع بهینه شده با useCallback ---
-
   const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
     setAlertSeverity(severity);
-  }, []); // ✅ این تابع دیگر در هر رندر جدید ساخته نمی شود.
-
+  }, []);
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
-  }, []); // ✅ این تابع دیگر در هر رندر جدید ساخته نمی شود.
+  }, []);
 
-  // تابع getListUsers
   const getListUsers = useCallback(() => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
       navigate("/");
       return;
     }
 
     axios.get(server.baseurl + server.user + "get-users", {
-      headers: {
-        "Accept": "application/json",
-        "Authorization": `Bearer ${authToken}`
-      }
+      headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
     }).then((result) => {
-      debugger
       if (result.data.httpStatusCode === 200) {
         const formattedData = result.data.data.map((item: any) => ({
-          id: item.id,
+          id: String(item.id),
           username: item.username,
+          email: item.email,
           createAt: item.createAt,
           recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
           imageUrl: item.imageSrc || DEFAULT_IMAGE_URL,
-          roles: item.roles || [],
+          roles: (item.roles || []).map((role: any) => ({
+            id: String(role.id),
+            name: role.name,
+            recordStatus: role.recordStatus
+          })),
         }));
         setUsersList(formattedData as UserType[]);
       } else {
@@ -253,17 +238,14 @@ const ListUsers = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
-        console.error("Error fetching users list:", e);
-        showAlert('Kullanıcı listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        showAlert('Kullanıcı listesi alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
       }
     });
-  }, [navigate, showAlert]); // ✅ وابسته به navigate و showAlert
+  }, [navigate, showAlert]);
 
-  // تابع getListRoles
   const getListRoles = useCallback(async () => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
-      console.warn("No auth token found, cannot fetch roles.");
       return;
     }
     try {
@@ -274,28 +256,28 @@ const ListUsers = () => {
         }
       });
       if (response.data.httpStatusCode === 200) {
-        setAllRoles(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as RoleType[]);
+        setAllRoles(response.data.data.map((item: any) => ({
+          id: String(item.id),
+          name: item.name,
+          recordStatus: item.recordStatus
+        })) as RoleType[]);
       } else {
         showAlert(response.data.message || 'Roller alınırken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.error("Error fetching roles:", e);
+      console.log("Error fetching roles:", e);
       showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     }
-  }, [showAlert]); // ✅ وابسته به showAlert
-
-  // --- هندلرهای مربوط به مودال ها و سایر UI ---
+  }, [showAlert]);
 
   const handleClickMenu = useCallback((event: React.MouseEvent<HTMLButtonElement>, user: UserType) => {
     setAnchorEl(event.currentTarget);
     setSelectedUserForMenu(user);
   }, []);
-
   const handleCloseMenu = useCallback(() => {
     setAnchorEl(null);
     setSelectedUserForMenu(null);
   }, []);
-
   const handleClickOpenDeleteModal = useCallback(() => {
     if (selectedUserForMenu) {
       setUserIdToDelete(selectedUserForMenu.id);
@@ -307,7 +289,7 @@ const ListUsers = () => {
   const handleClickCloseDeleteModal = useCallback(() => {
     setOpenDeleteModal(false);
     setUserIdToDelete(null);
-    getListUsers(); // ✅ اینجا فراخوانی getListUsers باعث رفرش لیست می شود.
+    getListUsers();
   }, [getListUsers]);
 
   const handleClickOpenRoleModal = useCallback(() => {
@@ -321,7 +303,7 @@ const ListUsers = () => {
   const handleClickCloseRoleModal = useCallback(() => {
     setOpenRoleModal(false);
     setUserIdForRoleSelection(null);
-    getListUsers(); // ✅ اینجا فراخوانی getListUsers باعث رفرش لیست می شود.
+    getListUsers();
   }, [getListUsers]);
 
   const handleClickOpenChangePasswordModal = useCallback(() => {
@@ -349,9 +331,8 @@ const ListUsers = () => {
   const handleClickCloseOperationsModal = useCallback(() => {
     setOpenOperationsModal(false);
     setUserIdForOperationsSelection(null);
-    getListUsers(); // ✅ اینجا فراخوانی getListUsers باعث رفرش لیست می شود.
+    getListUsers();
   }, [getListUsers]);
-
 
   const generateRandomPass = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
@@ -402,10 +383,10 @@ const ListUsers = () => {
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
-      }, 5000); // 5000 milliseconds = 5 seconds
+      }, 5000);
     }
     return () => {
-      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+      clearTimeout(timer);
     };
   }, [alertMessage]);
 
@@ -418,7 +399,6 @@ const ListUsers = () => {
     setProfileImageUrl(DEFAULT_IMAGE_URL);
     setGenerateRandomPassword(false);
     setEditingUserId(null);
-
     setUsernameError(false);
     setUsernameHelperText('');
     setRoleError(false);
@@ -438,21 +418,17 @@ const ListUsers = () => {
   const handleEditItemClick = useCallback(() => {
     if (selectedUserForMenu) {
       setUsername(selectedUserForMenu.username);
-      setEditingUserId(Number(selectedUserForMenu.id));
-
+      setEditingUserId(selectedUserForMenu.id);
       setProfileImageUrl(selectedUserForMenu.imageUrl || DEFAULT_IMAGE_URL);
       setProfileImageBase64('');
-
       setPassword('');
       setConfirmPassword('');
       setGenerateRandomPassword(false);
-
       const currentRoleIds = selectedUserForMenu.roles.map(role => role.id);
       setSelectedRoles(currentRoleIds);
     }
     handleCloseMenu();
     clearAlert();
-
     setUsernameError(false);
     setUsernameHelperText('');
     setRoleError(false);
@@ -461,28 +437,15 @@ const ListUsers = () => {
     setPasswordHelperText('');
     setConfirmPasswordError(false);
     setConfirmPasswordHelperText('');
-
     setTimeout(() => {
       usernameFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       usernameFieldRef.current?.focus();
-
       if (passwordFieldRef.current) passwordFieldRef.current.value = '';
       if (confirmPasswordFieldRef.current) confirmPasswordFieldRef.current.value = '';
     }, 100);
   }, [selectedUserForMenu, handleCloseMenu, clearAlert]);
-
-
-  // توابع insertUser و editUser و sendStatusUpdate - چون اینها شامل منطق Axios و state هستند، useCallback برایشان پیچیده‌تر است
-  // و ممکن است نیاز به بازنگری dependencies داشته باشند. فعلا آنها را بدون useCallback می گذارم مگر اینکه
-  // مشخص شود که این توابع خودشان باعث لوپ هستند. اما فراخوانی getListUsers() در آنها باعث رفرش لیست می شود که مورد انتظار است.
-  // نکته: اگر این توابع (insertUser, editUser, sendStatusUpdate) به عنوان dependency برای useCallback های دیگر استفاده شوند،
-  // آنگاه باید آنها را نیز useCallback کنید و dependencies آنها را با دقت تنظیم کنید.
-  // در حال حاضر، به نظر نمی رسد این توابع به عنوان dependency به useCallback دیگری پاس داده شده باشند،
-  // مگر اینکه متغیرهای state که داخل آنها استفاده می شوند (مثل username, password, etc.) تغییر کنند.
-
   const insertUser = async () => {
     let hasValidationError = false;
-
     if (!username.trim()) {
       setUsernameError(true);
       setUsernameHelperText('Kullanıcı adı boş bırakılamaz.');
@@ -491,7 +454,6 @@ const ListUsers = () => {
       setUsernameError(false);
       setUsernameHelperText('');
     }
-
     if (editingUserId === null) {
       if (!password.trim()) {
         setPasswordError(true);
@@ -501,7 +463,6 @@ const ListUsers = () => {
         setPasswordError(false);
         setPasswordHelperText('');
       }
-
       if (!confirmPassword.trim()) {
         setConfirmPasswordError(true);
         setConfirmPasswordHelperText('Şifre tekrarı boş bırakılamaz.');
@@ -510,7 +471,6 @@ const ListUsers = () => {
         setConfirmPasswordError(false);
         setConfirmPasswordHelperText('');
       }
-
       if (password !== confirmPassword) {
         setPasswordError(true);
         setConfirmPasswordError(true);
@@ -526,7 +486,7 @@ const ListUsers = () => {
         }
       }
     }
-    if (selectedRoles.length == 0) {
+    if (selectedRoles.length === 0) {
       setRoleError(true);
       setRoleHelperText('rol seçilmelidir!');
       hasValidationError = true;
@@ -534,21 +494,17 @@ const ListUsers = () => {
       setRoleError(false);
       setRoleHelperText('');
     }
-
     if (hasValidationError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
-
     clearAlert();
-
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Lütfen giriş yapın.', 'warning');
       navigate("/");
       return;
     }
-
     const roleNamesToSend = allRoles
       .filter(role => selectedRoles.includes(role.id))
       .map(role => role.name);
@@ -585,7 +541,6 @@ const ListUsers = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Error inserting user:", e);
       showAlert((e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifre en az bir küçük harf içermelidir." :
         (e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifrede en az bir küçük harf bulunmalı." :
           (e.response?.data?.message == "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
@@ -614,9 +569,7 @@ const ListUsers = () => {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
-
     clearAlert();
-
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Lütfen giriş yapın.', 'warning');
@@ -625,21 +578,18 @@ const ListUsers = () => {
     }
 
     const updateData: {
-      id: number;
+      id: string;
       username: string;
       imageSrc?: string;
     } = {
       id: editingUserId,
       username: username,
     };
-
     if (profileImageBase64) {
       updateData.imageSrc = profileImageBase64;
     } else if (profileImageUrl === DEFAULT_IMAGE_URL && selectedUserForMenu?.imageUrl !== DEFAULT_IMAGE_URL) {
       updateData.imageSrc = "";
     }
-
-
     setLoadingButton(true);
     try {
       const response = await axios.put(
@@ -667,7 +617,6 @@ const ListUsers = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Error updating user:", e);
       showAlert((e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifre en az bir küçük harf içermelidir." :
         (e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifrede en az bir küçük harf bulunmalı." :
           (e.response?.data?.message == "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
@@ -687,7 +636,6 @@ const ListUsers = () => {
       navigate("/");
       return;
     }
-    debugger
     try {
       const response = await axios.put(
         server.baseurl + server.user + "update-user",
@@ -714,12 +662,11 @@ const ListUsers = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Error updating user status:", e);
       showAlert(e.response?.data?.message || 'Kullanıcı durumu güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
     }
-  }, [clearAlert, showAlert, navigate, getListUsers, handleCloseMenu]); // ✅ getListUsers اضافه شد
+  }, [clearAlert, showAlert, navigate, getListUsers, handleCloseMenu]);
 
   const handleStatusFilterChange = useCallback((
     event: React.MouseEvent<HTMLElement>,
@@ -730,6 +677,12 @@ const ListUsers = () => {
       setStatusFilter(newFilter);
       setPage(0);
     }
+  }, []);
+
+  const handleRoleFilterChange = useCallback((event: SelectChangeEvent<string>) => {
+    const newRoleId = event.target.value;
+    setSelectedRoleFilterId(newRoleId);
+    setPage(0);
   }, []);
 
   const handleChangePage = useCallback((event: unknown, newPage: number) => {
@@ -754,7 +707,6 @@ const ListUsers = () => {
     setPage(0);
   }, [order, orderBy]);
 
-
   const filteredUsers = useMemo(() => {
     return usersList.filter(user => {
       const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase());
@@ -762,10 +714,12 @@ const ListUsers = () => {
         statusFilter === 'all' ||
         (statusFilter === 'active' && user.recordStatus === 0) ||
         (statusFilter === 'inactive' && user.recordStatus === 1);
-      return matchesSearch && matchesStatus;
+      const matchesRole =
+        selectedRoleFilterId === 'all' ||
+        user.roles.some(role => role.id === selectedRoleFilterId && role.recordStatus === 0);
+      return matchesSearch && matchesStatus && matchesRole;
     });
-  }, [usersList, searchTerm, statusFilter]);
-
+  }, [usersList, searchTerm, statusFilter, selectedRoleFilterId]);
   const sortedAndFilteredUsers = useMemo(() => {
     return stableSort(filteredUsers, getComparator(order, orderBy));
   }, [filteredUsers, order, orderBy]);
@@ -774,14 +728,10 @@ const ListUsers = () => {
     return sortedAndFilteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   }, [sortedAndFilteredUsers, page, rowsPerPage]);
 
-
-  // --- useEffect اصلی برای واکشی اولیه داده‌ها ---
   useEffect(() => {
     getListUsers();
     getListRoles();
-  }, [getListUsers, getListRoles]); // ✅ اطمینان حاصل کنید که getListUsers و getListRoles در dependency array هستند
-
-
+  }, [getListUsers, getListRoles]);
   return (
     <>
       <div style={{
@@ -818,7 +768,6 @@ const ListUsers = () => {
                   />
                 </CustomTooltip>
               </Grid>
-
               {editingUserId === null && (
                 <>
                   <Grid item xs={12} md={6}>
@@ -843,12 +792,13 @@ const ListUsers = () => {
                             setConfirmPasswordError(true);
                             setConfirmPasswordHelperText('Şifreler eşleşmiyor!');
                             setPasswordError(true);
+                            setPasswordHelperText('Şifreler eşleşmiyor!');
                           } else {
-                            setConfirmPasswordError(false);
-                            setConfirmPasswordHelperText('');
-                            if (e.target.value === confirmPassword && e.target.value.trim() !== '') {
+                            if (passwordError || confirmPasswordError) {
                               setPasswordError(false);
                               setPasswordHelperText('');
+                              setConfirmPasswordError(false);
+                              setConfirmPasswordHelperText('');
                             }
                           }
                         }}
@@ -927,51 +877,50 @@ const ListUsers = () => {
                       />
                     </CustomTooltip>
                   </Grid>
-                  <Grid item xs={12} md={12}>
-                    <CustomFormLabel htmlFor="select-roles">Roller</CustomFormLabel>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
-                      <FormControl fullWidth
-                        error={roleError}>
-                        <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
-                        <Select
-                          labelId="roles-multiple-checkbox-label"
-                          id="select-roles"
-                          multiple
-                          value={selectedRoles}
-                          onChange={(e) => {
-                            setSelectedRoles(e.target.value as number[])
-                            if (roleError) {
-                              setRoleError(false);
-                              setRoleHelperText('');
-                            }
-                          }}
-                          input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
-                          renderValue={(selected) => (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => {
-                                const role = allRoles.find(r => r.id === value);
-                                return <Chip key={value} label={role ? role.name : ''} />;
-                              })}
-                            </Box>
-                          )}
-                          sx={{ width: '100%' }}
-                        >
-                          {allRoles.map((role) => (
-                            <MenuItem key={role.id} value={role.id}>
-                              <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
-                              <ListItemText primary={role.name} />
-                            </MenuItem>
-                          ))}
-                        </Select>
-                        {roleHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{roleHelperText}</Typography>}
-                      </FormControl>
-                    </CustomTooltip>
-                  </Grid>
                 </>
               )}
+              <Grid item xs={12} md={12}>
+                <CustomFormLabel htmlFor="select-roles">Roller</CustomFormLabel>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
+                  <FormControl fullWidth
+                    error={roleError}>
+                    <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
+                    <Select
+                      labelId="roles-multiple-checkbox-label"
+                      id="select-roles"
+                      multiple
+                      value={selectedRoles}
+                      onChange={(e: SelectChangeEvent<string[]>) => {
+                        setSelectedRoles(e.target.value as string[])
+                        if (roleError) {
+                          setRoleError(false);
+                          setRoleHelperText('');
+                        }
+                      }}
+                      input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => {
+                            const role = allRoles.find(r => r.id === value);
+                            return <Chip key={value} label={role ? role.name : ''} />;
+                          })}
+                        </Box>
+                      )}
+                      sx={{ width: '100%' }}
+                    >
+                      {allRoles.map((role) => (
+                        <MenuItem key={role.id} value={role.id}>
+                          <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
+                          <ListItemText primary={role.name} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    {roleHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{roleHelperText}</Typography>}
+                  </FormControl>
+                </CustomTooltip>
+              </Grid>
             </Grid>
           </Grid>
-
           <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
             <CardMedia
               component="img"
@@ -1041,11 +990,10 @@ const ListUsers = () => {
           </Stack>
         )}
       </div>
-
       <BlankCard>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6} md={8}>
+            <Grid item xs={12} sm={6} md={6}>
               <TextField
                 label="Kullanıcı Ara"
                 variant="outlined"
@@ -1061,8 +1009,25 @@ const ListUsers = () => {
                 }}
               />
             </Grid>
-
-
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel id="role-filter-label">Rol Fİltrele</InputLabel>
+                <Select
+                  labelId="role-filter-label"
+                  id="role-filter-select"
+                  value={selectedRoleFilterId}
+                  label="Rol Fİltrele"
+                  onChange={handleRoleFilterChange}
+                >
+                  <MenuItem value="all">Tümü</MenuItem>
+                  {allRoles.filter(role => role.recordStatus === 0).map(role => (
+                    <MenuItem key={role.id} value={role.id}> {/* role.id is string */}
+                      {role.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -1071,38 +1036,31 @@ const ListUsers = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                {/* ✅ تغییر: استفاده از StyledToggleButton به جای ToggleButton معمولی */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="all"
                   aria-label="all units"
                 >
                   Tümü
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="active"
                   aria-label="active units"
                 >
                   Aktif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="inactive"
                   aria-label="inactive units"
                 >
                   Pasif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>
         </Box>
         <TableContainer>
           <Table aria-label="user table">
-            <TableHead style={{ background: "#f1f1f1" }}>
+            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
                 <TableCell
                   style={{ color: "#171c23" }}>
@@ -1161,26 +1119,50 @@ const ListUsers = () => {
                       <Typography variant="h6">{row.username}</Typography>
                     </TableCell>
                     <TableCell>
-                      {row.roles && row.roles.length > 0 ? (
-                        row.roles.map((role, index) => (
+                      <Stack direction="row" flexWrap="wrap" spacing={0.5}>
+                        {row.roles && row.roles.length > 0 ? (
+                          row.roles.map((role, index) => {
+                            const isRoleInactive = role.recordStatus === 1;
+
+                            const chipSx = {
+                              mr: 0.5,
+                              mb: 0.5,
+                              backgroundColor: isRoleInactive ? theme.palette.error.light : undefined,
+                              color: isRoleInactive ? theme.palette.error.main : undefined,
+                              border: isRoleInactive ? `1px solid ${theme.palette.error.main}` : 'none',
+                              opacity: isRoleInactive ? 0.7 : 1,
+                            };
+
+                            const tooltipTitle = isRoleInactive
+                              ? `Bu rol (${role.name}) şu anda aktif değil.`
+                              : "";
+
+                            return (
+                              <CustomTooltip
+                                key={role.id || index}
+                                title={tooltipTitle}
+                                disableHoverListener={!isRoleInactive && !isTooltipGloballyEnabled}
+                              >
+                                <Chip
+                                  label={role.name}
+                                  size="small"
+                                  sx={chipSx}
+                                />
+                              </CustomTooltip>
+                            );
+                          })
+                        ) : (
                           <Chip
-                            key={role.id || index}
-                            label={role.name}
+                            label="Rol Yok"
                             size="small"
-                            sx={{ mr: 0.5, mb: 0.5 }}
+                            sx={{
+                              mr: 0.5, mb: 0.5,
+                              backgroundColor: (theme) => theme.palette.grey[300],
+                              color: (theme) => theme.palette.text.secondary
+                            }}
                           />
-                        ))
-                      ) : (
-                        <Chip
-                          label="Rol Yok"
-                          size="small"
-                          sx={{
-                            mr: 0.5, mb: 0.5,
-                            backgroundColor: (theme) => theme.palette.error.dark,
-                            color: (theme) => theme.palette.error.contrastText
-                          }}
-                        />
-                      )}
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell>
                       <Typography variant="h6">{formatDate(row.createAt)}</Typography>

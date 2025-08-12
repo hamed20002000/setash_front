@@ -693,7 +693,7 @@ const SystemRole = () => {
         </Box>
         <TableContainer>
           <Table aria-label="simple table">
-            <TableHead style={{ background: "#f1f1f1" }}>
+            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
                 <TableCell>
                   <TableSortLabel

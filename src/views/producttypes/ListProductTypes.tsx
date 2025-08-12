@@ -1,17 +1,16 @@
 // ListProductTypes.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react"; // Added useRef here
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
     Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-    ToggleButtonGroup, ToggleButton as MuiToggleButton, // Renamed ToggleButton to MuiToggleButton
+    ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel,
 } from '@mui/material';
-import { styled } from '@mui/material/styles'; // Import styled
-
+import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../components/shared/BlankCard';
 import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
@@ -23,18 +22,15 @@ import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteProductTypes from './DeleteProductType';
 import axios from 'axios';
 import server from '../../assets/address.json';
-
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 interface ProductTypesType {
     id: number;
     name: string;
     createAt: string;
-    recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
-    status: string; // وضعیت متنی
+    recordStatus?: number;
+    status: string;
 }
-
-// وضعیت فیلتر برای ToggleButtonGroup
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -58,10 +54,7 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
-
 const MOCK_UNITS: ProductTypesType[] = [];
-
-// Helper functions for sorting - placed outside the component for reusability
 const descendingComparator = <T, Key extends keyof T>(
     a: T,
     b: T,
@@ -69,23 +62,18 @@ const descendingComparator = <T, Key extends keyof T>(
 ): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
-
-    // Handle undefined/null values by pushing them to the end (or beginning) of the sort order
     if (valB === undefined || valB === null) {
         return valA === undefined || valA === null ? 0 : -1;
     }
     if (valA === undefined || valA === null) {
         return 1;
     }
-
-    // Specific handling for string and number types
     if (typeof valB === 'string' && typeof valA === 'string') {
         return valB.localeCompare(valA);
     }
     if (typeof valB === 'number' && typeof valA === 'number') {
         return valB - valA;
     }
-    // Fallback to string comparison for other types or mixed types
     if (String(valB) < String(valA)) {
         return -1;
     }
@@ -94,7 +82,6 @@ const descendingComparator = <T, Key extends keyof T>(
     }
     return 0;
 };
-
 const getComparator = <Key extends keyof ProductTypesType>(
     order: 'asc' | 'desc',
     orderBy: Key,
@@ -103,7 +90,6 @@ const getComparator = <Key extends keyof ProductTypesType>(
         ? (a, b) => descendingComparator(a, b, orderBy)
         : (a, b) => -descendingComparator(a, b, orderBy);
 };
-
 const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
     stabilizedThis.sort((a, b) => {
@@ -113,60 +99,38 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-
-
 const ListProductTypes = () => {
     const navigate = useNavigate();
-
     const [name, setName] = useState<string>('');
     const [ProductTypesList, setProductTypesList] = useState<ProductTypesType[]>(MOCK_UNITS);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [originalName, setOriginalName] = useState<string>('');
-
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<ProductTypesType | null>(null);
-
     const openMenu = Boolean(anchorEl);
-
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [ProductTypesIdToDelete, setProductTypesIdToDelete] = useState<number | null>(null);
-
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
-
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
-
     const { isTooltipGloballyEnabled } = useTooltip();
-
-    // وضعیت فیلتر: all, active, inactive
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-
-    // State برای مرتب‌سازی
-    const [orderBy, setOrderBy] = useState<keyof ProductTypesType>('createAt'); // ستون مرتب‌سازی پیش‌فرض
-    const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // جهت مرتب‌سازی پیش‌فرض
-
-    // Ref برای فیلد ورودی نام ProductTypes
+    const [orderBy, setOrderBy] = useState<keyof ProductTypesType>('createAt');
+    const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const ProductTypesNameInputRef = useRef<HTMLInputElement>(null);
-
-    // New states for input validation error
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
-
-
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: ProductTypesType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
     };
-
     const handleCloseMenu = () => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
     };
-
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
             setProductTypesIdToDelete(selectedRowForMenu.id);
@@ -174,32 +138,27 @@ const ListProductTypes = () => {
         }
         handleCloseMenu();
     };
-
     const handleClickCloseDeleteModal = () => {
         setOpenDeleteModal(false);
         setProductTypesIdToDelete(null);
         getListProductTypes();
     };
-
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
     };
-
     const clearAlert = () => {
         setAlertMessage(null);
     };
-
-    // useEffect for auto-closing Alert
     useEffect(() => {
         let timer: NodeJS.Timeout;
         if (alertMessage) {
             timer = setTimeout(() => {
                 clearAlert();
-            }, 5000); // 5000 milliseconds = 5 seconds
+            }, 5000);
         }
         return () => {
-            clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+            clearTimeout(timer);
         };
     }, [alertMessage]);
 
@@ -208,48 +167,37 @@ const ListProductTypes = () => {
             setName(selectedRowForMenu.name);
             setOriginalName(selectedRowForMenu.name);
             setEditingId(selectedRowForMenu.id);
-
-            // Clear input validation errors when editing
             setNameError(false);
             setNameHelperText('');
-
-            // Scroll to the ProductTypes name input and focus
             setTimeout(() => {
                 ProductTypesNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 ProductTypesNameInputRef.current?.focus();
-            }, 100); // Small delay to ensure DOM update
+            }, 100);
         }
         handleCloseMenu();
         clearAlert();
     };
-
     const handleCancelEdit = () => {
         resetFormAndState();
         clearAlert();
-        // Clear input validation errors
         setNameError(false);
         setNameHelperText('');
     };
-
     const insertProductTypes = async () => {
         if (!name.trim()) {
-            setNameError(true); // Set error state to true
-            setNameHelperText('İsim boş olamaz!'); // Set helper text
+            setNameError(true);
+            setNameHelperText('İsim boş olamaz!');
             showAlert('İsim boş olamaz!', 'warning');
             return;
         }
-        setNameError(false); // Clear error if valid
-        setNameHelperText(''); // Clear helper text if valid
-
+        setNameError(false);
+        setNameHelperText('');
         clearAlert();
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
-            console.warn("No auth token found, redirecting to login.");
             navigate("/");
             return;
         }
-
         setLoadingButton(true);
         try {
             const response = await axios.post(
@@ -276,41 +224,33 @@ const ListProductTypes = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("Error inserting ProductTypes:", e);
             showAlert(e.response?.data?.message || 'Direk eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
-
-
     const editProductTypes = async () => {
         if (editingId === null) return;
         if (!name.trim()) {
-            setNameError(true); // Set error state to true
-            setNameHelperText('İsim boş olamaz!'); // Set helper text
+            setNameError(true);
+            setNameHelperText('İsim boş olamaz!');
             showAlert('İsim boş olamaz!', 'warning');
             return;
         }
-        setNameError(false); // Clear error if valid
-        setNameHelperText(''); // Clear helper text if valid
-
+        setNameError(false);
+        setNameHelperText('');
         clearAlert();
-
         if (name === originalName) {
             showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
             resetFormAndState();
             return;
         }
-
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
             navigate("/");
             return;
         }
-
         setLoadingButton(true);
         try {
             const response = await axios.put(
@@ -340,18 +280,15 @@ const ListProductTypes = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("Error updating ProductTypes:", e);
             showAlert(e.response?.data?.message || 'Direk güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
     }
 
-
     const sendStatusUpdate = async (id: number, statusValue: number) => {
         clearAlert();
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
             navigate("/");
@@ -369,7 +306,6 @@ const ListProductTypes = () => {
                     }
                 }
             );
-
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
                 showAlert(`Direk başarıyla ${statusText} olarak ayarlandı!`, 'success');
@@ -384,7 +320,6 @@ const ListProductTypes = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("Error updating status:", e);
             showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             handleCloseMenu();
@@ -392,26 +327,21 @@ const ListProductTypes = () => {
     };
     const handleSetActive = () => {
         if (selectedRowForMenu) {
-            sendStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
+            sendStatusUpdate(selectedRowForMenu.id, 0);
         }
     };
-
     const handleSetInactive = () => {
         if (selectedRowForMenu) {
-            sendStatusUpdate(selectedRowForMenu.id, 1); // 1 for Pasif
+            sendStatusUpdate(selectedRowForMenu.id, 1);
         }
     };
-
     const resetFormAndState = () => {
         setName('');
         setEditingId(null);
         setOriginalName('');
-        // Clear input validation errors
         setNameError(false);
         setNameHelperText('');
     };
-
-    // already defined, moved to top for clarity
     const formatDate = (dateString: string): string => {
         try {
             const date = new Date(dateString);
@@ -420,21 +350,17 @@ const ListProductTypes = () => {
             const day = String(date.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         } catch (e) {
-            console.error("Error formatting date:", e);
+            console.log("Error formatting date:", e);
             return "Geçersiz Tarih";
         }
     };
 
-
     function getListProductTypes() {
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
-            console.warn("No auth token found, redirecting to login.");
             navigate("/");
             return;
         }
-
         axios.request({
             baseURL: server.baseurl + server.initialoperations + "get-product-types",
             method: "get",
@@ -446,23 +372,22 @@ const ListProductTypes = () => {
             if (result.data.httpStatusCode === 200) {
                 const formattedData = result.data.data.map((item: any) => ({
                     id: item.id,
-                    name: item.name, // Assuming 'name' from API corresponds to 'name' in ProductTypesType
+                    name: item.name,
                     recordStatus: item.recordStatus,
                     createAt: item.createAt,
                     status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
                 }));
                 setProductTypesList(formattedData as ProductTypesType[]);
             } else {
-                showAlert(result.data.message || 'لیست انواع محصول دریافت نشد.', 'error');
+                showAlert(result.data.message || 'Ürün türleri listesi alınamadı.', 'error');
             }
         }).catch((e) => {
             if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
-                showAlert('جلسه شما منقضی شده یا مجاز نیستید. لطفا دوباره وارد شوید.', 'error');
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                console.error("Error fetching ProductTypes list:", e);
-                showAlert('خطا در دریافت لیست انواع محصول، لطفا دوباره تلاش کنید.', 'error');
+                showAlert('Ürün türleri listesi alınırken bir hata oluştu.', 'error');
             }
         });
     }
@@ -477,7 +402,7 @@ const ListProductTypes = () => {
         if (newFilter !== null) {
             console.log(event)
             setStatusFilter(newFilter);
-            setPage(0); // مهم: با تغییر فیلتر، صفحه را به 0 بازنشانی کنید
+            setPage(0);
         }
     };
 
@@ -498,12 +423,11 @@ const ListProductTypes = () => {
         setPage(0);
     };
 
-    // Handler for changing sort order
     const handleRequestSort = (property: keyof ProductTypesType) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
-        setPage(0); // Reset to first page when sort changes
+        setPage(0);
     };
 
     const filteredProductTypes = ProductTypesList.filter(ProductTypes => {
@@ -514,13 +438,8 @@ const ListProductTypes = () => {
             (statusFilter === 'inactive' && ProductTypes.recordStatus === 1);
         return matchesSearch && matchesStatus;
     });
-
-    // Apply sorting to filtered data
     const sortedAndFilteredProductTypes = stableSort(filteredProductTypes, getComparator(order, orderBy));
-
     const paginatedProductTypes = sortedAndFilteredProductTypes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-
     return (
         <>
             <div style={{
@@ -542,9 +461,9 @@ const ListProductTypes = () => {
                             value={name}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                 setName(e.target.value);
-                                if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
-                                    setNameError(false); // Clear the error
-                                    setNameHelperText(''); // Clear the helper text
+                                if (nameError && e.target.value.trim()) {
+                                    setNameError(false);
+                                    setNameHelperText('');
                                 }
                             }}
                             inputRef={ProductTypesNameInputRef}
@@ -629,37 +548,31 @@ const ListProductTypes = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Direkleri göster" : ""}> */}
-                                <StyledToggleButton // استفاده از StyledToggleButton
+                                <StyledToggleButton
                                     value="all"
                                     aria-label="all ProductTypes"
                                 >
                                     Tümü
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif Direkleri göster" : ""}> */}
-                                <StyledToggleButton // استفاده از StyledToggleButton
+                                <StyledToggleButton
                                     value="active"
                                     aria-label="active ProductTypes"
                                 >
                                     Aktif
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif Direkleri göster" : ""}> */}
-                                <StyledToggleButton // استفاده از StyledToggleButton
+                                <StyledToggleButton
                                     value="inactive"
                                     aria-label="inactive ProductTypes"
                                 >
                                     Pasif
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
                 </Box>
                 <TableContainer>
                     <Table aria-label="ProductTypes table">
-                        <TableHead style={{ background: "#f1f1f1" }}>
+                        <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 <TableCell>
                                     <TableSortLabel

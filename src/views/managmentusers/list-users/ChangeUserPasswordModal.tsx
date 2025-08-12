@@ -14,7 +14,7 @@ import {
   Typography,
   Box,
 } from '@mui/material';
-import { IconCopy, IconBrandWhatsapp, IconChecks } from '@tabler/icons-react'; // ✅ Import IconCheck or IconChecks for the double-tick
+import { IconCopy, IconBrandWhatsapp, IconChecks } from '@tabler/icons-react';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 
@@ -23,46 +23,36 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 type Props = {
   openModal: boolean;
   onClose: () => void;
-  userId: string | null; // در اینجا نام کاربری (username) دریافت می شود
+  userId: string | null;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
 const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Props) => {
-  const [step, setStep] = useState<'confirm' | 'generate'>('confirm'); // مرحله فعلی مودال
-  const [generatedPassword, setGeneratedPassword] = useState<string>(''); // رمز عبور تولید شده
-  const [loading, setLoading] = useState<boolean>(false); // برای لودینگ دکمه‌ها
-  // const [copySuccess, setCopySuccess] = useState<boolean>(false);
-  // ✅ اضافه شد: وضعیت جدید برای مدیریت نمایش آیکون کپی
-  const [copyIconState, setCopyIconState] = useState<'copy' | 'copied'>('copy'); // 'copy' برای IconCopy و 'copied' برای IconChecks
-
-  const { isTooltipGloballyEnabled } = useTooltip(); // برای Tooltip سراسری
-
-  // ریست کردن state هنگام باز شدن مودال
+  const [step, setStep] = useState<'confirm' | 'generate'>('confirm');
+  const [generatedPassword, setGeneratedPassword] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [copyIconState, setCopyIconState] = useState<'copy' | 'copied'>('copy');
+  const { isTooltipGloballyEnabled } = useTooltip();
   useEffect(() => {
     if (openModal) {
       setStep('confirm');
       setGeneratedPassword('');
       setLoading(false);
-      // setCopySuccess(false);
-      setCopyIconState('copy'); // ✅ ریست کردن وضعیت آیکون کپی
+      setCopyIconState('copy');
     }
   }, [openModal]);
-
-  // ✅ useEffect برای مدیریت تایمر بازگشت آیکون کپی
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (openModal && copyIconState === 'copied') {
       timer = setTimeout(() => {
-        setCopyIconState('copy'); // بازگشت به حالت کپی
-      }, 10000); // 10 ثانیه
+        setCopyIconState('copy');
+      }, 10000);
     }
     return () => {
-      clearTimeout(timer); // پاک کردن تایمر در صورت بسته شدن مودال یا تغییر وضعیت
+      clearTimeout(timer);
     };
   }, [openModal, copyIconState]);
 
-
-  // --- مرحله تأیید ---
   const handleConfirmReset = async () => {
     if (userId === null) {
       showAlert('Kullanıcı seçilmedi!', 'error');
@@ -79,10 +69,9 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
     }
 
     try {
-      // ارسال درخواست به API reset-user-password
       const response = await axios.post(
         server.baseurl + server.user + "reset-user-password",
-        { username: userId }, // ارسال نام کاربری
+        { username: userId },
         {
           headers: {
             "Accept": "application/json",
@@ -92,13 +81,11 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
         }
       );
 
-      if (response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201) {debugger
-        // اگر سرور پسورد جدید رو برمی‌گردونه، از اون استفاده کن
-        // در غیر این صورت، ما خودمان یک پسورد تصادفی تولید می‌کنیم.
+      if (response.data.httpStatusCode === 200 || response.data.httpStatusCode === 201) {
         const newRandomPassword = response.data.data;
         setGeneratedPassword(newRandomPassword);
-        setStep('generate'); // به مرحله تولید و نمایش پسورد برو
-        showAlert('Şifre sıfırlama talebi gönderildi.', 'info'); // پیغام اولیه
+        setStep('generate');
+        showAlert('Şifre sıfırlama talebi gönderildi.', 'info');
       } else {
         showAlert(response.data.message || 'Şifre sıfırlanırken bir hata oluştu.', 'error');
         onClose();
@@ -113,15 +100,11 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
     }
   };
 
-
-  // --- مرحله تولید و نمایش پسورد ---
   const handleCopyPassword = () => {
     navigator.clipboard.writeText(generatedPassword)
       .then(() => {
-        // setCopySuccess(true);
-        setCopyIconState('copied'); // ✅ تغییر وضعیت آیکون به "کپی شد"
+        setCopyIconState('copied');
         showAlert('Şifre panoya kopyalandı!', 'success');
-        // setTimeout(() => setCopySuccess(false), 2000); // ❌ این خط دیگر نیازی نیست، چون useEffect بالا این کار را انجام می‌دهد
       })
       .catch(err => {
         console.error('Şifre kopyalanamadı:', err);
@@ -132,8 +115,6 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
   const handleShareOnWhatsApp = () => {
     const message = `Merhaba ${userId},\nYeni şifreniz: ${generatedPassword}\nLütfen güvenli bir yerde saklayın.`;
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    // `wa.me/PHONE_NUMBER?text=` اگر شماره تلفن کاربر را دارید
-    // `wa.me/?text=` برای باز کردن واتساپ بدون شماره و اجازه انتخاب مخاطب به کاربر
 
     window.open(whatsappUrl, '_blank');
     showAlert('Şifre WhatsApp üzerinden paylaşılmaya hazır.', 'info');
@@ -160,12 +141,12 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
               variant="outlined"
               value={generatedPassword}
               InputProps={{
-                readOnly: true, // فقط خواندنی
+                readOnly: true,
                 endAdornment: (
                   <InputAdornment position="end">
-                    <CustomTooltip title={isTooltipGloballyEnabled ? (copyIconState === 'copied' ? "Kopyalandı!" : "Panoya Kopyala") : ""}> 
+                    <CustomTooltip title={isTooltipGloballyEnabled ? (copyIconState === 'copied' ? "Kopyalandı!" : "Panoya Kopyala") : ""}>
                       <IconButton onClick={handleCopyPassword} edge="end" disabled={loading}>
-                        {copyIconState === 'copied' ? <IconChecks size={20} color="green" /> : <IconCopy size={20} />} 
+                        {copyIconState === 'copied' ? <IconChecks size={20} color="green" /> : <IconCopy size={20} />}
                       </IconButton>
                     </CustomTooltip>
                   </InputAdornment>
@@ -205,7 +186,6 @@ const ChangeUserPasswordModal = ({ openModal, onClose, userId, showAlert }: Prop
             </CustomTooltip>
           </>
         ) : (
-          // بعد از تولید پسورد، دکمه بستن نهایی
           <CustomTooltip title={isTooltipGloballyEnabled ? "Modali kapat" : ""}>
             <Button onClick={onClose} color="primary" variant="contained">
               Kapat

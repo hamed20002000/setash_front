@@ -663,7 +663,7 @@ const ListUnit = () => {
         </Box>
         <TableContainer>
           <Table aria-label="unit table">
-            <TableHead style={{ background: "#f1f1f1" }}>
+            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
                 <TableCell>
                   {/* ✅ Added: TableSortLabel for 'İsim' (Name) column */}

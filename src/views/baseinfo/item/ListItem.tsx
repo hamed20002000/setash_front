@@ -44,6 +44,7 @@ interface ItemType {
   abbreviation: string;
   recordStatus: number;
   createAt: string;
+  weight: number | null; // ✅ اضافه شده: فیلد وزن
   category: {
     id: string;
     name: string;
@@ -57,7 +58,7 @@ interface ItemType {
     recordStatus: number;
     createAt: string;
   };
-  status?: string; // This property is derived, ensure it can be sorted if needed
+  status?: string;
 }
 
 interface UnitOptionType {
@@ -265,7 +266,7 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
   );
 };
 
-type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title';
+type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title' | 'weight';
 
 const descendingComparator = <T,>(
   a: T,
@@ -282,6 +283,9 @@ const descendingComparator = <T,>(
   } else if (orderBy === 'unit.title') {
     valA = (a as ItemType).unit?.title;
     valB = (b as ItemType).unit?.title;
+  } else if (orderBy === 'weight') { // ✅ اضافه شده: مقایسه وزن
+    valA = (a as ItemType).weight;
+    valB = (b as ItemType).weight;
   } else {
     // For top-level properties, use direct access
     valA = a[orderBy as keyof T]; // Cast orderBy back to keyof T for direct access
@@ -347,6 +351,7 @@ const ListItemComponent = () => {
 
   const [abbreviation, setAbbreviation] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [weight, setWeight] = useState<number | ''>(''); // ✅ اضافه شده: استیت برای وزن
 
   const [unitOptions, setUnitOptions] = useState<UnitOptionType[]>([]);
   const [allCategoriesFlat, setAllCategoriesFlat] = useState<FlatCategoryType[]>([]);
@@ -402,6 +407,8 @@ const ListItemComponent = () => {
   const [abbreviationHelperText, setAbbreviationHelperText] = useState<string>('');
   const [descriptionError, setDescriptionError] = useState<boolean>(false);
   const [descriptionHelperText, setDescriptionHelperText] = useState<string>('');
+  const [weightError, setWeightError] = useState<boolean>(false); // ✅ اضافه شده: استیت خطا
+  const [weightHelperText, setWeightHelperText] = useState<string>(''); // ✅ اضافه شده: متن راهنما برای خطا
 
 
   const categoryTreeForSelect = useMemo(() => {
@@ -479,6 +486,7 @@ const ListItemComponent = () => {
     setSelectedCategoryId(null);
     setAbbreviation('');
     setDescription('');
+    setWeight(''); // ✅ اضافه شده: ریست کردن وزن
     setEditingId(null);
     setUnitSearchTerm('');
     setCategorySearchTerm('');
@@ -495,6 +503,8 @@ const ListItemComponent = () => {
     setAbbreviationHelperText('');
     setDescriptionError(false);
     setDescriptionHelperText('');
+    setWeightError(false); // ✅ اضافه شده: ریست کردن خطا
+    setWeightHelperText(''); // ✅ اضافه شده: ریست کردن متن خطا
   };
 
   const handleEditClick = () => {
@@ -505,6 +515,7 @@ const ListItemComponent = () => {
       setSelectedCategoryId(selectedRowForMenu.category.id);
       setAbbreviation(selectedRowForMenu.abbreviation);
       setDescription(selectedRowForMenu.description);
+      setWeight(selectedRowForMenu.weight || ''); // ✅ اضافه شده: بارگذاری وزن
       setEditingId(selectedRowForMenu.id);
 
       // **Clear all validation error states when editing**
@@ -518,6 +529,9 @@ const ListItemComponent = () => {
       setAbbreviationHelperText('');
       setDescriptionError(false);
       setDescriptionHelperText('');
+      setWeightError(false); // ✅ اضافه شده: ریست کردن خطا
+      setWeightHelperText(''); // ✅ اضافه شده: ریست کردن متن خطا
+
 
       // ✅ Added: Scroll to the item name input and focus
       setTimeout(() => {
@@ -567,31 +581,6 @@ const ListItemComponent = () => {
       setCategoryIdHelperText('');
     }
 
-    // Validate Abbreviation
-    // if (!abbreviation.trim()) {
-    //   setAbbreviationError(true);
-    //   setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
-    //   hasError = true;
-    // } else if (abbreviation.length !== 4) {
-    //   setAbbreviationError(true);
-    //   setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
-    //   hasError = true;
-    // } else {
-    //   setAbbreviationError(false);
-    //   setAbbreviationHelperText('');
-    // }
-
-    // Validate Description
-    // if (!description.trim() || description === '<p><br></p>') { // Check for empty or just a line break from Quill
-    //   setDescriptionError(true);
-    //   setDescriptionHelperText('Açıklama boş bırakılamaz!');
-    //   hasError = true;
-    // } else {
-    //   setDescriptionError(false);
-    //   setDescriptionHelperText('');
-    // }
-
-
     if (hasError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
@@ -614,9 +603,10 @@ const ListItemComponent = () => {
         {
           name,
           description,
-          abbreviation: abbreviation == "" ? null : abbreviation,
+          abbreviation: abbreviation === "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
-          itemUnitId: Number(selectedUnitId) // Use selectedUnitId, renamed as per API spec
+          itemUnitId: Number(selectedUnitId), // Use selectedUnitId, renamed as per API spec
+          weight: weight === '' ? null : weight, // ✅ اضافه شده: ارسال وزن
         },
         {
           headers: {
@@ -682,30 +672,6 @@ const ListItemComponent = () => {
       setCategoryIdHelperText('');
     }
 
-    // Validate Abbreviation
-    // if (!abbreviation.trim()) {
-    //   setAbbreviationError(true);
-    //   setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
-    //   hasError = true;
-    // } else if (abbreviation.length !== 4) {
-    //   setAbbreviationError(true);
-    //   setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
-    //   hasError = true;
-    // } else {
-    //   setAbbreviationError(false);
-    //   setAbbreviationHelperText('');
-    // }
-
-    // Validate Description
-    // if (!description.trim() || description === '<p><br></p>') {
-    //   setDescriptionError(true);
-    //   setDescriptionHelperText('Açıklama boş bırakılamaz!');
-    //   hasError = true;
-    // } else {
-    //   setDescriptionError(false);
-    //   setDescriptionHelperText('');
-    // }
-
     if (hasError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
@@ -713,7 +679,8 @@ const ListItemComponent = () => {
 
     if (name === originalName && selectedUnitId === selectedRowForMenu?.unit.id
       && selectedCategoryId === selectedRowForMenu?.category.id
-      && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description) {
+      && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description
+      && weight === selectedRowForMenu?.weight) { // ✅ اضافه شده: بررسی تغییرات وزن
       showAlert('Herhangi bir değişiklik yapmadınız.', 'info');
       resetFormAndState();
       return;
@@ -737,9 +704,10 @@ const ListItemComponent = () => {
           id: Number(editingId),
           newName: name,
           description,
-          abbreviation: abbreviation == "" ? null : abbreviation,
+          abbreviation: abbreviation === "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
-          itemUnitId: Number(selectedUnitId) // Use selectedUnitId, renamed as per API spec
+          itemUnitId: Number(selectedUnitId), // Use selectedUnitId, renamed as per API spec
+          weight: weight === '' ? null : weight, // ✅ اضافه شده: ارسال وزن
         },
         {
           headers: {
@@ -830,47 +798,6 @@ const ListItemComponent = () => {
       sendStatusUpdate(selectedRowForMenu.id, 1);
     }
   };
-
-  // const getUnitOptions = async () => {
-  //   setLoadingUnits(true);
-  //   const authToken = localStorage.getItem('authToken');
-  //   if (!authToken) {
-  //     console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
-  //     navigate("/");
-  //     showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     setLoadingUnits(false);
-  //     return;
-  //   }
-  //   try {
-  //     const response = await axios.get(server.baseurl + server.baseinfo + "get-item-units", {
-  //       headers: {
-  //         "Accept": "application/json",
-  //         "Authorization": `Bearer ${authToken}`
-  //       }
-  //     });
-  //     if (response.data && response.data.success) {
-  //       setUnitOptions(response.data.data.map((unit: any) => ({
-  //         id: unit.id,
-  //         title: unit.title
-  //       })));
-  //     } else {
-  //       console.error("Failed to fetch units:", response.data.message);
-  //       showAlert('Ölçüler yüklenirken hata oluştu.', 'error');
-  //     }
-  //   } catch (e: any) {
-  //     if (e.response && e.response.status === 401) {
-  //       localStorage.removeItem('authToken');
-  //       navigate("/");
-  //       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     } else {
-  //       console.error("Error fetching units:", e);
-  //       showAlert('Ölçüler sunucudan alınamadı.', 'error');
-  //     }
-  //   } finally {
-  //     setLoadingUnits(false);
-  //   }
-  // };
-
   const getUnitOptions = async () => {
     setLoadingUnits(true);
     const authToken = localStorage.getItem('authToken');
@@ -912,44 +839,6 @@ const ListItemComponent = () => {
       setLoadingUnits(false);
     }
   };
-  // const getAllCategories = async () => {
-  //   setLoadingCategories(true);
-  //   const authToken = localStorage.getItem('authToken');
-  //   if (!authToken) {
-  //     console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
-  //     navigate("/");
-  //     showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     setLoadingCategories(false);
-  //     return;
-  //   }
-  //   try {
-  //     const response = await axios.get(server.baseurl + server.baseinfo + "get-categories", {
-  //       headers: {
-  //         "Accept": "application/json",
-  //         "Authorization": `Bearer ${authToken}`
-  //       }
-  //     });
-  //     if (response.data && response.data.success) {
-  //       const flattened = flattenCategories(response.data.data);
-  //       setAllCategoriesFlat(flattened);
-  //     } else {
-  //       console.error("Failed to fetch categories:", response.data.message);
-  //       showAlert('Kategoriler yüklenirken hata oluştu.', 'error');
-  //     }
-  //   } catch (e: any) {
-  //     if (e.response && e.response.status === 401) {
-  //       localStorage.removeItem('authToken');
-  //       navigate("/");
-  //       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     } else {
-  //       console.error("Error fetching categories:", e);
-  //       showAlert('Kategoriler sunucudan alınamadı.', 'error');
-  //     }
-  //   } finally {
-  //     setLoadingCategories(false);
-  //   }
-  // };
-
   const getAllCategories = async () => {
     setLoadingCategories(true);
     const authToken = localStorage.getItem('authToken');
@@ -1038,7 +927,7 @@ const ListItemComponent = () => {
           description: item.description,
           abbreviation: item.abbreviation,
           recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0, // Provide a default
-
+          weight: item.weight !== undefined ? item.weight : null, // ✅ اضافه شده: دریافت وزن از API
           createAt: item.createAt,
           category: {
             id: item.category.id,
@@ -1129,7 +1018,7 @@ const ListItemComponent = () => {
   };
 
   // ✅ Added: Handler for changing sort order
-  const handleRequestSort = (property: keyof ItemType | 'category.name' | 'unit.title') => {
+  const handleRequestSort = (property: keyof ItemType | 'category.name' | 'unit.title' | 'weight') => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
@@ -1141,7 +1030,8 @@ const ListItemComponent = () => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.abbreviation.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.unit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.name.toLowerCase().includes(searchTerm.toLowerCase());
+      item.category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.weight !== null && item.weight.toString().includes(searchTerm)); // ✅ اضافه شده: فیلتر کردن بر اساس وزن
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'active' && item.recordStatus === 0) ||
@@ -1328,7 +1218,7 @@ const ListItemComponent = () => {
             {/* </CustomTooltip> */}
           </Grid>
           {/* Abbreviation */}
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={3}>
             <CustomFormLabel htmlFor="abbreviation">Kısaltma (4 Karakter)</CustomFormLabel>
             <CustomTooltip title={isTooltipGloballyEnabled ? "Ürünün 4 karakterlik kısaltmasını girin" : ""}>
               <CustomTextField
@@ -1348,6 +1238,30 @@ const ListItemComponent = () => {
                 helperText={abbreviationHelperText}
               />
             </CustomTooltip>
+          </Grid>
+          {/* ✅ اضافه شده: Weight */}
+          <Grid item xs={12} md={3}>
+            <CustomFormLabel htmlFor="weight">Ürün Birim Ağırlığı</CustomFormLabel>
+            <CustomTextField
+              id="weight"
+              placeholder="Ağırlık"
+              fullWidth
+              type="number"
+              value={weight}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                const value = e.target.value;
+                if (value === '' || !isNaN(Number(value))) {
+                  setWeight(value === '' ? '' : Number(value));
+                }
+                if (weightError && value.trim()) {
+                  setWeightError(false);
+                  setWeightHelperText('');
+                }
+              }}
+              inputProps={{ min: 0, step: "0.01" }}
+              error={weightError}
+              helperText={weightHelperText}
+            />
           </Grid>
           {/* Description (text editor) */}
           <Grid item xs={12}>
@@ -1490,7 +1404,7 @@ const ListItemComponent = () => {
         </Box>
         <TableContainer>
           <Table aria-label="item table">
-            <TableHead style={{ background: "#f1f1f1" }}>
+            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
                 <TableCell >
                   {/* Sortable Column: Ürün Adı */}
@@ -1534,6 +1448,17 @@ const ListItemComponent = () => {
                     style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Kısaltma</Typography>
+                  </TableSortLabel>
+                </TableCell>
+                <TableCell>
+                  {/* ✅ اضافه شده: ستون وزن */}
+                  <TableSortLabel
+                    active={orderBy === 'weight'}
+                    direction={orderBy === 'weight' ? order : 'asc'}
+                    onClick={() => handleRequestSort('weight')}
+                    style={{ color: "#171c23" }}
+                  >
+                    <Typography variant="h6">Ağırlık</Typography>
                   </TableSortLabel>
                 </TableCell>
                 <TableCell
@@ -1589,6 +1514,12 @@ const ListItemComponent = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1">{row.abbreviation}</Typography>
+                    </TableCell>
+                    {/* ✅ اضافه شده: نمایش وزن */}
+                    <TableCell>
+                      <Typography variant="body1">
+                        {row.weight || ''}
+                      </Typography>
                     </TableCell>
                     <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                       <Box sx={{
@@ -1697,7 +1628,7 @@ const ListItemComponent = () => {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={9} align="center">
                     <Typography variant="subtitle1" color="textSecondary">
                       Hiç ürün bulunamadı.
                     </Typography>

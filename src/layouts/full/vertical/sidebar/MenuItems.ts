@@ -17,7 +17,11 @@ import {
   IconUserCog,
   IconInfoCircle,
   IconClipboardList,
-  IconProgressCheck
+  IconProgressCheck,
+  IconGlobe,
+  IconMap
+  // IconTopologyBus,
+  // IconTopologyRing
 } from '@tabler/icons-react';
 
 // مسیر صحیح به فایل JSON آدرس دهی شما
@@ -55,6 +59,10 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconClipboardList: IconClipboardList,
   IconProgressCheck: IconProgressCheck,
   IconPlus: IconPlus,
+  IconGlobe: IconGlobe,
+  IconMap: IconMap
+  // IconTopologyBus: IconTopologyBus,
+  // IconTopologyRing: IconTopologyRing
 };
 
 const getIconComponent = (iconName: string): React.ElementType => {

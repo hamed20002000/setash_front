@@ -10,95 +10,75 @@ import {
     DialogActions,
 } from '@mui/material';
 import axios from 'axios';
-import BoltIcon from '@mui/icons-material/Bolt'; // Aynı icon kullanılıyor
-import server from '../../assets/address.json'; // Sunucu adres dosyanızın yolu
-
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // Tooltip'i import edin
+import BoltIcon from '@mui/icons-material/Bolt';
+import server from '../../../assets/address.json';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type DeleteNetworkProps = {
     openModal: boolean;
-    networkIdToDelete: string | null; // Network ID string olmalı
-    networkTitleToDelete: string; // Şebekeler başlığı
+    networkIdToDelete: string | null;
+    networkTitleToDelete: string;
     onClose: () => void;
-    onDeleteSuccess: () => void; // Başarılı silme sonrası çağrılacak fonksiyon
-    showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void; // Uyarı gösterme fonksiyonu
+    onDeleteSuccess: () => void;
+    showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
-
 const DeleteNetwork = ({ openModal, networkIdToDelete, networkTitleToDelete, onClose, onDeleteSuccess, showAlert }: DeleteNetworkProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
-
     const { isTooltipGloballyEnabled } = useTooltip();
-
-    // 🟢 NEW STATE for the "Network In Use" modal
     const [openNetworkInUseModal, setOpenNetworkInUseModal] = useState<boolean>(false);
-
     const handleDeleteOperation = async () => {
         if (networkIdToDelete === null) {
             showAlert('Silinecek Şebekeler seçilmedi.', 'warning');
             onClose();
             return;
         }
-
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
             navigate("/");
             return;
         }
-
         setLoading(true);
         try {
-            // ✅ DELETE API çağrısı, networkIdToDelete'i kullanıyor
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-network/${networkIdToDelete}`, // API endpointini kontrol edin
+                `${server.baseurl}${server.initialoperations}delete-network/${networkIdToDelete}`,
                 {
                     headers: {
-                        "Accept": "text/plain", // API yanıt türüne göre ayarlanabilir
+                        "Accept": "text/plain",
                         "Authorization": `Bearer ${authToken}`,
                     }
                 }
             );
-
-            // API yanıtının HTTP durum kodunu kontrol edin
             if (response.status === 200) {
                 showAlert(`'${networkTitleToDelete}' başlıklı Şebekeler başarıyla silindi!`, 'success');
-                onDeleteSuccess(); // Başarılı silme sonrası parent component'in listeyi yenilemesini sağlar
-                onClose(); // Modalı kapat
+                onDeleteSuccess();
+                onClose();
             } else {
-                // Eğer API'niz mesajı response.data içinde gönderiyorsa
                 showAlert(response.data?.message || 'Şebekeler silinirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("Ağ silinirken hata oluştu:", e);
-
-            // 🟢 Check for 500 status code (Network in Use scenario)
             if (e.response && e.response.status === 500) {
-                onClose(); // Close the current delete confirmation modal
-                setOpenNetworkInUseModal(true); // Open the specific "network in use" modal
+                onClose();
+                setOpenNetworkInUseModal(true);
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                // General error handling for other network or API errors
                 const errorMessage = e.response?.data?.message || 'Şebekeler silinirken bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
-                onClose(); // Close the modal for general errors too
+                onClose();
             }
         } finally {
-            setLoading(false); // Yükleme durumunu sıfırla
+            setLoading(false);
         }
     };
 
-    // 🟢 Handler to close the "Network In Use" modal
     const handleCloseNetworkInUseModal = () => {
         setOpenNetworkInUseModal(false);
     };
-
     return (
         <>
-            {/* Main Delete Confirmation Dialog */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
@@ -139,7 +119,6 @@ const DeleteNetwork = ({ openModal, networkIdToDelete, networkTitleToDelete, onC
                 </DialogActions>
             </Dialog>
 
-            {/* 🟢 NEW Dialog for "Network In Use" */}
             <Dialog
                 open={openNetworkInUseModal}
                 onClose={handleCloseNetworkInUseModal}

@@ -10,13 +10,11 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
-  // CircularProgress
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../../assets/address.json';
-
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
@@ -29,24 +27,18 @@ type Props = {
 const DeleteSystemOperation = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
-
-  // **استفاده از useTooltip برای دسترسی به وضعیت Tooltip**
   const { isTooltipGloballyEnabled } = useTooltip();
-
   const handleDeleteOperation = async () => {
     if (rowIdToDelete === null) {
       showAlert('Silinecek kayıt seçilmedi.', 'warning');
       onClose();
       return;
     }
-
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
-      console.warn("No auth token found, redirecting to login.");
       navigate("/");
       return;
     }
-debugger
     setLoading(true);
     try {
       const response = await axios.delete(
@@ -58,7 +50,6 @@ debugger
           }
         }
       );
-
       if (response.data.httpStatusCode === 200) {
         showAlert('Kayıt başarıyla silindi!', 'success');
         onDeleteSuccess();
@@ -67,9 +58,9 @@ debugger
         showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      const errorMessage = (e.response?.data?.message=="Internal server error"?"Bu işlem bir rol veya kullanıcı için kullanılmıştır ve silinemez.":"") || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');      
-        onClose();
+      const errorMessage = (e.response?.data?.message == "Internal server error" ? "Bu işlem bir rol veya kullanıcı için kullanılmıştır ve silinemez." : "") || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
+      showAlert(errorMessage, 'error');
+      onClose();
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
@@ -91,18 +82,16 @@ debugger
           {"Bu kaydı silmek istediğinizden emin misiniz?"}
         </DialogTitle>
         <DialogContent>
-           <DialogContentText id="alert-dialog-description">
+          <DialogContentText id="alert-dialog-description">
             Eğer silerseniz, geri almanın bir yolu yoktur.
-            Kaydı silmek istediğinizden eminseniz, 
-            <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          {/* **Tooltip برای دکمه "İptal et"** */}
           <CustomTooltip title={isTooltipGloballyEnabled ? "İşlemi iptal et" : ""}>
             <Button onClick={onClose} disabled={loading}>İptal et</Button>
           </CustomTooltip>
-          {/* **Tooltip برای دکمه "Silmek"** */}
           <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen kaydı sil" : ""}>
             <Button
               color="error"
@@ -113,7 +102,7 @@ debugger
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

@@ -11,22 +11,18 @@ import {
   TableSortLabel
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../components/shared/BlankCard';
 import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconPaperclip } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteTender from './DeleteTender';
-
 import DefineWorkModal from './DefineWorkModal';
 import axios from 'axios';
 import server from '../../assets/address.json';
-
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
@@ -34,23 +30,22 @@ import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 
+import AttachFileModal from './AttachFileModal';
 
-// İhale tipi tanımı
 interface TenderType {
   id: number;
   title: string;
   createAt: string;
-  recordStatus?: number; // 0 = Aktif, 1 = Pasif, 2 = Silindi
-  status: string; // Metinsel durum (recordStatus için)
-  tenderStatus?: number; // 0 = Beklemede, 1 = Onaylandı, 2 = Reddedildi (API'den gelen status için)
-  approvedTenderText?: string; // "Onaylanan İhale" sütunu için metin
-  approvedTenderDate?: string; // Onay/Red tarihi
-  showApprovedIcon?: boolean; // Onay ikonu için
-  showRejectedIcon?: boolean; // Red ikonu için
+  recordStatus?: number;
+  status: string;
+  tenderStatus?: number;
+  approvedTenderText?: string;
+  approvedTenderDate?: string;
+  showApprovedIcon?: boolean;
+  showRejectedIcon?: boolean;
   showPendingIcon?: boolean;
 }
 
-// StyledToggleButton (SystemRole.tsx'ten kopyalandı)
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
     color: 'white',
@@ -74,7 +69,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
   },
 }));
 
-// Sıralama için yardımcı fonksiyonlar
 type SortableTenderKeys = keyof Pick<TenderType, 'id' | 'title' | 'createAt' | 'status' | 'approvedTenderText' | 'approvedTenderDate'>;
 
 const descendingComparator = <T, Key extends keyof T>(
@@ -84,7 +78,6 @@ const descendingComparator = <T, Key extends keyof T>(
 ): number => {
   const valA = a[orderBy];
   const valB = b[orderBy];
-
   if (valB === undefined || valB === null) {
     return (valA === undefined || valA === null) ? 0 : -1;
   }
@@ -126,47 +119,36 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
   return stabilizedThis.map((el) => el[0]);
 };
 
-
 const ListTender = () => {
   const navigate = useNavigate();
-
   const [title, setTitle] = useState<string>('');
   const [tendersList, setTendersList] = useState<TenderType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [originalTitle, setOriginalTitle] = useState<string>('');
-
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedRowForMenu, setSelectedRowForMenu] = useState<TenderType | null>(null);
-
   const openMenu = Boolean(anchorEl);
-
   const [openDeleteModal, setOpenDeleteModal] = useState(false);
   const [tenderIdToDelete, setTenderIdToDelete] = useState<number | null>(null);
-
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
-
   const [loadingButton, setLoadingButton] = useState<boolean>(false);
   const [loadingData, setLoadingData] = useState<boolean>(true);
-
   const { isTooltipGloballyEnabled } = useTooltip();
-
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-
   const [orderBy, setOrderBy] = useState<SortableTenderKeys>('createAt');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
-
   const tenderTitleInputRef = useRef<HTMLInputElement>(null);
-
   const [titleError, setTitleError] = useState<boolean>(false);
   const [titleHelperText, setTitleHelperText] = useState<string>('');
   const [openDefineWorkModal, setOpenDefineWorkModal] = useState<boolean>(false);
   const [selectedTenderIdForWork, setSelectedTenderIdForWork] = useState<number | null>(null);
 
+  const [openAttachModal, setOpenAttachModal] = useState<boolean>(false);
+  const [tenderIdForAttachment, setTenderIdForAttachment] = useState<number | null>(null);
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TenderType) => {
     setAnchorEl(event.currentTarget);
@@ -218,10 +200,8 @@ const ListTender = () => {
       setTitle(selectedRowForMenu.title);
       setOriginalTitle(selectedRowForMenu.title);
       setEditingId(selectedRowForMenu.id);
-
       setTitleError(false);
       setTitleHelperText('');
-
       setTimeout(() => {
         tenderTitleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         tenderTitleInputRef.current?.focus();
@@ -238,7 +218,6 @@ const ListTender = () => {
     setTitleHelperText('');
   };
 
-  // Yeni ihale oluşturma
   const insertTender = async () => {
     if (!title.trim()) {
       setTitleError(true);
@@ -248,16 +227,12 @@ const ListTender = () => {
     }
     setTitleError(false);
     setTitleHelperText('');
-
     clearAlert();
     const authToken = localStorage.getItem('authToken');
-
     if (!authToken) {
-      console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
       navigate("/");
       return;
     }
-
     setLoadingButton(true);
     try {
       const response = await axios.post(
@@ -284,14 +259,12 @@ const ListTender = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("İhale eklenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'İhale eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   };
 
-  // İhale düzenleme
   const editTender = async () => {
     if (editingId === null) return;
     if (!title.trim()) {
@@ -302,15 +275,12 @@ const ListTender = () => {
     }
     setTitleError(false);
     setTitleHelperText('');
-
     clearAlert();
-
     if (title === originalTitle) {
       showAlert('Başlıkta herhangi bir değişiklik yapmadınız.', 'info');
       resetFormAndState();
       return;
     }
-
     setLoadingButton(true);
     try {
       const authToken = localStorage.getItem('authToken');
@@ -319,7 +289,6 @@ const ListTender = () => {
         navigate("/");
         return;
       }
-
       const response = await axios.put(
         server.baseurl + server.initialoperations + "update-tender",
         { id: Number(editingId), title: title }, {
@@ -329,7 +298,6 @@ const ListTender = () => {
           "Authorization": `Bearer ${authToken}`
         }
       });
-
       if (response.data.httpStatusCode === 200) {
         showAlert('İhale başarıyla güncellendi!', 'success');
         resetFormAndState();
@@ -343,14 +311,11 @@ const ListTender = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("İhale güncellenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'İhale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
   }
-
-  // İhale durumunu güncelleme (aktif/pasif)
   const sendRecordStatusUpdate = async (id: number, statusValue: number) => {
     clearAlert();
     try {
@@ -360,7 +325,6 @@ const ListTender = () => {
         navigate("/");
         return;
       }
-
       const response = await axios.put(server.baseurl + server.initialoperations + "update-tender",
         { id: Number(id), recordStatus: statusValue }, {
         headers: {
@@ -369,7 +333,6 @@ const ListTender = () => {
           "Authorization": `Bearer ${authToken}`
         }
       });
-
       if (response.data.httpStatusCode === 200) {
         const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`İhale başarıyla ${statusText} olarak ayarlandı!`, 'success');
@@ -383,38 +346,32 @@ const ListTender = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Durum güncellenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
     }
   };
-
   const handleSetActive = () => {
     if (selectedRowForMenu) {
-      sendRecordStatusUpdate(selectedRowForMenu.id, 0); // 0 for Aktif
+      sendRecordStatusUpdate(selectedRowForMenu.id, 0);
     }
   };
-
   const handleSetInactive = () => {
     if (selectedRowForMenu) {
-      sendRecordStatusUpdate(selectedRowForMenu.id, 1); // 1 for Pasif
+      sendRecordStatusUpdate(selectedRowForMenu.id, 1);
     }
   };
-
   const handleSetActiveTender = () => {
     if (selectedRowForMenu) {
-      handleApproveTender(selectedRowForMenu.id, 1); // 0 for Aktif
+      handleApproveTender(selectedRowForMenu.id, 1);
     }
   };
-
   const handleSetInactiveTender = () => {
     if (selectedRowForMenu) {
-      handleRejectTender(selectedRowForMenu.id, 2); // 1 for Pasif
+      handleRejectTender(selectedRowForMenu.id, 2);
     }
   };
 
-  // Yeni fonksiyonlar: İhale Onayla, İhale Reddet, İş Tanımla
   const handleApproveTender = async (tenderId: number, statusValue: number) => {
     clearAlert();
     try {
@@ -424,7 +381,6 @@ const ListTender = () => {
         navigate("/");
         return;
       }
-
       const response = await axios.put(server.baseurl + server.initialoperations + "update-tender-status",
         { id: Number(tenderId), status: statusValue }, {
         headers: {
@@ -447,7 +403,6 @@ const ListTender = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Durum güncellenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
@@ -463,7 +418,6 @@ const ListTender = () => {
         navigate("/");
         return;
       }
-
       const response = await axios.put(server.baseurl + server.initialoperations + "update-tender-status",
         { id: Number(tenderId), status: statusValue }, {
         headers: {
@@ -472,7 +426,6 @@ const ListTender = () => {
           "Authorization": `Bearer ${authToken}`
         }
       });
-
       if (response.data.httpStatusCode === 200) {
         const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
         showAlert(`İhale başarıyla ${statusText} olarak ayarlandı!`, 'success');
@@ -486,7 +439,6 @@ const ListTender = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      console.error("Durum güncellenirken hata oluştu:", e);
       showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
@@ -496,16 +448,11 @@ const ListTender = () => {
   const handleDefineWork = (tenderId: number) => {
     setSelectedTenderIdForWork(tenderId);
     setOpenDefineWorkModal(true);
-    handleCloseMenu(); // Menüyü kapatmayı unutmayın
+    handleCloseMenu();
   };
   const handleWorkDefinedSuccess = (workId: number, tenderId: number) => {
-    // Burada kullanıcıya sorma mantığını DefineWorkModal içine taşıdık
-    // Direkt olarak work detay sayfasına yönlendirme yapabiliriz veya
-    // DefineWorkModal zaten sormuş olacağı için, burada sadece navigasyon yapabiliriz.
-    // Eğer modalda sormak istemiyorsanız, confirm logic'i buraya taşıyabilirsiniz.
-    navigate(`/work/work-details/${workId}?tenderId=${tenderId}`); // İş detay sayfanızın URL yapısına göre güncelleyin
+    navigate(`/work/work-details/${workId}?tenderId=${tenderId}`);
   };
-
 
   const resetFormAndState = () => {
     setTitle('');
@@ -516,32 +463,26 @@ const ListTender = () => {
   };
 
   const formatDate = (dateString: string | null): string => {
-    if (!dateString) return "N/A"; // Eğer tarih string'i yoksa "N/A" döndür
-
+    if (!dateString) return "N/A";
     try {
       const date = new Date(dateString);
       const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0'); // Ayı iki haneli yap (01-12)
-      const day = String(date.getDate()).padStart(2, '0');     // Günü iki haneli yap (01-31)
-      return `${year}-${month}-${day}`; // YYYY-MM-DD formatı
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     } catch (e) {
-      console.error("Tarih biçimlendirilirken hata oluştu:", e);
+      console.log("Tarih biçimlendirilirken hata oluştu:", e);
       return "Geçersiz Tarih";
     }
   };
-
-  // İhale listesini API'den alma
   function getListTender() {
     setLoadingData(true);
     const authToken = localStorage.getItem('authToken');
-
     if (!authToken) {
-      console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
       navigate("/");
       setLoadingData(false);
       return;
     }
-
     axios.request({
       baseURL: server.baseurl + server.initialoperations + "get-tenders",
       method: "get",
@@ -552,7 +493,6 @@ const ListTender = () => {
     }).then((result) => {
       if (result.data.httpStatusCode === 200) {
         const formattedData: TenderType[] = result.data.data.map((item: any) => {
-          // recordStatus için metin durumu
           let recordStatusText = '';
           if (item.recordStatus === 0) {
             recordStatusText = 'Aktif';
@@ -561,14 +501,11 @@ const ListTender = () => {
           } else {
             recordStatusText = 'Silindi';
           }
-
-          // item.status'a göre "Onaylanan İhale" ve "Onay/Red Tarihi" mantığı
           let approvedTenderText = '';
           let approvedTenderDate = null;
           let showApprovedIcon = false;
           let showRejectedIcon = false;
           let showPendingIcon = false;
-
           if (item.status === 0) {
             approvedTenderText = 'Beklemede';
             showPendingIcon = true;
@@ -581,14 +518,13 @@ const ListTender = () => {
             showRejectedIcon = true;
             approvedTenderDate = item.statusDate;
           }
-
           return {
             id: item.id,
             title: item.title,
             recordStatus: item.recordStatus,
             createAt: item.createAt,
             status: recordStatusText,
-            tenderStatus: item.status, // Menü öğeleri için ham durum
+            tenderStatus: item.status,
             approvedTenderText: approvedTenderText,
             approvedTenderDate: approvedTenderDate,
             showApprovedIcon: showApprovedIcon,
@@ -596,7 +532,6 @@ const ListTender = () => {
             showPendingIcon: showPendingIcon,
           };
         });
-
         setTendersList(formattedData);
         setLoadingData(false);
       } else {
@@ -609,19 +544,16 @@ const ListTender = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
-        console.error("İhale listesi getirilirken hata oluştu:", e);
         showAlert('İhale listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
       setLoadingData(false);
     });
   }
 
-
   useEffect(() => {
     getListTender();
   }, []);
 
-  // Durum filtresi değiştirme
   const handleStatusFilterChange = (
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
@@ -633,7 +565,6 @@ const ListTender = () => {
     }
   };
 
-  // Sıralama yönünü değiştirme
   const handleRequestSort = (property: SortableTenderKeys) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
@@ -658,7 +589,6 @@ const ListTender = () => {
     setPage(0);
   };
 
-  // Arama ve duruma göre ihaleleri filtrele
   const filteredTenders = tendersList.filter(tender => {
     const matchesSearch = tender.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
@@ -668,13 +598,23 @@ const ListTender = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Filtrelenmiş veriye sıralamayı uygula
+  const handleClickOpenAttachModal = () => {
+    if (selectedRowForMenu) {
+      setTenderIdForAttachment(selectedRowForMenu.id);
+      setOpenAttachModal(true);
+    }
+    handleCloseMenu(); // Close the menu after clicking
+  };
+
+  const handleClickCloseAttachModal = () => {
+    setOpenAttachModal(false);
+    setTenderIdForAttachment(null);
+    // You might want to refresh the tender list here if attachments affect its status/display
+    // getListTender();
+  };
+
   const sortedAndFilteredTenders = stableSort(filteredTenders, getComparator(order, orderBy));
-
   const paginatedTenders = sortedAndFilteredTenders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-
-  // İhale detay sayfasına gitme
   const handleGoToDetails = (tenderId: number | undefined, tenderTitle: string | undefined) => {
     if (tenderId && tenderTitle) {
       navigate(`/tender/tender-details/${tenderId}?title=${encodeURIComponent(tenderTitle)}`);
@@ -682,7 +622,6 @@ const ListTender = () => {
       showAlert('İhale detayları için gerekli bilgiler eksik.', 'warning');
     }
   };
-
   return (
     <>
       <div style={{
@@ -783,7 +722,6 @@ const ListTender = () => {
                 }}
               />
             </Grid>
-            {/* Durum Filtresi */}
             <Grid item xs={12} sm={6} md={4}>
               <ToggleButtonGroup
                 value={statusFilter}
@@ -792,30 +730,24 @@ const ListTender = () => {
                 aria-label="Durum filtresi"
                 fullWidth
               >
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm ihaleleri göster" : ""}> */}
                 <StyledToggleButton
                   value="all"
                   aria-label="Tüm ihaleler"
                 >
                   Tümü
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif ihaleleri göster" : ""}> */}
                 <StyledToggleButton
                   value="active"
                   aria-label="Aktif ihaleler"
                 >
                   Aktif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif ihaleleri göster" : ""}> */}
                 <StyledToggleButton
                   value="inactive"
                   aria-label="Pasif ihaleler"
                 >
                   Pasif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>
@@ -828,7 +760,7 @@ const ListTender = () => {
         ) : (
           <TableContainer>
             <Table aria-label="ihale tablosu">
-              <TableHead style={{ background: "#f1f1f1" }}>
+              <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
                   <TableCell>
                     <TableSortLabel
@@ -989,17 +921,29 @@ const ListTender = () => {
                             </>
                           )}
 
-                          {selectedRowForMenu?.tenderStatus === 1 && (
-                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İş tanımla" : ""}>
-                              <MenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
-                                <ListItemIcon>
-                                  <AssignmentTurnedInIcon fontSize="small" />
-                                </ListItemIcon>
-                                İş Tanımla
-                              </MenuItem>
-                            </CustomTooltip>
+                          {selectedRowForMenu?.tenderStatus === 1 && ( // ✅ Show only if tenderStatus is 1 (Onaylandı)
+                            <>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İş tanımla" : ""}>
+                                <MenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
+                                  <ListItemIcon>
+                                    <AssignmentTurnedInIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İş Tanımla
+                                </MenuItem>
+                              </CustomTooltip>
+                              {/* ✅ NEW: Attach/Ek Dosya Menü Öğesi */}
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İhaleye ek dosyalar ekle" : ""}>
+                                <MenuItem onClick={handleClickOpenAttachModal}>
+                                  <ListItemIcon>
+                                    <IconPaperclip size={18} />
+                                  </ListItemIcon>
+                                  Ek Dosya Ekle
+                                </MenuItem>
+                              </CustomTooltip>
+                            </>
                           )}
 
+                          {/* ... (سایر MenuItemها برای Aktif Yap, Pasif Yap, Düzenlemek, Silmek) ... */}
                           {selectedRowForMenu?.recordStatus === 0 ? (
                             <CustomTooltip placement="left"
                               title={isTooltipGloballyEnabled ? "Bu ihaleyi pasif yap" : ""}>
@@ -1057,7 +1001,6 @@ const ListTender = () => {
             </Table>
           </TableContainer>
         )}
-
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"
@@ -1070,7 +1013,6 @@ const ListTender = () => {
           labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
         />
       </BlankCard>
-
       <DeleteTender
         openModal={openDeleteModal}
         onClose={handleClickCloseDeleteModal}
@@ -1078,7 +1020,6 @@ const ListTender = () => {
         onDeleteSuccess={getListTender}
         showAlert={showAlert}
       />
-
       <DefineWorkModal
         open={openDefineWorkModal}
         onClose={() => setOpenDefineWorkModal(false)}
@@ -1086,6 +1027,14 @@ const ListTender = () => {
         showAlert={showAlert}
         onWorkDefinedSuccess={handleWorkDefinedSuccess}
       />
+      {openAttachModal && (
+        <AttachFileModal
+          open={openAttachModal}
+          onClose={handleClickCloseAttachModal}
+          tenderId={tenderIdForAttachment}
+          showAlert={showAlert}
+        />
+      )}
     </>
   );
 };

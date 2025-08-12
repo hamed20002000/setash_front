@@ -8,47 +8,37 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions
-  // CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
 import server from '../../assets/address.json';
-
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
   openModal: boolean;
-  tenderIdToDelete: number | null; // ID مزایده برای حذف
+  tenderIdToDelete: number | null;
   onClose: () => void;
-  onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+  onDeleteSuccess: () => void;
   showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
-
 const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(false);
   const { isTooltipGloballyEnabled } = useTooltip();
-
-  // New state for the "Tender In Use" modal
-  const [openTenderInUseModal, setOpenTenderInUseModal] = useState<boolean>(false); // 🟢 New State
-
+  const [openTenderInUseModal, setOpenTenderInUseModal] = useState<boolean>(false);
   const handleDeleteTender = async () => {
     if (tenderIdToDelete === null) {
       showAlert('Silinecek ihale seçilmedi.', 'warning');
       onClose();
       return;
     }
-
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Lütfen giriş yapın.', 'warning');
       return;
     }
-
     setLoading(true);
     try {
-      // **نکته:** آدرس API حذف مزایده و نحوه ارسال ID
-      // فرض می‌کنیم حذف با ID در URL انجام می‌شود (DELETE /delete-tender/{id})
       const response = await axios.delete(
         `${server.baseurl}${server.initialoperations}delete-tender/${tenderIdToDelete}`,
         {
@@ -58,22 +48,18 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
           }
         }
       );
-
       if (response.data.httpStatusCode === 200) {
         showAlert('Müzayede başarıyla silindi!', 'success');
         onDeleteSuccess();
-        onClose(); // Close the main delete confirmation modal
+        onClose();
       } else {
         showAlert(response.data.message || 'Müzayede silinirken bir hata oluştu.', 'error');
-        onClose(); // Close the modal even if it's a business error
+        onClose();
       }
     } catch (e: any) {
-      console.error("Error deleting tender:", e);
-
-      // Check for 500 status code (Tender in Use scenario)
-      if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
-        onClose(); // Close the main delete confirmation modal
-        setOpenTenderInUseModal(true); // Open the specific "tender in use" modal
+      if (e.response && e.response.status === 500) {
+        onClose();
+        setOpenTenderInUseModal(true);
       } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
@@ -81,21 +67,18 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
       } else {
         const errorMessage = e.response?.data?.message || 'Müzayede silinirken bir hata oluştu, lütfen tekrar deneyin.';
         showAlert(errorMessage, 'error');
-        onClose(); // Close the modal for general errors too
+        onClose();
       }
     } finally {
       setLoading(false);
     }
   };
-
-  // Handler to close the "Tender In Use" modal
-  const handleCloseTenderInUseModal = () => { // 🟢 New Handler
+  const handleCloseTenderInUseModal = () => {
     setOpenTenderInUseModal(false);
   };
 
   return (
     <>
-      {/* Main Delete Confirmation Dialog */}
       <Dialog
         open={openModal}
         onClose={onClose}
@@ -134,8 +117,6 @@ const DeleteTender = ({ openModal, tenderIdToDelete, onClose, onDeleteSuccess, s
           </CustomTooltip>
         </DialogActions>
       </Dialog>
-
-      {/* 🟢 New Dialog for "Tender In Use" */}
       <Dialog
         open={openTenderInUseModal}
         onClose={handleCloseTenderInUseModal}

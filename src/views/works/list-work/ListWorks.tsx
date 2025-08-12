@@ -10,29 +10,24 @@ import {
     CircularProgress, TableSortLabel, Autocomplete,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     ListItemIcon,
-    Paper // ✅ اضافه شد: برای ایجاد کادر
+    Paper
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { format } from 'date-fns';
-
 import BoltIcon from '@mui/icons-material/Bolt';
-import BlankCard from '../../components/shared/BlankCard';
-import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch } from '@tabler/icons-react';
+import BlankCard from '../../../components/shared/BlankCard';
+import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
+import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-
 import axios from 'axios';
-import server from '../../assets/address.json';
-
+import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-
-// ✅ ایمپورت کردن کامپوننت مودال حذف جدید
-import DeleteWork from './DeleteWork'; // مسیر رو بر اساس جایی که DeleteWork.tsx رو ذخیره کردی تنظیم کن
+import DeleteWork from './DeleteWork';
 
 interface WorkType {
     id: number;
@@ -45,15 +40,12 @@ interface WorkType {
     recordStatus?: number;
     status: string;
 }
-
 interface TenderOption {
     id: number;
     title: string;
     status?: number;
 }
-
 type SortableWorkKeys = keyof Pick<WorkType, 'id' | 'title' | 'startDate' | 'endDate' | 'createAt' | 'status' | 'tenderId'>;
-
 const descendingComparator = <T, Key extends keyof T>(
     a: T,
     b: T,
@@ -61,14 +53,12 @@ const descendingComparator = <T, Key extends keyof T>(
 ): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
-
     if (valB === undefined || valB === null) {
         return (valA === undefined || valA === null) ? 0 : -1;
     }
     if (valA === undefined || valA === null) {
         return 1;
     }
-
     if (typeof valB === 'string' && typeof valA === 'string') {
         return valB.localeCompare(valA);
     }
@@ -83,7 +73,6 @@ const descendingComparator = <T, Key extends keyof T>(
     }
     return 0;
 };
-
 const getComparator = (
     order: 'asc' | 'desc',
     orderBy: SortableWorkKeys,
@@ -92,7 +81,6 @@ const getComparator = (
         ? (a, b) => descendingComparator(a, b, orderBy)
         : (a, b) => -descendingComparator(a, b, orderBy);
 };
-
 const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
     stabilizedThis.sort((a, b) => {
@@ -102,7 +90,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -125,11 +112,8 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
         '&:hover': { backgroundColor: theme.palette.action.hover },
     },
 }));
-
-
 const ListWorks = () => {
     const navigate = useNavigate();
-
     const [title, setTitle] = useState<string>('');
     const [startDate, setStartDate] = useState<Date | null>(new Date());
     const [endDate, setEndDate] = useState<Date | null>(new Date());
@@ -141,48 +125,33 @@ const ListWorks = () => {
     const [originalStartDate, setOriginalStartDate] = useState<Date | null>(null);
     const [originalEndDate, setOriginalEndDate] = useState<Date | null>(null);
     const [originalSelectedTenderOption, setOriginalSelectedTenderOption] = useState<TenderOption | null>(null);
-
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<WorkType | null>(null);
     const openMenu = Boolean(anchorEl);
-
-    // ✅ State های جدید برای مودال حذف
     const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
     const [workIdToDelete, setWorkIdToDelete] = useState<number | null>(null);
     const [workTitleToDelete, setWorkTitleToDelete] = useState<string>('');
-
-
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
-
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
     const [loadingData, setLoadingData] = useState<boolean>(true);
-
     const { isTooltipGloballyEnabled } = useTooltip();
-
     const [orderBy, setOrderBy] = useState<SortableWorkKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
-
     const workTitleInputRef = useRef<HTMLInputElement>(null);
-
     const [titleError, setTitleError] = useState<boolean>(false);
     const [startDateError, setStartDateError] = useState<boolean>(false);
     const [endDateError, setEndDateError] = useState<boolean>(false);
     const [tenderIdError, setTenderIdError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
-
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-
-
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tenderIdFromUrl = params.get('tenderId');
         if (tenderIdFromUrl) {
-            // Logic to set selectedTenderOption if it comes from URL
         }
         getListWork();
         getTenderOptions();
@@ -198,41 +167,32 @@ const ListWorks = () => {
             }
         }
     }, [tenderOptions, location.search]);
-
-
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: WorkType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
     };
-
     const handleCloseMenu = () => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
     };
-
-    // ✅ توابع جدید برای مدیریت مودال حذف
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
             setWorkIdToDelete(selectedRowForMenu.id);
-            setWorkTitleToDelete(selectedRowForMenu.title); // عنوان را برای نمایش در مودال تنظیم می‌کنیم
+            setWorkTitleToDelete(selectedRowForMenu.title);
             setOpenDeleteModal(true);
         }
-        handleCloseMenu(); // منوی سه نقطه را ببند
+        handleCloseMenu();
     };
-
     const handleClickCloseDeleteModal = () => {
         setOpenDeleteModal(false);
-        setWorkIdToDelete(null); // بعد از بستن مودال، ID را ریست می‌کنیم
-        setWorkTitleToDelete(''); // عنوان را هم ریست می‌کنیم
-        // اگر لازم است بعد از بستن مودال لیست را رفرش کنید:
+        setWorkIdToDelete(null);
+        setWorkTitleToDelete('');
         getListWork();
     };
-
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
     };
-
     const clearAlert = () => {
         let timer: NodeJS.Timeout;
         if (alertMessage) {
@@ -244,11 +204,9 @@ const ListWorks = () => {
             clearTimeout(timer);
         };
     };
-
     useEffect(() => {
         clearAlert();
     }, [alertMessage]);
-
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setTitle(selectedRowForMenu.title);
@@ -257,20 +215,16 @@ const ListWorks = () => {
             debugger
             const foundTender = tenderOptions.find(t => Number(t.id) === selectedRowForMenu.tenderId);
             setSelectedTenderOption(foundTender || null);
-
             setOriginalTitle(selectedRowForMenu.title);
             setOriginalStartDate(new Date(selectedRowForMenu.startDate));
             setOriginalEndDate(new Date(selectedRowForMenu.endDate));
             setOriginalSelectedTenderOption(foundTender || null);
-
             setEditingId(selectedRowForMenu.id);
-
             setTitleError(false);
             setStartDateError(false);
             setEndDateError(false);
             setTenderIdError(false);
             setFormErrors(null);
-
             setTimeout(() => {
                 workTitleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 workTitleInputRef.current?.focus();
@@ -279,7 +233,6 @@ const ListWorks = () => {
         handleCloseMenu();
         clearAlert();
     };
-
     const handleCancelEdit = () => {
         resetFormAndState();
         clearAlert();
@@ -289,7 +242,6 @@ const ListWorks = () => {
         setTenderIdError(false);
         setFormErrors(null);
     };
-
     const validateForm = (): boolean => {
         let isValid = true;
         setFormErrors(null);
@@ -299,21 +251,18 @@ const ListWorks = () => {
         } else {
             setTitleError(false);
         }
-
         if (!startDate) {
             setStartDateError(true);
             isValid = false;
         } else {
             setStartDateError(false);
         }
-
         if (!endDate) {
             setEndDateError(true);
             isValid = false;
         } else {
             setEndDateError(false);
         }
-
         if (startDate && endDate && startDate > endDate) {
             setEndDateError(true);
             setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
@@ -321,33 +270,25 @@ const ListWorks = () => {
         } else {
             if (!endDateError) setFormErrors(null);
         }
-
-        // فقط زمانی که در حالت اضافه کردن هستیم (یعنی editingId === null)، Autocomplete نیاز به اعتبار سنجی دارد
         if (editingId === null && (!selectedTenderOption || selectedTenderOption.id === 0)) {
             setTenderIdError(true);
             isValid = false;
         } else {
             setTenderIdError(false);
         }
-
         if (!isValid) {
             showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
         }
         return isValid;
     };
-
     const insertWork = async () => {
         if (!validateForm()) return;
-
         clearAlert();
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
-            console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
             navigate("/");
             return;
         }
-
         setLoadingButton(true);
         try {
             const payload = {
@@ -356,7 +297,6 @@ const ListWorks = () => {
                 endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
                 tenderId: selectedTenderOption ? Number(selectedTenderOption.id) : 0,
             };
-
             const response = await axios.post(
                 server.baseurl + server.initialoperations + "create-work",
                 payload,
@@ -381,25 +321,18 @@ const ListWorks = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("İş eklenirken hata oluştu:", e);
             showAlert(e.response?.data?.message || 'İş eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
-
     const editWork = async () => {
         if (editingId === null) return;
         if (!validateForm()) return;
-
         clearAlert();
-
         const isChanged = title !== originalTitle ||
             (startDate && originalStartDate && format(startDate, 'yyyy-MM-dd') !== format(originalStartDate, 'yyyy-MM-dd')) ||
             (endDate && originalEndDate && format(endDate, 'yyyy-MM-dd') !== format(originalEndDate, 'yyyy-MM-dd')) ||
-            // tenderId در حالت ویرایش نیازی به بررسی تغییر ندارد زیرا در مودال ویرایش ثابت است
-            // اگر کاربر بتواند tenderId را در حالت ویرایش تغییر دهد، این خط را فعال کنید
-            // (selectedTenderOption?.id !== originalSelectedTenderOption?.id); // این خط را برای مقایسه TenderId اضافه کنید
             false;
 
         if (!isChanged) {
@@ -407,7 +340,6 @@ const ListWorks = () => {
             resetFormAndState();
             return;
         }
-        debugger
         setLoadingButton(true);
         try {
             const authToken = localStorage.getItem('authToken');
@@ -416,16 +348,13 @@ const ListWorks = () => {
                 navigate("/");
                 return;
             }
-
             const payload = {
                 id: Number(editingId),
                 title: title,
                 startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
                 endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
-                // tenderId در حالت ویرایش باید همان مقدار اصلی را ارسال کند
                 tenderId: originalSelectedTenderOption ? Number(originalSelectedTenderOption.id) : 0,
             };
-
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-work",
                 payload, {
@@ -435,7 +364,6 @@ const ListWorks = () => {
                     "Authorization": `Bearer ${authToken}`
                 }
             });
-
             if (response.data.httpStatusCode === 200) {
                 showAlert('İş başarıyla güncellendi!', 'success');
                 resetFormAndState();
@@ -449,23 +377,19 @@ const ListWorks = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("İş güncellenirken hata oluştu:", e);
             showAlert(e.response?.data?.message || 'İş güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
     }
-
     const sendRecordStatusUpdate = async (id: number, statusValue: number) => {
         clearAlert();
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
             navigate("/");
             return;
         }
-        debugger
         try {
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-work",
@@ -478,7 +402,6 @@ const ListWorks = () => {
                     }
                 }
             );
-
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
                 showAlert(`İş başarıyla ${statusText} olarak ayarlandı!`, 'success');
@@ -493,26 +416,21 @@ const ListWorks = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("Durum güncellenirken hata oluştu:", e);
             showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             handleCloseMenu();
         }
     };
-
     const handleSetActive = () => {
         if (selectedRowForMenu) {
             sendRecordStatusUpdate(selectedRowForMenu.id, 0);
         }
     };
-
     const handleSetInactive = () => {
         if (selectedRowForMenu) {
             sendRecordStatusUpdate(selectedRowForMenu.id, 1);
         }
     };
-
-
     const resetFormAndState = () => {
         setTitle('');
         setStartDate(new Date());
@@ -530,30 +448,24 @@ const ListWorks = () => {
         setFormErrors(null);
         setStatusFilter('all');
     };
-
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
         try {
             const date = new Date(dateString);
             return format(date, 'yyyy/MM/dd');
         } catch (e) {
-            console.error("Tarih biçimlendirilirken hata oluştu:", e);
+            console.log("Tarih biçimlendirilirken hata oluştu:", e);
             return "Geçersiz Tarih";
         }
     };
-
-
     function getListWork() {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
-            console.warn("Kimlik doğrulama belirteci bulunamadı, giriş sayfasına yönlendiriliyor.");
             navigate("/");
             setLoadingData(false);
             return;
         }
-
         axios.request({
             baseURL: server.baseurl + server.initialoperations + "get-works",
             method: "get",
@@ -585,7 +497,6 @@ const ListWorks = () => {
                         status: recordStatusText,
                     };
                 });
-
                 setWorksList(formattedData);
                 setLoadingData(false);
                 setStatusFilter('all');
@@ -599,22 +510,17 @@ const ListWorks = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                console.error("İş listesi getirilirken hata oluştu:", e);
                 showAlert('İş listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
             setLoadingData(false);
         });
     }
-
     const getTenderOptions = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            console.warn("Kimlik doğrulama belirteci bulunamadı, oturum açma sayfasına yönlendiriliyor.");
-            // showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error'); // اگر می‌خواهید پیام نمایش داده شود
             navigate("/");
             return;
         }
-
         try {
             const response = await axios.get(
                 server.baseurl + server.initialoperations + "get-tenders",
@@ -626,7 +532,6 @@ const ListWorks = () => {
                 }
             );
             if (response.data.httpStatusCode === 200) {
-                // 🟢 تغییر در اینجا: فیلتر کردن بر اساس recordStatus === 0
                 const activeTenders = response.data.data
                     .filter((item: any) => item.recordStatus === 0)
                     .map((item: any) => ({
@@ -644,34 +549,28 @@ const ListWorks = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
-                console.error("İhale seçenekleri getirilirken hata oluştu:", e);
                 showAlert('İhale seçenekleri yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
         }
     };
-
     useEffect(() => {
         getListWork();
         getTenderOptions();
     }, []);
-
     const handleChangePage = (
         event: unknown,
         newPage: number) => {
         console.log(event)
         setPage(newPage);
     };
-
     const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
         setRowsPerPage(parseInt(event.target.value, 10));
         setPage(0);
     };
-
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(event.target.value);
         setPage(0);
     };
-
     const handleStatusFilterChange = (
         event: React.MouseEvent<HTMLElement>,
         newFilter: 'all' | 'active' | 'inactive' | null,
@@ -682,31 +581,24 @@ const ListWorks = () => {
             setPage(0);
         }
     };
-
     const handleRequestSort = (property: SortableWorkKeys) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
         setPage(0);
     };
-
     const filteredWorks = worksList.filter(work => {
         const matchesSearch = work.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (work.tenderTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (work.createAt ? formatDateDisplay(work.createAt) : '').includes(searchTerm);
-
         const matchesStatus =
             statusFilter === 'all' ||
             (statusFilter === 'active' && work.recordStatus === 0) ||
             (statusFilter === 'inactive' && work.recordStatus === 1);
         return matchesSearch && matchesStatus;
     });
-
     const sortedAndFilteredWorks = stableSort(filteredWorks, getComparator(order, orderBy));
-
     const paginatedWorks = sortedAndFilteredWorks.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
-    // ✅ تغییر در اینجا: ناوبری به ListNetwork با ارسال workId و tenderId
     const handleGoToNetworks = (workId: number, tenderId: number) => {
         if (workId && tenderId) {
             navigate(`/work/${workId}/networks?tenderId=${tenderId}`);
@@ -715,9 +607,17 @@ const ListWorks = () => {
         }
     };
 
+
+    const handleGoToWorkhouses = () => {
+        if (selectedRowForMenu) {
+            const workId = selectedRowForMenu.id;
+            navigate(`/workhouse/list-workhouse/${workId}`);
+        }
+        handleCloseMenu();
+    };
+
     return (
         <>
-            {/* ✅ شروع کادر جدید با Paper */}
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h5" mb={2}>
                     {editingId ? 'İşi Düzenle' : 'Yeni İş Kaydı'}
@@ -850,9 +750,7 @@ const ListWorks = () => {
                             />
                         </LocalizationProvider>
                     </Grid>
-
-                    {/* ✅ اعمال فاصله در حالت موبایل */}
-                    <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}> {/* mt: {xs: 2, sm: 0} برای فاصله */}
+                    <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}>
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
                             {editingId !== null ? (
                                 <>
@@ -907,9 +805,7 @@ const ListWorks = () => {
                         </Alert>
                     </Stack>
                 )}
-            </Paper> {/* ✅ پایان کادر جدید با Paper */}
-
-
+            </Paper>
             <BlankCard>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
@@ -937,30 +833,24 @@ const ListWorks = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm İşleri göster" : ""}> */}
                                 <StyledToggleButton
                                     value="all"
                                     aria-label="all works"
                                 >
                                     Tümü
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif İşleri göster" : ""}> */}
                                 <StyledToggleButton
                                     value="active"
                                     aria-label="active works"
                                 >
                                     Aktif
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif İşleri göster" : ""}> */}
                                 <StyledToggleButton
                                     value="inactive"
                                     aria-label="inactive works"
                                 >
                                     Pasif
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
@@ -973,7 +863,7 @@ const ListWorks = () => {
                 ) : (
                     <TableContainer>
                         <Table aria-label="iş tablosu">
-                            <TableHead style={{ background: "#f1f1f1" }}>
+                            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
                                     <TableCell>
                                         <TableSortLabel
@@ -1106,6 +996,14 @@ const ListWorks = () => {
                                                         'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                     }}
                                                 >
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iş için yeni bir şantiye kaydı oluştur" : ""}>
+                                                        <MenuItem onClick={handleGoToWorkhouses}>
+                                                            <ListItemIcon>
+                                                                <IconPlus width={18} />
+                                                            </ListItemIcon>
+                                                            Şantiye Ekle
+                                                        </MenuItem>
+                                                    </CustomTooltip>
                                                     {selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}>
@@ -1172,8 +1070,6 @@ const ListWorks = () => {
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>
-
-            {/* ✅ افزودن کامپوننت مودال حذف جدید در اینجا */}
             <DeleteWork
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}

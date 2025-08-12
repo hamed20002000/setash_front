@@ -3,7 +3,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
-    Button, Stack, Grid,  CircularProgress,
+    Button, Stack, Grid, CircularProgress,
     FormControl, InputLabel, Select, TextField, InputAdornment,
     MenuItem as MuiMenuItem,
     Typography,
@@ -16,38 +16,18 @@ import {
 } from '@mui/material';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
-
 import BoltIcon from '@mui/icons-material/Bolt';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
 import { IconSearch, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
-
 import { ApiItemType } from './TenderDetails';
 import axios from 'axios';
 import server from 'src/assets/address.json';
-
-// Interfaces
-// مطمئن شوید که اینترفیس ItemType شامل تمام فیلدهایی باشد که API شما پس از ثبت آیتم برمی‌گرداند.
-// مخصوصاً id, name, category, و unit.
-// interface ItemType {
-//     id: number; 
-//     name: string;
-//     description: string;
-//     abbreviation: string;
-//     category: { id: string; name?: string; }; 
-//     unit: { id: string; title: string; }; 
-//     aciklama?:string;
-//     eskiPoz?: string;
-//     tedasNo?: number;
-//     anaNo?: number;
-//     altNo?: number;
-// }
 
 interface UnitOptionType {
     id: string;
     title: string;
 }
-
 interface CategoryOptionType {
     id: string;
     name: string;
@@ -55,14 +35,12 @@ interface CategoryOptionType {
     depth: number;
     categories?: CategoryOptionType[];
 }
-
 interface FlatCategoryType {
     id: string;
     name: string;
     parentId: string | null;
     depth: number;
 }
-
 interface CategoryNode {
     id: string;
     name: string;
@@ -70,7 +48,6 @@ interface CategoryNode {
     depth: number;
     children: CategoryNode[];
 }
-
 const flattenCategories = (nestedCategories: CategoryOptionType[]): FlatCategoryType[] => {
     const flatList: FlatCategoryType[] = [];
     const traverse = (categories: CategoryOptionType[]) => {
@@ -89,19 +66,16 @@ const flattenCategories = (nestedCategories: CategoryOptionType[]): FlatCategory
     traverse(nestedCategories);
     return flatList;
 };
-
 const buildCategoryTreeForSelect = (categories: FlatCategoryType[], searchTerm: string, parentId: string | null = null): CategoryNode[] => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     const currentLevelCategories = categories.filter(cat =>
         cat.parentId === parentId
     ).sort((a, b) => a.name.localeCompare(b.name));
-
     const tree: CategoryNode[] = [];
     for (const cat of currentLevelCategories) {
         const children = buildCategoryTreeForSelect(categories, searchTerm, cat.id);
         const matchesSearch = cat.name.toLowerCase().includes(lowerCaseSearchTerm);
         const childrenMatchSearch = children.length > 0;
-
         if (searchTerm === '' || matchesSearch || childrenMatchSearch) {
             tree.push({
                 ...cat,
@@ -118,11 +92,9 @@ interface CategoryTreeSelectMenuItemProps {
     selectedId: string | null;
     onCloseParentSelect: () => void;
 }
-
 const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({ node, onToggleSelection, selectedId, onCloseParentSelect }) => {
     const [open, setOpen] = useState(false);
     const isChecked = selectedId === node.id;
-
     const handleCheckboxClick = (event: React.ChangeEvent<HTMLInputElement>) => {
         event.stopPropagation();
         const newCheckedState = event.target.checked;
@@ -131,12 +103,10 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
             onCloseParentSelect();
         }
     };
-
     const handleToggleCollapse = (e: React.MouseEvent) => {
         e.stopPropagation();
         setOpen(!open);
     };
-
     const handleMenuItemClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         const newCheckedState = !isChecked;
@@ -145,7 +115,6 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
             onCloseParentSelect();
         }
     };
-
     return (
         <>
             <MuiMenuItem
@@ -219,15 +188,13 @@ export interface RegisterItemInitialData {
     demontaj?: number;
     demontajMontaj?: number;
     isCategory?: boolean;
-    originalRowId?: number; // ADD THIS
+    originalRowId?: number;
 }
 interface RegisterUnregisteredItemModalProps {
     open: boolean;
     onClose: () => void;
-    // !! تغییر در نوع onRegisterSuccess
-       onRegisterSuccess: (registeredItem: ApiItemType, originalRowId?: number) => void; // ADD originalRowId
-       initialData: RegisterItemInitialData | null; // This type now includes originalRowId
-  
+    onRegisterSuccess: (registeredItem: ApiItemType, originalRowId?: number) => void;
+    initialData: RegisterItemInitialData | null;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
@@ -235,27 +202,20 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
     open, onClose, onRegisterSuccess, initialData, showAlert
 }) => {
     const navigate = useNavigate();
-
     const [name, setName] = useState<string>('');
     const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [isCategorySelectOpen, setIsCategorySelectOpen] = useState(false);
-
     const [abbreviation, setAbbreviation] = useState<string>('');
     const [description, setDescription] = useState<string>('');
-
     const [unitOptions, setUnitOptions] = useState<UnitOptionType[]>([]);
     const [allCategoriesFlat, setAllCategoriesFlat] = useState<FlatCategoryType[]>([]);
-
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
     const [loadingUnits, setLoadingUnits] = useState<boolean>(false);
     const [loadingCategories, setLoadingCategories] = useState<boolean>(false);
-
     const [unitSearchTerm, setUnitSearchTerm] = useState('');
     const [categorySearchTerm, setCategorySearchTerm] = useState('');
-
     const itemNameInputRef = React.useRef<HTMLInputElement>(null);
-
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
     const [unitIdError, setUnitIdError] = useState<boolean>(false);
@@ -266,26 +226,14 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
     const [abbreviationHelperText, setAbbreviationHelperText] = useState<string>('');
     const [descriptionError, setDescriptionError] = useState<boolean>(false);
     const [descriptionHelperText, setDescriptionHelperText] = useState<string>('');
-
     const categoryTreeForSelect = useMemo(() => {
         return buildCategoryTreeForSelect(allCategoriesFlat, categorySearchTerm, null);
     }, [allCategoriesFlat, categorySearchTerm]);
-
-
     useEffect(() => {
         if (open && initialData) {
             setName(initialData.description || '');
             setDescription(initialData.aciklama || '');
-            // اگر initialData.olcuBrimi هم وجود دارد و با یک واحد موجود مطابقت دارد، می‌توانید آن را انتخاب کنید
-            // این منطق پیچیده‌تر است و نیاز به جستجو در unitOptions دارد.
-            // مثال ساده:
-            // if (initialData.olcuBrimi && unitOptions.some(unit => unit.title === initialData.olcuBrimi)) {
-            //     setSelectedUnitId(unitOptions.find(unit => unit.title === initialData.olcuBrimi)?.id || null);
-            // }
-            // اگر initialData.eskiPoz هم دارید
-            // setAbbreviation(initialData.eskiPoz || '');
         } else if (!open) {
-            // Reset form when modal closes
             setName('');
             setSelectedUnitId(null);
             setSelectedCategoryId(null);
@@ -297,7 +245,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setAbbreviationError(false); setAbbreviationHelperText('');
             setDescriptionError(false); setDescriptionHelperText('');
         }
-    }, [open, initialData]); // unitOptions نیز باید در اینجا اضافه شود اگر منطق pre-fill واحد را پیاده‌سازی می‌کنید
+    }, [open, initialData]);
 
     useEffect(() => {
         if (open) {
@@ -350,7 +298,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setLoadingUnits(false);
         }
     };
-
     const getAllCategories = async () => {
         setLoadingCategories(true);
         const authToken = localStorage.getItem('authToken');
@@ -385,7 +332,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
 
     const insertItem = async () => {
         let hasError = false;
-
         if (!name.trim()) {
             setNameError(true);
             setNameHelperText('Ürün adı boş bırakılamaz!');
@@ -394,7 +340,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setNameError(false);
             setNameHelperText('');
         }
-
         if (selectedUnitId === null) {
             setUnitIdError(true);
             setUnitIdHelperText('Ölçü seçilmelidir!');
@@ -403,7 +348,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setUnitIdError(false);
             setUnitIdHelperText('');
         }
-
         if (selectedCategoryId === null) {
             setCategoryIdError(true);
             setCategoryIdHelperText('Kategori seçilmelidir!');
@@ -412,27 +356,11 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setCategoryIdError(false);
             setCategoryIdHelperText('');
         }
-
-        if (!abbreviation.trim()) {
-            setAbbreviationError(true);
-            setAbbreviationHelperText('Kısaltma boş bırakılamaz!');
-            hasError = true;
-        } else if (abbreviation.length !== 4) {
-            setAbbreviationError(true);
-            setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır!');
-            hasError = true;
-        } else {
-            setAbbreviationError(false);
-            setAbbreviationHelperText('');
-        }
-
         if (hasError) {
             showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
             return;
         }
-
         setLoadingButton(true);
-
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
@@ -440,7 +368,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setLoadingButton(false);
             return;
         }
-
         try {
             const response = await axios.post(server.baseurl + server.baseinfo + "create-item",
                 {
@@ -458,10 +385,9 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                     }
                 }
             );
-
             if (response.data && response.data.success) {
                 showAlert('Yeni ürün başarıyla eklendi!', 'success');
-                onRegisterSuccess(response.data.data as ApiItemType, initialData?.originalRowId); // Pass originalRowId
+                onRegisterSuccess(response.data.data as ApiItemType, initialData?.originalRowId);
                 onClose();
             } else {
                 showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');
@@ -479,8 +405,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setLoadingButton(false);
         }
     };
-
-
     return (
         <Dialog
             open={open}
@@ -491,13 +415,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
         >
             <DialogTitle id="register-unregistered-item-title">Kaydedilmemiş Ürün Ekle</DialogTitle>
             <DialogContent dividers>
-                {/* Alert Message for this modal */}
-                {/* {showAlert('','info') && (
-                    <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
-                    </Stack>
-                )} */}
                 <Grid container spacing={2}>
-                    {/* Item Name */}
                     <Grid item xs={12} md={6}>
                         <CustomFormLabel htmlFor="item-name">Ürün Adı</CustomFormLabel>
                         <CustomTextField
@@ -517,7 +435,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                             helperText={nameHelperText}
                         />
                     </Grid>
-                    {/* Unit Selection (with search) */}
                     <Grid item xs={12} md={6}>
                         <CustomFormLabel htmlFor="select-unit">Ölçü</CustomFormLabel>
                         <FormControl fullWidth error={unitIdError}>
@@ -561,7 +478,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                             {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>}
                         </FormControl>
                     </Grid>
-                    {/* Category Selection (single-select tree) */}
                     <Grid item xs={12} md={6}>
                         <CustomFormLabel htmlFor="select-category">Kategori</CustomFormLabel>
                         <FormControl fullWidth error={categoryIdError}>
@@ -613,7 +529,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                             {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{categoryIdHelperText}</Typography>}
                         </FormControl>
                     </Grid>
-                    {/* Abbreviation */}
                     <Grid item xs={12} md={6}>
                         <CustomFormLabel htmlFor="abbreviation">Kısaltma (4 Karakter)</CustomFormLabel>
                         <CustomTextField
@@ -633,7 +548,6 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                             helperText={abbreviationHelperText}
                         />
                     </Grid>
-                    {/* Description (text editor) */}
                     <Grid item xs={12}>
                         <CustomFormLabel htmlFor="description">Açıklama</CustomFormLabel>
                         <ReactQuill
