@@ -138,6 +138,12 @@ const CompareComponent = () => {
     const [orderTitleToDelete, setOrderTitleToDelete] = useState<string>('');
     const [editingId, setEditingId] = useState<number | null>(null);
 
+    const [openStatusModal, setOpenStatusModal] = useState(false);
+    const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
+    const [description, setDescription] = useState('');
+    const [statusError, setStatusError] = useState(false);
+    const [idRow, setIdRow] = useState(0);
+
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
         try {
@@ -363,7 +369,7 @@ const CompareComponent = () => {
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String(item.quantity)),
-                price: item.price,
+                price: (item.price).toFixed(2),
                 description: item.description
             }))
         };
@@ -394,7 +400,7 @@ const CompareComponent = () => {
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String(item.quantity)),
-                price: item.price,
+                price: (item.price).toFixed(2),
                 description: item.description
             }))
         };
@@ -460,10 +466,10 @@ const CompareComponent = () => {
     const handleCloseModal = () => { setOpenModal(false); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: OrderType) => { setAnchorEl(event.currentTarget); setSelectedOrderForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedOrderForMenu(null); };
-    const handleAction = async (action: 'approve' | 'reject' | 'edit' | 'delete') => {
-        alert(`Sipariş #${selectedOrderForMenu?.id} için "${action}" işlemi yapıldı.`);
-        handleCloseMenu();
-    };
+    // const handleAction = async (action: 'approve' | 'reject' | 'edit' | 'delete') => {
+    //     alert(`Sipariş #${selectedOrderForMenu?.id} için "${action}" işlemi yapıldı.`);
+    //     handleCloseMenu();
+    // };
     const handleClickOpenDeleteModal = (id: number, title: string) => { setOrderIdToDelete(id); setOrderTitleToDelete(title); setOpenDeleteModal(true); handleCloseMenu(); };
     const handleClickCloseDeleteModal = () => { setOpenDeleteModal(false); setOrderIdToDelete(null); setOrderTitleToDelete(''); };
     const stripHtml = (htmlString: string): string => {
@@ -471,6 +477,71 @@ const CompareComponent = () => {
         return doc.body.textContent || "";
     };
     const handleOpenRegisterModal = (_item: { name: string; unit: string; }) => { };
+
+    const handleClickOpenStatusModal = (id: number, action: 'approve' | 'reject') => {
+        setStatusToUpdate(action === 'approve' ? 1 : 2);
+        // setSelectedOrderForMenu(ordersList.find(o => o.id === id) || null); 
+        setIdRow(id)
+        setDescription('');
+        setOpenStatusModal(true);
+        handleCloseMenu();
+    };
+
+    const handleCloseStatusModal = () => {
+        setOpenStatusModal(false);
+        setStatusToUpdate(null);
+        setDescription('');
+        setStatusError(false);
+    };
+
+    const handleUpdateStatus = async () => {
+        if (!description.trim()) {
+            setStatusError(true);
+            showAlert('Lütfen bir açıklama giriniz.', 'warning');
+            return;
+        }
+
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        debugger
+        try {
+            const payload = {
+                id: Number(idRow),
+                status: statusToUpdate,
+                description: description.trim()
+            };
+
+            const response = await axios.put(
+                server.baseurl + server.initialoperations + "update-order-status",
+                payload,
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+
+            if (response.data.httpStatusCode === 200) {
+                showAlert('Sipariş durumu başarıyla güncellendi!', 'success');
+                getListOrders(); // Sipariş listesini güncelle
+            } else {
+                showAlert(response.data.message || 'Sipariş durumu güncellenirken bir hata oluştu.', 'error');
+            }
+
+        } catch (e: any) {
+            if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                navigate("/");
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            } else {
+                showAlert('Sipariş durumu güncellenirken bir hata oluştu.', 'error');
+            }
+        } finally {
+            handleCloseStatusModal();
+
+            getListOrders();
+        }
+    };
+
 
     const filteredOrders = ordersList.filter(order => {
         const matchesSearch = order.network.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -698,12 +769,19 @@ const CompareComponent = () => {
                                             </IconButton>
                                             <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu && selectedOrderForMenu?.id === row.id} onClose={handleCloseMenu}
                                                 MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
-                                                {selectedOrderForMenu?.status === 0 && (
-                                                    <MenuItem onClick={() => handleAction('approve')}><ListItemIcon><IconCheck size={18} /></ListItemIcon> Onayla</MenuItem>
-                                                )}
-                                                {selectedOrderForMenu?.status === 0 && (
-                                                    <MenuItem onClick={() => handleAction('reject')}><ListItemIcon><IconX size={18} /></ListItemIcon> Reddet</MenuItem>
-                                                )}
+
+                                                {/* {selectedOrderForMenu?.status === 0 && ( */}
+                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                    <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                    Onayla
+                                                </MenuItem>
+                                                {/* )}
+                                                                                           {selectedOrderForMenu?.status === 0 && ( */}
+                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                    <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                    Reddet
+                                                </MenuItem>
+                                                {/* )} */}
                                                 <MenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
                                                 <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}><ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek</MenuItem>
                                             </Menu>
@@ -722,7 +800,6 @@ const CompareComponent = () => {
                 rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
             />
 
-            {/* Modals */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Ürün Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -734,6 +811,7 @@ const CompareComponent = () => {
                                     <TableCell>Miktar</TableCell>
                                     <TableCell>Birim</TableCell>
                                     <TableCell>Açıklama</TableCell>
+                                    <TableCell>Fiyat</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -743,6 +821,7 @@ const CompareComponent = () => {
                                         <TableCell>{detail.quantity}</TableCell>
                                         <TableCell>{detail.item.unit.title}</TableCell>
                                         <TableCell> <Typography>{stripHtml(detail.description)}</Typography></TableCell>
+                                        <TableCell>{detail.price}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
@@ -750,6 +829,39 @@ const CompareComponent = () => {
                     </TableContainer>
                 </DialogContent>
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    {statusToUpdate === 1 ? 'Onaylama Açıklaması' : 'Reddetme Açıklaması'}
+                </DialogTitle>
+                <DialogContent>
+                    <TextField
+                        autoFocus
+                        margin="dense"
+                        label="Açıklama"
+                        type="text"
+                        fullWidth
+                        multiline
+                        rows={4}
+                        variant="outlined"
+                        value={description}
+                        onChange={(e) => {
+                            setDescription(e.target.value);
+                            if (statusError) setStatusError(false);
+                        }}
+                        error={statusError}
+                        helperText={statusError && 'Bu alan zorunludur.'}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseStatusModal} color="secondary">
+                        İptal
+                    </Button>
+                    <Button onClick={handleUpdateStatus} color="primary">
+                        Kaydet
+                    </Button>
+                </DialogActions>
             </Dialog>
 
             <DeleteOrderModal
