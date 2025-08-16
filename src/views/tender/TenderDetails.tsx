@@ -20,7 +20,7 @@ import {
     IconChevronDown,
     IconChevronRight,
     IconFileExport,
-    IconDownload
+    IconDownload, IconArrowRight
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -1944,13 +1944,22 @@ const TenderDetails = () => {
     return (
         <Box sx={{ p: 3 }} >
 
-            <Stack direction="row" mb={4} spacing={1} flexWrap="wrap">
-                <Chip
-                    label={`İhale: ${tenderTitle}`}
-                    color="primary"
-                    variant="filled"
-                    size="small"
-                />
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Stack direction="row" mb={4} spacing={1} flexWrap="wrap">
+                    <Chip
+                        label={`İhale: ${tenderTitle}`}
+                        color="primary"
+                        variant="filled"
+                        size="small"
+                    />
+                </Stack>
+
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                    <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                        endIcon={<IconArrowRight size={20} />}>
+                        Geri Dön
+                    </Button>
+                </CustomTooltip>
             </Stack>
             <Paper elevation={3} sx={{ p: 2, mb: 3 }}>
                 <Grid container spacing={2} alignItems="center">
@@ -2087,13 +2096,15 @@ const TenderDetails = () => {
                     </Grid>
                 </Grid>
             </Paper>
-            {alertMessage && (
-                <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
-                    <Alert severity={alertSeverity} onClose={clearAlert}>
-                        {alertMessage}
-                    </Alert>
-                </Stack>
-            )}
+            {
+                alertMessage && (
+                    <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
+                        <Alert severity={alertSeverity} onClose={clearAlert}>
+                            {alertMessage}
+                        </Alert>
+                    </Stack>
+                )
+            }
             <BlankCard>
                 <Box sx={{ overflowX: 'auto', width: '100%' }}>
                     <TableContainer ref={tableContainerRef} sx={{ maxHeight: 600 }}>
@@ -2968,31 +2979,35 @@ const TenderDetails = () => {
                     </Grid>
                 </Grid>
             </Paper>
-            {itemToRegister && (
-                <RegisterUnregisteredItemModal
-                    open={openRegisterItemModal}
-                    onClose={handleCloseRegisterItemModal}
-                    onRegisterSuccess={handleRegistrationSuccess}
-                    initialData={itemToRegister}
-                    showAlert={showAlert}
-                />
-            )}
-            {categoryToRegister && (
-                <RegisterUnregisteredCategoryModal
-                    open={openRegisterCategoryModal}
-                    onClose={handleCloseRegisterCategoryModal}
-                    onRegisterSuccess={handleRegistrationSuccess}
-                    initialData={categoryToRegister}
-                    showAlert={showAlert}
-                />
-            )}
+            {
+                itemToRegister && (
+                    <RegisterUnregisteredItemModal
+                        open={openRegisterItemModal}
+                        onClose={handleCloseRegisterItemModal}
+                        onRegisterSuccess={handleRegistrationSuccess}
+                        initialData={itemToRegister}
+                        showAlert={showAlert}
+                    />
+                )
+            }
+            {
+                categoryToRegister && (
+                    <RegisterUnregisteredCategoryModal
+                        open={openRegisterCategoryModal}
+                        onClose={handleCloseRegisterCategoryModal}
+                        onRegisterSuccess={handleRegistrationSuccess}
+                        initialData={categoryToRegister}
+                        showAlert={showAlert}
+                    />
+                )
+            }
             <Backdrop
                 sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
                 open={isLoading}
             >
                 <CircularProgress color="inherit" />
             </Backdrop>
-        </Box>
+        </Box >
     );
 };
 

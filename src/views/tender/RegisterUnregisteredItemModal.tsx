@@ -207,6 +207,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [isCategorySelectOpen, setIsCategorySelectOpen] = useState(false);
     const [abbreviation, setAbbreviation] = useState<string>('');
+    const [weight, setWeight] = useState<number | ''>('');
     const [description, setDescription] = useState<string>('');
     const [unitOptions, setUnitOptions] = useState<UnitOptionType[]>([]);
     const [allCategoriesFlat, setAllCategoriesFlat] = useState<FlatCategoryType[]>([]);
@@ -224,6 +225,8 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
     const [categoryIdHelperText, setCategoryIdHelperText] = useState<string>('');
     const [abbreviationError, setAbbreviationError] = useState<boolean>(false);
     const [abbreviationHelperText, setAbbreviationHelperText] = useState<string>('');
+    const [weightError, setWeightError] = useState<boolean>(false);
+    const [weightHelperText, setWeightHelperText] = useState<string>('');
     const [descriptionError, setDescriptionError] = useState<boolean>(false);
     const [descriptionHelperText, setDescriptionHelperText] = useState<string>('');
     const categoryTreeForSelect = useMemo(() => {
@@ -243,6 +246,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setUnitIdError(false); setUnitIdHelperText('');
             setCategoryIdError(false); setCategoryIdHelperText('');
             setAbbreviationError(false); setAbbreviationHelperText('');
+            setWeightError(false); setWeightHelperText('');
             setDescriptionError(false); setDescriptionHelperText('');
         }
     }, [open, initialData]);
@@ -375,7 +379,8 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                     description,
                     abbreviation,
                     categoryId: Number(selectedCategoryId),
-                    itemUnitId: Number(selectedUnitId)
+                    itemUnitId: Number(selectedUnitId),
+                    weight: weight === '' ? null : weight,
                 },
                 {
                     headers: {
@@ -417,7 +422,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             <DialogContent dividers>
                 <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="item-name">Ürün Adı</CustomFormLabel>
+                        <CustomFormLabel htmlFor="item-name" required>Ürün Adı</CustomFormLabel>
                         <CustomTextField
                             id="item-name"
                             placeholder="Ürün Adı"
@@ -436,7 +441,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                         />
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="select-unit">Ölçü</CustomFormLabel>
+                        <CustomFormLabel htmlFor="select-unit" required>Ölçü</CustomFormLabel>
                         <FormControl fullWidth error={unitIdError}>
                             <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
                             <Select
@@ -479,7 +484,7 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                         </FormControl>
                     </Grid>
                     <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="select-category">Kategori</CustomFormLabel>
+                        <CustomFormLabel htmlFor="select-category" required>Kategori</CustomFormLabel>
                         <FormControl fullWidth error={categoryIdError}>
                             <InputLabel id="select-category-label">Kategori Seçin</InputLabel>
                             <Select
@@ -546,6 +551,30 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
                             inputProps={{ maxLength: 4 }}
                             error={abbreviationError}
                             helperText={abbreviationHelperText}
+                        />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                        <CustomFormLabel htmlFor="weight">Ürün Birim Ağırlığı</CustomFormLabel>
+                        <CustomTextField
+                            id="weight"
+                            placeholder="Ağırlık"
+                            fullWidth
+                            type="number"
+                            value={weight}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                const value = e.target.value;
+                                if (value === '' || !isNaN(Number(value))) {
+                                    setWeight(value === '' ? '' : Number(value));
+                                }
+                                if (weightError && value.trim()) {
+                                    setWeightError(false);
+                                    setWeightHelperText('');
+                                }
+                            }}
+                            inputProps={{ min: 0, step: "0.01" }}
+                            error={weightError}
+                            helperText={weightHelperText}
                         />
                     </Grid>
                     <Grid item xs={12}>

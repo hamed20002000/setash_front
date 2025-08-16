@@ -16,53 +16,6 @@ import jsPDF from 'jspdf';
 
 import { MapNode, TransmissionRow, SelectOption, MiktarTipi } from './types';
 
-// type MiktarTipi = 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG' | 'TR-Connection';
-// interface AddedItem {
-//     id: string;
-//     name: string;
-//     quantity: number;
-//     miktarTipi: 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG';
-//     weight?: number | null;
-//     unit?: {
-//         id: string;
-//         title: string;
-//         recordStatus: number;
-//         createAt: string;
-//     };
-// }
-
-// interface TransmissionRow {
-//     id: string;
-//     fromProductType: string;
-//     toProductType: string;
-//     distance: number;
-//     miktarTipi: 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG'; // از مقادیر معتبر استفاده می‌کنیم
-//     network: string;
-//     formulaTitle: string;
-//     createAt?: string;
-//     recordStatus?: number;
-//     fromProductTypeId?: string;
-//     toProductTypeId?: string;
-//     networkId?: string;
-//     fromProductTypeX?: number;
-//     fromProductTypeY?: number;
-//     toProductTypeX?: number;
-//     toProductTypeY?: number;
-//     items?: AddedItem[];
-// }
-
-// interface MapNode extends d3.SimulationNodeDatum {
-//     id: string;
-//     name: string;
-//     isHub?: boolean;
-//     isNew?: boolean;
-// }
-
-// interface SelectOption {
-//     id: string;
-//     name: string;
-// }
-
 interface D3MapLink extends d3.SimulationLinkDatum<MapNode> {
     id: string;
     distance: number;
@@ -671,85 +624,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
         });
         setScale(prevScale => prevScale * (event.deltaY < 0 ? zoomFactor : 1 / zoomFactor));
     }, [viewBox, getSvgCoordinates]);
-
-    // const handleSaveChanges = useCallback(() => {
-    //     const existingNodeNames = new Set(allProductTypes.map(p => p.name));
-    //     const newlyCreatedNodes = mapNodes
-    //         .filter(node => node.isNew && !existingNodeNames.has(node.name));
-
-    //     const updatedTransmissions: TransmissionRow[] = mapEdges
-    //         .filter(edge => edge.miktarTipi !== 'TR-Connection')
-    //         .map(edge => {
-    //             const fromNode = mapNodes.find(node => node.id === edge.fromNodeId);
-    //             const toNode = mapNodes.find(node => node.id === edge.toNodeId);
-    //             const originalTransmission = transmissions.find(t => t.id === edge.id);
-
-    //             return {
-    //                 id: edge.id,
-    //                 fromProductType: fromNode?.name || '',
-    //                 toProductType: toNode?.name || '',
-    //                 distance: edge.distance,
-    //                 miktarTipi: (originalTransmission?.miktarTipi || 'Yeni YG') as 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG',
-    //                 network: originalTransmission?.network || networkTitle,
-    //                 formulaTitle: originalTransmission?.formulaTitle || 'Oto-Oluşturulan',
-    //                 networkId: originalTransmission?.networkId || networkId,
-    //                 fromProductTypeId: fromNode?.id || '',
-    //                 toProductTypeId: toNode?.id || '',
-    //                 fromProductTypeX: fromNode?.x,
-    //                 toProductTypeX: toNode?.x,
-    //                 fromProductTypeY: fromNode?.y,
-    //                 toProductTypeY: toNode?.y,
-    //             };
-    //         });
-    //     debugger
-    //     onSaveMapChanges(updatedTransmissions, newlyCreatedNodes);
-    //     onClose();
-    // }, [mapEdges, mapNodes, networkTitle, networkId, onSaveMapChanges, onClose, transmissions, allProductTypes]);
-
-
-    // const handleSaveChanges = useCallback(() => {
-    //     const productTypeNameToIdMap = new Map(allProductTypes.map(p => [p.name, p.id]));
-
-    //     const newlyCreatedNodes = mapNodes
-    //         .filter(node => node.isNew);
-
-    //     const updatedTransmissions: TransmissionRow[] = mapEdges
-    //         .map(edge => {
-    //             const fromNode = mapNodes.find(node => node.id === edge.fromNodeId);
-    //             const toNode = mapNodes.find(node => node.id === edge.toNodeId);
-
-    //             // پیدا کردن ردیف اصلی برای حفظ تمام اطلاعات
-    //             const originalTransmission = transmissions.find(t => t.id === edge.id);
-
-    //             const fromProductTypeId = originalTransmission?.fromProductTypeId || productTypeNameToIdMap.get(fromNode?.name || '') || '';
-    //             const toProductTypeId = originalTransmission?.toProductTypeId || productTypeNameToIdMap.get(toNode?.name || '') || '';
-
-    //             const originalMiktarTipi = originalTransmission?.miktarTipi || 'Yeni YG';
-    //             const originalItems = originalTransmission?.items || [];
-
-    //             return {
-    //                 id: edge.id,
-    //                 fromProductType: fromNode?.name || '',
-    //                 toProductType: toNode?.name || '',
-    //                 distance: edge.distance,
-    //                 miktarTipi: originalMiktarTipi,
-    //                 network: originalTransmission?.network || networkTitle,
-    //                 formulaTitle: originalTransmission?.formulaTitle || 'Oto-Oluşturulan',
-    //                 networkId: originalTransmission?.networkId || networkId,
-    //                 fromProductTypeId: fromProductTypeId,
-    //                 toProductTypeId: toProductTypeId,
-    //                 fromProductTypeX: fromNode?.x,
-    //                 toProductTypeX: toNode?.x,
-    //                 fromProductTypeY: fromNode?.y,
-    //                 toProductTypeY: toNode?.y,
-    //                 items: originalItems, // ✅ آیتم‌های اصلی را به ردیف جدید اضافه می‌کند
-    //             };
-    //         });
-
-    //     onSaveMapChanges(updatedTransmissions, newlyCreatedNodes);
-    //     onClose();
-    // }, [mapEdges, mapNodes, networkTitle, networkId, onSaveMapChanges, onClose, transmissions, allProductTypes]);
-
 
 
     const handleSaveChanges = useCallback(() => {

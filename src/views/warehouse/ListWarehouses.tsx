@@ -1,21 +1,24 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    TableSortLabel, FormControl, InputLabel, Select, ListItemText
+    TableSortLabel, FormControl, InputLabel, Select, ListItemText,
+    Chip
 } from '@mui/material';
+import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
+import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
-import BlankCard from '../../../components/shared/BlankCard';
-import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconPlus, IconArrowRight } from '@tabler/icons-react';
-import DeleteWorkhouse from './DeleteWorkHouse';
+import BlankCard from '../../components/shared/BlankCard';
+import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
+import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
+import DeleteWarehouse from './DeleteWarehouse';
 import axios from 'axios';
-import server from '../../../assets/address.json';
+import server from '../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 import { tr } from 'date-fns/locale';
@@ -33,13 +36,15 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-interface WorkhouseType {
+
+interface WarehouseType {
     id: number;
     name: string;
     code: string;
     address: string;
     recordStatus: number;
     createAt: string;
+    status: string;
     region: {
         id: number;
         name: string;
@@ -47,20 +52,8 @@ interface WorkhouseType {
         createAt: string;
         recordStatus: number;
     };
-    work: {
-        id: number;
-        title: string;
-        startDate: string;
-        endDate: string;
-        createAt: string;
-        recordStatus: number;
-    } | null;
 }
 
-interface WorkInfoType {
-    title: string;
-    tenderTitle: string;
-}
 
 interface RegionType {
     id: number;
@@ -90,7 +83,7 @@ interface FlattenedRegionType {
 // }
 
 
-type SortableWorkhouseKeys = keyof Pick<WorkhouseType, 'name' | 'code' | 'address' | 'createAt' | 'recordStatus'>;
+type SortableWarehouseKeys = keyof Pick<WarehouseType, 'name' | 'code' | 'address' | 'createAt' | 'recordStatus'>;
 
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
@@ -116,7 +109,7 @@ const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key):
     return 0;
 };
 
-const getComparator = (order: 'asc' | 'desc', orderBy: SortableWorkhouseKeys): (a: WorkhouseType, b: WorkhouseType) => number => {
+const getComparator = (order: 'asc' | 'desc', orderBy: SortableWarehouseKeys): (a: WarehouseType, b: WarehouseType) => number => {
     return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
 };
 
@@ -180,8 +173,7 @@ const buildRegionTree = (regions: RegionType[] | undefined, depth: number = 0): 
 };
 
 
-const ListWorkhouses = () => {
-    const { workId } = useParams<{ workId: string }>();
+const ListWarehouses = () => {
     const navigate = useNavigate();
 
     const [name, setName] = useState<string>('');
@@ -190,9 +182,8 @@ const ListWorkhouses = () => {
     // ✅ فقط id منطقه انتخاب شده را ذخیره می‌کنیم
     const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
 
-    const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
-    const [displayedWorkhouses, setDisplayedWorkhouses] = useState<WorkhouseType[]>([]);
-    const [workInfo, setWorkInfo] = useState<WorkInfoType | null>(null);
+    const [WarehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
+    const [displayedWarehouses, setDisplayedWarehouses] = useState<WarehouseType[]>([]);
     const [editingId, setEditingId] = useState<number | null>(null);
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -204,16 +195,16 @@ const ListWorkhouses = () => {
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [orderBy, setOrderBy] = useState<SortableWorkhouseKeys>('createAt');
+    const [orderBy, setOrderBy] = useState<SortableWarehouseKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [selectedRowForMenu, setSelectedRowForMenu] = useState<WorkhouseType | null>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<WarehouseType | null>(null);
     const openMenu = Boolean(anchorEl);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
-    const [workhouseIdToDelete, setWorkhouseIdToDelete] = useState<number | null>(null);
-    const [workhouseNameToDelete, setWorkhouseNameToDelete] = useState<string>('');
+    const [WarehouseIdToDelete, setWarehouseIdToDelete] = useState<number | null>(null);
+    const [WarehouseNameToDelete, setWarehouseNameToDelete] = useState<string>('');
 
     const [nameError, setNameError] = useState<boolean>(false);
     const [codeError, setCodeError] = useState<boolean>(false);
@@ -231,29 +222,6 @@ const ListWorkhouses = () => {
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    const fetchWorkInfo = useCallback(async () => {
-        if (!workId) return;
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            navigate("/");
-            return;
-        }
-        try {
-            const response = await axios.get(server.baseurl + server.initialoperations + `get-work-by-id/${workId}`, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-            if (response.data.httpStatusCode === 200 && response.data.data) {
-                setWorkInfo({
-                    title: response.data.data.title,
-                    tenderTitle: response.data.data.tender?.title || 'N/A'
-                });
-            } else {
-                showAlert('İş bilgileri alınamadı.', 'error');
-            }
-        } catch (e) {
-            showAlert('İş bilgileri yüklenirken bir hata oluştu.', 'error');
-        }
-    }, [workId, navigate]);
 
     const fetchRegions = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -287,8 +255,7 @@ const ListWorkhouses = () => {
         }
     }, [navigate]);
 
-    const fetchWorkhouses = useCallback(async () => {
-        if (!workId) return;
+    const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -296,18 +263,19 @@ const ListWorkhouses = () => {
             setLoadingData(false);
             return;
         }
+        debugger
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
+            const response = await axios.get(server.baseurl + server.initialoperations + "get-warehouses", {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
+            debugger
             if (response.data.httpStatusCode === 200) {
-                const allWorkhouses = response.data.data as WorkhouseType[];
-                const filteredWorkhouses = allWorkhouses.filter(item => item.work && Number(item.work.id) === Number(workId));
-                const workhousesWithStatus = filteredWorkhouses.map((item) => ({
+                const allWarehouses = response.data.data as WarehouseType[];
+                const WarehousesWithStatus = allWarehouses.map((item) => ({
                     ...item,
                     status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
                 }));
-                setWorkhousesList(workhousesWithStatus);
+                setWarehousesList(WarehousesWithStatus);
             } else {
                 showAlert(response.data.message || 'İşler yüklenirken bir hata oluştu.', 'error');
             }
@@ -316,23 +284,17 @@ const ListWorkhouses = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [workId, navigate]);
+    }, []);
 
     useEffect(() => {
-        if (workId) {
-            fetchWorkInfo();
-            fetchRegions();
-        }
-    }, [workId, fetchWorkInfo, fetchRegions]);
+        fetchRegions();
+        fetchWarehouses();
+    }, [fetchRegions, fetchWarehouses]);
+
+
 
     useEffect(() => {
-        if (workId) {
-            fetchWorkhouses();
-        }
-    }, [workId, fetchWorkhouses]);
-
-    useEffect(() => {
-        const filteredBySearchAndStatus = workhousesList.filter(wh => {
+        const filteredBySearchAndStatus = WarehousesList.filter(wh => {
             const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus =
                 statusFilter === 'all' ||
@@ -342,9 +304,9 @@ const ListWorkhouses = () => {
         });
 
         const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
-        setDisplayedWorkhouses(sortedData);
+        setDisplayedWarehouses(sortedData);
         setPage(0);
-    }, [workhousesList, searchTerm, statusFilter, order, orderBy]);
+    }, [WarehousesList, searchTerm, statusFilter, order, orderBy]);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -366,7 +328,7 @@ const ListWorkhouses = () => {
         };
     }, [alertMessage]);
 
-    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: WorkhouseType) => {
+    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: WarehouseType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
     };
@@ -410,8 +372,8 @@ const ListWorkhouses = () => {
 
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
-            setWorkhouseIdToDelete(selectedRowForMenu.id);
-            setWorkhouseNameToDelete(selectedRowForMenu.name);
+            setWarehouseIdToDelete(selectedRowForMenu.id);
+            setWarehouseNameToDelete(selectedRowForMenu.name);
             setOpenDeleteModal(true);
         }
         handleCloseMenu();
@@ -419,9 +381,9 @@ const ListWorkhouses = () => {
 
     const handleClickCloseDeleteModal = () => {
         setOpenDeleteModal(false);
-        setWorkhouseIdToDelete(null);
-        setWorkhouseNameToDelete('');
-        fetchWorkhouses();
+        setWarehouseIdToDelete(null);
+        setWarehouseNameToDelete('');
+        fetchWarehouses();
     };
 
     const resetFormAndState = () => {
@@ -469,8 +431,8 @@ const ListWorkhouses = () => {
         return isValid;
     };
 
-    const insertWorkhouse = async () => {
-        if (!validateForm() || !workId) return;
+    const insertWarehouse = async () => {
+        if (!validateForm()) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -480,13 +442,12 @@ const ListWorkhouses = () => {
         }
         try {
             const payload = {
-                workId: Number(workId),
                 name,
                 code,
                 address,
                 regionId: Number(selectedRegionId) // ✅ از state جدید استفاده می‌کنیم
             };
-            const response = await axios.post(server.baseurl + server.initialoperations + "create-workhouse",
+            const response = await axios.post(server.baseurl + server.initialoperations + "create-Warehouse",
                 payload, {
                 headers: {
                     "Accept": "application/json",
@@ -497,7 +458,7 @@ const ListWorkhouses = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni şantiye başarıyla eklendi!', 'success');
                 resetFormAndState();
-                fetchWorkhouses();
+                fetchWarehouses();
             } else {
                 showAlert(response.data.message || 'Şantiye eklenirken bir hata oluştu.', 'error');
             }
@@ -508,8 +469,8 @@ const ListWorkhouses = () => {
         }
     };
 
-    const editWorkhouse = async () => {
-        if (!validateForm() || !editingId || !workId) return;
+    const editWarehouse = async () => {
+        if (!validateForm() || !editingId) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -520,19 +481,18 @@ const ListWorkhouses = () => {
         try {
             const payload = {
                 id: Number(editingId),
-                workId: Number(workId),
                 name,
                 code,
                 address,
                 regionId: Number(selectedRegionId) // ✅ از state جدید استفاده می‌کنیم
             };
-            const response = await axios.put(server.baseurl + server.initialoperations + "update-workhouse", payload, {
+            const response = await axios.put(server.baseurl + server.initialoperations + "update-Warehouse", payload, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
             });
             if (response.data.httpStatusCode === 200) {
                 showAlert('Şantiye başarıyla güncellendi!', 'success');
                 resetFormAndState();
-                fetchWorkhouses();
+                fetchWarehouses();
             } else {
                 showAlert(response.data.message || 'Şantiye güncellenirken bir hata oluştu.', 'error');
             }
@@ -540,6 +500,47 @@ const ListWorkhouses = () => {
             showAlert(e.response?.data?.message || 'Şantiye güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
+        }
+    };
+
+
+    const sendStatusUpdate = async (id: number, statusValue: number) => {
+        clearAlert();
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Lütfen giriş yapın.', 'warning');
+            navigate("/");
+            return;
+        }
+        try {
+            const response = await axios.put(
+                server.baseurl + server.initialoperations + "update-Warehouse",
+                { id: Number(id), recordStatus: statusValue },
+                {
+                    headers: {
+                        "Accept": "application/json",
+                        "Authorization": `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
+                showAlert(`Direk başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                resetFormAndState();
+                fetchWarehouses();
+            } else {
+                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                navigate("/");
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            }
+            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        } finally {
+            handleCloseMenu();
         }
     };
 
@@ -558,18 +559,28 @@ const ListWorkhouses = () => {
             setPage(0);
         }
     };
-    const handleRequestSort = (property: SortableWorkhouseKeys) => {
+    const handleRequestSort = (property: SortableWarehouseKeys) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
         setPage(0);
     };
 
+    const filteredWarehousesList = WarehousesList.filter(WarehousesList => {
+        const matchesSearch = WarehousesList.name.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus =
+            statusFilter === 'all' ||
+            (statusFilter === 'active' && WarehousesList.recordStatus === 0) ||
+            (statusFilter === 'inactive' && WarehousesList.recordStatus === 1);
+        return matchesSearch && matchesStatus;
+    });
+    const sortedAndFilteredWarehousesList = stableSort(filteredWarehousesList, getComparator(order, orderBy));
+    const paginatedWarehouses = sortedAndFilteredWarehousesList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    const paginatedWorkhouses = useMemo(() => {
-        const sortedData = stableSort(displayedWorkhouses, getComparator(order, orderBy));
-        return sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    }, [displayedWorkhouses, page, rowsPerPage, order, orderBy]);
+    // const paginatedWarehouses = useMemo(() => {
+    //     const sortedData = stableSort(displayedWarehouses, getComparator(order, orderBy));
+    //     return sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    // }, [displayedWarehouses, page, rowsPerPage, order, orderBy]);
 
     // ✅ توابع جدید برای مدیریت Select درختی
     // const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
@@ -637,38 +648,30 @@ const ListWorkhouses = () => {
     const handleOpenRegionSelect = () => setIsRegionSelectOpen(true);
     const handleCloseRegionSelect = () => setIsRegionSelectOpen(false);
 
-    const handleNavigateToDetails = () => {
+
+
+    const handleSetActive = () => {
         if (selectedRowForMenu) {
-            navigate(`/workhouse/workhousedetails/${selectedRowForMenu.id}`);
+            sendStatusUpdate(selectedRowForMenu.id, 0);
         }
-        handleCloseMenu();
+    };
+    const handleSetInactive = () => {
+        if (selectedRowForMenu) {
+            sendStatusUpdate(selectedRowForMenu.id, 1);
+        }
     };
 
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-                {workInfo && (
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                            <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />
-                            <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />
-                        </Stack>
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                endIcon={<IconArrowRight size={20} />}>
-                                Geri Dön
-                            </Button>
-                        </CustomTooltip>
-                    </Stack>
-                )}
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="workhouse-name" required>İsim</CustomFormLabel>
+                            <CustomFormLabel htmlFor="Warehouse-name" required>İsim</CustomFormLabel>
                             <CustomTextField
-                                id="workhouse-name"
+                                id="Warehouse-name"
                                 placeholder="Şantiye Adı"
                                 fullWidth
                                 value={name}
@@ -682,9 +685,9 @@ const ListWorkhouses = () => {
                             />
                         </Grid>
                         <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="workhouse-code" required>Kod</CustomFormLabel>
+                            <CustomFormLabel htmlFor="Warehouse-code" required>Kod</CustomFormLabel>
                             <CustomTextField
-                                id="workhouse-code"
+                                id="Warehouse-code"
                                 placeholder="Şantiye Kodu"
                                 fullWidth
                                 value={code}
@@ -730,9 +733,9 @@ const ListWorkhouses = () => {
                             </FormControl>
                         </Grid>
                         <Grid item xs={12} sm={12}>
-                            <CustomFormLabel htmlFor="workhouse-address" required>Adres</CustomFormLabel>
+                            <CustomFormLabel htmlFor="Warehouse-address">Adres</CustomFormLabel>
                             <CustomTextField
-                                id="workhouse-address"
+                                id="Warehouse-address"
                                 placeholder="Şantiye Adresi"
                                 fullWidth
                                 value={address}
@@ -749,7 +752,7 @@ const ListWorkhouses = () => {
                                 {editingId !== null ? (
                                     <>
                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili şantiyeyi güncelleyin" : ""}>
-                                            <Button variant="contained" color="info" onClick={editWorkhouse} disabled={loadingButton}>
+                                            <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
                                                 {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
                                             </Button>
                                         </CustomTooltip>
@@ -760,7 +763,7 @@ const ListWorkhouses = () => {
                                 ) : (
                                     <>
                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir şantiye ekle" : ""}>
-                                            <Button variant="contained" color="success" onClick={insertWorkhouse} disabled={loadingButton}>
+                                            <Button variant="contained" color="success" onClick={insertWarehouse} disabled={loadingButton}>
                                                 {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
                                             </Button>
                                         </CustomTooltip>
@@ -798,9 +801,9 @@ const ListWorkhouses = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                <StyledToggleButton value="all" aria-label="all workhouses">Tümü</StyledToggleButton>
-                                <StyledToggleButton value="active" aria-label="active workhouses">Aktif</StyledToggleButton>
-                                <StyledToggleButton value="inactive" aria-label="inactive workhouses">Pasif</StyledToggleButton>
+                                <StyledToggleButton value="all" aria-label="all Warehouses">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="active" aria-label="active Warehouses">Aktif</StyledToggleButton>
+                                <StyledToggleButton value="inactive" aria-label="inactive Warehouses">Pasif</StyledToggleButton>
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
@@ -812,7 +815,7 @@ const ListWorkhouses = () => {
                     </Box>
                 ) : (
                     <TableContainer>
-                        <Table aria-label="workhouse table">
+                        <Table aria-label="Warehouse table">
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
                                     <TableCell>
@@ -830,30 +833,41 @@ const ListWorkhouses = () => {
                                     <TableCell>
                                         <TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} style={{ color: "#171c23" }}><Typography variant="h6">Oluşturulma Tarihi</Typography></TableSortLabel>
                                     </TableCell>
-                                    {/* <TableCell>
+                                    <TableCell>
                                         <TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel>
-                                    </TableCell> */}
+                                    </TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {paginatedWorkhouses.length > 0 ? (
-                                    paginatedWorkhouses.map((row) => (
+                                {paginatedWarehouses.length > 0 ? (
+                                    paginatedWarehouses.map((row) => (
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                             <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{row.address}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
-                                            {/* <TableCell>
+
+                                            <TableCell>
                                                 <Chip
-                                                    label={row.recordStatus === 0 ? 'Aktif' : 'Pasif'}
+                                                    label={row.status}
                                                     sx={{
-                                                        backgroundColor: row.recordStatus === 0 ? (theme) => theme.palette.success.light : (theme) => theme.palette.error.light,
-                                                        color: row.recordStatus === 0 ? (theme) => theme.palette.success.main : (theme) => theme.palette.error.main,
+                                                        backgroundColor:
+                                                            row.recordStatus === 2
+                                                                ? (theme) => theme.palette.primary.light
+                                                                : row.recordStatus === 1
+                                                                    ? (theme) => theme.palette.error.light
+                                                                    : (theme) => theme.palette.success.light,
+                                                        color:
+                                                            row.recordStatus === 2
+                                                                ? (theme) => theme.palette.primary.main
+                                                                : row.recordStatus === 1
+                                                                    ? (theme) => theme.palette.error.main
+                                                                    : (theme) => theme.palette.success.main,
                                                     }}
                                                 />
-                                            </TableCell> */}
+                                            </TableCell>
                                             <TableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                                                     <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={openMenu ? 'true' : undefined} onClick={(event) => handleClickMenu(event, row)}>
@@ -867,14 +881,28 @@ const ListWorkhouses = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detayları kaydet" : ""}>
-                                                        <MenuItem onClick={handleNavigateToDetails}>
-                                                            <ListItemIcon>
-                                                                <IconPlus width={18} />
-                                                            </ListItemIcon>
-                                                            Detayları Kaydet
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+
+                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+                                                        <CustomTooltip placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu Direki pasif yap" : ""}>
+                                                            <MenuItem onClick={handleSetInactive}>
+                                                                <ListItemIcon>
+                                                                    <DoNotDisturbOnRoundedIcon width={18} />
+                                                                </ListItemIcon>
+                                                                Pasif Yap
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    ) : (
+                                                        <CustomTooltip placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu Direki aktif yap" : ""}>
+                                                            <MenuItem onClick={handleSetActive}>
+                                                                <ListItemIcon>
+                                                                    <DoneRoundedIcon width={18} />
+                                                                </ListItemIcon>
+                                                                Aktif Yap
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi düzenle" : ""}>
                                                         <MenuItem onClick={handleEditClick}>
                                                             <ListItemIcon><IconEdit width={18} /></ListItemIcon>
@@ -907,7 +935,7 @@ const ListWorkhouses = () => {
                 <TablePagination
                     rowsPerPageOptions={[5, 10, 25]}
                     component="div"
-                    count={displayedWorkhouses.length}
+                    count={displayedWarehouses.length}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}
@@ -916,16 +944,16 @@ const ListWorkhouses = () => {
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>
-            <DeleteWorkhouse
+            <DeleteWarehouse
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
-                workhouseIdToDelete={workhouseIdToDelete}
-                workhouseNameToDelete={workhouseNameToDelete}
+                WarehouseIdToDelete={WarehouseIdToDelete}
+                WarehouseNameToDelete={WarehouseNameToDelete}
                 showAlert={showAlert}
-                onDeleteSuccess={fetchWorkhouses}
+                onDeleteSuccess={fetchWarehouses}
             />
         </>
     );
 };
 
-export default ListWorkhouses;
+export default ListWarehouses;

@@ -6,21 +6,20 @@ import {
 } from '@mui/material';
 import { IconFileUpload, IconTrash } from '@tabler/icons-react';
 import axios from 'axios';
-// import server from 'src/assets/address.json'; 
+import server from 'src/assets/address.json';
 
 interface AttachFileModalProps {
     open: boolean;
     onClose: () => void;
     tenderId: number | null;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
+    onUploadSuccess: () => void;
 }
-
 interface SelectedFile {
     file: File;
-    id: string; // Unique ID for React key prop and deletion
+    id: string;
 }
-
-const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tenderId, showAlert }) => {
+const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tenderId, showAlert, onUploadSuccess }) => {
     const [selectedFiles, setSelectedFiles] = useState<SelectedFile[]>([]);
     const [uploading, setUploading] = useState<boolean>(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -32,11 +31,9 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
             const invalidFiles: string[] = [];
 
             Array.from(files).forEach(file => {
-                // Only allow Excel and PDF files
-                if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || // .xlsx
-                    file.type === 'application/vnd.ms-excel' || // .xls
+                if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                    file.type === 'application/vnd.ms-excel' ||
                     file.type === 'application/pdf') {
-                    // Check for duplicates by file name (simple check)
                     if (!selectedFiles.some(sf => sf.file.name === file.name)) {
                         newValidFiles.push({ file, id: `${file.name}-${Date.now()}` });
                     } else {
@@ -46,13 +43,10 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
                     invalidFiles.push(file.name);
                 }
             });
-
             if (invalidFiles.length > 0) {
                 showAlert(`Sadece Excel (.xlsx, .xls) ve PDF (.pdf) dosyaları kabul edilir. Geçersiz dosyalar: ${invalidFiles.join(', ')}`, 'warning');
             }
-
             setSelectedFiles(prev => [...prev, ...newValidFiles]);
-            // Clear the file input value so same file can be selected again
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
@@ -75,50 +69,67 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
 
         setUploading(true);
         showAlert('Dosyalar yükleniyor...', 'info');
-
         const formData = new FormData();
         selectedFiles.forEach(sFile => {
-            formData.append('files', sFile.file); // 'files' is the key for multiple files, API should expect an array of files
+            formData.append('files', sFile.file);
         });
-        formData.append('tenderId', String(tenderId)); // Assuming API expects tenderId as a string
-
-        // ✅ Test API Endpoint (placeholder)
-        // Replace this with your actual API endpoint for attaching files
-        // Example: `${server.baseurl}${server.yourApiPrefix}upload-tender-attachments`
-        const testApiEndpoint = 'https://jsonplaceholder.typicode.com/posts'; // Placeholder for testing
 
         const authToken = localStorage.getItem('authToken');
+        const uploadApiEndpoint = server.baseurl + server.baseinfo + "upload-files";
 
         try {
-            const response = await axios.post(testApiEndpoint, formData, {
+            // Step 1: Upload files to the server
+            const uploadResponse = await axios.post(uploadApiEndpoint, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     'Authorization': authToken ? `Bearer ${authToken}` : ''
                 },
-                // You can add onUploadProgress here if needed
             });
 
-            if (response.status === 200 || response.status === 201) {
-                showAlert('Dosyalar başarıyla yüklendi!', 'success');
-                onClose(); // Close modal on success
+            if (uploadResponse.data.httpStatusCode === 201) {
+                const fileUrls = uploadResponse.data.data.files;
+                debugger
+                // Step 2: Prepare payload for the second API call
+                const updatePayload = {
+                    id: Number(tenderId),
+                    attachments: fileUrls.map((url: string) => ({ fileUrl: url }))
+                };
+
+                // Step 3: Send file URLs to the second API to update the database
+                const updateTenderApiEndpoint = server.baseurl + server.initialoperations + "update-tender";
+                const updateResponse = await axios.put(updateTenderApiEndpoint, updatePayload, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': authToken ? `Bearer ${authToken}` : ''
+                    }
+                });
+
+                if (updateResponse.data.httpStatusCode === 200) {
+                    showAlert('Dosyalar başarıyla yüklendi ve kaydedildi!', 'success');
+                    onClose();
+                    onUploadSuccess();
+                } else {
+                    showAlert(`Dosyalar kaydedilirken bir hata oluştu: ${updateResponse.data.message || updateResponse.statusText}`, 'error');
+                }
+
             } else {
-                showAlert(`Dosyalar yüklenirken bir hata oluştu: ${response.statusText || 'Bilinmeyen Hata'}`, 'error');
+                showAlert(`Dosyalar yüklenirken bir hata oluştu: ${uploadResponse.data.message || uploadResponse.statusText}`, 'error');
             }
         } catch (error: any) {
-            console.error("File upload error:", error);
+            console.error("File upload process error:", error);
             showAlert(`Dosyalar yüklenirken bir hata oluştu: ${error.response?.data?.message || error.message || 'Sunucuya ulaşılamıyor.'}`, 'error');
         } finally {
             setUploading(false);
-            setSelectedFiles([]); // Clear selected files after attempt
+            setSelectedFiles([]);
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         }
-    }, [selectedFiles, tenderId, showAlert, onClose]);
+    }, [selectedFiles, tenderId, showAlert, onClose, onUploadSuccess]);
 
     const handleCloseModal = useCallback(() => {
-        setSelectedFiles([]); // Clear files on modal close
-        setUploading(false); // Reset upload state
+        setSelectedFiles([]);
+        setUploading(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -135,8 +146,8 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
                 <input
                     type="file"
                     ref={fileInputRef}
-                    multiple // Allow multiple file selection
-                    accept=".xlsx, .xls, .pdf" // Restrict file types
+                    multiple
+                    accept=".xlsx, .xls, .pdf"
                     onChange={handleFileChange}
                     style={{ display: 'none' }}
                 />
@@ -149,7 +160,6 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
                 >
                     Dosya Seç
                 </Button>
-
                 {selectedFiles.length > 0 && (
                     <Box sx={{ mt: 2, border: '1px dashed #ccc', borderRadius: '4px', p: 1, maxHeight: 200, overflowY: 'auto' }}>
                         <Typography variant="subtitle2" mb={1}>Seçilen Dosyalar:</Typography>

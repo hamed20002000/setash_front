@@ -9,6 +9,7 @@ export interface MapNode extends d3.SimulationNodeDatum {
     fy?: number | null;     // ✅ اینها برای fix کردن موقعیت گره در D3 استفاده می‌شوند
     isHub?: boolean;
     isNew?: boolean;
+    channelRowId?: string;
 }
 
 export interface SelectOption {

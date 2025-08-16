@@ -15,7 +15,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import BlankCard from 'src/components/shared/BlankCard';
-import { IconPlus, IconEdit, IconTrash, IconDots, IconX, IconMap, IconPencil, IconMinus, IconChartDots } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconDots, IconX, IconMap, IconPencil, IconMinus, IconChartDots, IconArrowRight } from '@tabler/icons-react';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -26,65 +26,6 @@ import DeleteAllConfirmationModal from './DeleteAllConfirmationModal';
 import RegisterNewNodesModal from './RegisterNewNodesModal';
 
 import { MapNode, TransmissionRow, SelectOption, AddedItem } from './types';
-
-
-// interface SelectOption {
-//     id: string;
-//     productTypeId: string;
-//     name: string;
-//     label: string;
-//     parent: { id: string, label: string } | null;
-//     weight?: number | null;
-//     unit?: {
-//         id: string;
-//         title: string;
-//         recordStatus: number;
-//         createAt: string;
-//     };
-// }
-
-// interface AddedItem {
-//     id: string;
-//     name: string;
-//     quantity: number;
-//     miktarTipi: 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG';
-//     weight?: number | null;
-//     unit?: {
-//         id: string;
-//         title: string;
-//         recordStatus: number;
-//         createAt: string;
-//     };
-// }
-
-// export interface TransmissionRow {
-//     id: string;
-//     fromProductType: string;
-//     toProductType: string;
-//     distance: number;
-//     miktarTipi: 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG';
-//     network: string;
-//     formulaTitle: string;
-//     createAt?: string;
-//     recordStatus?: number;
-//     fromProductTypeId?: string;
-//     toProductTypeId?: string;
-//     networkId?: string;
-//     fromProductTypeX?: number;
-//     fromProductTypeY?: number;
-//     toProductTypeX?: number;
-//     toProductTypeY?: number;
-//     items?: AddedItem[];
-// }
-
-// interface MapNode {
-//     id: string;
-//     name: string;
-//     x: number;
-//     y: number;
-//     isHub?: boolean; // برای تشخیص گره مرکزی
-//     isNew?: boolean; // برای تشخیص گره‌های جدید
-// }
 
 interface ItemType {
     id: string;
@@ -1179,10 +1120,7 @@ const ListTransmission = () => {
     return (
         <Box sx={{ p: 3 }}>
             <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-                <Stack direction="column" spacing={1}>
-                    <Typography variant="h5" gutterBottom>
-                        İletim Kayıtları
-                    </Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
                         <Chip
                             label={`Ağ: ${networkTitleForDisplay}`}
@@ -1203,16 +1141,26 @@ const ListTransmission = () => {
                             size="small"
                         />
                     </Stack>
+
                 </Stack>
-                <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleOpenMapModal}
-                    disabled={!networkId || loadingList || transmissionList.length === 0}
-                    startIcon={<IconMap />}
-                >
-                    Haritayı Görüntüle
-                </Button>
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Button
+                        variant="contained"
+                        color="secondary"
+                        onClick={handleOpenMapModal}
+                        disabled={!networkId || loadingList || transmissionList.length === 0}
+                        startIcon={<IconMap />}
+                    >
+                        Haritayı Görüntüle
+                    </Button>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                            endIcon={<IconArrowRight size={20} />}>
+                            Geri Dön
+                        </Button>
+                    </CustomTooltip>
+                </Stack>
+
             </Stack>
 
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
@@ -1307,7 +1255,8 @@ const ListTransmission = () => {
                         />
                         {selectedItem && selectedItem.unit && (
                             <Typography variant="body1" sx={{ whiteSpace: 'nowrap' }}>
-                                {selectedItem.weight ? `${selectedItem.weight} ${selectedItem.unit.title}` : selectedItem.unit.title}
+                                {/* {selectedItem.weight ? `${selectedItem.weight} ${selectedItem.unit.title}` : selectedItem.unit.title} */}
+                                {selectedItem.unit.title}
                             </Typography>
                         )}
                         <TextField

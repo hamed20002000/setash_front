@@ -12,10 +12,9 @@ import {
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { format } from 'date-fns';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconSearch, IconDots, IconEdit, IconTrash, IconPlus } from '@tabler/icons-react';
+import { IconSearch, IconDots, IconEdit, IconTrash, IconPlus, IconArrowRight } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import axios from 'axios';
@@ -24,6 +23,21 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import DeleteNetwork from './DeleteNetwork';
+
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "N/A";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
 
 interface NetworkType {
     id: string;
@@ -540,13 +554,20 @@ const ListNetwork = () => {
                         size="small"
                     />
                 </Stack>
+
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                    <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                        endIcon={<IconArrowRight size={20} />}>
+                        Geri Dön
+                    </Button>
+                </CustomTooltip>
             </Box>
             <Box component="div" sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", mb: 2 }}>
                 {/* <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography> */}
                 <form>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="network-name">Şebeke Adı:</CustomFormLabel>
+                            <CustomFormLabel htmlFor="network-name" required>Şebeke Adı:</CustomFormLabel>
                             <CustomTextField
                                 id="network-name"
                                 name="title"
@@ -710,7 +731,7 @@ const ListNetwork = () => {
                                                 </CustomTooltip>
                                             )}
                                         </TableCell>
-                                        <TableCell><Typography variant="h6">{format(new Date(row.createAt), 'yyyy/MM/dd')}</Typography></TableCell>
+                                        <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
                                         <TableCell>
                                             <Chip
                                                 label={row.status}

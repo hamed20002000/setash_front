@@ -46,6 +46,22 @@ import server from '../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "N/A";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
+
 // --- Updated Interface for API response and internal use ---
 interface ApiRegionType {
     id: string;
@@ -578,18 +594,6 @@ const ListRegion = () => {
         setNameHelperText('');
     };
 
-    const formatDate = (dateString: string): string => {
-        try {
-            const date = new Date(dateString);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        } catch (e) {
-            console.error("Tarih biçimlendirme hatası:", e);
-            return "Geçersiz Tarih";
-        }
-    };
 
     // این `useEffect` فقط در زمان mount شدن کامپوننت فراخوانی اولیه را انجام می‌دهد.
     useEffect(() => {
@@ -747,7 +751,7 @@ const ListRegion = () => {
                 )}
                 <Grid container spacing={1}>
                     <Grid item xs={12} sm={1} display="flex" alignItems="center">
-                        <CustomFormLabel htmlFor="region-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <CustomFormLabel htmlFor="region-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             İsim
                         </CustomFormLabel>
                     </Grid>
@@ -938,7 +942,7 @@ const ListRegion = () => {
                                             <TableCell>
                                                 <Stack direction="row" alignItems="center" spacing={2}>
                                                     <Box>
-                                                        <Typography variant="h6">{formatDate(row.createAt)}</Typography>
+                                                        <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
                                                     </Box>
                                                 </Stack>
                                             </TableCell>

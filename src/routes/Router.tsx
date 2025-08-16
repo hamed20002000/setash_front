@@ -18,9 +18,12 @@ const ListWorks = Loadable(lazy(() => import('../views/works/list-work/ListWorks
 const ListNetworks = Loadable(lazy(() => import('../views/works/list-network/ListNetworks')));
 const NetworkDetails = Loadable(lazy(() => import('../views/works/list-network/WorkDetails')));
 const ListWorkHouse = Loadable(lazy(() => import('../views/works/list-workhouse/ListWorkhouses')));
+const WorkHouseDetails = Loadable(lazy(() => import('../views/works/list-workhouse/WorkhouseDetails')));
 const ListProductTypes = Loadable(lazy(() => import('../views/producttypes/ListProductTypes')));
 const ListTransmission = Loadable(lazy(() => import('../views/transmission/ListTransmission')));
 const ListRegion = Loadable(lazy(() => import('../views/region/ListRegion')));
+const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/ListWarehouses')));
+const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
 
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
@@ -57,9 +60,12 @@ const Router = [
       { path: '/work/:workId/networks', element: <ListNetworks /> },
       { path: '/network/:networkId/details', element: <NetworkDetails /> },
       { path: '/workhouse/list-workhouse/:workId', element: <ListWorkHouse /> },
+      { path: '/workhouse/workhousedetails/:workhouseId', element: <WorkHouseDetails /> },
       { path: '/product-type/list-product-types/', element: <ListProductTypes /> },
       { path: '/transmission/list-transmission/:networkId', element: <ListTransmission /> },
       { path: '/region/list-regions/', element: <ListRegion /> },
+      { path: '/warehouse/list-warehouse/', element: <ListWarehouses /> },
+      { path: '/order/list-order/', element: <ListOrders /> },
 
       { path: '*', element: <Navigate to="/auth/404" /> },
     ],

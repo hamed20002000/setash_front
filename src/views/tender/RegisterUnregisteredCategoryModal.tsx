@@ -349,7 +349,7 @@ const RegisterUnregisteredCategoryModal: React.FC<RegisterUnregisteredCategoryMo
             <DialogContent dividers>
                 <Grid container spacing={2}>
                     <Grid item xs={12}>
-                        <CustomFormLabel htmlFor="category-name">Kategori Adı</CustomFormLabel>
+                        <CustomFormLabel htmlFor="category-name" required>Kategori Adı</CustomFormLabel>
                         <CustomTextField
                             id="category-name"
                             placeholder="Kategori Adı"
@@ -368,7 +368,7 @@ const RegisterUnregisteredCategoryModal: React.FC<RegisterUnregisteredCategoryMo
                         />
                     </Grid>
                     <Grid item xs={12}>
-                        <CustomFormLabel htmlFor="select-parent-category">Üst Kategori (İsteğe Bağlı)</CustomFormLabel>
+                        <CustomFormLabel htmlFor="select-parent-category" required>Üst Kategori (İsteğe Bağlı)</CustomFormLabel>
                         <FormControl fullWidth error={parentCategoryIdError}>
                             <InputLabel id="select-parent-category-label">Üst Kategori Seçin</InputLabel>
                             <Select

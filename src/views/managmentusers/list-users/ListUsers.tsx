@@ -36,6 +36,21 @@ import server from '../../../assets/address.json';
 import imagedefault from '../../../assets/images/profile/user-d.svg';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    return format(date, 'dd MMMM yyyy', { locale: tr });
+  } catch (e) {
+    console.log("Tarih biçimlendirilirken hata oluştu:", e);
+    return "Geçersiz Tarih";
+  }
+};
+
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
@@ -81,19 +96,6 @@ interface RoleType {
   name: string;
   recordStatus?: number;
 }
-
-const formatDate = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch (e) {
-    console.log("Error formatting date:", e);
-    return "Geçersiz Tarih";
-  }
-};
 
 const DEFAULT_IMAGE_URL = imagedefault;
 
@@ -744,7 +746,7 @@ const ListUsers = () => {
           <Grid item xs={12} sm={9}>
             <Grid container spacing={2}>
               <Grid item xs={12} md={6}>
-                <CustomFormLabel htmlFor="username">Kullanıcı Adı</CustomFormLabel>
+                <CustomFormLabel htmlFor="username" required>Kullanıcı Adı</CustomFormLabel>
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı adını girin" : ""}>
                   <CustomTextField
                     id="username"
@@ -771,7 +773,7 @@ const ListUsers = () => {
               {editingUserId === null && (
                 <>
                   <Grid item xs={12} md={6}>
-                    <CustomFormLabel htmlFor="password">Şifre</CustomFormLabel>
+                    <CustomFormLabel htmlFor="password" required>Şifre</CustomFormLabel>
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi girin" : ""}>
                       <CustomTextField
                         id="password"
@@ -827,7 +829,7 @@ const ListUsers = () => {
                     </CustomTooltip>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <CustomFormLabel htmlFor="confirm-password">Şifreyi Tekrarla</CustomFormLabel>
+                    <CustomFormLabel htmlFor="confirm-password" required>Şifreyi Tekrarla</CustomFormLabel>
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi tekrar girin" : ""}>
                       <CustomTextField
                         id="confirm-password"
@@ -880,7 +882,7 @@ const ListUsers = () => {
                 </>
               )}
               <Grid item xs={12} md={12}>
-                <CustomFormLabel htmlFor="select-roles">Roller</CustomFormLabel>
+                <CustomFormLabel htmlFor="select-roles" required>Roller</CustomFormLabel>
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
                   <FormControl fullWidth
                     error={roleError}>
@@ -1165,7 +1167,7 @@ const ListUsers = () => {
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="h6">{formatDate(row.createAt)}</Typography>
+                      <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip

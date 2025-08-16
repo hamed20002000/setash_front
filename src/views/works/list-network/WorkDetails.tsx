@@ -27,9 +27,9 @@ import RegisterUnregisteredItemModal, { RegisterItemInitialData } from '../../..
 import { ApiItemType } from '../../tender/TenderDetails';
 import WorkItemInputForm, { AvailableItemOption } from './WorkItemInputForm';
 import WorkDetailsTable from './WorkDetailsTable';
-import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
+import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown, IconArrowRight } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
-import { CustomTooltip } from 'src/context/TooltipContext';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 // --- New Interfaces based on API response ---
 interface ApiNetworkItem {
@@ -102,8 +102,7 @@ interface ProductTypesTypeFromAPI {
 const WorkDetails = () => {
     const navigate = useNavigate();
     const { networkId } = useParams();
-    // const [searchParams] = useSearchParams();
-    // const tenderId = searchParams.get('tenderId');
+    const { isTooltipGloballyEnabled } = useTooltip();
     const [trAdi, setTrAdi] = useState<string>('');
     const [selectedProduct, setSelectedProduct] = useState<AvailableItemOption | null>(null);
     const [yeniValue, setYeniValue] = useState<string>('');
@@ -258,6 +257,7 @@ const WorkDetails = () => {
             setLoadingItemsForWorkItemForm(false);
             return;
         }
+        debugger
         try {
             const response = await axios.get(server.baseurl + server.baseinfo + "get-item", {
                 headers: {
@@ -271,6 +271,7 @@ const WorkDetails = () => {
                     .map((item: any) => ({
                         id: String(item.id),
                         name: item.name,
+                        unit: item.unit.title,
                     }));
                 setItemsListForWorkItemForm(processedData);
             } else {
@@ -1034,91 +1035,6 @@ const WorkDetails = () => {
         showAlert('Alt öğe formu düzenleme için yüklendi.', 'info');
     }, [showAlert, registeredWorkEntries, allProductTypesFromAPI]);
 
-    // const handleUpdateSubEntry = useCallback(() => {
-    //     if (!editingSubEntry) {
-    //         showAlert('Düzenlenecek alt öğe bulunamadı.', 'error');
-    //         return;
-    //     }
-    //     clearAlert();
-    //     let hasError = false;
-    //     if (!selectedProduct) {
-    //         setSelectedProductError(true);
-    //         setSelectedProductHelperText('D.N alanı boş bırakılamaz!');
-    //         showAlert('D.N alanı boş bırakılamaz!', 'warning');
-    //         hasError = true;
-    //     } else {
-    //         setSelectedProductError(false);
-    //         setSelectedProductHelperText('');
-    //     }
-    //     let selectedValue: string = '';
-    //     if (selectedRadioOption === 'yeni') {
-    //         selectedValue = yeniValue;
-    //         if (!yeniValue.trim()) {
-    //             setYeniError(true);
-    //             setYeniHelperText('YENİ miktarı boş bırakılamaz!');
-    //             showAlert('YENİ miktarı boş bırakılamaz!', 'warning');
-    //             hasError = true;
-    //         } else {
-    //             setYeniError(false);
-    //             setYeniHelperText('');
-    //         }
-    //     } else if (selectedRadioOption === 'dmm') {
-    //         selectedValue = dmmValue;
-    //         if (!dmmValue.trim()) {
-    //             setDmmError(true);
-    //             setDmmHelperText('DMM miktarı boş bırakılamaz!');
-    //             showAlert('DMM miktarı boş bırakılamaz!', 'warning');
-    //             hasError = true;
-    //         } else {
-    //             setDmmError(false);
-    //             setDmmHelperText('');
-    //         }
-    //     } else if (selectedRadioOption === 'mevcut') {
-    //         selectedValue = mevcutValue;
-    //         if (!mevcutValue.trim()) {
-    //             setMevcutError(true);
-    //             setMevcutHelperText('MEVCUT miktarı boş bırakılamaz!');
-    //             showAlert('MEVCUT miktarı boş bırakılamaz!', 'warning');
-    //             hasError = true;
-    //         } else {
-    //             setMevcutError(false);
-    //             setMevcutHelperText('');
-    //         }
-    //     }
-    //     if (itemsToRegister.length === 0) {
-    //         showAlert('Lütfen en az bir öğه و مقدار ekleyin!', 'warning');
-    //         hasError = true;
-    //     }
-    //     if (hasError) {
-    //         return;
-    //     }
-    //     setLoadingRegisterButton(true);
-    //     const updatedSubEntry: WorkDetailSubEntry = {
-    //         ...editingSubEntry!,
-    //         dn: selectedProduct ? selectedProduct.name : '',
-    //         yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
-    //         dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
-    //         mevcut: selectedRadioOption === 'mevcut' ? selectedValue : '',
-    //         itemDetails: [...itemsToRegister],
-    //         isToplamRow: false,
-    //     };
-    //     setRegisteredWorkEntries(prevEntries => {
-    //         const updatedEntries = prevEntries.map(row => {
-    //             if (row.id === updatedSubEntry.trAdiParentId) {
-    //                 const newSubEntriesExcludingCurrentAndToplam = row.subEntries.filter(sub => sub.id !== updatedSubEntry.id && !sub.isToplamRow);
-    //                 return {
-    //                     ...row,
-    //                     subEntries: [...newSubEntriesExcludingCurrentAndToplam, updatedSubEntry]
-    //                 };
-    //             }
-    //             return row;
-    //         });
-    //         return updateToplamRow(updatedEntries);
-    //     });
-    //     showAlert('Alt öğe başarıyla güncellendi!', 'success');
-    //     resetMainFormFields();
-    //     setLoadingRegisterButton(false);
-    // }, [editingSubEntry, selectedProduct, selectedRadioOption, yeniValue, dmmValue, mevcutValue, itemsToRegister, showAlert, resetMainFormFields, clearAlert, updateToplamRow]);
 
     const handleUpdateSubEntry = useCallback(() => {
         if (!editingSubEntry) {
@@ -1645,12 +1561,18 @@ const WorkDetails = () => {
                                     >
                                         Excel Dışa Aktar
                                     </Button>
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                            endIcon={<IconArrowRight size={20} />}>
+                                            Geri Dön
+                                        </Button>
+                                    </CustomTooltip>
                                 </Stack>
+                                {/* <CustomFormLabel>Yeni Öğeleri Kaydet</CustomFormLabel> */}
                             </Stack>
-                            <CustomFormLabel>Yeni Öğeleri Kaydet</CustomFormLabel>
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="tr-adi">TR ADI</CustomFormLabel>
+                            <CustomFormLabel htmlFor="tr-adi" required>TR ADI</CustomFormLabel>
                             <TextField
                                 id="tr-adi"
                                 placeholder="TR ADI"
@@ -1674,7 +1596,7 @@ const WorkDetails = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%', mb: 0.5 }}>
-                                <CustomFormLabel htmlFor="product-type-autocomplete" sx={{ mb: 0, flexShrink: 0 }}>D.N</CustomFormLabel>
+                                <CustomFormLabel htmlFor="product-type-autocomplete" sx={{ mb: 0, flexShrink: 0 }} required>D.N</CustomFormLabel>
                                 <Button
                                     variant="outlined"
                                     size="small"
@@ -2005,7 +1927,7 @@ const WorkDetails = () => {
                 <DialogTitle id="new-direct-modal-title">Yeni Direk Kaydet</DialogTitle>
                 <DialogContent dividers>
                     <DialogContentText component="div">
-                        <CustomFormLabel htmlFor="new-direct-name">Direk Adı</CustomFormLabel>
+                        <CustomFormLabel htmlFor="new-direct-name" required>Direk Adı</CustomFormLabel>
                         <TextField
                             id="new-direct-name"
                             fullWidth

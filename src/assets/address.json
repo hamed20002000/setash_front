@@ -1,9 +1,10 @@
 {
     "baseurl": "https://setasportal.com/api/",
+    "urldpwonload": "https://setasportal.com",
     "admin": "Admin/",
     "login": "auth/",
     "user": "users/",
     "baseinfo": "baseinfo/",
-    "initialoperations":"initial-operations/",
+    "initialoperations": "initial-operations/",
     "company": "Setash"
 }

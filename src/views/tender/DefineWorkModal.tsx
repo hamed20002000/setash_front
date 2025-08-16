@@ -19,6 +19,7 @@ import axios from "axios";
 import server from "../../assets/address.json";
 import { useNavigate } from "react-router-dom";
 import { format } from 'date-fns';
+import { tr } from 'date-fns/locale';
 
 interface DefineWorkModalProps {
     open: boolean;
@@ -187,7 +188,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                             error={titleError}
                             helperText={titleError ? "İş başlığı boş bırakılamaz" : ""}
                         />
-                        <LocalizationProvider dateAdapter={AdapterDateFns}>
+                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
                                 label="Başlangıç Tarihi"
                                 value={startDate}
@@ -204,7 +205,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                         setFormError(null);
                                     }
                                 }}
-                                inputFormat="yyyy/MM/dd"
+                                inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
@@ -230,7 +231,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                         setFormError(null);
                                     }
                                 }}
-                                inputFormat="yyyy/MM/dd"
+                                inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}

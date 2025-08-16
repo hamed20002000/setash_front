@@ -16,7 +16,6 @@ import { styled } from '@mui/material/styles';
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
-import { format } from 'date-fns';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -28,6 +27,21 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import DeleteWork from './DeleteWork';
+
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "N/A";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
 
 interface WorkType {
     id: number;
@@ -448,16 +462,6 @@ const ListWorks = () => {
         setFormErrors(null);
         setStatusFilter('all');
     };
-    const formatDateDisplay = (dateString: string | null): string => {
-        if (!dateString) return "N/A";
-        try {
-            const date = new Date(dateString);
-            return format(date, 'yyyy/MM/dd');
-        } catch (e) {
-            console.log("Tarih biçimlendirilirken hata oluştu:", e);
-            return "Geçersiz Tarih";
-        }
-    };
     function getListWork() {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -624,7 +628,7 @@ const ListWorks = () => {
                 </Typography>
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
-                        <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             İhale Seç
                         </CustomFormLabel>
                         {editingId !== null ? (
@@ -666,7 +670,7 @@ const ListWorks = () => {
                         )}
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                        <CustomFormLabel htmlFor="work-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <CustomFormLabel htmlFor="work-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             İş Başlığı
                         </CustomFormLabel>
                         <CustomTextField
@@ -687,8 +691,8 @@ const ListWorks = () => {
                     </Grid>
 
                     <Grid item xs={12} sm={6}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns}>
-                            <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                            <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Başlangıç Tarihi
                             </CustomFormLabel>
                             <DatePicker
@@ -705,8 +709,7 @@ const ListWorks = () => {
                                         setFormErrors(null);
                                     }
                                 }}
-                                // @ts-ignore
-                                inputFormat="yyyy/MM/dd"
+                                inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
@@ -720,7 +723,7 @@ const ListWorks = () => {
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <LocalizationProvider dateAdapter={AdapterDateFns}>
-                            <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                            <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Bitiş Tarihi
                             </CustomFormLabel>
                             <DatePicker
@@ -737,8 +740,7 @@ const ListWorks = () => {
                                         setFormErrors(null);
                                     }
                                 }}
-                                // @ts-ignore
-                                inputFormat="yyyy/MM/dd"
+                                inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}

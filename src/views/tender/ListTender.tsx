@@ -1,7 +1,7 @@
 // ListTender.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -15,7 +15,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../components/shared/BlankCard';
 import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconPaperclip } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconPaperclip, IconDownload } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteTender from './DeleteTender';
@@ -29,8 +29,27 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-
+import * as XLSX from 'xlsx';
 import AttachFileModal from './AttachFileModal';
+import DownloadAttachmentsModal from './DownloadAttachmentsModal';
+
+import { saveAs } from 'file-saver';
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    return format(date, 'dd MMMM yyyy', { locale: tr });
+  } catch (e) {
+    console.log("Tarih biçimlendirilirken hata oluştu:", e);
+    return "Geçersiz Tarih";
+  }
+};
+
+
 
 interface TenderType {
   id: number;
@@ -44,8 +63,11 @@ interface TenderType {
   showApprovedIcon?: boolean;
   showRejectedIcon?: boolean;
   showPendingIcon?: boolean;
+  attachments?: { fileUrl: string }[];
 }
-
+interface Attachment {
+  fileUrl: string;
+}
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
     color: 'white',
@@ -149,6 +171,8 @@ const ListTender = () => {
 
   const [openAttachModal, setOpenAttachModal] = useState<boolean>(false);
   const [tenderIdForAttachment, setTenderIdForAttachment] = useState<number | null>(null);
+  const [filesForDownload, setFilesForDownload] = useState<Attachment[] | null>(null);
+  const [openDownloadModal, setOpenDownloadModal] = useState<boolean>(false);
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TenderType) => {
     setAnchorEl(event.currentTarget);
@@ -194,6 +218,92 @@ const ListTender = () => {
       clearTimeout(timer);
     };
   }, [alertMessage]);
+
+  // ... داخل کامپوننت ListTender
+
+  const handleDownloadTenderForPurchase = async () => {
+    if (!selectedRowForMenu) return;
+
+    const tenderId = selectedRowForMenu.id;
+    const tenderTitle = selectedRowForMenu.title;
+    const authToken = localStorage.getItem('authToken');
+    if (!authToken) {
+      showAlert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.', 'warning');
+      navigate("/");
+      handleCloseMenu();
+      return;
+    }
+
+    showAlert('İhale verileri indiriliyor...', 'info');
+    handleCloseMenu();
+
+    try {
+      const response = await axios.get(
+        `${server.baseurl + server.initialoperations}get-tender-by-id/${tenderId}`,
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        }
+      );
+
+      if (response.data.httpStatusCode === 200 && response.data.data) {
+        const tenderData = response.data.data;
+        const tenderCategories = tenderData.tenderCategories || [];
+
+        // ایجاد یک آرایه برای نگهداری داده‌های اکسل
+        const excelData: any[] = [];
+        debugger
+        // پردازش و فیلتر کردن داده‌ها
+        tenderCategories.forEach((category: any) => {
+          const tenderDetails = category.tenderDetails || [];
+          tenderDetails.forEach((detail: any) => {
+            // فیلتر بر اساس ourProcuredItemQuantities
+            const quantity = parseFloat(detail.ourProcuredItemQuantities);
+            if (!isNaN(quantity) && quantity > 0) {
+              excelData.push({
+                'Ürün': detail.item?.name || 'N/A',
+                'Ölçü': detail.item?.unit?.title || 'N/A',
+                'Miktar': quantity,
+                'Açıklama': '', // توضیحات خالی
+                'Fiyat': ''    // قیمت خالی
+              });
+            }
+          });
+        });
+
+        // بررسی اینکه آیا داده‌ای برای اکسل وجود دارد یا خیر
+        if (excelData.length === 0) {
+          showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
+          return;
+        }
+
+        // ساخت و دانلود فایل اکسل
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Satın Alma Listesi');
+
+        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+        saveAs(data, `${tenderTitle}-SatınAlma.xlsx`);
+
+        showAlert('İhale verileri başarıyla indirildi!', 'success');
+
+      } else {
+        showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      console.error("Download failed:", e);
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        showAlert('İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
+    }
+  };
 
   const handleEditClick = () => {
     if (selectedRowForMenu) {
@@ -462,19 +572,16 @@ const ListTender = () => {
     setTitleHelperText('');
   };
 
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return "N/A";
-    try {
-      const date = new Date(dateString);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch (e) {
-      console.log("Tarih biçimlendirilirken hata oluştu:", e);
-      return "Geçersiz Tarih";
+  const handleDownloadAttachments = useCallback(() => {
+    if (selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0) {
+      setFilesForDownload(selectedRowForMenu.attachments);
+      setOpenDownloadModal(true); // ✅ Open the download modal
+    } else {
+      showAlert('Bu ihale için indirilecek dosya bulunamadı.', 'warning');
     }
-  };
+    handleCloseMenu();
+  }, [selectedRowForMenu, showAlert, handleCloseMenu]);
+
   function getListTender() {
     setLoadingData(true);
     const authToken = localStorage.getItem('authToken');
@@ -518,6 +625,7 @@ const ListTender = () => {
             showRejectedIcon = true;
             approvedTenderDate = item.statusDate;
           }
+          debugger
           return {
             id: item.id,
             title: item.title,
@@ -530,6 +638,7 @@ const ListTender = () => {
             showApprovedIcon: showApprovedIcon,
             showRejectedIcon: showRejectedIcon,
             showPendingIcon: showPendingIcon,
+            attachments: item.attachments || [],
           };
         });
         setTendersList(formattedData);
@@ -554,7 +663,7 @@ const ListTender = () => {
     getListTender();
   }, []);
 
-  const handleStatusFilterChange = (
+  const handleStatusFilterChange = useCallback((
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
   ) => {
@@ -563,31 +672,31 @@ const ListTender = () => {
       setStatusFilter(newFilter);
       setPage(0);
     }
-  };
+  }, []);
 
-  const handleRequestSort = (property: SortableTenderKeys) => {
+  const handleRequestSort = useCallback((property: SortableTenderKeys) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
     setPage(0);
-  };
+  }, [orderBy, order]);
 
-  const handleChangePage = (
+  const handleChangePage = useCallback((
     event: unknown,
     newPage: number) => {
     console.log(event)
     setPage(newPage);
-  };
+  }, []);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
+  }, []);
 
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(event.target.value);
     setPage(0);
-  };
+  }, []);
 
   const filteredTenders = tendersList.filter(tender => {
     const matchesSearch = tender.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -609,8 +718,7 @@ const ListTender = () => {
   const handleClickCloseAttachModal = () => {
     setOpenAttachModal(false);
     setTenderIdForAttachment(null);
-    // You might want to refresh the tender list here if attachments affect its status/display
-    // getListTender();
+    getListTender();
   };
 
   const sortedAndFilteredTenders = stableSort(filteredTenders, getComparator(order, orderBy));
@@ -631,7 +739,7 @@ const ListTender = () => {
       }}>
         <Grid container spacing={1}>
           <Grid item xs={12} sm={1} display="flex" alignItems="center">
-            <CustomFormLabel htmlFor="tender-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+            <CustomFormLabel htmlFor="tender-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
               Başlık
             </CustomFormLabel>
           </Grid>
@@ -825,15 +933,23 @@ const ListTender = () => {
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                       <TableCell>
                         <Stack direction="row" alignItems="center" spacing={2}>
-                          <Box>
-                            <Typography variant="h6">{row.title}</Typography>
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            {row.attachments && row.attachments.length > 0 && (
+                              <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale ek dosya içeriyor." : ""}>
+                                <IconPaperclip size={20} color="#01c4ffff" />
+                              </CustomTooltip>
+                            )}
+                            <Typography variant="h6" sx={{ paddingLeft: "5px" }}>
+                              {row.title}
+                            </Typography>
                           </Box>
+
                         </Stack>
                       </TableCell>
                       <TableCell>
                         <Stack direction="row" alignItems="center" spacing={2}>
                           <Box>
-                            <Typography variant="h6">{formatDate(row.createAt)}</Typography>
+                            <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
                           </Box>
                         </Stack>
                       </TableCell>
@@ -846,7 +962,7 @@ const ListTender = () => {
                         </Stack>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="h6">{formatDate(row.approvedTenderDate || null)}</Typography>
+                        <Typography variant="h6">{formatDateDisplay(row.approvedTenderDate || null)}</Typography>
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -900,28 +1016,44 @@ const ListTender = () => {
                             'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                           }}
                         >
-                          {selectedRowForMenu?.tenderStatus === 0 && (
-                            <>
-                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
-                                <MenuItem onClick={handleSetActiveTender}>
-                                  <ListItemIcon>
-                                    <ThumbUpAltIcon fontSize="small" />
-                                  </ListItemIcon>
-                                  İhaleyi Onayla
-                                </MenuItem>
-                              </CustomTooltip>
-                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
-                                <MenuItem onClick={handleSetInactiveTender}>
-                                  <ListItemIcon>
-                                    <ThumbDownAltIcon fontSize="small" />
-                                  </ListItemIcon>
-                                  İhaleyi Reddet
-                                </MenuItem>
-                              </CustomTooltip>
-                            </>
+                          {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ek dosyaları indir" : ""}>
+                              <MenuItem onClick={handleDownloadAttachments}>
+                                <ListItemIcon>
+                                  <IconDownload size={18} />
+                                </ListItemIcon>
+                                Ek Dosyaları İndir ({selectedRowForMenu.attachments.length})
+                              </MenuItem>
+                            </CustomTooltip>
                           )}
-
-                          {selectedRowForMenu?.tenderStatus === 1 && ( // ✅ Show only if tenderStatus is 1 (Onaylandı)
+                          <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Satın alma için ihale verilerini indir" : ""}>
+                            <MenuItem onClick={handleDownloadTenderForPurchase}>
+                              <ListItemIcon>
+                                <IconDownload size={18} /> {/* از آیکون مناسب استفاده کن */}
+                              </ListItemIcon>
+                              Satın Alma İçin İndir
+                            </MenuItem>
+                          </CustomTooltip>
+                          <>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
+                              <MenuItem onClick={handleSetActiveTender}>
+                                <ListItemIcon>
+                                  <ThumbUpAltIcon fontSize="small" />
+                                </ListItemIcon>
+                                İhaleyi Onayla
+                              </MenuItem>
+                            </CustomTooltip>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
+                              <MenuItem onClick={handleSetInactiveTender}>
+                                <ListItemIcon>
+                                  <ThumbDownAltIcon fontSize="small" />
+                                </ListItemIcon>
+                                İhaleyi Reddet
+                              </MenuItem>
+                            </CustomTooltip>
+                          </>
+                          {/* )} */}
+                          {selectedRowForMenu?.tenderStatus === 1 && (
                             <>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İş tanımla" : ""}>
                                 <MenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
@@ -931,7 +1063,6 @@ const ListTender = () => {
                                   İş Tanımla
                                 </MenuItem>
                               </CustomTooltip>
-                              {/* ✅ NEW: Attach/Ek Dosya Menü Öğesi */}
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İhaleye ek dosyalar ekle" : ""}>
                                 <MenuItem onClick={handleClickOpenAttachModal}>
                                   <ListItemIcon>
@@ -943,7 +1074,6 @@ const ListTender = () => {
                             </>
                           )}
 
-                          {/* ... (سایر MenuItemها برای Aktif Yap, Pasif Yap, Düzenlemek, Silmek) ... */}
                           {selectedRowForMenu?.recordStatus === 0 ? (
                             <CustomTooltip placement="left"
                               title={isTooltipGloballyEnabled ? "Bu ihaleyi pasif yap" : ""}>
@@ -1027,12 +1157,22 @@ const ListTender = () => {
         showAlert={showAlert}
         onWorkDefinedSuccess={handleWorkDefinedSuccess}
       />
+      <DownloadAttachmentsModal
+        open={openDownloadModal}
+        onClose={() => {
+          setOpenDownloadModal(false);
+          setFilesForDownload(null);
+        }}
+        attachments={filesForDownload}
+        showAlert={showAlert}
+      />
       {openAttachModal && (
         <AttachFileModal
           open={openAttachModal}
           onClose={handleClickCloseAttachModal}
           tenderId={tenderIdForAttachment}
           showAlert={showAlert}
+          onUploadSuccess={getListTender}
         />
       )}
     </>

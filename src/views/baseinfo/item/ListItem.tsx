@@ -35,8 +35,20 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
 
 
+const formatDateDisplay = (dateString: string | null): string => {
+  if (!dateString) return "N/A";
+  try {
+    const date = new Date(dateString);
+    return format(date, 'dd MMMM yyyy', { locale: tr });
+  } catch (e) {
+    console.log("Tarih biçimlendirilirken hata oluştu:", e);
+    return "Geçersiz Tarih";
+  }
+};
 interface ItemType {
   id: string;
   name: string;
@@ -105,18 +117,6 @@ const flattenCategories = (nestedCategories: CategoryOptionType[]): FlatCategory
 };
 
 
-const formatDate = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  } catch (e) {
-    console.error("Error formatting date:", e);
-    return "Geçersiz Tarih";
-  }
-};
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
@@ -351,7 +351,7 @@ const ListItemComponent = () => {
 
   const [abbreviation, setAbbreviation] = useState<string>('');
   const [description, setDescription] = useState<string>('');
-  const [weight, setWeight] = useState<number | ''>(''); // ✅ اضافه شده: استیت برای وزن
+  const [weight, setWeight] = useState<number | ''>('');
 
   const [unitOptions, setUnitOptions] = useState<UnitOptionType[]>([]);
   const [allCategoriesFlat, setAllCategoriesFlat] = useState<FlatCategoryType[]>([]);
@@ -407,8 +407,8 @@ const ListItemComponent = () => {
   const [abbreviationHelperText, setAbbreviationHelperText] = useState<string>('');
   const [descriptionError, setDescriptionError] = useState<boolean>(false);
   const [descriptionHelperText, setDescriptionHelperText] = useState<string>('');
-  const [weightError, setWeightError] = useState<boolean>(false); // ✅ اضافه شده: استیت خطا
-  const [weightHelperText, setWeightHelperText] = useState<string>(''); // ✅ اضافه شده: متن راهنما برای خطا
+  const [weightError, setWeightError] = useState<boolean>(false);
+  const [weightHelperText, setWeightHelperText] = useState<string>('');
 
 
   const categoryTreeForSelect = useMemo(() => {
@@ -1065,7 +1065,7 @@ const ListItemComponent = () => {
         <Grid container spacing={2}>
           {/* Item Name */}
           <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="item-name">Ürün Adı</CustomFormLabel>
+            <CustomFormLabel htmlFor="item-name" required>Ürün Adı</CustomFormLabel>
             <CustomTextField
               id="item-name"
               placeholder="Ürün Adı"
@@ -1085,7 +1085,7 @@ const ListItemComponent = () => {
           </Grid>
           {/* Unit Selection (with search) */}
           <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="select-unit">Ölçü</CustomFormLabel>
+            <CustomFormLabel htmlFor="select-unit" required>Ölçü</CustomFormLabel>
             {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
             <FormControl fullWidth error={unitIdError}>
               <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
@@ -1147,7 +1147,7 @@ const ListItemComponent = () => {
           </Grid>
           {/* Category Selection (single-select tree) */}
           <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="select-category">Kategori</CustomFormLabel>
+            <CustomFormLabel htmlFor="select-category" required>Kategori</CustomFormLabel>
             {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Kategorileri seçmek için tıklayın" : ""}> */}
             <FormControl fullWidth error={categoryIdError}> {/* **Added error prop to FormControl** */}
               <InputLabel id="select-category-label">Kategori Seçin</InputLabel>
@@ -1541,7 +1541,7 @@ const ListItemComponent = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body1">{formatDate(row.createAt)}</Typography>
+                      <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Chip

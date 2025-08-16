@@ -24,6 +24,21 @@ import axios from 'axios';
 import server from '../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+import { tr } from 'date-fns/locale';
+import { format } from 'date-fns';
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "N/A";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
+
 interface ProductTypesType {
     id: number;
     name: string;
@@ -342,18 +357,6 @@ const ListProductTypes = () => {
         setNameError(false);
         setNameHelperText('');
     };
-    const formatDate = (dateString: string): string => {
-        try {
-            const date = new Date(dateString);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        } catch (e) {
-            console.log("Error formatting date:", e);
-            return "Geçersiz Tarih";
-        }
-    };
 
     function getListProductTypes() {
         const authToken = localStorage.getItem('authToken');
@@ -440,6 +443,7 @@ const ListProductTypes = () => {
     });
     const sortedAndFilteredProductTypes = stableSort(filteredProductTypes, getComparator(order, orderBy));
     const paginatedProductTypes = sortedAndFilteredProductTypes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
     return (
         <>
             <div style={{
@@ -449,7 +453,7 @@ const ListProductTypes = () => {
             }}>
                 <Grid container spacing={1}>
                     <Grid item xs={12} sm={1} display="flex" alignItems="center">
-                        <CustomFormLabel htmlFor="ProductTypes-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <CustomFormLabel htmlFor="ProductTypes-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             İsim
                         </CustomFormLabel>
                     </Grid>
@@ -621,7 +625,7 @@ const ListProductTypes = () => {
                                         <TableCell>
                                             <Stack direction="row" alignItems="center" spacing={2}>
                                                 <Box>
-                                                    <Typography variant="h6">{formatDate(row.createAt)}</Typography>
+                                                    <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
                                                 </Box>
                                             </Stack>
                                         </TableCell>
