@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Typography, ToggleButton, ToggleButtonGroup, Stack } from '@mui/material';
 import { IconPencil, IconFileSpreadsheet, IconExchange } from '@tabler/icons-react';
 import ManualEntryForm from './ManualEntryForm';
 import ExcelImportComponent from './ExcelImportComponent';
@@ -30,7 +30,7 @@ const ListOrders = () => {
     return (
         <Box sx={{ p: 3, maxWidth: 1200, margin: 'auto' }}>
             <Typography variant="h4" gutterBottom>
-                Satın Alma Siparişi Yönetimi
+                Satın Alma Sipariş Yönetimi
             </Typography>
 
             <ToggleButtonGroup
@@ -41,13 +41,22 @@ const ListOrders = () => {
                 sx={{ mb: 4 }}
             >
                 <ToggleButton value="manual">
-                    <IconPencil style={{ marginRight: 8 }} /> Manuel Giriş
+                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" spacing={1}>
+                        <IconPencil />
+                        <Typography>Manuel Giriş</Typography>
+                    </Stack>
                 </ToggleButton>
                 <ToggleButton value="excel">
-                    <IconFileSpreadsheet style={{ marginRight: 8 }} /> Excel İçe Aktar
+                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" spacing={1}>
+                        <IconFileSpreadsheet />
+                        <Typography>Excel İçe Aktar</Typography>
+                    </Stack>
                 </ToggleButton>
                 <ToggleButton value="compare">
-                    <IconExchange style={{ marginRight: 8 }} /> Depo/İhale Karşılaştırması
+                    <Stack direction={{ xs: 'column', sm: 'row' }} alignItems="center" spacing={1}>
+                        <IconExchange />
+                        <Typography>Depo/İhale Karşılaştırması</Typography>
+                    </Stack>
                 </ToggleButton>
             </ToggleButtonGroup>
 

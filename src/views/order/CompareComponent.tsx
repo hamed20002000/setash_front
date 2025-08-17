@@ -770,18 +770,34 @@ const CompareComponent = () => {
                                             <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu && selectedOrderForMenu?.id === row.id} onClose={handleCloseMenu}
                                                 MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
 
-                                                {/* {selectedOrderForMenu?.status === 0 && ( */}
-                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                    <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                    Onayla
-                                                </MenuItem>
-                                                {/* )}
-                                                                                           {selectedOrderForMenu?.status === 0 && ( */}
-                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                    <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                    Reddet
-                                                </MenuItem>
-                                                {/* )} */}
+                                                {selectedOrderForMenu?.status === 0 && (
+                                                    <>
+                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                            Onayla
+                                                        </MenuItem>
+                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                            <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                            Reddet
+                                                        </MenuItem>
+                                                    </>
+                                                )}
+
+                                                {/* If status is 1, show "Reddet" (Reject) */}
+                                                {selectedOrderForMenu?.status === 1 && (
+                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                        <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                        Reddet
+                                                    </MenuItem>
+                                                )}
+
+                                                {/* If status is 2, show "Onayla" (Approve) */}
+                                                {selectedOrderForMenu?.status === 2 && (
+                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                        <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                        Onayla
+                                                    </MenuItem>
+                                                )}
                                                 <MenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
                                                 <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}><ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek</MenuItem>
                                             </Menu>

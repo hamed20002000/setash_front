@@ -1358,130 +1358,87 @@ const WorkDetails = () => {
         }
     };
 
-    const handleExportExcel = useCallback(async () => {
-        if (!excelTemplateBuffer) {
-            showAlert('Excel şablonu henüz yüklenmedi veya yüklenemedi. Dışa aktarma yapılamaz.', 'warning');
-            return;
-        }
+    // ... سایر import ها و کدها ...
+
+    const handleExportExcel = useCallback(() => {
         if (registeredWorkEntries.length === 0) {
             showAlert('Dışa aktarılacak kayıtlı iş detayı bulunmamaktadır.', 'warning');
             return;
         }
+
         showAlert('Excel dışa aktarılıyor...', 'info');
+
         try {
-            const workbook = XLSX.read(excelTemplateBuffer, { type: 'array' });
-            const sheetName = workbook.SheetNames[0]!;
-            const worksheet = workbook.Sheets[sheetName];
-            if (!worksheet) {
-                showAlert('Excel şablonunda beklenen sayfa bulunamadı.', 'error');
-                return;
-            }
-            const range = XLSX.utils.decode_range(worksheet['!ref'] || "A1:Z1");
-            const itemDefinitions: { name: string; nameColIdx: number; valueColIdx: number }[] = [];
-            let lastHeaderName = '';
-            let lastHeaderStartCol = -1;
-            for (let C = 5; C <= range.e.c; C++) {
-                const cellAddress = XLSX.utils.encode_cell({ r: 2, c: C });
-                const cell = worksheet[cellAddress];
-                const currentHeaderCellContent = cell && cell.v !== undefined ? String(cell.v).trim() : '';
-                if (currentHeaderCellContent !== '') {
-                    if (lastHeaderName !== '' && lastHeaderStartCol !== -1) {
-                        const valueColForPreviousItem = lastHeaderStartCol;
-                        if (valueColForPreviousItem <= range.e.c) {
-                            itemDefinitions.push({
-                                name: lastHeaderName,
-                                nameColIdx: lastHeaderStartCol,
-                                valueColIdx: valueColForPreviousItem
-                            });
-                        } else { }
-                    }
-                    lastHeaderName = currentHeaderCellContent;
-                    lastHeaderStartCol = C;
-                } else {
-                    if (lastHeaderName === '' && lastHeaderStartCol === -1) {
-                        let allRemainingEmpty = true;
-                        for (let nextC = C + 1; nextC <= range.e.c; nextC++) {
-                            if (getCellValueIntelligently(worksheet, 2, nextC) !== '') {
-                                allRemainingEmpty = false;
-                                break;
-                            }
-                        }
-                        if (allRemainingEmpty) {
-                            break;
-                        }
-                    }
-                }
-            }
-            if (lastHeaderName !== '' && lastHeaderStartCol !== -1) {
-                const valueColForLastItem = lastHeaderStartCol;
-                if (valueColForLastItem <= range.e.c) {
-                    itemDefinitions.push({
-                        name: lastHeaderName,
-                        nameColIdx: lastHeaderStartCol,
-                        valueColIdx: valueColForLastItem
-                    });
-                } else { }
-            }
-            const rowsToWrite: any[][] = [];
-            let currentRowForMergeCalc = 3;
-            registeredWorkEntries.forEach((trAdiRow) => {
-                let isFirstSubEntryForTrAdi = true;
-                trAdiRow.subEntries.forEach((subEntry) => {
-                    const row: any[] = new Array(range.e.c + 1).fill('');
-                    if (isFirstSubEntryForTrAdi) {
-                        row[0] = trAdiRow.trAdi;
-                        isFirstSubEntryForTrAdi = false;
-                    } else {
-                        row[0] = '';
-                    }
-                    row[1] = subEntry.dn;
-                    if (subEntry.yeni) {
-                        row[2] = subEntry.yeni;
-                    } else if (subEntry.dmm) {
-                        row[3] = subEntry.dmm;
-                    } else if (subEntry.mevcut) {
-                        row[4] = subEntry.mevcut;
-                    }
+            // 1. تمام آیتم‌های یکتا از کل جدول را جمع‌آوری می‌کنیم.
+            const allUniqueItems = new Set<string>();
+            registeredWorkEntries.forEach(trAdiRow => {
+                trAdiRow.subEntries.forEach(subEntry => {
                     subEntry.itemDetails.forEach(item => {
-                        const itemDef = itemDefinitions.find(def => def.name === item.name);
-                        if (itemDef) {
-                            row[itemDef.valueColIdx] = item.value;
-                        } else {
-                        }
+                        allUniqueItems.add(item.name);
                     });
-                    rowsToWrite.push(row);
                 });
             });
-            for (let R = 3; R <= range.e.r; R++) {
-                for (let C = 0; C <= range.e.c; C++) {
-                    const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
-                    delete worksheet[cellAddress];
-                }
-            }
-            worksheet['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 2 + rowsToWrite.length, c: range.e.c } });
-            XLSX.utils.sheet_add_aoa(worksheet, rowsToWrite, { origin: 3 });
-            if (!worksheet['!merges']) {
-                worksheet['!merges'] = [];
-            }
-            worksheet['!merges'] = worksheet['!merges'].filter(merge => !(merge.s.c === 0 && merge.e.c === 0 && merge.s.r >= 3));
+            const uniqueItemNames = Array.from(allUniqueItems);
 
-            // let currentRowForMergeCalc = 3;
+            // 2. هدرهای ستون‌ها را می‌سازیم.
+            const header = [
+                'TR ADI',
+                'D.N',
+                'YENİ',
+                'DMM',
+                'MEVCUT',
+                ...uniqueItemNames
+            ];
 
-            registeredWorkEntries.forEach((trAdiRow) => {
-                if (trAdiRow.subEntries.length > 0) {
-                    if (trAdiRow.subEntries.length > 1) {
-                        const mergeRange = {
-                            s: { r: currentRowForMergeCalc, c: 0 },
-                            e: { r: currentRowForMergeCalc + trAdiRow.subEntries.length - 1, c: 0 }
-                        };
-                        worksheet['!merges']!.push(mergeRange);
-                    }
-                    currentRowForMergeCalc += trAdiRow.subEntries.length;
-                }
+            // 3. داده‌های جدول را برای اکسپورت آماده می‌کنیم، شامل ردیف‌های "TOPLAM" موجود
+            const dataRows: any[] = [];
+            registeredWorkEntries.forEach(trAdiRow => {
+                const trAdiTitle = trAdiRow.trAdi;
+                let isFirstRowForTrAdi = true;
+
+                trAdiRow.subEntries.forEach(subEntry => {
+                    const row: any = {
+                        'TR ADI': isFirstRowForTrAdi ? trAdiTitle : '',
+                        'D.N': subEntry.dn,
+                        'YENİ': subEntry.yeni,
+                        'DMM': subEntry.dmm,
+                        'MEVCUT': subEntry.mevcut
+                    };
+
+                    // مقادیر آیتم‌های پویا را اضافه می‌کنیم.
+                    uniqueItemNames.forEach(itemName => {
+                        const item = subEntry.itemDetails.find(d => d.name === itemName);
+                        row[itemName] = item ? parseFloat(item.value) : '';
+                    });
+
+                    dataRows.push(row);
+                    isFirstRowForTrAdi = false;
+                });
             });
-            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+
+            // 4. ساخت ورک‌شیت و ورک‌بوک
+            const ws = XLSX.utils.json_to_sheet(dataRows, { header: header });
+
+            // تنظیمات عرض ستون‌ها
+            const columnWidths = [
+                { wch: 20 }, // TR ADI
+                { wch: 20 }, // D.N
+                { wch: 10 }, // YENİ
+                { wch: 10 }, // DMM
+                { wch: 10 }, // MEVCUT
+                ...uniqueItemNames.map(() => ({ wch: 15 })) // عرض برای ستون‌های آیتم
+            ];
+            ws['!cols'] = columnWidths;
+
+            // 5. ایجاد و دانلود فایل اکسل
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'WorkDetails');
+
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+
             const fileName = `Exported_WorkDetails_${new Date().toISOString().slice(0, 10)}.xlsx`;
             const blob = new Blob([wbout], { type: 'application/octet-stream' });
+
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -1490,13 +1447,14 @@ const WorkDetails = () => {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
+
             showAlert('Excel başarıyla dışa aktarıldı!', 'success');
 
         } catch (error: any) {
-            console.log("Excel dışa aktarılırken hata:", error);
+            console.error("Excel dışa aktarılırken hata:", error);
             showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
-    }, [excelTemplateBuffer, registeredWorkEntries, showAlert]);
+    }, [registeredWorkEntries, showAlert]);
 
     // ✅ اضافه شده: نمایش بارگذاری اولیه داده‌ها
     if (loadingData || loadingProductTypes || loadingItemsForWorkItemForm || loadingExcelTemplate || loadingFileUpload) {

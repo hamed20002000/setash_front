@@ -126,11 +126,15 @@ const ExcelImportComponent = () => {
     const [idRow, setIdRow] = useState(0);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) { setFile(e.target.files[0]); }
+        if (e.target.files && e.target.files.length > 0) {
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
+            handleImportExcel(selectedFile);
+        }
     };
 
-    const handleImportExcel = () => {
-        if (!file) {
+    const handleImportExcel = (selectedFile: File) => {
+        if (!selectedFile) {
             showAlert('Lütfen önce bir Excel dosyası seçin.', 'warning');
             return;
         }
@@ -205,7 +209,7 @@ const ExcelImportComponent = () => {
                 showAlert('Excel dosyasını okurken bir hata oluştu.', 'error');
             }
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(selectedFile);
     };
 
     const exportToExcel = (orderData: OrderType) => {
@@ -743,36 +747,47 @@ const ExcelImportComponent = () => {
                 <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
 
                 <Box sx={{ mb: 2 }}>
-                    <input type="file" onChange={handleFileChange} accept=".xlsx, .xls" style={{ display: 'none' }} id="excel-file-input" />
-                    <label htmlFor="excel-file-input">
-                        <Button variant="outlined" component="span" startIcon={<IconUpload />}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexWrap="wrap"
+                    >
+                        <Button
+                            variant="outlined"
+                            component="label"
+                            startIcon={<IconUpload />}
+                            sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
+                        >
                             Dosya Seç
+                            <input
+                                type="file"
+                                onChange={handleFileChange}
+                                accept=".xlsx, .xls"
+                                style={{ display: 'none' }}
+                            />
                         </Button>
-                    </label>
-                    <Button onClick={handleImportExcel} variant="contained" sx={{ ml: 2 }} startIcon={<IconFileSpreadsheet />} disabled={!file}>
-                        Excelden İçe Aktar
-                    </Button>
-                    {file && <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>{file.name}</Typography>}
-                    <Button
-                        variant="outlined"
-                        color="secondary"
-                        href="/Siparis_Sablonu.xlsx"
-                        download="Siparis_Sablonu.xlsx"
-                        startIcon={<IconDownload />}
-                        sx={{ width: { xs: '100%', sm: 'auto' }, ml: 2 }}
-                    >
-                        Şablonu İndir
-                    </Button>
-
-                    <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={handleOpenSelectTenderModal}
-                        startIcon={<IconListDetails />}
-                        sx={{ ml: 2 }}
-                    >
-                        İhalden Ürün Seç
-                    </Button>
+                        <Button
+                            variant="outlined"
+                            color="secondary"
+                            href="/Siparis_Sablonu.xlsx"
+                            download="Siparis_Sablonu.xlsx"
+                            startIcon={<IconDownload />}
+                            sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
+                        >
+                            Şablonu İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            onClick={handleOpenSelectTenderModal}
+                            startIcon={<IconListDetails />}
+                            sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
+                        >
+                            İhalden Ürün Seç
+                        </Button>
+                    </Stack>
+                    {file && <Typography variant="body2" sx={{ mt: 1 }}>Dosya Seçildi: {file.name}</Typography>}
                 </Box>
                 <OrderItemsTable
                     items={orderItems} itemsList={itemsList} onItemChange={handleItemChange} onAddItem={handleAddItem}
@@ -892,18 +907,34 @@ const ExcelImportComponent = () => {
 
                                             <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu && selectedOrderForMenu?.id === row.id} onClose={handleCloseMenu}
                                                 MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
-                                                {/* {selectedOrderForMenu?.status === 0 && ( */}
-                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                    <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                    Onayla
-                                                </MenuItem>
-                                                {/* )}
-                                                                                                                                         {selectedOrderForMenu?.status === 0 && ( */}
-                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                    <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                    Reddet
-                                                </MenuItem>
-                                                {/* )} */}
+                                                {selectedOrderForMenu?.status === 0 && (
+                                                    <>
+                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                            Onayla
+                                                        </MenuItem>
+                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                            <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                            Reddet
+                                                        </MenuItem>
+                                                    </>
+                                                )}
+
+                                                {/* If status is 1, show "Reddet" (Reject) */}
+                                                {selectedOrderForMenu?.status === 1 && (
+                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                        <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                        Reddet
+                                                    </MenuItem>
+                                                )}
+
+                                                {/* If status is 2, show "Onayla" (Approve) */}
+                                                {selectedOrderForMenu?.status === 2 && (
+                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                        <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                        Onayla
+                                                    </MenuItem>
+                                                )}
                                                 <MenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
                                                 <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}><ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek</MenuItem>
 

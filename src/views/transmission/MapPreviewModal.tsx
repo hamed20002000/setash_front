@@ -13,26 +13,11 @@ import {
 import * as d3 from 'd3-force';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
+import AddTransmissionDetailsModal from './AddTransmissionDetailsModal';
 
-import { MapNode, TransmissionRow, SelectOption, MiktarTipi } from './types';
+import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType, MiktarTipi, D3MapLink, MapEdge } from './types';
 
-interface D3MapLink extends d3.SimulationLinkDatum<MapNode> {
-    id: string;
-    distance: number;
-    miktarTipi: MiktarTipi;
-}
 
-interface MapEdge {
-    id: string;
-    fromNodeId: string;
-    toNodeId: string;
-    fromX: number;
-    fromY: number;
-    toX: number;
-    toY: number;
-    distance: number;
-    miktarTipi: MiktarTipi;
-}
 
 type ToolType = 'select' | 'pan' | 'addNode' | 'addEdge' | 'delete' | 'zoomIn' | 'zoomOut' | 'rotate-drag' | 'edit';
 
@@ -77,9 +62,21 @@ interface MapPreviewModalProps {
     onUpdateTransmissions: (newTransmissions: TransmissionRow[]) => void;
     onSaveMapChanges: (updatedTransmissions: TransmissionRow[], newlyCreatedNodes: MapNode[]) => void;
     allProductTypes: SelectOption[];
+    itemsList: ItemType[];
+    showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transmissions, networkId, networkTitle, onSaveMapChanges, allProductTypes }) => {
+const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
+    open,
+    onClose,
+    transmissions,
+    networkId,
+    networkTitle,
+    onSaveMapChanges,
+    allProductTypes,
+    itemsList,
+    showAlert
+}) => {
     const theme = useTheme();
     const textColor = getContrastingTextColor(theme);
     const svgContainerRef = useRef<HTMLDivElement>(null);
@@ -108,8 +105,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
     const [mapNodes, setMapNodes] = useState<MapNode[]>([]);
     const [mapEdges, setMapEdges] = useState<MapEdge[]>([]);
 
-
-
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [tempTransmissionData, setTempTransmissionData] = useState<{ fromNode: MapNode; toNode: MapNode; } | null>(null);
 
     const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
         const nodesMap = new Map<string, MapNode>();
@@ -161,7 +158,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
 
             if (fromNode && toNode) {
                 const isConnectionToHub = fromNode.id === hubNodeId || toNode.id === hubNodeId;
-                const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : t.miktarTipi; // مقداردهی مستقیم و حذف منطق اضافی
+                const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : t.miktarTipi;
 
                 links.push({
                     id: t.id,
@@ -169,6 +166,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                     target: toNode,
                     distance: t.distance,
                     miktarTipi: newMiktarTipi,
+                    formulaTitle: t.formulaTitle,
+                    items: t.items
                 });
             }
         });
@@ -192,7 +191,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                         toX: targetNode.x || 0,
                         toY: targetNode.y || 0,
                         distance: link.distance,
-                        miktarTipi: link.miktarTipi
+                        miktarTipi: link.miktarTipi,
+                        formulaTitle: link.formulaTitle,
+                        items: link.items
                     };
                 })
             };
@@ -200,9 +201,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
 
         const simulation = d3.forceSimulation(nodes)
             .force('link', d3.forceLink<MapNode, D3MapLink>(links).id(d => d.id).distance(150))
-            .force('charge', d3.forceManyBody().strength(-1000)) // افزایش نیروی دافعه برای دور کردن گره‌ها
-            .force('collide', d3.forceCollide(35)) // افزایش شعاع برخورد برای جلوگیری از همپوشانی
-        // .force('center', d3.forceCenter(initialViewWidth / 2, initialViewHeight / 2)) // می‌توانید این خط را حذف یا غیرفعال کنید
+            .force('charge', d3.forceManyBody().strength(-1000))
+            .force('collide', d3.forceCollide(35))
+            .force('center', d3.forceCenter(initialViewWidth / 2, initialViewHeight / 2));
 
         simulation.stop();
         for (let i = 0; i < 300; ++i) simulation.tick();
@@ -221,7 +222,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                     toX: targetNode.x || 0,
                     toY: targetNode.y || 0,
                     distance: link.distance,
-                    miktarTipi: link.miktarTipi
+                    miktarTipi: link.miktarTipi,
+                    formulaTitle: link.formulaTitle,
+                    items: link.items
                 };
             })
         };
@@ -239,8 +242,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
             setEditingNodeId(null);
             setEditingEdgeId(null);
             setEditValue('');
+            setOpenDetailsModal(false);
+            setTempTransmissionData(null);
             return;
         }
+
+        setActiveTool('select'); // ✅ تنظیم ابزار انتخاب در زمان باز شدن مدال
 
         if (transmissions.length > 0) {
             const { nodes, links } = convertTransmissionsToMapData(transmissions);
@@ -299,6 +306,41 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
         }
         return { x: 0, y: 0 };
     }, []);
+
+    const handleSaveTransmissionDetails = useCallback((
+        fromNode: MapNode,
+        toNode: MapNode,
+        distance: number,
+        miktarTipi: MiktarTipi,
+        formulaTitle: string,
+        addedItems: AddedItem[]
+    ) => {
+        const edgeExists = mapEdges.some(e =>
+            (e.fromNodeId === fromNode.id && e.toNodeId === toNode.id) ||
+            (e.fromNodeId === toNode.id && e.toNodeId === fromNode.id)
+        );
+        if (edgeExists) {
+            showAlert('Bu iletim zaten mevcut.', 'warning');
+            return;
+        }
+
+        const newEdge: MapEdge = {
+            id: `edge-${Date.now()}`,
+            fromNodeId: fromNode.id,
+            toNodeId: toNode.id,
+            fromX: fromNode.x || 0,
+            fromY: fromNode.y || 0,
+            toX: toNode.x || 0,
+            toY: toNode.y || 0,
+            distance: distance,
+            miktarTipi: miktarTipi,
+            formulaTitle: formulaTitle,
+            items: addedItems,
+        };
+        setMapEdges(prev => [...prev, newEdge]);
+        setOpenDetailsModal(false);
+        showAlert('Yeni iletim haritaya eklendi.', 'success');
+    }, [mapEdges, showAlert]);
 
     const handleNodeClick = useCallback((node: MapNode, event: React.MouseEvent<SVGCircleElement>) => {
         event.stopPropagation();
@@ -366,13 +408,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
             setSelectedEdgeIds(new Set([edge.id]));
             setSelectedNodeIds(new Set());
         } else if (activeTool === 'edit') {
-            // if (edge.miktarTipi !== 'TR-Connection') {
             setEditingEdgeId(edge.id);
             setEditValue(String(edge.distance));
             setEditingNodeId(null);
             setSelectedEdgeIds(new Set([edge.id]));
             setSelectedNodeIds(new Set());
-            // }
         } else if (activeTool === 'delete') {
             setMapEdges(prevEdges => prevEdges.filter(e => e.id !== edge.id));
             setSelectedNodeIds(new Set());
@@ -393,17 +433,14 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                     setSelectedEdgeIds(new Set());
                 }
             } else if (type === 'edge') {
-                // const edge = mapEdges.find(e => e.id === id);
-                // if (edge && edge.miktarTipi !== 'TR-Connection') {
                 setEditingEdgeId(id);
                 setEditValue(value);
                 setEditingNodeId(null);
                 setSelectedEdgeIds(new Set([id]));
                 setSelectedNodeIds(new Set());
-                // }
             }
         }
-    }, [activeTool, mapNodes, mapEdges]);
+    }, [activeTool, mapNodes]);
 
     const handleEdgeDistanceChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value;
@@ -495,33 +532,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                     } else if (drawingEdgeStartNode.id === node.id) {
                         setDrawingEdgeStartNode(null);
                     } else {
-                        const edgeExists = mapEdges.some(e =>
-                            (e.fromNodeId === drawingEdgeStartNode.id && e.toNodeId === node.id) ||
-                            (e.fromNodeId === node.id && e.toNodeId === drawingEdgeStartNode.id)
-                        );
-                        if (edgeExists) {
-                            setDrawingEdgeStartNode(null);
-                            return;
-                        }
-
-                        const miktarTipi = drawingEdgeStartNode.isHub || node.isHub ? 'TR-Connection' : 'Yeni YG';
-                        const newEdge: MapEdge = {
-                            id: `edge-${Date.now()}`,
-                            fromNodeId: drawingEdgeStartNode.id,
-                            toNodeId: node.id,
-                            fromX: drawingEdgeStartNode.x || 0,
-                            fromY: drawingEdgeStartNode.y || 0,
-                            toX: node.x || 0,
-                            toY: node.y || 0,
-                            distance: parseFloat((Math.sqrt(Math.pow((drawingEdgeStartNode.x || 0) - (node.x || 0), 2) + Math.pow((drawingEdgeStartNode.y || 0) - (node.y || 0), 2))).toFixed(2)),
-                            miktarTipi: miktarTipi as MiktarTipi
-                        };
-                        setMapEdges(prev => [...prev, newEdge]);
-                        if (miktarTipi !== 'TR-Connection') {
-                            setEditingEdgeId(newEdge.id);
-                            setEditValue(String(newEdge.distance));
-                        }
-                        setEditingNodeId(null);
+                        setTempTransmissionData({ fromNode: drawingEdgeStartNode, toNode: node });
+                        setOpenDetailsModal(true);
                         setDrawingEdgeStartNode(null);
                     }
                 }
@@ -586,7 +598,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
         }
     }, [isPanning, panStartMousePos, scale, isDraggingNode, draggedNodeId, dragStartNodePos, mapNodes, drawingEdgeStartNode, activeTool, getSvgCoordinates, getCenterOfViewBox, isRotating, rotateStartMousePos, rotateStartAngle, getAngle, setMapNodes, setMapEdges]);
 
-
     const handleMouseUp = useCallback(() => {
         setIsPanning(false);
         setIsDraggingNode(false);
@@ -625,26 +636,24 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
         setScale(prevScale => prevScale * (event.deltaY < 0 ? zoomFactor : 1 / zoomFactor));
     }, [viewBox, getSvgCoordinates]);
 
-
     const handleSaveChanges = useCallback(() => {
+        debugger
         const productTypeNameToIdMap = new Map(allProductTypes.map(p => [p.name, p.id]));
         const existingProductTypeNames = new Set(allProductTypes.map(p => p.name.toLowerCase()));
 
-        // Yalnızca yeni olan ve sistemde kayıtlı olmayan düğümleri buluyoruz
         const newlyCreatedNodes = mapNodes
             .filter(node => !existingProductTypeNames.has(node.name.toLowerCase()));
 
-        // Güncellenmiş iletim listesini oluşturuyoruz
         const updatedTransmissions: TransmissionRow[] = mapEdges
             .map(edge => {
-                // ... (منطق تبدیل داده‌ها به TransmissionRow مانند قبل)
                 const fromNode = mapNodes.find(node => node.id === edge.fromNodeId);
                 const toNode = mapNodes.find(node => node.id === edge.toNodeId);
                 const originalTransmission = transmissions.find(t => t.id === edge.id);
                 const fromProductTypeId = originalTransmission?.fromProductTypeId || productTypeNameToIdMap.get(fromNode?.name || '') || '';
                 const toProductTypeId = originalTransmission?.toProductTypeId || productTypeNameToIdMap.get(toNode?.name || '') || '';
-                const originalMiktarTipi = originalTransmission?.miktarTipi || 'Yeni YG';
-                const originalItems = originalTransmission?.items || [];
+                const originalMiktarTipi = originalTransmission?.miktarTipi || edge.miktarTipi;
+                const originalItems = originalTransmission?.items || edge.items || [];
+                const originalFormulaTitle = originalTransmission?.formulaTitle || edge.formulaTitle || '';
 
                 return {
                     id: edge.id,
@@ -653,7 +662,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                     distance: edge.distance,
                     miktarTipi: originalMiktarTipi,
                     network: originalTransmission?.network || networkTitle,
-                    formulaTitle: originalTransmission?.formulaTitle || 'Oto-Oluşturulan',
+                    formulaTitle: originalFormulaTitle,
                     networkId: originalTransmission?.networkId || networkId,
                     fromProductTypeId: fromProductTypeId,
                     toProductTypeId: toProductTypeId,
@@ -665,12 +674,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                 };
             });
 
-        // ✅ MapPreviewModal'ın tek görevi, veriyi ebeveyne gönderip kapanmaktır.
         onSaveMapChanges(updatedTransmissions, newlyCreatedNodes);
         onClose();
     }, [mapEdges, mapNodes, networkTitle, networkId, onSaveMapChanges, onClose, transmissions, allProductTypes]);
-
-
 
     const handleDownload = useCallback((format: 'png' | 'pdf') => {
         if (svgContainerRef.current) {
@@ -703,15 +709,26 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
         const hubNode = mapNodes.find(n => n.isHub);
         if (!hubNode) return null;
         return (
-            <g key={hubNode.id}>
-                <path
+            <g
+                key={hubNode.id}
+                onClick={(e) => handleNodeClick(hubNode, e as React.MouseEvent<SVGCircleElement>)}
+                style={{ cursor: 'pointer' }}
+            >
+                <circle
                     id={hubNode.id}
+                    cx={hubNode.x || 0}
+                    cy={hubNode.y || 0}
+                    r={25 / scale}
+                    fill="transparent"
+                    stroke="transparent"
+                    strokeWidth={1 / scale}
+                />
+                <path
                     d={`M ${hubNode.x || 0} ${(hubNode.y || 0) - 20 / scale} L ${(hubNode.x || 0) - 20 / scale} ${(hubNode.y || 0) + 20 / scale} L ${(hubNode.x || 0) + 20 / scale} ${(hubNode.y || 0) + 20 / scale} Z`}
                     fill={theme.palette.primary.main}
                     stroke={selectedNodeIds.has(hubNode.id) ? theme.palette.primary.dark : theme.palette.text.primary}
                     strokeWidth={selectedNodeIds.has(hubNode.id) ? 3 / scale : 1 / scale}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(e) => handleNodeClick(hubNode, e as React.MouseEvent<SVGCircleElement>)}
+                    style={{ pointerEvents: 'none' }}
                 />
                 <text
                     x={hubNode.x || 0}
@@ -880,10 +897,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                                             />
                                             {editingEdgeId === edge.id ? (
                                                 <foreignObject
-                                                    x={(edge.fromX + edge.toX) / 2 - 30}
-                                                    y={(edge.fromY + edge.toY) / 2 - 15}
-                                                    width="60"
-                                                    height="25"
+                                                    x={(edge.fromX + edge.toX) / 2 - 30 / scale}
+                                                    y={(edge.fromY + edge.toY) / 2 - 15 / scale}
+                                                    width={60 / scale}
+                                                    height={25 / scale}
                                                 >
                                                     <input
                                                         ref={inputRef}
@@ -936,7 +953,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                                                 cx={node.x || 0}
                                                 cy={node.y || 0}
                                                 r={
-                                                    activeTool === 'addEdge' ? (12 / scale) :
+                                                    activeTool === 'addEdge' ? (20 / scale) :
                                                         selectedNodeIds.has(node.id) ? 10 / scale : 8 / scale
                                                 }
                                                 fill={node.isNew ? theme.palette.warning.main : theme.palette.error.main}
@@ -948,10 +965,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                                             />
                                             {editingNodeId === node.id ? (
                                                 <foreignObject
-                                                    x={(node.x || 0) - 50}
+                                                    x={(node.x || 0) - 50 / scale}
                                                     y={(node.y || 0) + (12 / scale)}
-                                                    width="100"
-                                                    height="25"
+                                                    width={100 / scale}
+                                                    height={25 / scale}
                                                 >
                                                     <input
                                                         ref={inputRef}
@@ -962,6 +979,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                                                         onKeyDown={handleNodeNameKeyDown}
                                                         onMouseDown={(e) => e.stopPropagation()}
                                                         onClick={(e) => e.stopPropagation()}
+                                                        onFocus={(e) => e.target.select()}
                                                         autoFocus
                                                         style={{
                                                             width: '100%',
@@ -971,7 +989,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                                                             fontSize: `${10 / scale}px`,
                                                             background: theme.palette.background.paper,
                                                             color: textColor,
-                                                            border: `1px solid ${theme.palette.primary.main}`,
+                                                            border: `0.5px solid ${theme.palette.primary.main}`,
                                                             borderRadius: '0px',
                                                             padding: '2px'
                                                         }}
@@ -986,17 +1004,15 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                                                     textAnchor="middle"
                                                     style={{
                                                         textShadow: `1px 1px 2px ${theme.palette.background.default}`,
-                                                        pointerEvents: activeTool === 'edit' ? 'auto' : 'none',
-                                                        cursor: activeTool === 'edit' ? 'text' : 'auto'
+                                                        pointerEvents: 'none',
                                                     }}
-                                                    onClick={(e) => handleTextClick(node.id, 'node', node.name, e as React.MouseEvent<SVGTextElement>)}
                                                 >
                                                     {node.name}
                                                 </text>
                                             )}
                                         </g>
                                     ))}
-                                    {drawingEdgeStartNode && activeTool === 'addEdge' && (
+                                    {drawingEdgeStartNode && activeTool === 'addEdge' && panStartMousePos && (
                                         <line
                                             x1={drawingEdgeStartNode.x || 0}
                                             y1={drawingEdgeStartNode.y || 0}
@@ -1076,6 +1092,18 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({ open, onClose, transm
                     }
                 `}
             </style>
+
+            {tempTransmissionData && (
+                <AddTransmissionDetailsModal
+                    open={openDetailsModal}
+                    onClose={() => setOpenDetailsModal(false)}
+                    onSave={handleSaveTransmissionDetails}
+                    fromNode={tempTransmissionData.fromNode}
+                    toNode={tempTransmissionData.toNode}
+                    itemsList={itemsList}
+                    showAlert={showAlert}
+                />
+            )}
         </Dialog>
     );
 };

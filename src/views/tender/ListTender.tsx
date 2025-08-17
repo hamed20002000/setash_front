@@ -1034,27 +1034,52 @@ const ListTender = () => {
                               Satın Alma İçin İndir
                             </MenuItem>
                           </CustomTooltip>
-                          <>
-                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
-                              <MenuItem onClick={handleSetActiveTender}>
-                                <ListItemIcon>
-                                  <ThumbUpAltIcon fontSize="small" />
-                                </ListItemIcon>
-                                İhaleyi Onayla
-                              </MenuItem>
-                            </CustomTooltip>
-                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
-                              <MenuItem onClick={handleSetInactiveTender}>
-                                <ListItemIcon>
-                                  <ThumbDownAltIcon fontSize="small" />
-                                </ListItemIcon>
-                                İhaleyi Reddet
-                              </MenuItem>
-                            </CustomTooltip>
-                          </>
-                          {/* )} */}
+                          {selectedRowForMenu?.tenderStatus === 0 && (
+                            <>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
+                                <MenuItem onClick={handleSetActiveTender}>
+                                  <ListItemIcon>
+                                    <ThumbUpAltIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İhaleyi Onayla
+                                </MenuItem>
+                              </CustomTooltip>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
+                                <MenuItem onClick={handleSetInactiveTender}>
+                                  <ListItemIcon>
+                                    <ThumbDownAltIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İhaleyi Reddet
+                                </MenuItem>
+                              </CustomTooltip>
+                            </>
+
+                          )}
+
+                          {selectedRowForMenu?.tenderStatus === 2 && (
+                            <>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
+                                <MenuItem onClick={handleSetActiveTender}>
+                                  <ListItemIcon>
+                                    <ThumbUpAltIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İhaleyi Onayla
+                                </MenuItem>
+                              </CustomTooltip>
+                            </>
+
+                          )}
+
                           {selectedRowForMenu?.tenderStatus === 1 && (
                             <>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
+                                <MenuItem onClick={handleSetInactiveTender}>
+                                  <ListItemIcon>
+                                    <ThumbDownAltIcon fontSize="small" />
+                                  </ListItemIcon>
+                                  İhaleyi Reddet
+                                </MenuItem>
+                              </CustomTooltip>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İş tanımla" : ""}>
                                 <MenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
                                   <ListItemIcon>

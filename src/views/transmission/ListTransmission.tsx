@@ -25,31 +25,9 @@ import DeleteTransmissionModal from './DeleteTransmissionModal';
 import DeleteAllConfirmationModal from './DeleteAllConfirmationModal';
 import RegisterNewNodesModal from './RegisterNewNodesModal';
 
-import { MapNode, TransmissionRow, SelectOption, AddedItem } from './types';
+import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType } from './types';
 
-interface ItemType {
-    id: string;
-    name: string;
-    description: string;
-    abbreviation: string;
-    recordStatus: number;
-    createAt: string;
-    weight: number | null;
-    category: {
-        id: string;
-        name: string;
-        depth: number;
-        createAt: string;
-        recordStatus: number;
-    };
-    unit: {
-        id: string;
-        title: string;
-        recordStatus: number;
-        createAt: string;
-    };
-    status: 'Aktif' | 'Pasif' | 'Silindi';
-}
+
 
 type SortableTransmissionKeys = keyof Pick<TransmissionRow, 'fromProductType' | 'toProductType' | 'distance' | 'miktarTipi' | 'formulaTitle' | 'createAt' | 'recordStatus'>;
 
@@ -791,7 +769,7 @@ const ListTransmission = () => {
                 itemId: parseInt(item.id)
             })) || []
         };
-
+        debugger
         try {
             await axios.post(server.baseurl + server.initialoperations + "create-TransmissionRow", { networkId: parseInt(networkId!), createTransmissionRows: [payload] }, {
                 headers: { "Authorization": `Bearer ${authToken}` }
@@ -818,8 +796,11 @@ const ListTransmission = () => {
             return;
         }
 
-        const miktarTipiToStatus = {
-            'Yeni YG': 0, 'Yeni AG': 1, 'DMM YG': 2, 'DMM AG': 3,
+        const miktarTipiToStatus: Record<string, number> = {
+            'Yeni YG': 0,
+            'Yeni AG': 1,
+            'DMM YG': 2,
+            'DMM AG': 3,
         };
 
         const payload = listToUpdate.map(row => ({
@@ -836,9 +817,11 @@ const ListTransmission = () => {
         debugger
         try {
             await axios.put(server.baseurl + server.initialoperations + "update-TransmissionRow",
-                { networkId: Number(networkId), createTransmissionRows: payload }, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
+                { networkId: Number(networkId), createTransmissionRows: payload },
+                // { networkId: parseInt(networkId!), createTransmissionRows: [payload] },
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` }
+                });
 
             showAlert('Değişiklikler başarıyla kaydedildi!', 'success');
             if (networkId) {
@@ -916,7 +899,11 @@ const ListTransmission = () => {
         setFromProductType(fromOption);
         setToProductType(toOption);
         setDistance(String(row.distance));
-        setMiktarTipi(row.miktarTipi);
+        if (row.miktarTipi !== 'TR-Connection') {
+            setMiktarTipi(row.miktarTipi);
+        } else {
+            setMiktarTipi('Yeni YG'); // یا هر مقدار پیش‌فرض دیگری
+        }
         setFormulaTitle(row.formulaTitle);
         setAddedItems(row.items || []);
 
@@ -997,7 +984,7 @@ const ListTransmission = () => {
 
     }, [transmissionIdToDelete, transmissionList, showAlert, handleBatchUpdate, handleConfirmDeleteAll]);
 
-    const handleSaveMapChanges = useCallback((updatedTransmissions: TransmissionRow[], newlyCreatedNodes: MapNode[]) => {
+    const handleSaveMapChanges = useCallback(async (updatedTransmissions: TransmissionRow[], newlyCreatedNodes: MapNode[]) => {
         // Eğer yeni düğüm varsa, onay modalını aç
         if (newlyCreatedNodes.length > 0) {
             setPendingTransmissions(updatedTransmissions);
@@ -1006,9 +993,11 @@ const ListTransmission = () => {
         } else {
             // Yeni düğüm yoksa, değişiklikleri doğrudan kaydet
             setTransmissionList(updatedTransmissions);
-            handleBatchUpdate(updatedTransmissions);
+            await handleBatchUpdate(updatedTransmissions);
+
+            showAlert('Başarıyla güncellenip kaydedildi!', 'success');
         }
-    }, [handleBatchUpdate]);
+    }, [handleBatchUpdate, showAlert]);
 
     const handleConfirmRegistration = useCallback(async (confirm: boolean) => {
         setOpenConfirmationModal(false);
@@ -1656,8 +1645,10 @@ const ListTransmission = () => {
                 networkId={networkId}
                 networkTitle={networkTitleForDisplay}
                 onSaveMapChanges={handleSaveMapChanges}
-                allProductTypes={allProductTypes}
+                allProductTypes={combinedProductTypeOptions}
                 onUpdateTransmissions={() => { }}
+                itemsList={itemsList}
+                showAlert={showAlert}
             />
 
             <DeleteTransmissionModal

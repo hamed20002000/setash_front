@@ -6,7 +6,7 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, FormControl, InputLabel, Select, ListItemText,
-    Chip
+    Chip, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -219,6 +219,9 @@ const ListWarehouses = () => {
     const [regionTree, setRegionTree] = useState<RegionNode[]>([]);
     const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
+
+    const [openAddressModal, setOpenAddressModal] = useState(false);
+    const [selectedAddress, setSelectedAddress] = useState('');
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -456,14 +459,14 @@ const ListWarehouses = () => {
                 }
             });
             if (response.data.httpStatusCode === 201) {
-                showAlert('Yeni şantiye başarıyla eklendi!', 'success');
+                showAlert('Yeni depo başarıyla eklendi!', 'success');
                 resetFormAndState();
                 fetchWarehouses();
             } else {
-                showAlert(response.data.message || 'Şantiye eklenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'depo eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Şantiye eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'depo eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -490,14 +493,14 @@ const ListWarehouses = () => {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
             });
             if (response.data.httpStatusCode === 200) {
-                showAlert('Şantiye başarıyla güncellendi!', 'success');
+                showAlert('depo başarıyla güncellendi!', 'success');
                 resetFormAndState();
                 fetchWarehouses();
             } else {
-                showAlert(response.data.message || 'Şantiye güncellenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'depo güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Şantiye güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'depo güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -666,13 +669,13 @@ const ListWarehouses = () => {
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
+                    <Typography variant="h5" mb={2}>{editingId ? 'depoyi Düzenle' : 'Yeni depo Kaydı'}</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="Warehouse-name" required>İsim</CustomFormLabel>
                             <CustomTextField
                                 id="Warehouse-name"
-                                placeholder="Şantiye Adı"
+                                placeholder="depo Adı"
                                 fullWidth
                                 value={name}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -688,7 +691,7 @@ const ListWarehouses = () => {
                             <CustomFormLabel htmlFor="Warehouse-code" required>Kod</CustomFormLabel>
                             <CustomTextField
                                 id="Warehouse-code"
-                                placeholder="Şantiye Kodu"
+                                placeholder="depo Kodu"
                                 fullWidth
                                 value={code}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -736,7 +739,7 @@ const ListWarehouses = () => {
                             <CustomFormLabel htmlFor="Warehouse-address">Adres</CustomFormLabel>
                             <CustomTextField
                                 id="Warehouse-address"
-                                placeholder="Şantiye Adresi"
+                                placeholder="depo Adresi"
                                 fullWidth
                                 value={address}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -751,20 +754,20 @@ const ListWarehouses = () => {
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 {editingId !== null ? (
                                     <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili şantiyeyi güncelleyin" : ""}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyi güncelleyin" : ""}>
                                             <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
                                                 {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
                                             </Button>
                                         </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni şantiye moduna dön" : ""}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni depo moduna dön" : ""}>
                                             <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
                                         </CustomTooltip>
                                     </>
                                 ) : (
                                     <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir şantiye ekle" : ""}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir depo ekle" : ""}>
                                             <Button variant="contained" color="success" onClick={insertWarehouse} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
+                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni depo Ekle'}
                                             </Button>
                                         </CustomTooltip>
                                     </>
@@ -785,7 +788,7 @@ const ListWarehouses = () => {
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>
                             <TextField
-                                label="Şantiye Ara"
+                                label="depo Ara"
                                 variant="outlined"
                                 fullWidth
                                 value={searchTerm}
@@ -811,7 +814,7 @@ const ListWarehouses = () => {
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress />
-                        <Typography variant="h6" sx={{ ml: 2 }}>Şantiyeler yükleniyor...</Typography>
+                        <Typography variant="h6" sx={{ ml: 2 }}>depoler yükleniyor...</Typography>
                     </Box>
                 ) : (
                     <TableContainer>
@@ -845,7 +848,19 @@ const ListWarehouses = () => {
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                             <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{row.address}</Typography></TableCell>
+                                            <TableCell>
+                                                <Typography variant="h6" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {row.address.length > 50 ? `${row.address.substring(0, 50)}...` : row.address}
+                                                </Typography>
+                                                {row.address.length > 50 && (
+                                                    <Button variant="text" size="small" onClick={() => {
+                                                        setSelectedAddress(row.address);
+                                                        setOpenAddressModal(true);
+                                                    }}>
+                                                        Devamını Oku
+                                                    </Button>
+                                                )}
+                                            </TableCell>
                                             <TableCell><Typography variant="h6">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
 
@@ -903,13 +918,13 @@ const ListWarehouses = () => {
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi düzenle" : ""}>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu depoyi düzenle" : ""}>
                                                         <MenuItem onClick={handleEditClick}>
                                                             <ListItemIcon><IconEdit width={18} /></ListItemIcon>
                                                             Düzenlemek
                                                         </MenuItem>
                                                     </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi sil" : ""}>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu depoyi sil" : ""}>
                                                         <MenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon><IconTrash width={18} /></ListItemIcon>
                                                             Silmek
@@ -923,7 +938,7 @@ const ListWarehouses = () => {
                                     <TableRow>
                                         <TableCell colSpan={7} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">
-                                                Bu işe ait hiç şantiye bulunamadı.
+                                                Bu işe ait hiç depo bulunamadı.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -944,6 +959,29 @@ const ListWarehouses = () => {
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>
+
+            // کد جدید برای Dialog
+            <Dialog
+                open={openAddressModal}
+                onClose={() => setOpenAddressModal(false)}
+                aria-labelledby="address-dialog-title"
+                fullWidth
+                maxWidth="sm"
+            >
+                <DialogTitle id="address-dialog-title">
+                    Adresin Tamamı
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Typography id="address-dialog-description" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {selectedAddress}
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAddressModal(false)} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
             <DeleteWarehouse
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
