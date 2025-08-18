@@ -39,7 +39,7 @@ import { format } from 'date-fns';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
-  if (!dateString) return "N/A";
+  if (!dateString) return "-";
   try {
     const date = new Date(dateString);
     return format(date, 'dd MMMM yyyy', { locale: tr });
@@ -174,6 +174,8 @@ const ListTender = () => {
   const [filesForDownload, setFilesForDownload] = useState<Attachment[] | null>(null);
   const [openDownloadModal, setOpenDownloadModal] = useState<boolean>(false);
 
+
+
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TenderType) => {
     setAnchorEl(event.currentTarget);
     setSelectedRowForMenu(row);
@@ -263,8 +265,8 @@ const ListTender = () => {
             const quantity = parseFloat(detail.ourProcuredItemQuantities);
             if (!isNaN(quantity) && quantity > 0) {
               excelData.push({
-                'Ürün': detail.item?.name || 'N/A',
-                'Ölçü': detail.item?.unit?.title || 'N/A',
+                'Ürün': detail.item?.name || '-',
+                'Ölçü': detail.item?.unit?.title || '-',
                 'Miktar': quantity,
                 'Açıklama': '', // توضیحات خالی
                 'Fiyat': ''    // قیمت خالی

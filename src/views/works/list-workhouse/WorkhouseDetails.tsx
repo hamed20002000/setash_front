@@ -642,11 +642,11 @@ const WorkhouseDetails = () => {
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <CustomFormLabel htmlFor="workhouse-price" required>
-                            Fiyat
+                            Kirası
                         </CustomFormLabel>
                         <CustomTextField
                             id="workhouse-price"
-                            placeholder="Fiyat"
+                            placeholder="Kirası"
                             fullWidth
                             type="number"
                             value={price}
@@ -823,7 +823,7 @@ const WorkhouseDetails = () => {
                         <TableHead style={{ background: theme.palette.grey[200] }}>
                             <TableRow>
                                 <TableCell><Typography variant="h6">Sahibi</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Fiyat</Typography></TableCell>
+                                <TableCell><Typography variant="h6">Kirası</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Kira Başlangıç</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Kira Bitiş</Typography></TableCell>

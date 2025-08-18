@@ -648,14 +648,14 @@ const ListTransmission = () => {
 
     const handleAddItem = useCallback(() => {
         if (!selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0) {
-            showAlert('Lütfen bir öğe ve geçerli bir miktar seçin.', 'warning');
+            showAlert('Lütfen bir Şebeke ve geçerli bir miktar seçin.', 'warning');
             return;
         }
 
         const itemToAdd = itemsList.find(item => item.id === selectedItem.id);
 
         if (addedItems.some(item => item.id === selectedItem.id)) {
-            showAlert('Bu öğe zaten eklenmiş.', 'warning');
+            showAlert('Bu Şebeke zaten eklenmiş.', 'warning');
             return;
         }
 
@@ -702,7 +702,7 @@ const ListTransmission = () => {
 
     const handleUpdateEditedItem = useCallback(() => {
         if (!editingItem || !selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0) {
-            showAlert('Lütfen geçerli bir öğe ve miktar girin.', 'warning');
+            showAlert('Lütfen geçerli bir Şebeke ve miktar girin.', 'warning');
             return;
         }
 
@@ -736,7 +736,7 @@ const ListTransmission = () => {
 
     const handleAddRowToTransmissionList = useCallback(async () => {
         if (!fromProductType || !toProductType || !distance || addedItems.length === 0) {
-            showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir öğe ekleyin.', 'warning');
+            showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
             return;
         }
 
@@ -917,7 +917,7 @@ const ListTransmission = () => {
 
     const handleUpdateRowInTransmissionList = useCallback(() => {
         if (!editingRowId || !fromProductType || !toProductType || !distance || addedItems.length === 0) {
-            showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir öğe ekleyin.', 'warning');
+            showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
             return;
         }
 
@@ -1155,7 +1155,7 @@ const ListTransmission = () => {
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Grid container spacing={2} alignItems="flex-end">
                     <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="from-product-type">Kaynak Ürün Tipi</CustomFormLabel>
+                        <CustomFormLabel htmlFor="from-product-type" required>Kaynak Ürün Tipi</CustomFormLabel>
                         <Autocomplete
                             id="from-product-type"
                             options={combinedProductTypeOptions}
@@ -1171,7 +1171,7 @@ const ListTransmission = () => {
                         />
                     </Grid>
                     <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="to-product-type">Hedef Ürün Tipi</CustomFormLabel>
+                        <CustomFormLabel htmlFor="to-product-type" required>Hedef Ürün Tipi</CustomFormLabel>
                         <Autocomplete
                             id="to-product-type"
                             options={toProductTypeOptions}
@@ -1187,7 +1187,7 @@ const ListTransmission = () => {
                         />
                     </Grid>
                     <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="distance">Mesafe</CustomFormLabel>
+                        <CustomFormLabel htmlFor="distance" required>Mesafe</CustomFormLabel>
                         <TextField
                             id="distance"
                             type="number"
@@ -1228,7 +1228,7 @@ const ListTransmission = () => {
                 </Grid>
                 <Box mt={3}>
                     <Typography variant="h6" gutterBottom>
-                        Öğe ve Miktar Ekle
+                        Şebeke ve Miktar Ekle
                     </Typography>
                     <Stack direction="row" spacing={2} alignItems="center" mt={4} mb={2}>
                         <Autocomplete
@@ -1238,7 +1238,7 @@ const ListTransmission = () => {
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             value={selectedItem}
                             onChange={(_e, newValue) => setSelectedItem(newValue)}
-                            renderInput={(params) => <TextField {...params} label="Öğe Seçin" variant="outlined" size="small" />}
+                            renderInput={(params) => <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" />}
                             sx={{ flexGrow: 1 }}
                             disabled={loadingItems}
                         />
@@ -1549,7 +1549,7 @@ const ListTransmission = () => {
                                                             ))
                                                         ) : (
                                                             <Typography variant="body2" color="textSecondary">
-                                                                Bu iletim için öğe bulunamadı.
+                                                                Bu iletim için Şebeke bulunamadı.
                                                             </Typography>
                                                         )}
                                                     </Box>

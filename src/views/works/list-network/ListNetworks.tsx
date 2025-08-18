@@ -250,14 +250,6 @@ const ListNetwork = () => {
             setTitleError(false);
         }
 
-        if (!newNetworkData.description.trim() || newNetworkData.description === '<p><br></p>') {
-            setDescriptionError(true);
-            setFormErrors(prev => (prev ? prev + "\n" : "") + "Açıklama boş olamaz!");
-            isValid = false;
-        } else {
-            setDescriptionError(false);
-        }
-
         if (!isValid) {
             showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
         }
@@ -330,8 +322,7 @@ const ListNetwork = () => {
         if (!validateForm()) {
             return;
         }
-        const isDescriptionChanged = newNetworkData.description !== selectedRowForMenu?.description;
-        if (newNetworkData.title === originalTitle && !isDescriptionChanged) {
+        if (newNetworkData.title === originalTitle) {
             showAlert('Şebeke bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
             resetFormAndState();
             return;

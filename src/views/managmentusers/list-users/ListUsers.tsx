@@ -24,6 +24,7 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
   IconDots, IconEdit, IconTrash, IconEye, IconEyeOff, IconKey, IconUsersGroup, IconLock, IconSearch,
+  IconCopy,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -197,6 +198,7 @@ const ListUsers = () => {
   const [passwordHelperText, setPasswordHelperText] = useState<string>('');
   const [confirmPasswordError, setConfirmPasswordError] = useState<boolean>(false);
   const [confirmPasswordHelperText, setConfirmPasswordHelperText] = useState<string>('');
+  // const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
     setAlertSeverity(severity);
@@ -338,10 +340,14 @@ const ListUsers = () => {
 
   const generateRandomPass = useCallback(() => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
+    const charss = 'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
     const num = '0123456789';
     let newPass = '';
     for (let i = 0; i < 10; i++) {
       newPass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    for (let i = 0; i < 5; i++) {
+      newPass += charss.charAt(Math.floor(Math.random() * charss.length));
     }
     for (let j = 0; j < 2; j++) {
       newPass += num.charAt(Math.floor(Math.random() * num.length));
@@ -447,6 +453,7 @@ const ListUsers = () => {
     }, 100);
   }, [selectedUserForMenu, handleCloseMenu, clearAlert]);
   const insertUser = async () => {
+    debugger
     let hasValidationError = false;
     if (!username.trim()) {
       setUsernameError(true);
@@ -555,9 +562,11 @@ const ListUsers = () => {
   };
 
   const editUser = async () => {
+    debugger; // برای بررسی کد در حالت دیباگ
     if (editingUserId === null) return;
     let hasValidationError = false;
 
+    // اعتبار سنجی نام کاربری
     if (!username.trim()) {
       setUsernameError(true);
       setUsernameHelperText('Kullanıcı adı boş olamaz!');
@@ -567,10 +576,21 @@ const ListUsers = () => {
       setUsernameHelperText('');
     }
 
+    // اعتبار سنجی رول‌ها
+    if (selectedRoles.length === 0) {
+      setRoleError(true);
+      setRoleHelperText('Lütfen en az bir rol seçin!');
+      hasValidationError = true;
+    } else {
+      setRoleError(false);
+      setRoleHelperText('');
+    }
+
     if (hasValidationError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
     }
+
     clearAlert();
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
@@ -579,19 +599,28 @@ const ListUsers = () => {
       return;
     }
 
+    // const roleIdsToSend = selectedRoles;
+
     const updateData: {
       id: string;
       username: string;
+      // rolesId?: string[];
       imageSrc?: string;
     } = {
       id: editingUserId,
       username: username,
     };
+
+    // if (roleIdsToSend.length > 0) {
+    //   updateData.rolesId = roleIdsToSend;
+    // }
+
     if (profileImageBase64) {
       updateData.imageSrc = profileImageBase64;
     } else if (profileImageUrl === DEFAULT_IMAGE_URL && selectedUserForMenu?.imageUrl !== DEFAULT_IMAGE_URL) {
       updateData.imageSrc = "";
     }
+
     setLoadingButton(true);
     try {
       const response = await axios.put(
@@ -619,12 +648,10 @@ const ListUsers = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      showAlert((e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifre en az bir küçük harf içermelidir." :
-        (e.response?.data?.message == "Password must contain at least one lowercase letter." ? "Şifrede en az bir küçük harf bulunmalı." :
-          (e.response?.data?.message == "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
-            (e.response?.data?.message == "Some roles not found" ? "Rol seçilmedi." : e.response?.data?.message)
-          )))
-        || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      showAlert(
+        (e.response?.data?.message === "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
+          (e.response?.data?.message === "Some roles not found" ? "Rol seçilmedi." : e.response?.data?.message)) ||
+        'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -730,6 +757,16 @@ const ListUsers = () => {
     return sortedAndFilteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
   }, [sortedAndFilteredUsers, page, rowsPerPage]);
 
+
+  const handleCopyPassword = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(confirmPassword);
+      showAlert('Şifre panoya kopyalandı!', 'success');
+    } catch (err) {
+      showAlert('Şifre kopyalanamadı. Lütfen manuel olarak kopyalayın.', 'error');
+    }
+  }, [confirmPassword, showAlert]);
+
   useEffect(() => {
     getListUsers();
     getListRoles();
@@ -812,6 +849,17 @@ const ListUsers = () => {
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
+                              <CustomTooltip title={isTooltipGloballyEnabled ? "Şifreyi panoya kopyala" : ""}>
+                                <IconButton
+                                  aria-label="copy password"
+                                  onClick={handleCopyPassword}
+                                  edge="end"
+                                  size="small"
+                                  disabled={!confirmPassword}
+                                >
+                                  <IconCopy size={20} />
+                                </IconButton>
+                              </CustomTooltip>
                               <CustomTooltip title={isTooltipGloballyEnabled ? (showPassword ? "Şifreyi gizle" : "Şifreyi göster") : ""}>
                                 <IconButton
                                   aria-label="toggle password visibility"
@@ -881,46 +929,50 @@ const ListUsers = () => {
                   </Grid>
                 </>
               )}
-              <Grid item xs={12} md={12}>
-                <CustomFormLabel htmlFor="select-roles" required>Roller</CustomFormLabel>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
-                  <FormControl fullWidth
-                    error={roleError}>
-                    <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
-                    <Select
-                      labelId="roles-multiple-checkbox-label"
-                      id="select-roles"
-                      multiple
-                      value={selectedRoles}
-                      onChange={(e: SelectChangeEvent<string[]>) => {
-                        setSelectedRoles(e.target.value as string[])
-                        if (roleError) {
-                          setRoleError(false);
-                          setRoleHelperText('');
-                        }
-                      }}
-                      input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
-                      renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                          {selected.map((value) => {
-                            const role = allRoles.find(r => r.id === value);
-                            return <Chip key={value} label={role ? role.name : ''} />;
-                          })}
-                        </Box>
-                      )}
-                      sx={{ width: '100%' }}
-                    >
-                      {allRoles.map((role) => (
-                        <MenuItem key={role.id} value={role.id}>
-                          <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
-                          <ListItemText primary={role.name} />
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {roleHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{roleHelperText}</Typography>}
-                  </FormControl>
-                </CustomTooltip>
-              </Grid>
+              {editingUserId === null && (
+                <Grid item xs={12} md={12}>
+                  <CustomFormLabel htmlFor="select-roles" required>Roller</CustomFormLabel>
+                  <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının rollerini seçin" : ""}>
+                    <FormControl fullWidth
+                      error={roleError}>
+                      <InputLabel id="roles-multiple-checkbox-label">Rolleri Seç</InputLabel>
+                      <Select
+                        labelId="roles-multiple-checkbox-label"
+                        id="select-roles"
+                        multiple
+                        value={selectedRoles}
+                        onChange={(e: SelectChangeEvent<string[]>) => {
+                          setSelectedRoles(e.target.value as string[])
+                          if (roleError) {
+                            setRoleError(false);
+                            setRoleHelperText('');
+                          }
+                        }}
+                        input={<OutlinedInput id="select-multiple-chip" label="Rolleri Seç" />}
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selected.map((value) => {
+                              const role = allRoles.find(r => r.id === value);
+                              return <Chip key={value} label={role ? role.name : ''} />;
+                            })}
+                          </Box>
+                        )}
+                        sx={{ width: '100%' }}
+                      >
+                        {allRoles
+                          .filter(role => role.recordStatus === 0)
+                          .map((role) => (
+                            <MenuItem key={role.id} value={role.id}>
+                              <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
+                              <ListItemText primary={role.name} />
+                            </MenuItem>
+                          ))}
+                      </Select>
+                      {roleHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{roleHelperText}</Typography>}
+                    </FormControl>
+                  </CustomTooltip>
+                </Grid>
+              )}
             </Grid>
           </Grid>
           <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">

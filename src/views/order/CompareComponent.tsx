@@ -570,7 +570,7 @@ const CompareComponent = () => {
                 {/* Şebeke ve Tarih */}
                 <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             Şebeke
                         </CustomFormLabel>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -590,7 +590,7 @@ const CompareComponent = () => {
                     </Grid>
                     <Grid item xs={12} md={6}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                            <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Tarihi
                             </CustomFormLabel>
                             <DatePicker

@@ -581,6 +581,15 @@ const ListItemComponent = () => {
       setCategoryIdHelperText('');
     }
 
+    if (abbreviation.trim() !== '' && abbreviation.trim().length !== 4) {
+      setAbbreviationError(true);
+      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır.');
+      hasError = true;
+    } else {
+      setAbbreviationError(false);
+      setAbbreviationHelperText('');
+    }
+
     if (hasError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
@@ -606,7 +615,7 @@ const ListItemComponent = () => {
           abbreviation: abbreviation === "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
           itemUnitId: Number(selectedUnitId), // Use selectedUnitId, renamed as per API spec
-          weight: weight === '' ? null : weight, // ✅ اضافه شده: ارسال وزن
+          weight: weight === '' ? null : Number(weight), // ✅ اضافه شده: ارسال وزن
         },
         {
           headers: {
@@ -618,9 +627,9 @@ const ListItemComponent = () => {
       );
 
       if (response.data && response.data.success) {
-        showAlert('Yeni ürün başarıyla eklendi!', 'success');
         resetFormAndState();
-        getListItem(); // Refresh list after successful creation
+        getListItem();
+        showAlert('Yeni ürün başarıyla eklendi!', 'success');
       } else {
         showAlert(response.data.message || 'Ürün eklenirken bir hata oluştu.', 'error');
       }
@@ -631,8 +640,7 @@ const ListItemComponent = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
-        console.error("Error inserting item:", e);
-        showAlert(e.response?.data?.message || 'Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        showAlert(e.response?.data?.message == "The item already exist" ? "Bu isimle bir öğe zaten var. Aynı adla yeni bir birim kaydedemezsiniz." : 'Ürün eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     } finally {
       setLoadingButton(false);
@@ -671,7 +679,14 @@ const ListItemComponent = () => {
       setCategoryIdError(false);
       setCategoryIdHelperText('');
     }
-
+    if (abbreviation.trim() !== '' && abbreviation.trim().length !== 4) {
+      setAbbreviationError(true);
+      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır.');
+      hasError = true;
+    } else {
+      setAbbreviationError(false);
+      setAbbreviationHelperText('');
+    }
     if (hasError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
@@ -707,7 +722,7 @@ const ListItemComponent = () => {
           abbreviation: abbreviation === "" ? null : abbreviation,
           categoryId: Number(selectedCategoryId), // Use selectedCategoryId
           itemUnitId: Number(selectedUnitId), // Use selectedUnitId, renamed as per API spec
-          weight: weight === '' ? null : weight, // ✅ اضافه شده: ارسال وزن
+          weight: weight === '' ? null : Number(weight), // ✅ اضافه شده: ارسال وزن
         },
         {
           headers: {
@@ -720,7 +735,8 @@ const ListItemComponent = () => {
       if (response.data && response.data.success) {
         showAlert('Ürün başarıyla güncellendi!', 'success');
         resetFormAndState();
-        getListItem(); // Refresh list after successful creation
+        getListItem();
+        showAlert('Ürün başarıyla güncellendi!', 'success');
       } else {
         showAlert(response.data.message || 'Ürün güncellenirken bir hata oluştu.', 'error');
       }
@@ -1534,8 +1550,12 @@ const ListItemComponent = () => {
                       </Box>
                       {row.description.length > 50 && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                          <Button size="small" onClick={() => handleOpenDescriptionModal(row.description)} sx={{ p: 0, minWidth: 'auto' }}>
-                            Görüntüle
+
+                          <Button variant="text" size="small" onClick={() => {
+                            handleOpenDescriptionModal(row.description);
+
+                          }}>
+                            Devamını Oku
                           </Button>
                         </CustomTooltip>
                       )}

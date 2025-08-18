@@ -416,10 +416,10 @@ const TenderDetails = () => {
         isUnregisteredItem: false, itemId: null, aciklama: '',
         categoryPercentage: null, isCategory: false, isFromExcel: false,
     });
-    const [birimFiyatMalzemeNew, setBirimFiyatMalzemeNew] = useState<string>("0");
-    const [birimFiyatMontajNew, setBirimFiyatMontajNew] = useState<string>("0");
-    const [birimFiyatDemontajNew, setBirimFiyatDemontajNew] = useState<string>("0");
-    const [birimFiyatDemontajMontajNew, setBirimFiyatDemontajMontajNew] = useState<string>("0");
+    // const [birimFiyatMalzemeNew, setBirimFiyatMalzemeNew] = useState<string>("0");
+    // const [birimFiyatMontajNew, setBirimFiyatMontajNew] = useState<string>("0");
+    // const [birimFiyatDemontajNew, setBirimFiyatDemontajNew] = useState<string>("0");
+    // const [birimFiyatDemontajMontajNew, setBirimFiyatDemontajMontajNew] = useState<string>("0");
     const [editingBirimFiyatMalzeme, setEditingBirimFiyatMalzeme] = useState<string>('');
     const [editingBirimFiyatMontaj, setEditingBirimFiyatMontaj] = useState<string>('');
     const [editingBirimFiyatDemontaj, setEditingBirimFiyatDemontaj] = useState<string>('');
@@ -1077,31 +1077,39 @@ const TenderDetails = () => {
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
     ) => {
         const { name, value } = e.target;
-        let cleanedValue = value;
 
         setNewRecordRow(prev => {
             let updatedRow = { ...prev };
 
-            if (name === 'categoryPercentage') {
-                const numericValue = value.replace(/,/g, '.');
-                cleanedValue = numericValue.replace(/[^0-9.]/g, '');
-                const parsedNumber = parseFloat(cleanedValue) || 0;
+            // مدیریت فیلدهای عددی
+            const numericFieldNames = [
+                'malzeme', 'malzemeYuklenici', 'demontaj', 'demontajMontaj',
+                'birimFiyatMalzeme', 'birimFiyatMontaj', 'birimFiyatDemontaj', 'birimFiyatDemontajMontaj'
+            ];
+
+            if (numericFieldNames.includes(name)) {
+                // تبدیل مقدار به عدد با استفاده از تابع کمکی
+                const parsedNumber = parseAndCleanFloat(value);
+                updatedRow = { ...updatedRow, [name as keyof TenderDetailRow]: parsedNumber };
+            }
+            // مدیریت فیلدهای خاص
+            else if (name === 'categoryPercentage') {
+                const parsedNumber = parseAndCleanFloat(value);
                 updatedRow = { ...updatedRow, categoryPercentage: parsedNumber };
             } else if (name === 'newRecordManualInput') {
                 setNewRecordManualInput(String(value));
                 updatedRow.description = String(value);
-                // اینجا منطق isCategory را تغییر ندهید، چون هنوز انتخاب نهایی نشده است.
-            } else {
-                // برای سایر فیلدها، مقدار را مستقیماً به‌روز کنید
+            }
+            // مدیریت سایر فیلدها (متنی)
+            else {
                 updatedRow = { ...updatedRow, [name as keyof TenderDetailRow]: value as any };
             }
 
-            // isCategory فقط باید هنگام انتخاب آیتم یا اضافه کردن نهایی تعیین شود
-            // نه در حین تایپ کردن.
-
+            // محاسبه مجدد مجموع‌ها پس از هر تغییر
             return calculateTotals(updatedRow, true);
         });
     }, [calculateTotals, setNewRecordRow, setNewRecordManualInput]);
+
     const fetchItemUnitById = useCallback(async (itemId: string): Promise<string | null> => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -1387,10 +1395,10 @@ const TenderDetails = () => {
         setNewRecordSelectedUnifiedNodeId(null);
         setNewRecordManualInput('');
         setNewRecordTreeSearchTerm('');
-        setBirimFiyatMalzemeNew("0");
-        setBirimFiyatMontajNew("0");
-        setBirimFiyatDemontajNew("0");
-        setBirimFiyatDemontajMontajNew("0");
+        // setBirimFiyatMalzemeNew("0");
+        // setBirimFiyatMontajNew("0");
+        // setBirimFiyatDemontajNew("0");
+        // setBirimFiyatDemontajMontajNew("0");
         setIsNewRecordTreeSelectOpen(false);
     };
     const handleEditGridRow = useCallback((rowId: number) => {
@@ -1459,9 +1467,14 @@ const TenderDetails = () => {
                     parsedValue = parseFloat(cleanedValue) || 0;
                     (updatedData as any)[name] = parsedValue;
                 }
-            } else if (['malzemeYuklenici', 'demontaj', 'demontajMontaj', 'tedasNo', 'anaNo', 'altNo'].includes(name)) {
+            } else if (['malzemeYuklenici', 'tedasNo', 'anaNo', 'altNo'].includes(name)) {
+                // این فیلدها همچنان باید عدد صحیح باشند
                 cleanedValue = value.replace(/[^0-9]/g, '');
                 (updatedData as any)[name] = parseInt(cleanedValue, 10) || 0;
+            } else if (['demontaj', 'demontajMontaj', 'malzeme', 'categoryPercentage'].includes(name)) {
+                // این فیلدها می‌توانند اعشاری باشند
+                cleanedValue = value.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+                (updatedData as any)[name] = parseFloat(cleanedValue) || 0;
             } else if (name === 'editingRowDescription') {
                 setEditingRowTreeSearchTerm(String(value));
                 setEditingRowSelectedUnifiedNodeId(null);
@@ -1491,6 +1504,7 @@ const TenderDetails = () => {
             return tempUpdatedData;
         });
     }, [calculateTotals, combinedTreeData, setEditingBirimFiyatMalzeme, setEditingBirimFiyatMontaj, setEditingBirimFiyatDemontaj, setEditingBirimFiyatDemontajMontaj]);
+
 
     const handleUpdateGridRow = async () => {
         if (!editingRowId || !editingRowData) return;
@@ -1799,6 +1813,10 @@ const TenderDetails = () => {
             setEditingBirimFiyatDemontajMontaj('');
         }
     }, [editingRowId, showAlert]);
+
+    const handleFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+        event.target.select();
+    }, []);
 
     const handleExportExcelPreview = useCallback(() => {
         if (!templateWorkbookBuffer) {
@@ -2228,6 +2246,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.tedasNo, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 60, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2240,6 +2259,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.anaNo, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 60, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2252,6 +2272,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.altNo, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 60, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2339,6 +2360,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.malzeme, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2351,6 +2373,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.malzemeYuklenici, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2374,6 +2397,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.demontaj, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2386,6 +2410,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={formatInputNumberForDisplay(newRecordRow.demontajMontaj, 0)}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2396,7 +2421,9 @@ const TenderDetails = () => {
                                             name="birimFiyatMalzeme"
                                             type="text"
                                             size="small"
-                                            value={birimFiyatMalzemeNew}
+                                            // value={birimFiyatMalzemeNew}
+                                            value={newRecordRow.birimFiyatMalzeme}
+                                            onFocus={handleFocus}
                                             onChange={handleNewRecordInputChange}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
@@ -2408,8 +2435,10 @@ const TenderDetails = () => {
                                             name="birimFiyatMontaj"
                                             type="text"
                                             size="small"
-                                            value={birimFiyatMontajNew}
+                                            value={newRecordRow.birimFiyatMontaj}
+                                            // value={birimFiyatMontajNew}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2420,8 +2449,10 @@ const TenderDetails = () => {
                                             name="birimFiyatDemontaj"
                                             type="text"
                                             size="small"
-                                            value={birimFiyatDemontajNew}
+                                            // value={birimFiyatDemontajNew}
+                                            value={newRecordRow.birimFiyatDemontaj}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2432,8 +2463,10 @@ const TenderDetails = () => {
                                             name="birimFiyatDemontajMontaj"
                                             type="text"
                                             size="small"
-                                            value={birimFiyatDemontajMontajNew}
+                                            // value={birimFiyatDemontajMontajNew}
+                                            value={newRecordRow.birimFiyatDemontajMontaj}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 70, '& input': { textAlign: 'center' } }}
                                             disabled={loading || isSavingAll || isLoading}
                                         />
@@ -2462,6 +2495,7 @@ const TenderDetails = () => {
                                             size="small"
                                             value={isSelectedNodeAnItem ? formatInputNumberForDisplay(newRecordRow.categoryPercentage, 2) : ''}
                                             onChange={handleNewRecordInputChange}
+                                            onFocus={handleFocus}
                                             sx={{ width: 90, '& input': { textAlign: 'center' } }}
                                             // اینجا شرط فعال/غیرفعال بودن را تغییر می‌دهیم
                                             disabled={!isSelectedNodeAnItem || hasParentCategoryPercentage || loading || isSavingAll || isLoading}

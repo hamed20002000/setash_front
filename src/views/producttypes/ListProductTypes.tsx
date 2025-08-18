@@ -205,6 +205,16 @@ const ListProductTypes = () => {
             showAlert('İsim boş olamaz!', 'warning');
             return;
         }
+        const isNameDuplicate = ProductTypesList.some(
+            (type) => type.name.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+
+        if (isNameDuplicate) {
+            setNameError(true);
+            setNameHelperText('Bu isimde bir tür zaten var. Lütfen farklı bir ad girin.');
+            showAlert('Bu isimde bir tür zaten var. Lütfen farklı bir ad girin.', 'warning');
+            return;
+        }
         setNameError(false);
         setNameHelperText('');
         clearAlert();
@@ -250,6 +260,16 @@ const ListProductTypes = () => {
             setNameError(true);
             setNameHelperText('İsim boş olamaz!');
             showAlert('İsim boş olamaz!', 'warning');
+            return;
+        }
+        const isNameDuplicate = ProductTypesList.some(
+            (type) => type.name.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+
+        if (isNameDuplicate) {
+            setNameError(true);
+            setNameHelperText('Bu isimde bir tür zaten var. Lütfen farklı bir ad girin.');
+            showAlert('Bu isimde bir tür zaten var. Lütfen farklı bir ad girin.', 'warning');
             return;
         }
         setNameError(false);

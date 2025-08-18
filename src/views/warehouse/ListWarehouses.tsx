@@ -960,7 +960,6 @@ const ListWarehouses = () => {
                 />
             </BlankCard>
 
-            // کد جدید برای Dialog
             <Dialog
                 open={openAddressModal}
                 onClose={() => setOpenAddressModal(false)}

@@ -372,12 +372,13 @@ const RegisterUnregisteredItemModal: React.FC<RegisterUnregisteredItemModalProps
             setLoadingButton(false);
             return;
         }
+        debugger
         try {
             const response = await axios.post(server.baseurl + server.baseinfo + "create-item",
                 {
                     name,
                     description,
-                    abbreviation,
+                    abbreviation: abbreviation == "" ? null : abbreviation,
                     categoryId: Number(selectedCategoryId),
                     itemUnitId: Number(selectedUnitId),
                     weight: weight === '' ? null : weight,

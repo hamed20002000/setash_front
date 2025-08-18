@@ -74,7 +74,15 @@ const SelectTenderItemsModal: React.FC<SelectTenderItemsModalProps> = ({
                                 // ✅ قیمت را از ourProcuredItemPrice استخراج کرده و کاراکتر '$' و ',' را حذف می‌کنیم
 
 
-                                const fullItem = itemsList.find(i => i.id === detail.item.id);
+                                // const fullItem = itemsList.find(i => i.id === detail.item.id);
+                                // 👈 اینجا تغییرات اعمال شده است
+                                const tenderItemId = String(detail.item.id);
+                                console.log('Tender Item ID:', tenderItemId);
+
+                                const fullItem = itemsList.find(i => String(i.id) === tenderItemId);
+
+                                // 👈 این خط را برای دیباگ کردن اضافه کنید
+                                console.log('Found in itemsList:', !!fullItem);
 
                                 parsedItems.push({
                                     id: Date.now() + index,

@@ -243,11 +243,18 @@ const ManualEntryForm = () => {
     const handleToggleEdit = (id: number) => { setOrderItems(prevItems => prevItems.map(item => ({ ...item, isEditing: item.id === id ? !item.isEditing : false }))); };
 
     const validateForm = (): boolean => {
+        debugger
         let isValid = true;
         if (!network) { setNetworkError(true); isValid = false; } else { setNetworkError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
-        const hasEmptyItem = orderItems.some(item => !item.item || item.quantity <= 0 || !item.description);
-        if (orderItems.length === 0 || hasEmptyItem) { setOrderItemsError(true); isValid = false; } else { setOrderItemsError(false); }
+        const hasEmptyItem = orderItems.some(item => !item.item || item.quantity <= 0);
+        if (orderItems.length === 0 || hasEmptyItem) {
+            setOrderItemsError(true);
+            isValid = false;
+        }
+        else {
+            setOrderItemsError(false);
+        }
         if (!isValid) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return isValid;
     };
@@ -485,7 +492,7 @@ const ManualEntryForm = () => {
                 <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
                 <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             Şebeke
                         </CustomFormLabel>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -505,7 +512,7 @@ const ManualEntryForm = () => {
                     </Grid>
                     <Grid item xs={12} md={6}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                            <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Tarihi
                             </CustomFormLabel>
                             <DatePicker
