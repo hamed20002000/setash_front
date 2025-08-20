@@ -172,6 +172,7 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
                                 value={itemQuantity}
                                 onChange={(e) => setItemQuantity(e.target.value)}
                                 sx={{ width: 100 }}
+                                InputProps={{ inputProps: { min: 0 } }}
                             />
                             <IconButton color="primary" onClick={handleAddItem} disabled={!selectedItem || !itemQuantity}>
                                 <IconPlus size={20} />

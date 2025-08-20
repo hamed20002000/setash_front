@@ -5,6 +5,7 @@
     "login": "auth/",
     "user": "users/",
     "baseinfo": "baseinfo/",
+    "warehouse": "warehouse/",
     "initialoperations": "initial-operations/",
     "company": "Setash"
 }

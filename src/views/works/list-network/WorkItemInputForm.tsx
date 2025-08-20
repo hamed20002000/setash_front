@@ -283,6 +283,8 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                                 helperText={valueHelperText}
                                 sx={{ width: 100 }} // ✅ اندازه ثابت برای Miktar
                                 size="small"
+                                type='number'
+                                InputProps={{ inputProps: { min: 0 } }}
                             />
 
                             <Button

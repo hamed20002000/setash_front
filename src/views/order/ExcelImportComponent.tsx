@@ -31,6 +31,7 @@ import { format } from 'date-fns';
 import DeleteOrderModal from './DeleteOrderModal';
 import RegisterUnregisteredItemModal from '../tender/RegisterUnregisteredItemModal';
 import SelectTenderItemsModal from './SelectTenderItemsModal';
+import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
 // Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
 interface Network { id: string; createAt: string; recordStatus: number; title: string; description: string; work: Work; }
@@ -118,6 +119,9 @@ const ExcelImportComponent = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [openSelectTenderModal, setOpenSelectTenderModal] = useState(false);
     const [tendersList, setTendersList] = useState<TenderType[]>([]);
+
+
+    const { isTooltipGloballyEnabled } = useTooltip();
 
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
@@ -906,56 +910,90 @@ const ExcelImportComponent = () => {
                                                 <IconDots size={20} />
                                             </IconButton>
 
-                                            <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu && selectedOrderForMenu?.id === row.id} onClose={handleCloseMenu}
-                                                MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
+                                            <Menu
+                                                id="basic-menu"
+                                                anchorEl={anchorEl}
+                                                open={openMenu && selectedOrderForMenu?.id === row.id}
+                                                onClose={handleCloseMenu}
+                                                MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
+                                            >
+                                                {/* Menü öğeleri, sipariş durumu 0 için */}
                                                 {selectedOrderForMenu?.status === 0 && (
                                                     <>
-                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                            Onayla
-                                                        </MenuItem>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                                <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                                Onayla
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                                <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                                Reddet
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    </>
+                                                )}
+
+                                                {/* Menü öğesi, sipariş durumu 1 için */}
+                                                {selectedOrderForMenu?.status === 1 && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                             <ListItemIcon><IconX size={18} /></ListItemIcon>
                                                             Reddet
                                                         </MenuItem>
-                                                    </>
+                                                    </CustomTooltip>
                                                 )}
 
-                                                {/* If status is 1, show "Reddet" (Reject) */}
-                                                {selectedOrderForMenu?.status === 1 && (
-                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                        <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                        Reddet
-                                                    </MenuItem>
-                                                )}
-
-                                                {/* If status is 2, show "Onayla" (Approve) */}
+                                                {/* Menü öğesi, sipariş durumu 2 için */}
                                                 {selectedOrderForMenu?.status === 2 && (
-                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                        <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                        Onayla
-                                                    </MenuItem>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
+                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                            Onayla
+                                                        </MenuItem>
+                                                    </CustomTooltip>
                                                 )}
-                                                <MenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
-                                                <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}><ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek</MenuItem>
 
-                                                <MenuItem onClick={() => {
-                                                    if (selectedOrderForMenu) {
-                                                        exportToExcel(selectedOrderForMenu);
-                                                        handleCloseMenu();
-                                                    }
-                                                }}>
-                                                    <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
-                                                </MenuItem>
+                                                {/* Düzenleme öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
+                                                    <MenuItem onClick={() => handleEditClick(row)}>
+                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon>
+                                                        Düzenle
+                                                    </MenuItem>
+                                                </CustomTooltip>
 
-                                                <MenuItem onClick={() => {
-                                                    if (selectedOrderForMenu) {
-                                                        exportToPdf(selectedOrderForMenu);
-                                                        handleCloseMenu();
-                                                    }
-                                                }}>
-                                                    <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
-                                                </MenuItem>
+                                                {/* Silme öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
+                                                    <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
+                                                        <ListItemIcon><IconTrash size={18} /></ListItemIcon>
+                                                        Sil
+                                                    </MenuItem>
+                                                </CustomTooltip>
+
+                                                {/* Excel İndir öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
+                                                    <MenuItem onClick={() => {
+                                                        if (selectedOrderForMenu) {
+                                                            exportToExcel(selectedOrderForMenu);
+                                                            handleCloseMenu();
+                                                        }
+                                                    }}>
+                                                        <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
+                                                    </MenuItem>
+                                                </CustomTooltip>
+
+                                                {/* PDF İndir öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
+                                                    <MenuItem onClick={() => {
+                                                        if (selectedOrderForMenu) {
+                                                            exportToPdf(selectedOrderForMenu);
+                                                            handleCloseMenu();
+                                                        }
+                                                    }}>
+                                                        <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
+                                                    </MenuItem>
+                                                </CustomTooltip>
                                             </Menu>
                                         </TableCell>
                                     </TableRow>

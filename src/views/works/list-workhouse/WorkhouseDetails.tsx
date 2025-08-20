@@ -45,6 +45,25 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
+const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+    if (priceInput === null || priceInput === undefined) {
+        return '₺0.00';
+    }
+    const cleanedString = String(priceInput).replace(/[$,]/g, '');
+    const numericValue = parseFloat(cleanedString);
+    if (isNaN(numericValue)) {
+        return '₺0.00';
+    }
+    const formattedPrice = numericValue.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    return formattedPrice.replace('$', '₺');
+};
+
+
 // --- Interfaces for API responses and internal use ---
 interface WorkhouseType {
     id: number;
@@ -70,41 +89,28 @@ interface WorkhouseType {
     } | null;
 }
 
-interface SubscriptionFields {
-    owner: string;
-    subscriptionNumber: string;
-    subscriptionType: string;
-}
-interface WorkhouseDetailType extends WorkhouseType {
-    owner: string;
-    rentStartDate: string;
-    rentEndDate: string;
-    price: number;
-    subscription: SubscriptionFields;
-    description: string;
-    attachments: string[];
-}
-
+// INTERFACE اصلاح‌شده
 interface SubscriptionItem {
     no: string;
     owner: string;
     title: string;
 }
 
-
-interface Attachment {
-    fileUrl: string;
-}
+// INTERFACE اصلاح‌شده
 interface WorkhouseSubmittedDetail {
     id: string;
-    owner: string;
+    owner: string; // این فیلد در API ممکن است وجود داشته باشد اما در فرم جدید استفاده نمی‌شود
     rentStartDate: string;
     rentEndDate: string;
     price: string;
     subscription: SubscriptionItem[];
     description: string;
-    attachments: Attachment[];
+    attachments: { fileUrl: string; }[];
     createAt: string;
+}
+
+interface Attachment {
+    fileUrl: string;
 }
 // ==============================================================================
 // Main Component: WorkhouseDetails
@@ -115,7 +121,7 @@ const WorkhouseDetails = () => {
     const theme = useTheme();
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    const [owner, setOwner] = useState<string>('');
+    const [owner, setOwner] = useState<string>(''); // این فیلد برای فرم اصلی هنوز لازم است
     const [price, setPrice] = useState<number | ''>('');
     const [description, setDescription] = useState<string>('');
     const [attachments, setAttachments] = useState<string[]>([]);
@@ -128,7 +134,7 @@ const WorkhouseDetails = () => {
     const [formErrors, setFormErrors] = useState<string | null>(null);
 
     const [openSubscriptionModal, setOpenSubscriptionModal] = useState(false);
-    const [workhouseDetail, setWorkhouseDetail] = useState<WorkhouseDetailType | null>(null);
+    const [workhouseDetail, setWorkhouseDetail] = useState<WorkhouseType | null>(null);
     const [submittedDetailsList, setSubmittedDetailsList] = useState<any[]>([]);
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -158,11 +164,9 @@ const WorkhouseDetails = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<any | null>(null);
 
-    const [subscriptionFields, setSubscriptionFields] = useState<SubscriptionFields>({
-        owner: '',
-        subscriptionNumber: '',
-        subscriptionType: '',
-    });
+    // STATE اصلاح‌شده
+    const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
+
 
     const handleOpenDescriptionModal = (description: string) => {
         setFullDescription(description);
@@ -216,7 +220,6 @@ const WorkhouseDetails = () => {
             return;
         }
         try {
-            // تغییر URL برای دریافت لیست جزئیات
             const response = await axios.get(
                 server.baseurl + server.initialoperations + `get-workhouse-details-by-workhouse-id/${workhouseId}`,
                 {
@@ -224,7 +227,6 @@ const WorkhouseDetails = () => {
                 }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
-                // دریافت لیست جزئیات از پاسخ API
                 const detailsList = response.data.data;
                 setSubmittedDetailsList(detailsList);
                 showAlert('Şantiye detayları başarıyla yüklendi.', 'success');
@@ -240,8 +242,8 @@ const WorkhouseDetails = () => {
 
     useEffect(() => {
         if (workhouseId) {
-            fetchWorkhouseInfo(); // دریافت اطلاعات اصلی کارگاه
-            fetchWorkhouseDetails(); // دریافت لیست جزئیات برای جدول
+            fetchWorkhouseInfo();
+            fetchWorkhouseDetails();
         }
     }, [workhouseId, fetchWorkhouseInfo, fetchWorkhouseDetails]);
 
@@ -273,55 +275,44 @@ const WorkhouseDetails = () => {
         setPriceError(false);
         setFormErrors(null);
 
-        // Validate Owner
         if (!owner.trim()) {
             setOwnerError(true);
             setFormErrors("Lütfen tüm zorunlu alanları doldurun.");
             isValid = false;
         }
-
-        // Validate Price
         if (price === '' || isNaN(Number(price))) {
             setPriceError(true);
             setFormErrors("Lütfen tüm zorunlu alanları doldurun.");
             isValid = false;
         }
-
-        // Validate Rent Dates (existing logic)
         if (rentStartDate && rentEndDate && rentEndDate < rentStartDate) {
             setEndDateError(true);
             setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
             isValid = false;
         }
-
         return isValid;
     };
     const resetForm = () => {
-        // ریست کردن فیلدهای اصلی
         setOwner('');
         setPrice('');
         setDescription('');
         setRentStartDate(new Date());
         setRentEndDate(new Date());
-        setAttachments([]); // پاک کردن نام فایل‌ها
-        setFilesToUpload([]); // پاک کردن آبجکت‌های فایل
+        setAttachments([]);
+        setFilesToUpload([]);
         if (fileInputRef.current) {
-            fileInputRef.current.value = ''; // پاک کردن فایل از input
+            fileInputRef.current.value = '';
         }
 
-        // ریست کردن stateهای مربوط به خطاها
         setStartDateError(false);
         setEndDateError(false);
         setFormErrors(null);
 
-        // ریست کردن فیلدهای اشتراک
-        setSubscriptionFields({
-            owner: '',
-            subscriptionNumber: '',
-            subscriptionType: '',
-        });
+        // STATE اصلاح‌شده
+        setSubscriptions([]);
     };
     const createWorkhouseDetail = async () => {
+        debugger
         if (!validateForm() || !workhouseId) return;
 
         setLoadingButton(true);
@@ -333,8 +324,79 @@ const WorkhouseDetails = () => {
         }
         try {
             let attachmentsPayload = [];
+            if (filesToUpload.length > 0) {
+                const formData = new FormData();
+                filesToUpload.forEach(file => formData.append('files', file));
+                const uploadResponse = await axios.post(
+                    server.baseurl + server.baseinfo + "upload-files",
+                    formData,
+                    {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    }
+                );
+                if (uploadResponse.data.httpStatusCode === 201) {
+                    const fileUrls = uploadResponse.data.data.files;
+                    attachmentsPayload = fileUrls.map((url: string) => ({ fileUrl: url }));
+                } else {
+                    showAlert('Dosyalar yüklenirken bir hata oluştu.', 'error');
+                    setLoadingButton(false);
+                    return;
+                }
+            }
 
-            // Step 1: Upload attachments if any
+            // PAYLOAD اصلاح‌شده
+            const payload = {
+                workhouseId: Number(workhouseId),
+                owner,
+                rentStartDate: rentStartDate ? rentStartDate.toISOString() : null,
+                rentEndDate: rentEndDate ? rentEndDate.toISOString() : null,
+                price: Number(price),
+                subscriptions: subscriptions, // آرایه subscriptions مستقیماً ارسال می‌شود
+                description,
+                attachments: attachmentsPayload,
+            };
+
+            const response = await axios.post(server.baseurl + server.initialoperations + "create-workhouse-detail", payload, {
+                headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
+            });
+
+            if (response.data.httpStatusCode === 201) {
+                showAlert('Şantiye detayı başarıyla oluşturuldu!', 'success');
+                resetForm();
+                fetchWorkhouseDetails();
+            } else {
+                showAlert(response.data.message || 'Şantiye detayı oluşturulurken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            console.error("API Call Error:", e);
+            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        } finally {
+            setLoadingButton(false);
+        }
+    };
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setItemToEdit(null);
+        resetForm();
+    };
+    const handleUpdateDetails = async () => {
+        if (!validateForm() || !itemToEdit || !itemToEdit.id) {
+            return;
+        }
+
+        setLoadingButton(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
+            setLoadingButton(false);
+            return;
+        }
+
+        try {
+            let newAttachmentsPayload = [];
             if (filesToUpload.length > 0) {
                 const formData = new FormData();
                 filesToUpload.forEach(file => formData.append('files', file));
@@ -349,83 +411,24 @@ const WorkhouseDetails = () => {
                         }
                     }
                 );
-                debugger
+
                 if (uploadResponse.data.httpStatusCode === 201) {
-                    const fileUrls = uploadResponse.data.data.files;
-                    attachmentsPayload = fileUrls.map((url: string) => ({ fileUrl: url }));
+                    const newFileUrls = uploadResponse.data.data.files;
+                    newAttachmentsPayload = newFileUrls.map((url: string) => ({ fileUrl: url }));
                 } else {
                     showAlert('Dosyalar yüklenirken bir hata oluştu.', 'error');
                     setLoadingButton(false);
-                    return; // در صورت خطا، از ادامه فرآیند جلوگیری می‌کند
+                    return;
                 }
             }
 
-            // Step 2: Prepare the final payload
-            const subscriptionPayload = [{
-                no: subscriptionFields.subscriptionNumber,
-                owner: subscriptionFields.owner,
-                title: subscriptionFields.subscriptionType
-            }];
+            const keptExistingAttachments = itemToEdit.attachments
+                .filter((att: Attachment) => attachments.includes(att.fileUrl.split('/').pop() || ''))
+                .map((att: Attachment) => ({ fileUrl: att.fileUrl }));
 
-            debugger
-            const payload = {
-                workhouseId: Number(workhouseId), // Assuming workhouseId is the ID of the parent workhouse
-                owner,
-                rentStartDate: rentStartDate ? rentStartDate.toISOString() : null,
-                rentEndDate: rentEndDate ? rentEndDate.toISOString() : null,
-                price: Number(price),
-                subscriptions: subscriptionPayload,
-                description,
-                attachments: attachmentsPayload,
-            };
+            const finalAttachments = [...keptExistingAttachments, ...newAttachmentsPayload];
 
-            // Step 3: Send the final payload to the creation API
-            const response = await axios.post(server.baseurl + server.initialoperations + "create-workhouse-detail", payload, {
-                headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
-            });
-
-            if (response.data.httpStatusCode === 201) {
-                showAlert('Şantiye detayı başarıyla oluşturuldu!', 'success');
-                // Here you can reset the form or update the list
-                // For example:
-                resetForm();
-                fetchWorkhouseDetails();
-            } else {
-                showAlert(response.data.message || 'Şantiye detayı oluşturulurken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            console.error("API Call Error:", e);
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
-        } finally {
-            setLoadingButton(false);
-        }
-    };
-    const handleCancelEdit = () => {
-        setIsEditing(false); // غیرفعال کردن حالت ویرایش
-        setItemToEdit(null); // پاک کردن آیتم انتخاب شده
-        resetForm(); // خالی کردن تمام فیلدهای فرم
-    };
-    const handleUpdateDetails = async () => {
-        if (!validateForm() || !itemToEdit || !itemToEdit.id) return;
-
-        setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
-            setLoadingButton(false);
-            return;
-        }
-        debugger
-        try {
-            // آماده‌سازی payload برای به‌روزرسانی
-            const subscriptionPayload = [
-                {
-                    no: subscriptionFields.subscriptionNumber,
-                    owner: subscriptionFields.owner,
-                    title: subscriptionFields.subscriptionType
-                }
-            ];
-
+            // PAYLOAD اصلاح‌شده
             const payload = {
                 id: Number(itemToEdit.id),
                 workhouseId: Number(workhouseId),
@@ -433,23 +436,21 @@ const WorkhouseDetails = () => {
                 rentStartDate: rentStartDate ? rentStartDate.toISOString() : null,
                 rentEndDate: rentEndDate ? rentEndDate.toISOString() : null,
                 price: Number(price),
-                subscriptions: subscriptionPayload,
+                subscriptions: subscriptions, // آرایه subscriptions مستقیماً ارسال می‌شود
                 description,
-                // پیوست‌ها باید از استیت attachments که حالا آدرس فایل‌ها را نگه می‌دارد، ارسال شوند
-                attachments: attachments.map(url => ({ fileUrl: url }))
+                attachments: finalAttachments,
             };
 
-            // ارسال درخواست PUT
-            const response = await axios.put(server.baseurl + server.initialoperations + "update-workhouse-detail", payload, {
+            const response = await axios.put(server.baseurl + server.initialoperations + "update-workhouseDetail", payload, {
                 headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
             });
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Şantiye detayı başarıyla güncellendi!', 'success');
-                setIsEditing(false); // غیرفعال کردن حالت ویرایش
+                setIsEditing(false);
                 setItemToEdit(null);
                 resetForm();
-                fetchWorkhouseDetails(); // به‌روزرسانی لیست جدول
+                fetchWorkhouseDetails();
             } else {
                 showAlert(response.data.message || 'Şantiye detayı güncellenirken bir hata oluştu.', 'error');
             }
@@ -460,8 +461,9 @@ const WorkhouseDetails = () => {
         }
     };
 
-    const handleSaveSubscription = (newFields: SubscriptionFields) => {
-        setSubscriptionFields(newFields);
+    // تابع مدیریت ذخیره داده از مودال اشتراک
+    const handleSaveSubscription = (newSubscriptions: SubscriptionItem[]) => {
+        setSubscriptions(newSubscriptions);
         setOpenSubscriptionModal(false);
         showAlert('Abonelik bilgileri başarıyla güncellendi.', 'success');
     };
@@ -473,10 +475,7 @@ const WorkhouseDetails = () => {
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (files) {
-            // ابتدا فایل‌های جدید را به استیت filesToUpload اضافه می‌کنیم
             setFilesToUpload(prev => [...prev, ...Array.from(files)]);
-
-            // سپس فقط نام فایل‌ها را برای نمایش در رابط کاربری در attachments قرار می‌دهیم
             const fileNames = Array.from(files).map(file => file.name);
             setAttachments(prev => [...prev, ...fileNames]);
         }
@@ -486,44 +485,19 @@ const WorkhouseDetails = () => {
         setAttachments(prev => prev.filter(file => file !== fileToRemove));
     };
 
-    const renderSubscriptionChips = (subscriptionObject: SubscriptionFields) => {
-        const chips = [];
-
-        if (subscriptionObject.owner) {
-            chips.push(
-                <Chip
-                    key="owner"
-                    label={`Abone Sahibi: ${subscriptionObject.owner}`}
-                    size="small"
-                    color="primary"
-                    sx={{ mr: 1, mb: 1 }}
-                />
-            );
-        }
-        if (subscriptionObject.subscriptionNumber) {
-            chips.push(
-                <Chip
-                    key="subscriptionNumber"
-                    label={`Abone Numarası: ${subscriptionObject.subscriptionNumber}`}
-                    size="small"
-                    color="primary"
-                    sx={{ mr: 1, mb: 1 }}
-                />
-            );
-        }
-        if (subscriptionObject.subscriptionType) {
-            chips.push(
-                <Chip
-                    key="subscriptionType"
-                    label={`Abone Türü: ${subscriptionObject.subscriptionType}`}
-                    size="small"
-                    color="primary"
-                    sx={{ mr: 1, mb: 1 }}
-                />
-            );
-        }
-        return chips;
+    // تابع نمایش چیپ‌های اشتراک اصلاح‌شده
+    const renderSubscriptionChips = (subscriptionsArray: SubscriptionItem[]) => {
+        return subscriptionsArray.map((sub, index) => (
+            <Chip
+                key={`sub-${index}`}
+                label={`${sub.title}: ${sub.no} (${sub.owner})`}
+                size="small"
+                color="primary"
+                sx={{ mr: 1, mb: 1 }}
+            />
+        ));
     };
+
 
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: any) => {
         setAnchorEl(event.currentTarget);
@@ -546,47 +520,42 @@ const WorkhouseDetails = () => {
             setSubmittedDetailsList(prev => prev.filter(item => item.id !== itemToDelete.id));
             showAlert('Giriş başarıyla tablodan silindi.', 'success');
             setOpenDeleteModal(false);
-            setItemToDelete(null);
+            setItemToEdit(null);
         }
     };
 
+    // تابع ویرایش اصلاح‌شده
     const handleEditClick = (row: WorkhouseSubmittedDetail) => {
         setIsEditing(true);
         setItemToEdit(row);
-
+        // پر کردن فیلدهای فرم اصلی
         setOwner(row.owner);
         setDescription(row.description);
         setRentStartDate(row.rentStartDate ? new Date(row.rentStartDate) : null);
         setRentEndDate(row.rentEndDate ? new Date(row.rentEndDate) : null);
 
-        // --- اصلاح بخش قیمت ---
         if (row.price) {
-            // حذف نمادهای ارز و ویرگول
-            const cleanPrice = row.price.replace(/[$,]/g, '');
-            // تبدیل به عدد و پر کردن فیلد
+            const cleanPrice = String(row.price).replace(/[$,]/g, '');
             setPrice(Number(cleanPrice));
         } else {
             setPrice('');
         }
-        // ----------------------
 
-        // پر کردن فیلدهای subscription
-        if (row.subscription && row.subscription.length > 0) {
-            setSubscriptionFields({
-                owner: row.subscription[0].owner,
-                subscriptionNumber: row.subscription[0].no,
-                subscriptionType: row.subscription[0].title,
-            });
+        // پر کردن آرایه subscriptions برای مودال
+        setSubscriptions(row.subscription || []);
+
+        // پر کردن آرایه attachments
+        if (row.attachments && row.attachments.length > 0) {
+            const fileNames = row.attachments.map(att => att.fileUrl.split('/').pop() || '');
+            setAttachments(fileNames);
         } else {
-            // اگر اطلاعات اشتراک نبود، فیلدها را خالی کنید
-            setSubscriptionFields({ owner: '', subscriptionNumber: '', subscriptionType: '' });
+            setAttachments([]);
         }
-
-        // پر کردن فیلدهای attachments
-        setAttachments(row.attachments ? row.attachments.map(att => att.fileUrl) : []);
 
         handleCloseMenu();
     };
+
+
     const handleDownloadClick = (fileUrl: string) => {
         if (!fileUrl) {
             showAlert('Dosya adresi geçersiz.', 'error');
@@ -596,7 +565,6 @@ const WorkhouseDetails = () => {
         window.open(url, '_blank');
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
-
 
     if (loadingData) {
         return (
@@ -652,6 +620,7 @@ const WorkhouseDetails = () => {
                             value={price}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrice(Number(e.target.value))}
                             error={priceError}
+                            InputProps={{ inputProps: { min: 0 } }}
                             helperText={priceError ? "Bu alan zorunludur." : ""}
                         />
                     </Grid>
@@ -740,14 +709,14 @@ const WorkhouseDetails = () => {
                 <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
                     <Typography variant="h6">Abonelik Bilgileri</Typography>
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Abonelik bilgilerini düzenleyin" : ""}>
-                        <Button size="small" onClick={() => setOpenSubscriptionModal(true)} startIcon={<IconEdit />} variant="outlined">
-                            Düzenle
+                        <Button size="small" onClick={() => setOpenSubscriptionModal(true)} startIcon={<IconPlus />} variant="outlined">
+                            Abonelik Ekle
                         </Button>
                     </CustomTooltip>
                 </Stack>
                 <Stack direction="row" spacing={1} flexWrap="wrap" mt={2}>
-                    {subscriptionFields.owner || subscriptionFields.subscriptionNumber || subscriptionFields.subscriptionType ? (
-                        renderSubscriptionChips(subscriptionFields)
+                    {subscriptions.length > 0 ? (
+                        renderSubscriptionChips(subscriptions)
                     ) : (
                         <Typography variant="body2" color="textSecondary">Henüz abonelik bilgisi yok.</Typography>
                     )}
@@ -837,14 +806,20 @@ const WorkhouseDetails = () => {
                                 submittedDetailsList.map((entry, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <TableCell><Typography variant="h6">{entry.owner}</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">{entry.price}</Typography></TableCell>
+                                        <TableCell>
+                                            <Typography variant="h6">
+                                                {cleanAndFormatPrice(entry.price)}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell>
                                             <Typography variant="h6" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {entry.description}
                                             </Typography>
                                             {entry.description.length > 20 && (
-                                                <Button size="small" onClick={() => handleOpenDescriptionModal(entry.description)}>
-                                                    Tamamı
+                                                <Button variant="text" size="small" onClick={() => {
+                                                    handleOpenDescriptionModal(entry.description)
+                                                }}>
+                                                    Devamını Oku
                                                 </Button>
                                             )}
                                         </TableCell>
@@ -852,8 +827,9 @@ const WorkhouseDetails = () => {
                                         <TableCell><Typography variant="h6">{formatDateDisplay(entry.rentEndDate)}</Typography></TableCell>
                                         <TableCell>
                                             <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
+                                                {/* نمایش اشتراک‌ها اصلاح شد */}
                                                 {entry.subscription?.map((sub: SubscriptionItem, subIndex: number) => (
-                                                    <Chip key={subIndex} label={`${sub.owner}: ${sub.title} - ${sub.no}`} size="small" color="primary" sx={{ mr: 1, mb: 1 }} />
+                                                    <Chip key={subIndex} label={`${sub.title}: ${sub.no} (${sub.owner})`} size="small" color="primary" sx={{ mr: 1, mb: 1 }} />
                                                 )) || <Typography variant="body2" color="textSecondary">-</Typography>}
                                             </Box>
                                         </TableCell>
@@ -935,14 +911,14 @@ const WorkhouseDetails = () => {
                 open={openSubscriptionModal}
                 onClose={handleCancelSubscription}
                 onSave={handleSaveSubscription}
-                initialFields={subscriptionFields}
+                initialSubscriptions={subscriptions} // پراپ اصلاح‌شده
             />
             <DeleteWorkhouseDetail
-                openModal={openDeleteModal} // نام پراپ به openModal تغییر یافت
-                itemToDelete={itemToDelete} // پراپ itemToDelete
+                openModal={openDeleteModal}
+                itemToDelete={itemToDelete}
                 onClose={() => setOpenDeleteModal(false)}
-                onDeleteSuccess={handleDeleteConfirm} // نام پراپ به onDeleteSuccess تغییر یافت
-                showAlert={showAlert} // اضافه کردن پراپ showAlert
+                onDeleteSuccess={handleDeleteConfirm}
+                showAlert={showAlert}
             />
         </Box>
     );

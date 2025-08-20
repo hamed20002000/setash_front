@@ -1,95 +1,109 @@
 import React, { useEffect, useState } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid,
-    RadioGroup, FormControlLabel, Radio, FormHelperText,
+    FormGroup, FormControlLabel, Checkbox, FormHelperText, Typography, TextField
 } from '@mui/material';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 
-// تعریف interface جدید با سه فیلد مورد نظر
-interface SubscriptionFields {
-    owner: string; // نام
-    subscriptionNumber: string; // شماره اشتراک
-    subscriptionType: string; // نوع اشتراک
+// رابط (Interface) اصلاح‌شده
+interface Subscription {
+    title: string;
+    no: string;
+    owner: string;
 }
 
+// رابط (Interface) اصلاح‌شده برای پراپ‌ها
 interface SubscriptionModalProps {
     open: boolean;
     onClose: () => void;
-    onSave: (fields: SubscriptionFields) => void;
-    initialFields: SubscriptionFields;
+    onSave: (subscriptions: Subscription[]) => void;
+    initialSubscriptions: Subscription[];
 }
 
 const subscriptionTypes = ['Su', 'Doğalgaz', 'Elektrik', 'İnternet'];
 
 const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
-    open, onClose, onSave, initialFields
+    open, onClose, onSave, initialSubscriptions
 }) => {
-    // تعریف state جدید با سه فیلد
-    const [fields, setFields] = useState<SubscriptionFields>({
-        owner: '',
-        subscriptionNumber: '',
-        subscriptionType: '',
-    });
+    // وضعیت اصلی برای نگهداری تمام اشتراک‌ها
+    const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
 
-    // تعریف state خطاها با سه فیلد
-    const [fieldErrors, setFieldErrors] = useState({
-        owner: false,
-        subscriptionNumber: false,
-        subscriptionType: false,
-    });
+    // وضعیت برای مدیریت خطاهای اعتبارسنجی
+    const [fieldErrors, setFieldErrors] = useState<{ [key: string]: { owner?: boolean, no?: boolean } }>({});
 
+
+    // از initialSubscriptions برای پر کردن اولیه فرم استفاده می‌کنیم
     useEffect(() => {
         if (open) {
-            setFields(initialFields);
+            setSubscriptions(initialSubscriptions || []);
+            setFieldErrors({});
         }
-    }, [open, initialFields]);
+    }, [open, initialSubscriptions]);
 
-    const handleTextChange = (key: keyof SubscriptionFields, value: string) => {
-        setFields(prev => ({
-            ...prev,
-            [key]: value
-        }));
-        setFieldErrors(prev => ({
-            ...prev,
-            [key]: false
-        }));
+    // تابع برای مدیریت تغییرات چک‌باکس‌ها
+    const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const title = event.target.name;
+        const isChecked = event.target.checked;
+
+        if (isChecked) {
+            // اگر تیک خورد، یک شیء جدید به آرایه اضافه کن
+            setSubscriptions(prev => [...prev, { title, no: '', owner: '' }]);
+
+            // خطاهای مربوط به این نوع اشتراک را پاک کن
+            // با استفاده از یک کپی از شیء قبلی و حذف کلید مورد نظر
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[title];
+                return newErrors;
+            });
+        } else {
+            // اگر تیک برداشته شد، آن شیء را از آرایه حذف کن
+            setSubscriptions(prev => prev.filter(sub => sub.title !== title));
+
+            // خطاهای مربوط به این نوع اشتراک را پاک کن
+            // با استفاده از یک کپی از شیء قبلی و حذف کلید مورد نظر
+            setFieldErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[title];
+                return newErrors;
+            });
+        }
+    };
+    // تابع برای مدیریت تغییرات فیلدهای owner و no
+    const handleInputChange = (title: string, field: 'no' | 'owner', value: string) => {
+        setSubscriptions(prev =>
+            prev.map(sub =>
+                sub.title === title ? { ...sub, [field]: value } : sub
+            )
+        );
+        // اگر فیلد تغییر کرد، خطای آن را پاک کن
+        setFieldErrors(prev => ({ ...prev, [title]: { ...prev[title], [field]: false } }));
     };
 
-    const handleRadioChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setFields(prev => ({
-            ...prev,
-            subscriptionType: event.target.value,
-        }));
-        setFieldErrors(prev => ({
-            ...prev,
-            subscriptionType: false,
-        }));
-    };
-
+    // تابع اعتبارسنجی
     const validateForm = () => {
         let isValid = true;
-        const newErrors = { ...fieldErrors };
+        const newErrors: { [key: string]: { owner?: boolean, no?: boolean } } = {};
 
-        if (!fields.owner.trim()) {
-            newErrors.owner = true;
-            isValid = false;
-        } else {
-            newErrors.owner = false;
-        }
+        subscriptions.forEach(sub => {
+            const subscriptionErrors: { owner?: boolean, no?: boolean } = {};
+            if (!sub.owner.trim()) {
+                subscriptionErrors.owner = true;
+                isValid = false;
+            }
+            if (!sub.no.trim()) {
+                subscriptionErrors.no = true;
+                isValid = false;
+            }
+            if (Object.keys(subscriptionErrors).length > 0) {
+                newErrors[sub.title] = subscriptionErrors;
+            }
+        });
 
-        if (!fields.subscriptionNumber.trim()) {
-            newErrors.subscriptionNumber = true;
+        // اگر هیچ اشتراکی انتخاب نشده باشد
+        if (subscriptions.length === 0) {
+            newErrors['global'] = { no: true };
             isValid = false;
-        } else {
-            newErrors.subscriptionNumber = false;
-        }
-
-        if (!fields.subscriptionType.trim()) {
-            newErrors.subscriptionType = true;
-            isValid = false;
-        } else {
-            newErrors.subscriptionType = false;
         }
 
         setFieldErrors(newErrors);
@@ -98,8 +112,18 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
 
     const handleSave = () => {
         if (validateForm()) {
-            onSave(fields);
+            onSave(subscriptions);
         }
+    };
+
+    // تابع کمکی برای بررسی اینکه آیا یک اشتراک انتخاب شده است
+    const isChecked = (type: string) => {
+        return subscriptions.some(sub => sub.title === type);
+    };
+
+    // تابع کمکی برای یافتن شیء اشتراک مربوط به یک نوع خاص
+    const getSubscription = (type: string) => {
+        return subscriptions.find(sub => sub.title === type);
     };
 
     return (
@@ -108,48 +132,68 @@ const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
             <DialogContent dividers>
                 <Grid container spacing={2}>
                     <Grid item xs={12}>
-                        <CustomFormLabel htmlFor="subscription-owner" required>Abone Sahibi</CustomFormLabel>
-                        <CustomTextField
-                            id="subscription-owner"
-                            placeholder="Adı Soyadı"
-                            fullWidth
-                            value={fields.owner}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTextChange('owner', e.target.value)}
-                            error={fieldErrors.owner}
-                            helperText={fieldErrors.owner ? 'Bu alan boş bırakılamaz.' : ''}
-                        />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <CustomFormLabel htmlFor="subscription-number" required>Abone Numarası</CustomFormLabel>
-                        <CustomTextField
-                            id="subscription-number"
-                            placeholder="Numara"
-                            fullWidth
-                            value={fields.subscriptionNumber}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleTextChange('subscriptionNumber', e.target.value)}
-                            error={fieldErrors.subscriptionNumber}
-                            helperText={fieldErrors.subscriptionNumber ? 'Bu alan boş bırakılamaz.' : ''}
-                        />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <CustomFormLabel required>Abone Türü</CustomFormLabel>
-                        <RadioGroup
-                            row
-                            value={fields.subscriptionType}
-                            onChange={handleRadioChange}
-                        >
-                            {subscriptionTypes.map((type) => (
-                                <FormControlLabel
-                                    key={type}
-                                    value={type}
-                                    control={<Radio />}
-                                    label={type}
-                                />
-                            ))}
-                        </RadioGroup>
-                        {fieldErrors.subscriptionType && (
-                            <FormHelperText error={true}>Bu alan boş bırakılamaz.</FormHelperText>
+                        <CustomFormLabel required>Abone Türleri</CustomFormLabel>
+                        {subscriptions.length === 0 && fieldErrors['global'] && (
+                            <FormHelperText error={true}>
+                                Lütfen en az bir abone türü seçin.
+                            </FormHelperText>
                         )}
+                        <FormGroup>
+                            {subscriptionTypes.map((type) => {
+                                // بررسی وضعیت چک‌باکس
+                                const checkedStatus = isChecked(type);
+                                // دریافت شیء مربوطه برای پر کردن فیلدها
+                                const subData = getSubscription(type);
+
+                                return (
+                                    <Grid container alignItems="center" spacing={2} key={type} sx={{ mb: 2 }}>
+                                        {/* ستون اول: چک‌باکس */}
+                                        <Grid item xs={12} sm={3}>
+                                            <FormControlLabel
+                                                control={
+                                                    <Checkbox
+                                                        checked={checkedStatus}
+                                                        onChange={handleCheckboxChange}
+                                                        name={type}
+                                                    />
+                                                }
+                                                label={<Typography>{type}</Typography>}
+                                            />
+                                        </Grid>
+
+                                        {/* ستون دوم: فیلد صاحب اشتراک */}
+                                        <Grid item xs={12} sm={4.5}>
+                                            <TextField
+                                                fullWidth
+                                                label="Abone Sahibi"
+                                                placeholder="Adı Soyadı"
+                                                size="small"
+                                                disabled={!checkedStatus} // غیرفعال شدن بر اساس وضعیت چک‌باکس
+                                                value={subData?.owner || ''}
+                                                onChange={(e) => handleInputChange(type, 'owner', e.target.value)}
+                                                error={fieldErrors[type]?.owner}
+                                                helperText={fieldErrors[type]?.owner ? 'Bu alan boş bırakılamaz.' : ''}
+                                            />
+                                        </Grid>
+
+                                        {/* ستون سوم: فیلد شماره اشتراک */}
+                                        <Grid item xs={12} sm={4.5}>
+                                            <TextField
+                                                fullWidth
+                                                label="Abone Numarası"
+                                                placeholder="Abone Numarası"
+                                                size="small"
+                                                disabled={!checkedStatus} // غیرفعال شدن بر اساس وضعیت چک‌باکس
+                                                value={subData?.no || ''}
+                                                onChange={(e) => handleInputChange(type, 'no', e.target.value)}
+                                                error={fieldErrors[type]?.no}
+                                                helperText={fieldErrors[type]?.no ? 'Bu alan boş bırakılamaz.' : ''}
+                                            />
+                                        </Grid>
+                                    </Grid>
+                                );
+                            })}
+                        </FormGroup>
                     </Grid>
                 </Grid>
             </DialogContent>

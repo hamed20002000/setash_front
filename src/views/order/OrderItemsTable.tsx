@@ -166,7 +166,8 @@ const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                                         value={item.quantity}
                                         onChange={(e) => onItemChange(item.id, 'quantity', Number(e.target.value))}
                                         onFocus={handleFocus} // ✅ رویداد onFocus اضافه شده است
-                                        inputRef={quantityRef} // ✅ رفرنس به input اضافه شده است
+                                        inputRef={quantityRef}
+                                        InputProps={{ inputProps: { min: 0 } }}
                                     />
                                 </TableCell>
                                 <TableCell>

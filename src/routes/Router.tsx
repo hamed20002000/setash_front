@@ -19,11 +19,13 @@ const ListNetworks = Loadable(lazy(() => import('../views/works/list-network/Lis
 const NetworkDetails = Loadable(lazy(() => import('../views/works/list-network/WorkDetails')));
 const ListWorkHouse = Loadable(lazy(() => import('../views/works/list-workhouse/ListWorkhouses')));
 const WorkHouseDetails = Loadable(lazy(() => import('../views/works/list-workhouse/WorkhouseDetails')));
-const ListProductTypes = Loadable(lazy(() => import('../views/producttypes/ListProductTypes')));
+const ListProductTypes = Loadable(lazy(() => import('../views/baseinfo/producttypes/ListProductTypes')));
 const ListTransmission = Loadable(lazy(() => import('../views/transmission/ListTransmission')));
-const ListRegion = Loadable(lazy(() => import('../views/region/ListRegion')));
-const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/ListWarehouses')));
+const ListRegion = Loadable(lazy(() => import('../views/baseinfo/region/ListRegion')));
+const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListWarehouses')));
 const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
+const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/ListDrivers')));
+const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
 
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
@@ -66,6 +68,8 @@ const Router = [
       { path: '/region/list-regions/', element: <ListRegion /> },
       { path: '/warehouse/list-warehouse/', element: <ListWarehouses /> },
       { path: '/order/list-order/', element: <ListOrders /> },
+      { path: '/driver/list-driver/', element: <ListDrivers /> },
+      { path: '/provider/list-provider/', element: <ListProviders /> },
 
       { path: '*', element: <Navigate to="/auth/404" /> },
     ],

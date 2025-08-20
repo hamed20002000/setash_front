@@ -12,13 +12,13 @@ import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
-import BlankCard from '../../components/shared/BlankCard';
-import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
+import BlankCard from '../../../components/shared/BlankCard';
+import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
+import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
 import DeleteWarehouse from './DeleteWarehouse';
 import axios from 'axios';
-import server from '../../assets/address.json';
+import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 import { tr } from 'date-fns/locale';
@@ -580,14 +580,6 @@ const ListWarehouses = () => {
     const sortedAndFilteredWarehousesList = stableSort(filteredWarehousesList, getComparator(order, orderBy));
     const paginatedWarehouses = sortedAndFilteredWarehousesList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // const paginatedWarehouses = useMemo(() => {
-    //     const sortedData = stableSort(displayedWarehouses, getComparator(order, orderBy));
-    //     return sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    // }, [displayedWarehouses, page, rowsPerPage, order, orderBy]);
-
-    // ✅ توابع جدید برای مدیریت Select درختی
-    // const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
-    // const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
 
     const renderRegionTree = (nodes: RegionNode[], depth: number = 0) => {
         return nodes.map(node => {
@@ -634,7 +626,13 @@ const ListWarehouses = () => {
                             ) : (
                                 <Box sx={{ width: 16 + 8 }} />
                             )}
-                            <ListItemText primary={node.name} />
+                            {hasChildren ? (
+                                <ListItemText primary={node.name} />
+                            )
+                                : (
+                                    <ListItemText sx={{ marginLeft: "-12px" }} primary={node.name} />
+                                )}
+
                         </Stack>
                     </MenuItem>
                     {isExpanded && hasChildren && renderRegionTree(node.children, depth + 1)}

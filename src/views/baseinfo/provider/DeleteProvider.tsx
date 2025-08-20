@@ -1,4 +1,3 @@
-// src/views/Warehouse/DeleteWarehouse.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
@@ -6,31 +5,30 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../assets/address.json';
-
+import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 // --- Props interface ---
 type Props = {
     openModal: boolean;
-    WarehouseIdToDelete: number | null;
-    WarehouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
+    providerIdToDelete: number | null;
+    providerNameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteProvider = ({ openModal, providerIdToDelete, providerNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Warehouse In Use modal
-    const [openWarehouseInUseModal, setOpenWarehouseInUseModal] = useState<boolean>(false);
+    // State for Provider In Use modal
+    const [openProviderInUseModal, setOpenProviderInUseModal] = useState<boolean>(false);
 
-    const handleDeleteWarehouse = async () => {
-        if (WarehouseIdToDelete === null) {
-            showAlert('Silinecek şantiye seçilmedi.', 'warning');
+    const handleDeleteProvider = async () => {
+        if (providerIdToDelete === null) {
+            showAlert('Silinecek sağlayıcı seçilmedi.', 'warning');
             onClose();
             return;
         }
@@ -38,14 +36,14 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
 
         setLoading(true);
         try {
+            // API adresini sağlayıcılara uygun olarak güncelleyin
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-Warehouse/${WarehouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
+                `${server.baseurl}${server.baseinfo}delete-provider/${providerIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -55,25 +53,25 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Şantiye başarıyla silindi!', 'success');
+                showAlert('Sağlayıcı başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Şantiye silinirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Sağlayıcı silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting Warehouse:", e);
+            console.error("Error deleting Provider:", e);
 
             if (e.response && e.response.status === 500) {
                 onClose();
-                setOpenWarehouseInUseModal(true); // ✅ تغییر نام modal
+                setOpenProviderInUseModal(true);
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Şantiye silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Sağlayıcı silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
                 onClose();
             }
@@ -82,8 +80,8 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
         }
     };
 
-    const handleCloseWarehouseInUseModal = () => {
-        setOpenWarehouseInUseModal(false);
+    const handleCloseProviderInUseModal = () => {
+        setOpenProviderInUseModal(false);
     };
 
     return (
@@ -95,11 +93,11 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu şantiyeyi silmek istediğinizden emin misiniz?"}
+                    {"Bu sağlayıcıyı silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        **{WarehouseNameToDelete}** adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
+                        {providerNameToDelete} adlı sağlayıcıyı silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -108,11 +106,11 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen şantiyeyi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen sağlayıcıyı sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteWarehouse}
+                            onClick={handleDeleteProvider}
                             autoFocus
                             disabled={loading}
                         >
@@ -128,23 +126,23 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Warehouse In Use */}
+            {/* Dialog for Provider In Use */}
             <Dialog
-                open={openWarehouseInUseModal}
-                onClose={handleCloseWarehouseInUseModal}
-                aria-labelledby="Warehouse-in-use-dialog-title"
-                aria-describedby="Warehouse-in-use-dialog-description"
+                open={openProviderInUseModal}
+                onClose={handleCloseProviderInUseModal}
+                aria-labelledby="provider-in-use-dialog-title"
+                aria-describedby="provider-in-use-dialog-description"
             >
-                <DialogTitle id="Warehouse-in-use-dialog-title">
-                    {"Hata: Şantiye Silinemez!"}
+                <DialogTitle id="provider-in-use-dialog-title">
+                    {"Hata: Sağlayıcı Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="Warehouse-in-use-dialog-description">
-                        Bu şantiye şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="provider-in-use-dialog-description">
+                        Bu sağlayıcı şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseWarehouseInUseModal} autoFocus>
+                    <Button onClick={handleCloseProviderInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
@@ -153,4 +151,4 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
     );
 };
 
-export default DeleteWarehouse;
+export default DeleteProvider;

@@ -24,6 +24,8 @@ import FinalCalculationModal from './FinalCalculationModal';
 import DeleteTransmissionModal from './DeleteTransmissionModal';
 import DeleteAllConfirmationModal from './DeleteAllConfirmationModal';
 import RegisterNewNodesModal from './RegisterNewNodesModal';
+import { keyframes } from '@mui/system';
+
 
 import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType } from './types';
 
@@ -60,7 +62,11 @@ const descendingComparator = <T, Key extends keyof T>(
     }
     return 0;
 };
-
+const blinkAnimation = keyframes`
+  0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+  50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+  100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
 const getComparator = (
     order: 'asc' | 'desc',
     orderBy: SortableTransmissionKeys,
@@ -150,6 +156,9 @@ const ListTransmission = () => {
     const [openRegistrationModal, setOpenRegistrationModal] = useState<boolean>(false);
     const [openConfirmationModal, setOpenConfirmationModal] = useState<boolean>(false);
     const [pendingTransmissions, setPendingTransmissions] = useState<TransmissionRow[]>([]);
+
+
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
 
     const clearAlert = () => {
@@ -936,6 +945,7 @@ const ListTransmission = () => {
             networkId: networkId,
         };
 
+        setHasUnsavedChanges(true);
         setTransmissionList(prev => prev.map(row => row.id === editingRowId ? updatedRow : row));
 
         resetFormFields();
@@ -972,10 +982,12 @@ const ListTransmission = () => {
         const newTransmissionList = transmissionList.filter(row => !idsToDelete.has(row.id));
 
         if (newTransmissionList.length === 0) {
+            setHasUnsavedChanges(true);
             setOpenDeleteModal(false);
             handleConfirmDeleteAll();
             showAlert('Kayıtlar silindi. Tamamen temizlendi.', 'success');
         } else {
+            setHasUnsavedChanges(true);
             setTransmissionList(newTransmissionList);
             showAlert('Kayıt yerel olarak silindi. Değişiklikleri sunucuya kaydetmek için "Kaydet" düğmesine basın.', 'info');
             handleBatchUpdate(transmissionList);
@@ -1256,6 +1268,7 @@ const ListTransmission = () => {
                             value={itemQuantity}
                             onChange={(e) => setItemQuantity(e.target.value)}
                             sx={{ width: 100 }}
+                            InputProps={{ inputProps: { min: 0 } }}
                         />
                         {editingItem ? (
                             <>
@@ -1374,7 +1387,7 @@ const ListTransmission = () => {
             </Paper>
             <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
             <Stack direction="row" justifyContent="flex-end" mb={3} mt={3} spacing={2}>
-                <Button
+                {/* <Button
                     variant="contained"
                     color="info"
                     onClick={() => handleBatchUpdate(transmissionList)}
@@ -1382,7 +1395,35 @@ const ListTransmission = () => {
                     startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
                 >
                     Kaydet (Tümünü Güncelle)
-                </Button>
+                </Button> */}
+                <Box
+                    sx={{
+                        // position: 'fixed',
+                        // bottom: 24,
+                        // left: 24,
+                        zIndex: 1000,
+                        display: hasUnsavedChanges ? 'block' : 'none',
+                        animation: `${hasUnsavedChanges ? `${blinkAnimation} 1.5s infinite` : 'none'}`,
+                        '&:hover': {
+                            animation: 'none',
+                        },
+                    }}
+                >
+                    <CustomTooltip
+                        title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}
+                        placement="right"
+                    >
+                        <Button
+                            variant="contained"
+                            color="info"
+                            onClick={() => handleBatchUpdate(transmissionList)}
+                            disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
+                            startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
+                        >
+                            {loadingButton ? 'Kaydediliyor...' : 'Kaydet (Tümünü Güncelle)'}
+                        </Button>
+                    </CustomTooltip>
+                </Box>
                 <Button
                     variant="outlined"
                     color="error"

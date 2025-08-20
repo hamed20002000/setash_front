@@ -33,9 +33,13 @@ import * as XLSX from 'xlsx';
 import AttachFileModal from './AttachFileModal';
 import DownloadAttachmentsModal from './DownloadAttachmentsModal';
 
+import DownloadOptionsModal from './DownloadOptionsModal';
+
 import { saveAs } from 'file-saver';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -49,7 +53,13 @@ const formatDateDisplay = (dateString: string | null): string => {
   }
 };
 
-
+interface TableRowData {
+  itemName: string;
+  quantity: number;
+  unit: string;
+  description: string;
+  price: string;
+}
 
 interface TenderType {
   id: number;
@@ -140,7 +150,10 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
   });
   return stabilizedThis.map((el) => el[0]);
 };
-
+const stripHtml = (html: string | null): string => {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  return doc.body.textContent || "";
+};
 const ListTender = () => {
   const navigate = useNavigate();
   const [title, setTitle] = useState<string>('');
@@ -173,6 +186,8 @@ const ListTender = () => {
   const [tenderIdForAttachment, setTenderIdForAttachment] = useState<number | null>(null);
   const [filesForDownload, setFilesForDownload] = useState<Attachment[] | null>(null);
   const [openDownloadModal, setOpenDownloadModal] = useState<boolean>(false);
+  const [openDownloadOptionsModal, setOpenDownloadOptionsModal] = useState<boolean>(false);
+  const [selectedTenderForDownload, setSelectedTenderForDownload] = useState<TenderType | null>(null);
 
 
 
@@ -223,11 +238,12 @@ const ListTender = () => {
 
   // ... داخل کامپوننت ListTender
 
-  const handleDownloadTenderForPurchase = async () => {
-    if (!selectedRowForMenu) return;
+  const downloadExcelForPurchase = async (tender: TenderType) => {
+    debugger
+    // if (!selectedRowForMenu) return;
 
-    const tenderId = selectedRowForMenu.id;
-    const tenderTitle = selectedRowForMenu.title;
+    const tenderId = tender.id;
+    const tenderTitle = tender.title;
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       showAlert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.', 'warning');
@@ -249,7 +265,7 @@ const ListTender = () => {
           }
         }
       );
-
+      debugger
       if (response.data.httpStatusCode === 200 && response.data.data) {
         const tenderData = response.data.data;
         const tenderCategories = tenderData.tenderCategories || [];
@@ -305,7 +321,147 @@ const ListTender = () => {
         showAlert('İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
     }
+
+    setOpenDownloadOptionsModal(false);
   };
+
+  const downloadPdfForPurchase = async (tender: TenderType) => {
+    showAlert('PDF dosyası hazırlanıyor...', 'info');
+    try {
+      const authToken = localStorage.getItem('authToken');
+      if (!authToken) {
+        showAlert('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'warning');
+        navigate("/");
+        return;
+      }
+
+      // API'den ihale detaylarını alın
+      const response = await axios.get(
+        `${server.baseurl + server.initialoperations}get-tender-by-id/${tender.id}`,
+        {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        }
+      );
+
+      if (response.data.httpStatusCode === 200 && response.data.data) {
+        const tenderData = response.data.data;
+        const tenderCategories = tenderData.tenderCategories || [];
+
+        // Geçici bir HTML konteyneri oluşturun
+        const pdfContainer = document.createElement('div');
+        pdfContainer.style.width = '100%';
+        pdfContainer.style.padding = '20px';
+        pdfContainer.style.backgroundColor = 'white';
+
+        // Başlık ve genel bilgileri ekleyin
+        const title = document.createElement('h3');
+        title.innerText = `İhale Detayları - ${tenderData.title}`;
+        pdfContainer.appendChild(title);
+
+        const info = document.createElement('p');
+        info.innerHTML = `<strong>Tarih:</strong> ${formatDateDisplay(tenderData.createAt)}`;
+        pdfContainer.appendChild(info);
+
+        // Tüm kategoriler için verileri toplayın
+        const tableData: TableRowData[] = [];
+        tenderCategories.forEach((category: any) => {
+          const tenderDetails = category.tenderDetails || [];
+          tenderDetails.forEach((detail: any) => {
+            const quantity = parseFloat(detail.ourProcuredItemQuantities);
+            if (!isNaN(quantity) && quantity > 0) {
+              tableData.push({
+                itemName: detail.item?.name || '-',
+                quantity: quantity,
+                unit: detail.item?.unit?.title || '-',
+                description: stripHtml(detail.description),
+                price: '',
+              });
+            }
+          });
+        });
+
+        if (tableData.length === 0) {
+          showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
+          setOpenDownloadOptionsModal(false);
+          return;
+        }
+
+        // HTML tablosunu oluşturun
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+
+        // Tablo başlıklarını ekleyin
+        table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid black; padding: 8px;">Ürün Adı</th>
+                        <th style="border: 1px solid black; padding: 8px;">Miktar</th>
+                        <th style="border: 1px solid black; padding: 8px;">Birim</th>
+                        <th style="border: 1px solid black; padding: 8px;">Açıklama</th>
+                        <th style="border: 1px solid black; padding: 8px;">Fiyat</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableData.map(row => `
+                        <tr>
+                            <td style="border: 1px solid black; padding: 8px;">${row.itemName}</td>
+                            <td style="border: 1px solid black; padding: 8px;">${row.quantity}</td>
+                            <td style="border: 1px solid black; padding: 8px;">${row.unit}</td>
+                            <td style="border: 1px solid black; padding: 8px;">${row.description}</td>
+                            <td style="border: 1px solid black; padding: 8px;">${row.price}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+
+        pdfContainer.appendChild(table);
+
+        // Geçici konteyneri DOM'a ekleyin
+        document.body.appendChild(pdfContainer);
+
+        // Konteyneri PDF'e dönüştürün
+        html2canvas(pdfContainer, { scale: 2 }).then(canvas => {
+          const imgData = canvas.toDataURL('image/png');
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const imgProps = pdf.getImageProperties(imgData);
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+          pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          pdf.save(`${tender.title}-SatınAlma.pdf`);
+
+          // Geçici konteyneri DOM'dan kaldırın
+          document.body.removeChild(pdfContainer);
+          showAlert('PDF dosyası başarıyla indirildi!', 'success');
+        });
+      } else {
+        showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
+      }
+    } catch (e: any) {
+      console.error("PDF oluşturma başarısız oldu:", e);
+      if (e.response && e.response.status === 401) {
+        localStorage.removeItem('authToken');
+        navigate("/");
+        showAlert('Oturum süreniz doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        showAlert(e.response?.data?.message || 'İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
+    } finally {
+      setOpenDownloadOptionsModal(false);
+    }
+  };;
+
+  const handleDownloadTenderForPurchase = () => {
+    if (!selectedRowForMenu) return;
+    setSelectedTenderForDownload(selectedRowForMenu);
+    setOpenDownloadOptionsModal(true);
+    handleCloseMenu();
+  };
+
 
   const handleEditClick = () => {
     if (selectedRowForMenu) {
@@ -1202,6 +1358,13 @@ const ListTender = () => {
           onUploadSuccess={getListTender}
         />
       )}
+      <DownloadOptionsModal
+        open={openDownloadOptionsModal}
+        onClose={() => setOpenDownloadOptionsModal(false)}
+        onDownloadExcel={() => selectedTenderForDownload && downloadExcelForPurchase(selectedTenderForDownload)}
+        onDownloadPdf={() => selectedTenderForDownload && downloadPdfForPurchase(selectedTenderForDownload)}
+        isTooltipGloballyEnabled={isTooltipGloballyEnabled}
+      />
     </>
   );
 };

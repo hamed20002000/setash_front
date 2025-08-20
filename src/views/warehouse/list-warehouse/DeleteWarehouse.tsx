@@ -1,35 +1,36 @@
-// DeleteRegion.tsx
+// src/views/Warehouse/DeleteWarehouse.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
     Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
-    // CircularProgress // اگر استفاده نمی‌کنید، می‌توانید حذف کنید
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../assets/address.json';
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+// --- Props interface ---
 type Props = {
     openModal: boolean;
-    regionIdToDelete: string | null; // ✅ تغییر نام: ID منطقه برای حذف
+    WarehouseIdToDelete: number | null;
+    WarehouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
     onClose: () => void;
-    onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+    onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteRegion = ({ openModal, regionIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => { // ✅ تغییر نام کامپوننت و props
+const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // ✅ NEW STATE FOR REGION IN USE MODAL
-    const [openRegionInUseModal, setOpenRegionInUseModal] = useState<boolean>(false); // ✅ تغییر نام state
+    // State for Warehouse In Use modal
+    const [openWarehouseInUseModal, setOpenWarehouseInUseModal] = useState<boolean>(false);
 
-    const handleDeleteRegion = async () => { // ✅ تغییر نام تابع
-        if (regionIdToDelete === null) { // ✅ تغییر نام prop
-            showAlert('Silinecek bölge seçilmedi.', 'warning');
+    const handleDeleteWarehouse = async () => {
+        if (WarehouseIdToDelete === null) {
+            showAlert('Silinecek şantiye seçilmedi.', 'warning');
             onClose();
             return;
         }
@@ -44,7 +45,7 @@ const DeleteRegion = ({ openModal, regionIdToDelete, onClose, onDeleteSuccess, s
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.baseinfo}delete-region/${Number(regionIdToDelete)}`, // ✅ تغییر آدرس API
+                `${server.baseurl}${server.initialoperations}delete-Warehouse/${WarehouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
                 {
                     headers: {
                         "Accept": "application/json",
@@ -54,54 +55,51 @@ const DeleteRegion = ({ openModal, regionIdToDelete, onClose, onDeleteSuccess, s
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Bölge başarıyla silindi!', 'success');
+                showAlert('Şantiye başarıyla silindi!', 'success');
                 onDeleteSuccess();
-                onClose(); // مودال اصلی حذف بسته شود
+                onClose();
             } else {
-                // اگر API شما برای خطای بیزینسی کد 200 برگرداند ولی در Message وضعیت خطا باشد
-                showAlert(response.data.message || 'Bölge silinirken bir hata oluştu.', 'error');
-                onClose(); // در این حالت هم مودال بسته شود
+                showAlert(response.data.message || 'Şantiye silinirken bir hata oluştu.', 'error');
+                onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting region:", e);
+            console.error("Error deleting Warehouse:", e);
 
-            // ✅ CHECK FOR 500 STATUS CODE
             if (e.response && e.response.status === 500) {
-                onClose(); // Close the current delete confirmation modal
-                setOpenRegionInUseModal(true); // ✅ تغییر نام modal
+                onClose();
+                setOpenWarehouseInUseModal(true); // ✅ تغییر نام modal
             } else if (e.response && e.response.status === 401) {
-                // Handle unauthorized
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-                navigate("/"); // Redirect to login
+                navigate("/");
             } else {
-                // General error handling for other network or API errors
-                const errorMessage = e.response?.data?.message || 'Bölge silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Şantiye silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
-                onClose(); // Close the modal for general errors too
+                onClose();
             }
         } finally {
             setLoading(false);
         }
     };
 
-    const handleCloseRegionInUseModal = () => { // ✅ تغییر نام تابع
-        setOpenRegionInUseModal(false);
+    const handleCloseWarehouseInUseModal = () => {
+        setOpenWarehouseInUseModal(false);
     };
 
     return (
         <>
+            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu bölgeyi silmek istediğinizden emin misiniz?"}
+                    {"Bu şantiyeyi silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        Eğer silerseniz, geri almanın bir yolu yoktur.
+                        {WarehouseNameToDelete} adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -110,17 +108,17 @@ const DeleteRegion = ({ openModal, regionIdToDelete, onClose, onDeleteSuccess, s
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen bölgeyi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen şantiyeyi sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteRegion}
+                            onClick={handleDeleteWarehouse}
                             autoFocus
                             disabled={loading}
                         >
                             {loading ? (
                                 <>
-                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
                                 </>
                             ) : (
                                 'Silmek'
@@ -130,29 +128,29 @@ const DeleteRegion = ({ openModal, regionIdToDelete, onClose, onDeleteSuccess, s
                 </DialogActions>
             </Dialog>
 
-            {/* ✅ NEW Dialog for Region In Use */}
+            {/* Dialog for Warehouse In Use */}
             <Dialog
-                open={openRegionInUseModal}
-                onClose={handleCloseRegionInUseModal}
-                aria-labelledby="region-in-use-dialog-title" // ✅ تغییر id
-                aria-describedby="region-in-use-dialog-description" // ✅ تغییر id
+                open={openWarehouseInUseModal}
+                onClose={handleCloseWarehouseInUseModal}
+                aria-labelledby="Warehouse-in-use-dialog-title"
+                aria-describedby="Warehouse-in-use-dialog-description"
             >
-                <DialogTitle id="region-in-use-dialog-title">
-                    {"Hata: Bölge Silinemez!"}
+                <DialogTitle id="Warehouse-in-use-dialog-title">
+                    {"Hata: Şantiye Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="region-in-use-dialog-description">
-                        Bu bölge şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="Warehouse-in-use-dialog-description">
+                        Bu şantiye şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseRegionInUseModal} autoFocus>
+                    <Button onClick={handleCloseWarehouseInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
             </Dialog>
         </>
     );
-}
+};
 
-export default DeleteRegion; // ✅ تغییر نام کامپوننت
+export default DeleteWarehouse;

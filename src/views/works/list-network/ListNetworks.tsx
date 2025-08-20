@@ -716,8 +716,13 @@ const ListNetwork = () => {
                                             </Box>
                                             {row.description && row.description.length > 50 && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                    <Button size="small" onClick={() => handleOpenDescriptionModal(row.description)} sx={{ p: 0, minWidth: 'auto' }}>
-                                                        Görüntüle
+
+
+
+                                                    <Button variant="text" size="small" onClick={() => {
+                                                        handleOpenDescriptionModal(row.description)
+                                                    }}>
+                                                        Devamını Oku
                                                     </Button>
                                                 </CustomTooltip>
                                             )}

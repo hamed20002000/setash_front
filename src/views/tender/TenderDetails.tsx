@@ -36,6 +36,9 @@ import RegisterUnregisteredCategoryModal from './RegisterUnregisteredCategoryMod
 import { RegisterItemInitialData } from './RegisterUnregisteredItemModal';
 import { RegisterCategoryInitialData } from './RegisterUnregisteredCategoryModal';
 
+import { keyframes } from '@mui/system';
+
+
 interface TenderDetailRow {
     id: number;
     siraNo: number;
@@ -181,7 +184,11 @@ interface GetTenderByIdRawResponse {
     };
     errors: any[];
 }
-
+const blinkAnimation = keyframes`
+  0% { box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+  50% { box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+  100% { box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
 const buildCombinedTree = (categories: ApiCategoryType[], items: ApiItemType[], depth = 0): UnifiedTreeNode[] => {
     return categories.map(category => {
         const childItems: UnifiedTreeNode[] = items
@@ -435,6 +442,8 @@ const TenderDetails = () => {
         ? findNodeByIdPure(combinedTreeData, newRecordSelectedUnifiedNodeId)
         : null;
     const isSelectedNodeAnItem = newRecordSelectedNode?.type === 'item';
+
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const hasParentCategoryPercentage = useMemo(() => {
         if (!isSelectedNodeAnItem) return false;
@@ -1379,6 +1388,7 @@ const TenderDetails = () => {
             isFromExcel: false,
         }, true);
         setGridData(prev => [...prev, newRecord]);
+        setHasUnsavedChanges(true);
         await refreshCombinedTreeData();
         showAlert('Yeni kayıt başarıyla eklendi!', 'success');
         setNewRecordRow({
@@ -1559,6 +1569,7 @@ const TenderDetails = () => {
                 ? finalCalculatedRow
                 : row
         ));
+        setHasUnsavedChanges(true);
         setEditingRowId(null);
         setEditingRowData(null);
         setEditingRowSelectedUnifiedNodeId(null);
@@ -1778,6 +1789,7 @@ const TenderDetails = () => {
             );
             if (response.status === 200) {
                 showAlert('İhale detayları başarıyla güncellendi!', 'success');
+                setHasUnsavedChanges(false);
                 await refreshCombinedTreeData();
                 await loadExistingTenderDetails();
             } else {
@@ -1800,6 +1812,7 @@ const TenderDetails = () => {
             const updatedGrid = prev.filter(row => row.id !== rowId);
             return updatedGrid;
         });
+        setHasUnsavedChanges(true);
         showAlert('Giriş başarıyla silindi!', 'success');
         if (editingRowId === rowId) {
             setEditingRowId(null);
@@ -2084,7 +2097,7 @@ const TenderDetails = () => {
                             justifyContent="flex-end"
                             alignItems={{ xs: 'stretch', sm: 'flex-end' }}
                         >
-                            <Button
+                            {/* <Button
                                 variant="contained"
                                 color="primary"
                                 onClick={handleSaveAllData}
@@ -2093,7 +2106,38 @@ const TenderDetails = () => {
                                 sx={{ minWidth: { xs: '100%', sm: 150 }, height: 40 }}
                             >
                                 {isSavingAll ? 'Kaydediliyor...' : 'Tümünü Kaydet'}
-                            </Button>
+                            </Button> */}
+
+
+                            <Box
+                                sx={{
+                                    position: 'fixed',
+                                    bottom: 100,
+                                    right: 24,
+                                    zIndex: 1000,
+                                    display: hasUnsavedChanges ? 'block' : 'none',
+                                    // ✅ این بخش جدید را اضافه کنید
+                                    '& .blinking-button': {
+                                        animation: `${blinkAnimation} 1.5s infinite`,
+                                        '&:hover': {
+                                            animation: 'none',
+                                        },
+                                    },
+                                }}
+                            >
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}>
+                                    <Button
+                                        className="blinking-button" // ✅ کلاس CSS را به دکمه اضافه کنید
+                                        variant="contained"
+                                        color="error"
+                                        onClick={handleSaveAllData}
+                                        disabled={isLoading || isSavingAll || editingRowId !== null || gridData.length === 0 || hasUnregisteredItems}
+                                        startIcon={isSavingAll ? <CircularProgress size={20} color="inherit" /> : <IconCheck />}
+                                    >
+                                        {isSavingAll ? 'Kaydediliyor...' : 'Tümünü Kaydet'}
+                                    </Button>
+                                </CustomTooltip>
+                            </Box>
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Tabloyu Excel olarak dışa aktar" : ""}>
                                 <Button
                                     variant="outlined"

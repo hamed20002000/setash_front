@@ -1,47 +1,50 @@
-// DeleteProductType.tsx
+// src/views/Drivers/DeleteDriver.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
-    Button,
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogContentText,
-    DialogActions,
+    Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from '../../assets/address.json';
+import server from '../../../assets/address.json';
+
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+// --- Props interface ---
 type Props = {
     openModal: boolean;
-    ProductTypesIdToDelete: number | null;
+    driverIdToDelete: number | null;
+    driverNameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteDriver = ({ openModal, driverIdToDelete, driverNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
-    const [openProductTypeInUseModal, setOpenProductTypeInUseModal] = useState<boolean>(false);
-    const handleDeleteProductType = async () => {
-        if (ProductTypesIdToDelete === null) {
-            showAlert('Silinecek birim seçilmedi.', 'warning');
+
+    // State for Driver In Use modal
+    const [openDriverInUseModal, setOpenDriverInUseModal] = useState<boolean>(false);
+
+    const handleDeleteDriver = async () => {
+        if (driverIdToDelete === null) {
+            showAlert('Silinecek şoför seçilmedi.', 'warning');
             onClose();
             return;
         }
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
             return;
         }
+
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-product-type/${ProductTypesIdToDelete}`,
+                `${server.baseurl}${server.warehouse}delete-driver/${driverIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -49,24 +52,27 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     }
                 }
             );
+
             if (response.data.httpStatusCode === 200) {
-                showAlert('Birim başarıyla silindi!', 'success');
+                showAlert('Şoför başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Birim silinirken bir hata oluşo.', 'error');
+                showAlert(response.data.message || 'Şoför silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
+            console.error("Error deleting Driver:", e);
+
             if (e.response && e.response.status === 500) {
                 onClose();
-                setOpenProductTypeInUseModal(true);
+                setOpenDriverInUseModal(true);
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Birim silinirken bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Şoför silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
                 onClose();
             }
@@ -74,22 +80,25 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
             setLoading(false);
         }
     };
-    const handleCloseProductTypeInUseModal = () => {
-        setOpenProductTypeInUseModal(false);
+
+    const handleCloseDriverInUseModal = () => {
+        setOpenDriverInUseModal(false);
     };
+
     return (
         <>
+            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu birimi silmek istediğinizden emin misiniz?"}
+                    {"Bu şoförü silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        Eğer silerseniz, geri almanın bir yolu yoktur.
+                        {driverNameToDelete} adlı şoförü silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -98,17 +107,17 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen birimi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen şoförü sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteProductType}
+                            onClick={handleDeleteDriver}
                             autoFocus
                             disabled={loading}
                         >
                             {loading ? (
                                 <>
-                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
                                 </>
                             ) : (
                                 'Silmek'
@@ -117,28 +126,30 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                     </CustomTooltip>
                 </DialogActions>
             </Dialog>
+
+            {/* Dialog for Driver In Use */}
             <Dialog
-                open={openProductTypeInUseModal}
-                onClose={handleCloseProductTypeInUseModal}
-                aria-labelledby="product-type-in-use-dialog-title"
-                aria-describedby="product-type-in-use-dialog-description"
+                open={openDriverInUseModal}
+                onClose={handleCloseDriverInUseModal}
+                aria-labelledby="driver-in-use-dialog-title"
+                aria-describedby="driver-in-use-dialog-description"
             >
-                <DialogTitle id="product-type-in-use-dialog-title">
-                    {"Hata: Ürün Tipi Silinemez!"}
+                <DialogTitle id="driver-in-use-dialog-title">
+                    {"Hata: Şoför Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="product-type-in-use-dialog-description">
-                        Bu ürün tipi şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="driver-in-use-dialog-description">
+                        Bu şoför şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseProductTypeInUseModal} autoFocus>
+                    <Button onClick={handleCloseDriverInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
             </Dialog>
         </>
     );
-}
+};
 
-export default DeleteProductType;
+export default DeleteDriver;

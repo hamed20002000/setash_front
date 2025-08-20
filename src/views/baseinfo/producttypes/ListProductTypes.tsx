@@ -1,27 +1,26 @@
 // ListProductTypes.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
     Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    TableSortLabel,
+    TableSortLabel, Radio, RadioGroup, FormControlLabel, CircularProgress
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
-import BlankCard from '../../components/shared/BlankCard';
-import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch }
-    from '@tabler/icons-react';
+import BlankCard from '../../../components/shared/BlankCard';
+import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
+import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
+import { IconDots, IconEdit, IconTrash, IconSearch } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteProductTypes from './DeleteProductType';
 import axios from 'axios';
-import server from '../../assets/address.json';
+import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 import { tr } from 'date-fns/locale';
@@ -45,6 +44,7 @@ interface ProductTypesType {
     createAt: string;
     recordStatus?: number;
     status: string;
+    type: number; // New field for type
 }
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -117,6 +117,7 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 const ListProductTypes = () => {
     const navigate = useNavigate();
     const [name, setName] = useState<string>('');
+    const [productType, setProductType] = useState<number>(0); // New state for type: 0 (Trafo) or 1 (Direk)
     const [ProductTypesList, setProductTypesList] = useState<ProductTypesType[]>(MOCK_UNITS);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [originalName, setOriginalName] = useState<string>('');
@@ -131,6 +132,7 @@ const ListProductTypes = () => {
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
+    const [loadingData, setLoadingData] = useState<boolean>(true);
     const { isTooltipGloballyEnabled } = useTooltip();
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [orderBy, setOrderBy] = useState<keyof ProductTypesType>('createAt');
@@ -182,6 +184,7 @@ const ListProductTypes = () => {
             setName(selectedRowForMenu.name);
             setOriginalName(selectedRowForMenu.name);
             setEditingId(selectedRowForMenu.id);
+            setProductType(selectedRowForMenu.type); // Set the type
             setNameError(false);
             setNameHelperText('');
             setTimeout(() => {
@@ -206,7 +209,7 @@ const ListProductTypes = () => {
             return;
         }
         const isNameDuplicate = ProductTypesList.some(
-            (type) => type.name.trim().toLowerCase() === name.trim().toLowerCase()
+            (type) => type.name.trim().toLowerCase() === name.trim().toLowerCase() && type.type === productType
         );
 
         if (isNameDuplicate) {
@@ -227,7 +230,7 @@ const ListProductTypes = () => {
         try {
             const response = await axios.post(
                 server.baseurl + server.initialoperations + "create-product-type",
-                { name: name },
+                { name: name, type: productType },
                 {
                     headers: {
                         "Accept": "application/json",
@@ -263,7 +266,7 @@ const ListProductTypes = () => {
             return;
         }
         const isNameDuplicate = ProductTypesList.some(
-            (type) => type.name.trim().toLowerCase() === name.trim().toLowerCase()
+            (type) => type.name.trim().toLowerCase() === name.trim().toLowerCase() && type.id !== editingId && type.type === productType
         );
 
         if (isNameDuplicate) {
@@ -275,11 +278,13 @@ const ListProductTypes = () => {
         setNameError(false);
         setNameHelperText('');
         clearAlert();
-        if (name === originalName) {
-            showAlert('İsimde herhangi bir değişiklik yapmadınız.', 'info');
+        const currentProductType = ProductTypesList.find(pt => pt.id === editingId)?.type;
+        if (name === originalName && productType === currentProductType) {
+            showAlert('İsim ve tipte herhangi bir değişiklik yapmadınız.', 'info');
             resetFormAndState();
             return;
         }
+
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
@@ -290,7 +295,7 @@ const ListProductTypes = () => {
         try {
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-product-type",
-                { id: Number(editingId), name: name },
+                { id: Number(editingId), name: name, type: productType },
                 {
                     headers: {
                         "Accept": "application/json",
@@ -302,7 +307,7 @@ const ListProductTypes = () => {
             if (response.data.httpStatusCode === 200) {
                 showAlert('Direk başarıyla güncellendi!', 'success');
                 setProductTypesList(prevList =>
-                    prevList.map(op => (op.id === editingId ? { ...op, name: name } : op))
+                    prevList.map(op => (op.id === editingId ? { ...op, name: name, type: productType } : op))
                 );
                 resetFormAndState();
                 getListProductTypes();
@@ -374,14 +379,17 @@ const ListProductTypes = () => {
         setName('');
         setEditingId(null);
         setOriginalName('');
+        setProductType(0); // Resetting the type to default
         setNameError(false);
         setNameHelperText('');
     };
 
     function getListProductTypes() {
+        setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
+            setLoadingData(false);
             return;
         }
         axios.request({
@@ -398,11 +406,14 @@ const ListProductTypes = () => {
                     name: item.name,
                     recordStatus: item.recordStatus,
                     createAt: item.createAt,
+                    type: item.type, // Get the type from API
                     status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
                 }));
                 setProductTypesList(formattedData as ProductTypesType[]);
+                setLoadingData(false);
             } else {
                 showAlert(result.data.message || 'Ürün türleri listesi alınamadı.', 'error');
+                setLoadingData(false);
             }
         }).catch((e) => {
             if (e.response && e.response.status === 401) {
@@ -412,6 +423,7 @@ const ListProductTypes = () => {
             } else {
                 showAlert('Ürün türleri listesi alınırken bir hata oluştu.', 'error');
             }
+            setLoadingData(false);
         });
     }
     useEffect(() => {
@@ -477,10 +489,10 @@ const ListProductTypes = () => {
                             İsim
                         </CustomFormLabel>
                     </Grid>
-                    <Grid item xs={12} sm={7}>
+                    <Grid item xs={12} sm={4}>
                         <CustomTextField
                             id="ProductTypes-name"
-                            placeholder="Direk Adı"
+                            placeholder="Ad"
                             fullWidth
                             value={name}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -495,7 +507,21 @@ const ListProductTypes = () => {
                             helperText={nameHelperText}
                         />
                     </Grid>
-                    <Grid item xs={12} sm={1}></Grid>
+                    <Grid item xs={12} sm={4} display="flex" alignItems="center" justifyContent="center">
+                        <CustomFormLabel htmlFor="product-type-radio-group" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                            Tür
+                        </CustomFormLabel>
+                        <RadioGroup
+                            aria-labelledby="product-type-radio-group"
+                            name="product-type-group"
+                            value={String(productType)}
+                            onChange={(e) => setProductType(parseInt(e.target.value))}
+                            row
+                        >
+                            <FormControlLabel value="0" control={<Radio />} label="Trafo" />
+                            <FormControlLabel value="1" control={<Radio />} label="Direk" />
+                        </RadioGroup>
+                    </Grid>
                     <Grid item xs={12} sm={3}>
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
                             {editingId !== null ? (
@@ -508,8 +534,8 @@ const ListProductTypes = () => {
                                             disabled={loadingButton}
                                         >
                                             {loadingButton ? <>
-                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                                            </> : 'Düzenlemek'}
+                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
+                                            </> : 'Düzenle'}
                                         </Button>
                                     </CustomTooltip>
                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Direk moduna dön" : ""}>
@@ -528,7 +554,7 @@ const ListProductTypes = () => {
                                             disabled={loadingButton}
                                         >
                                             {loadingButton ? <>
-                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
                                             </> : 'Yeni Direk Ekle'}
                                         </Button>
                                     </CustomTooltip>
@@ -594,156 +620,178 @@ const ListProductTypes = () => {
                         </Grid>
                     </Grid>
                 </Box>
-                <TableContainer>
-                    <Table aria-label="ProductTypes table">
-                        <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
-                            <TableRow>
-                                <TableCell>
-                                    <TableSortLabel
-                                        active={orderBy === 'name'}
-                                        direction={orderBy === 'name' ? order : 'asc'}
-                                        onClick={() => handleRequestSort('name')}
-                                        style={{ color: "#171c23" }}
-                                    >
-                                        <Typography variant="h6">İsim</Typography>
-                                    </TableSortLabel>
-                                </TableCell>
-                                <TableCell>
-                                    <TableSortLabel
-                                        active={orderBy === 'createAt'}
-                                        direction={orderBy === 'createAt' ? order : 'asc'}
-                                        onClick={() => handleRequestSort('createAt')}
-                                        style={{ color: "#171c23" }}
-                                    >
-                                        <Typography variant="h6">Oluşturulma Tarihi</Typography>
-                                    </TableSortLabel>
-                                </TableCell>
-                                <TableCell>
-                                    <TableSortLabel
-                                        active={orderBy === 'status'}
-                                        direction={orderBy === 'status' ? order : 'asc'}
-                                        onClick={() => handleRequestSort('status')}
-                                        style={{ color: "#171c23" }}
-                                    >
-                                        <Typography variant="h6">Durum</Typography>
-                                    </TableSortLabel>
-                                </TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {paginatedProductTypes.length > 0 ? (
-                                paginatedProductTypes.map((row) => (
-                                    <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <TableCell>
-                                            <Stack direction="row" alignItems="center" spacing={2}>
-                                                <Box>
-                                                    <Typography variant="h6">{row.name}</Typography>
-                                                </Box>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Stack direction="row" alignItems="center" spacing={2}>
-                                                <Box>
-                                                    <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                                                </Box>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={row.status}
-                                                sx={{
-                                                    backgroundColor:
-                                                        row.recordStatus === 2
-                                                            ? (theme) => theme.palette.primary.light
-                                                            : row.recordStatus === 1
-                                                                ? (theme) => theme.palette.error.light
-                                                                : (theme) => theme.palette.success.light,
-                                                    color:
-                                                        row.recordStatus === 2
-                                                            ? (theme) => theme.palette.primary.main
-                                                            : row.recordStatus === 1
-                                                                ? (theme) => theme.palette.error.main
-                                                                : (theme) => theme.palette.success.main,
-                                                }}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                <IconButton
-                                                    id={`basic-button-${row.id}`}
-                                                    aria-controls={openMenu ? 'basic-menu' : undefined}
-                                                    aria-haspopup="true"
-                                                    aria-expanded={openMenu ? 'true' : undefined}
-                                                    onClick={(event) => handleClickMenu(event, row)}
+                {loadingData ? (
+                    <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
+                        <CircularProgress />
+                        <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Yükleniyor...</Typography>
+                    </Stack>
+                ) : (
+                    <TableContainer>
+                        <Table aria-label="ProductTypes table">
+                            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                                <TableRow>
+                                    <TableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'name'}
+                                            direction={orderBy === 'name' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('name')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">İsim</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'type'}
+                                            direction={orderBy === 'type' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('type')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Tür</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'createAt'}
+                                            direction={orderBy === 'createAt' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('createAt')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'status'}
+                                            direction={orderBy === 'status' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('status')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Durum</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {paginatedProductTypes.length > 0 ? (
+                                    paginatedProductTypes.map((row) => (
+                                        <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={2}>
+                                                    <Box>
+                                                        <Typography variant="h6">{row.name}</Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Typography variant="h6">
+                                                    {row.type === 0 ? 'Trafo' : 'Direk'}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={2}>
+                                                    <Box>
+                                                        <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={row.status}
+                                                    sx={{
+                                                        backgroundColor:
+                                                            row.recordStatus === 2
+                                                                ? (theme) => theme.palette.primary.light
+                                                                : row.recordStatus === 1
+                                                                    ? (theme) => theme.palette.error.light
+                                                                    : (theme) => theme.palette.success.light,
+                                                        color:
+                                                            row.recordStatus === 2
+                                                                ? (theme) => theme.palette.primary.main
+                                                                : row.recordStatus === 1
+                                                                    ? (theme) => theme.palette.error.main
+                                                                    : (theme) => theme.palette.success.main,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                                                    <IconButton
+                                                        id={`basic-button-${row.id}`}
+                                                        aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                        aria-haspopup="true"
+                                                        aria-expanded={openMenu ? 'true' : undefined}
+                                                        onClick={(event) => handleClickMenu(event, row)}
+                                                    >
+                                                        <IconDots width={18} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                                <Menu
+                                                    id="basic-menu"
+                                                    anchorEl={anchorEl}
+                                                    open={openMenu}
+                                                    onClose={handleCloseMenu}
+                                                    MenuListProps={{
+                                                        'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
+                                                    }}
                                                 >
-                                                    <IconDots width={18} />
-                                                </IconButton>
-                                            </CustomTooltip>
-                                            <Menu
-                                                id="basic-menu"
-                                                anchorEl={anchorEl}
-                                                open={openMenu}
-                                                onClose={handleCloseMenu}
-                                                MenuListProps={{
-                                                    'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
-                                                }}
-                                            >
-                                                {selectedRowForMenu?.recordStatus === 0 ? (
+                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+                                                        <CustomTooltip placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu Direki pasif yap" : ""}>
+                                                            <MenuItem onClick={handleSetInactive}>
+                                                                <ListItemIcon>
+                                                                    <DoNotDisturbOnRoundedIcon width={18} />
+                                                                </ListItemIcon>
+                                                                Pasif Yap
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    ) : (
+                                                        <CustomTooltip placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu Direki aktif yap" : ""}>
+                                                            <MenuItem onClick={handleSetActive}>
+                                                                <ListItemIcon>
+                                                                    <DoneRoundedIcon width={18} />
+                                                                </ListItemIcon>
+                                                                Aktif Yap
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                     <CustomTooltip placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu Direki pasif yap" : ""}>
-                                                        <MenuItem onClick={handleSetInactive}>
+                                                        title={isTooltipGloballyEnabled ? "Bu Direki düzenle" : ""}>
+                                                        <MenuItem onClick={handleEditClick}>
                                                             <ListItemIcon>
-                                                                <DoNotDisturbOnRoundedIcon width={18} />
+                                                                <IconEdit width={18} />
                                                             </ListItemIcon>
-                                                            Pasif Yap
+                                                            Düzenle
                                                         </MenuItem>
                                                     </CustomTooltip>
-                                                ) : (
                                                     <CustomTooltip placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu Direki aktif yap" : ""}>
-                                                        <MenuItem onClick={handleSetActive}>
+                                                        title={isTooltipGloballyEnabled ? "Bu Direki sil" : ""}>
+                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon>
-                                                                <DoneRoundedIcon width={18} />
+                                                                <IconTrash width={18} />
                                                             </ListItemIcon>
-                                                            Aktif Yap
+                                                            Silmek
                                                         </MenuItem>
                                                     </CustomTooltip>
-                                                )}
-                                                <CustomTooltip placement="left"
-                                                    title={isTooltipGloballyEnabled ? "Bu Direki düzenle" : ""}>
-                                                    <MenuItem onClick={handleEditClick}>
-                                                        <ListItemIcon>
-                                                            <IconEdit width={18} />
-                                                        </ListItemIcon>
-                                                        Düzenlemek
-                                                    </MenuItem>
-                                                </CustomTooltip>
-                                                <CustomTooltip placement="left"
-                                                    title={isTooltipGloballyEnabled ? "Bu Direki sil" : ""}>
-                                                    <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                        <ListItemIcon>
-                                                            <IconTrash width={18} />
-                                                        </ListItemIcon>
-                                                        Silmek
-                                                    </MenuItem>
-                                                </CustomTooltip>
-                                            </Menu>
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={5} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Hiç Direk bulunamadı.
+                                            </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={4} align="center">
-                                        <Typography variant="subtitle1" color="textSecondary">
-                                            Hiç Direk bulunamadı.
-                                        </Typography>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
                 <TablePagination
                     rowsPerPageOptions={[5, 10, 25]}
                     component="div"
@@ -752,7 +800,7 @@ const ListProductTypes = () => {
                     page={page}
                     onPageChange={handleChangePage}
                     onRowsPerPageChange={handleChangeRowsPerPage}
-                    labelRowsPerPage="Satır başına düşen:"
+                    labelRowsPerPage="Sayfa başına satır sayısı:"
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>

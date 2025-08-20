@@ -33,16 +33,16 @@ import {
 import { styled } from '@mui/material/styles';
 
 import BoltIcon from '@mui/icons-material/Bolt';
-import BlankCard from '../../components/shared/BlankCard';
-import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
+import BlankCard from '../../../components/shared/BlankCard';
+import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
+import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight }
     from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteRegion from './DeleteRegion';
 import axios from 'axios';
-import server from '../../assets/address.json';
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 

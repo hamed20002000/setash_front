@@ -8,7 +8,7 @@ import {
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconFileSpreadsheet, IconFile } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -21,6 +21,11 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import OrderItemsTable from './OrderItemsTable';
 import DeleteOrderModal from './DeleteOrderModal';
+import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 // Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
@@ -125,6 +130,7 @@ const ManualEntryForm = () => {
     const [orderTitleToDelete, setOrderTitleToDelete] = useState<string>('');
     const [editingId, setEditingId] = useState<number | null>(null);
 
+    const { isTooltipGloballyEnabled } = useTooltip();
 
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
@@ -142,6 +148,97 @@ const ManualEntryForm = () => {
             console.log("Tarih biçimlendirilirken hata oluştu:", e);
             return "Geçersiz Tarih";
         }
+    };
+
+    const exportToExcel = (orderData: OrderType) => {
+        // 1. ساخت ورک‌بوک و ورک‌شیت جدید
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet([]);
+
+        // 2. تنظیم هدرهای ثابت (Şebeke و Tarih)
+        XLSX.utils.sheet_add_aoa(worksheet, [['Şebeke', orderData.network.title]], { origin: 'A1' });
+        XLSX.utils.sheet_add_aoa(worksheet, [['Tarih', formatDateDisplay(orderData.docDate)]], { origin: 'C1' });
+
+        // 3. تنظیم هدرهای جدول اصلی
+        const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
+        XLSX.utils.sheet_add_aoa(worksheet, [tableHeaders], { origin: 'A3' });
+
+        // 4. اضافه کردن داده‌های آیتم‌های سفارش
+        const tableData = orderData.orderDetails.map(detail => [
+            detail.item.name,
+            detail.item.unit.title,
+            detail.quantity,
+            stripHtml(detail.description),
+            '' // فیلد خالی برای قیمت
+        ]);
+        XLSX.utils.sheet_add_aoa(worksheet, tableData, { origin: 'A4' });
+
+        // 5. اضافه کردن ورک‌شیت به ورک‌بوک و دانلود
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Sipariş Detayları');
+        XLSX.writeFile(workbook, `Sipariş_${orderData.id}_Detayları.xlsx`);
+    };
+
+    const exportToPdf = (orderData: OrderType) => {
+        // ایجاد یک کانتینر موقت
+        const pdfContainer = document.createElement('div');
+        pdfContainer.style.width = '100%';
+        pdfContainer.style.padding = '20px';
+        pdfContainer.style.backgroundColor = 'white';
+
+        // افزودن عنوان و اطلاعات سفارش به کانتینر
+        const title = document.createElement('h3');
+        title.innerText = `Sipariş #${orderData.id} Detayları`;
+        pdfContainer.appendChild(title);
+
+        const info = document.createElement('p');
+        info.innerHTML = `<strong>Şebeke:</strong> ${orderData.network.title}<br><strong>Tarih:</strong> ${formatDateDisplay(orderData.docDate)}`;
+        pdfContainer.appendChild(info);
+
+        // ساخت جدول HTML از داده‌های سفارش
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th style="border: 1px solid black; padding: 8px;">Ürün Adı</th>
+                    <th style="border: 1px solid black; padding: 8px;">Miktar</th>
+                    <th style="border: 1px solid black; padding: 8px;">Birim</th>
+                    <th style="border: 1px solid black; padding: 8px;">Açıklama</th>
+                    <th style="border: 1px solid black; padding: 8px;">Fiyat</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${orderData.orderDetails.map(detail => `
+                    <tr>
+                        <td style="border: 1px solid black; padding: 8px;">${detail.item.name}</td>
+                        <td style="border: 1px solid black; padding: 8px;">${detail.quantity}</td>
+                        <td style="border: 1px solid black; padding: 8px;">${detail.item.unit.title}</td>
+                        <td style="border: 1px solid black; padding: 8px;">${stripHtml(detail.description)}</td>
+                        <td style="border: 1px solid black; padding: 8px;"></td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        `;
+        pdfContainer.appendChild(table);
+
+        // افزودن کانتینر به بدنه صفحه به صورت موقت
+        document.body.appendChild(pdfContainer);
+
+        // گرفتن اسکرین‌شات از کانتینر و تبدیل به PDF
+        html2canvas(pdfContainer).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            pdf.save(`Sipariş_${orderData.id}_Detayları.pdf`);
+
+            // حذف کانتینر موقت
+            document.body.removeChild(pdfContainer);
+        });
     };
 
     const handleItemChange = (id: number, field: string, value: any) => {
@@ -628,39 +725,90 @@ const ManualEntryForm = () => {
                                                 onClick={(event) => handleClickMenu(event, row)}>
                                                 <IconDots size={20} />
                                             </IconButton>
-                                            <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu && selectedOrderForMenu?.id === row.id} onClose={handleCloseMenu}
-                                                MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
-
+                                            <Menu
+                                                id="basic-menu"
+                                                anchorEl={anchorEl}
+                                                open={openMenu && selectedOrderForMenu?.id === row.id}
+                                                onClose={handleCloseMenu}
+                                                MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
+                                            >
+                                                {/* Menü öğeleri, sipariş durumu 0 için */}
                                                 {selectedOrderForMenu?.status === 0 && (
                                                     <>
-                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                            Onayla
-                                                        </MenuItem>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                                <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                                Onayla
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                                <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                                Reddet
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    </>
+                                                )}
+
+                                                {/* Menü öğesi, sipariş durumu 1 için */}
+                                                {selectedOrderForMenu?.status === 1 && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                             <ListItemIcon><IconX size={18} /></ListItemIcon>
                                                             Reddet
                                                         </MenuItem>
-                                                    </>
+                                                    </CustomTooltip>
                                                 )}
 
-                                                {/* If status is 1, show "Reddet" (Reject) */}
-                                                {selectedOrderForMenu?.status === 1 && (
-                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                        <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                        Reddet
-                                                    </MenuItem>
-                                                )}
-
-                                                {/* If status is 2, show "Onayla" (Approve) */}
+                                                {/* Menü öğesi, sipariş durumu 2 için */}
                                                 {selectedOrderForMenu?.status === 2 && (
-                                                    <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                        <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                        Onayla
-                                                    </MenuItem>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
+                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                            Onayla
+                                                        </MenuItem>
+                                                    </CustomTooltip>
                                                 )}
-                                                <MenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
-                                                <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}><ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek</MenuItem>
+
+                                                {/* Düzenleme öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
+                                                    <MenuItem onClick={() => handleEditClick(row)}>
+                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon>
+                                                        Düzenle
+                                                    </MenuItem>
+                                                </CustomTooltip>
+
+                                                {/* Silme öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
+                                                    <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
+                                                        <ListItemIcon><IconTrash size={18} /></ListItemIcon>
+                                                        Sil
+                                                    </MenuItem>
+                                                </CustomTooltip>
+
+                                                {/* Excel İndir öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
+                                                    <MenuItem onClick={() => {
+                                                        if (selectedOrderForMenu) {
+                                                            exportToExcel(selectedOrderForMenu);
+                                                            handleCloseMenu();
+                                                        }
+                                                    }}>
+                                                        <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
+                                                    </MenuItem>
+                                                </CustomTooltip>
+
+                                                {/* PDF İndir öğesi */}
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
+                                                    <MenuItem onClick={() => {
+                                                        if (selectedOrderForMenu) {
+                                                            exportToPdf(selectedOrderForMenu);
+                                                            handleCloseMenu();
+                                                        }
+                                                    }}>
+                                                        <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
+                                                    </MenuItem>
+                                                </CustomTooltip>
                                             </Menu>
                                         </TableCell>
                                     </TableRow>

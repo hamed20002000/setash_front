@@ -20,8 +20,7 @@ import {
   IconProgressCheck,
   IconGlobe,
   IconMap,
-  IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
-  IconBuildingFactory
+  IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart
   // IconTopologyBus,
   // IconTopologyRing
 } from '@tabler/icons-react';
@@ -66,9 +65,7 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconBoxSeam: IconBoxSeam,
   IconBuildingWarehouse: IconBuildingWarehouse,
   IconShoppingCart: IconShoppingCart,
-  IconReceipt: IconReceipt,
-  IconCar: IconCar,
-  IconBuildingFactory: IconBuildingFactory
+  IconReceipt: IconReceipt
   // IconTopologyBus: IconTopologyBus,
   // IconTopologyRing: IconTopologyRing
 };
