@@ -466,7 +466,8 @@ const ListWarehouses = () => {
                 showAlert(response.data.message || 'depo eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'depo eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message == "Warehouse with this code already exists!" ? "Bu koda sahip depo zaten mevcut!" :
+                'depo eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -500,7 +501,8 @@ const ListWarehouses = () => {
                 showAlert(response.data.message || 'depo güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'depo güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message == "Warehouse with this code already exists!" ? "Bu koda sahip depo zaten mevcut!" :
+                'depo güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }

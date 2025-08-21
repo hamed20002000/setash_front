@@ -445,7 +445,7 @@ const ListDrivers = () => {
                     <Typography variant="h5" mb={2}>{editingId ? 'Sürücüyü Düzenle' : 'Yeni Sürücü Kaydı'}</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="driver-firstName" required>İsim</CustomFormLabel>
+                            <CustomFormLabel htmlFor="driver-firstName" required>Adı</CustomFormLabel>
                             <CustomTextField
                                 id="driver-firstName"
                                 fullWidth
@@ -453,7 +453,7 @@ const ListDrivers = () => {
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFirstName(e.target.value); if (firstNameError) setFirstNameError(false); }}
                                 inputRef={firstNameInputRef}
                                 error={firstNameError}
-                                helperText={firstNameError ? "İsim alanı boş bırakılamaz!" : ""}
+                                helperText={firstNameError ? "Adı alanı boş bırakılamaz!" : ""}
                             />
                         </Grid>
                         <Grid item xs={12} sm={4}>
@@ -602,7 +602,7 @@ const ListDrivers = () => {
                                     <TableCell><Typography variant="h6">Doğum Tarihi</Typography></TableCell>
                                     <TableCell><Typography variant="h6">Baba Adı</Typography></TableCell>
                                     <TableCell>
-                                        <TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} style={{ color: "#171c23" }}><Typography variant="h6">Ulusal Kimlik Numarası</Typography></TableSortLabel>
+                                        <TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} style={{ color: "#171c23" }}><Typography variant="h6">TC</Typography></TableSortLabel>
                                     </TableCell>
                                     <TableCell><Typography variant="h6">Sürücü Tipi</Typography></TableCell>
                                     {/* <TableCell>
@@ -625,7 +625,7 @@ const ListDrivers = () => {
                                             <TableCell><Typography variant="h6">{row.identityNo}</Typography></TableCell>
                                             <TableCell>
                                                 <Chip
-                                                    label={row.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı'}
+                                                    label={row.internal === '1' ? 'Şirket İçi(Setaş)' : 'Şirket Dışı'}
                                                     color={row.internal === '1' ? 'primary' : 'secondary'}
                                                 />
                                             </TableCell>

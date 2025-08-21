@@ -22,6 +22,7 @@ export interface AvailableItemOption {
     id: string;
     name: string;
     unit?: string;
+    type?: number;
 }
 
 interface WorkItemInputFormProps {
@@ -34,7 +35,7 @@ interface WorkItemInputFormProps {
     loadingAvailableItems?: boolean;
 }
 
-const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
+const NetworkItemInputForm: React.FC<WorkItemInputFormProps> = ({
     availableItems,
     onAddItem,
     itemsToRegister,
@@ -393,4 +394,4 @@ const WorkItemInputForm: React.FC<WorkItemInputFormProps> = ({
     );
 };
 
-export default WorkItemInputForm;
+export default NetworkItemInputForm;

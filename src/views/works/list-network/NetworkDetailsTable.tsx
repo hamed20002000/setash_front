@@ -10,7 +10,7 @@ import {
     IconChevronRight, IconChevronDown,
     IconEdit, IconTrash, IconCheck, IconX
 } from '@tabler/icons-react';
-import { WorkDetailSubEntry, WorkDetailRow } from './WorkDetails';
+import { WorkDetailSubEntry, WorkDetailRow } from './NetworkDetails';
 
 interface WorkDetailsTableProps {
     registeredWorkEntries: WorkDetailRow[];
@@ -106,7 +106,7 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
     );
 };
 
-const WorkDetailsTable: React.FC<WorkDetailsTableProps> = ({
+const NetworkDetailsTable: React.FC<WorkDetailsTableProps> = ({
     registeredWorkEntries,
     onEditTrAdi,
     onDeleteTrAdi,
@@ -289,4 +289,4 @@ const WorkDetailsTable: React.FC<WorkDetailsTableProps> = ({
     );
 };
 
-export default WorkDetailsTable;
+export default NetworkDetailsTable;

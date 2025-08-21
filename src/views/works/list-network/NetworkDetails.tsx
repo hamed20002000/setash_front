@@ -1,4 +1,4 @@
-// src/views/works/WorkDetails.tsx
+
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -23,10 +23,10 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import BlankCard from '../../../components/shared/BlankCard';
 import axios from 'axios';
 import server from '../../../assets/address.json';
-import RegisterUnregisteredItemModal, { RegisterItemInitialData } from '../../../views/tender/RegisterUnregisteredItemModal';
+import RegisterUnregisteredItemModal, { RegisterItemInitialData } from '../../tender/RegisterUnregisteredItemModal';
 import { ApiItemType } from '../../tender/TenderDetails';
-import WorkItemInputForm, { AvailableItemOption } from './WorkItemInputForm';
-import WorkDetailsTable from './WorkDetailsTable';
+import NetworkItemInputForm, { AvailableItemOption } from './NetworkItemInputForm';
+import NetworkDetailsTable from './NetworkDetailsTable';
 import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown, IconArrowRight } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -97,9 +97,10 @@ interface ProductTypesTypeFromAPI {
     createAt: string;
     recordStatus?: number;
     status?: string;
+    type?: number;
 }
 
-const WorkDetails = () => {
+const NetworkDetails = () => {
     const navigate = useNavigate();
     const { networkId } = useParams();
     const { isTooltipGloballyEnabled } = useTooltip();
@@ -230,6 +231,7 @@ const WorkDetails = () => {
                     .map((item: ProductTypesTypeFromAPI) => ({
                         id: String(item.id),
                         name: item.name,
+                        type: item.type,
                     }));
                 setAllProductTypesFromAPI(formattedData);
             } else {
@@ -1177,22 +1179,44 @@ const WorkDetails = () => {
     }, [setTrAdi, setTrAdiRegistered, registeredWorkEntries]);
 
     const filteredProductTypes = useMemo(() => {
+        // مرحله اول: تعیین نوع داده مورد نیاز (type 0 یا type 1)
+        const requiredType = registeredWorkEntries.length > 0 && trAdiRegistered ? 1 : 0;
+
+        // مرحله دوم: فیلتر کردن لیست اصلی بر اساس type
+        const filteredByType = allProductTypesFromAPI.filter(
+            productType => productType.type === requiredType
+        );
+
+        // مرحله سوم: شناسایی D.N های ثبت‌شده در جدول
         const registeredDnNames = new Set<string>();
-        const currentTrAdiRow = registeredWorkEntries.find(row => row.trAdi === trAdi);
-        if (currentTrAdiRow) {
-            currentTrAdiRow.subEntries.forEach(sub => {
-                if (isEditingSubEntry && editingSubEntry?.id === sub.id) {
-                } else {
+        registeredWorkEntries.forEach(trAdiRow => {
+            trAdiRow.subEntries.forEach(sub => {
+                if (!sub.isToplamRow) {
                     registeredDnNames.add(sub.dn);
                 }
             });
-        }
-        return allProductTypesFromAPI.filter(productType => {
+        });
+
+        // مرحله چهارم: فیلتر کردن D.N های ثبت‌شده از لیست کمبو
+        return filteredByType.filter(productType => {
             const isRegistered = registeredDnNames.has(productType.name);
+            const isEditingThisOne = isEditingSubEntry && editingSubEntry?.dn === productType.name;
+
+            // اگر در حال ویرایش هستیم، اجازه می‌دهیم آیتم فعلی نمایش داده شود
+            if (isEditingThisOne) {
+                return true;
+            }
+
+            // اگر ثبت شده است، آن را حذف کن (در هر دو حالت)
             return !isRegistered;
         });
-    }, [allProductTypesFromAPI, registeredWorkEntries, isEditingSubEntry, editingSubEntry, trAdi]);
-
+    }, [
+        allProductTypesFromAPI,
+        registeredWorkEntries,
+        isEditingSubEntry,
+        editingSubEntry,
+        trAdiRegistered,
+    ]);
 
     const transformToApiFormat = useCallback(() => {
         const idToUse = networkId;
@@ -1700,7 +1724,7 @@ const WorkDetails = () => {
                         </Grid>
 
                         <Grid item xs={12}>
-                            <WorkItemInputForm
+                            <NetworkItemInputForm
                                 availableItems={filteredItemsForWorkItemForm}
                                 // availableItems={itemsListForWorkItemForm}
                                 onAddItem={handleAddItemToRegister}
@@ -1865,7 +1889,7 @@ const WorkDetails = () => {
             <BlankCard>
                 <Box sx={{ p: 2 }}>
                     <Typography variant="h5" mb={2}>Kayıtlı İş Detayları Tablosu</Typography>
-                    <WorkDetailsTable
+                    <NetworkDetailsTable
                         registeredWorkEntries={registeredWorkEntries}
                         onEditTrAdi={handleEditTrAdiFromTable}
                         onDeleteTrAdi={handleDeleteTrAdiFromTable}
@@ -1932,4 +1956,4 @@ const WorkDetails = () => {
     );
 };
 
-export default WorkDetails;
+export default NetworkDetails;

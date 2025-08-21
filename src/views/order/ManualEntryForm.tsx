@@ -242,25 +242,36 @@ const ManualEntryForm = () => {
     };
 
     const handleItemChange = (id: number, field: string, value: any) => {
-        const updatedOrderItems = orderItems.map(item => {
-            if (item.id === id) {
-                if (field === 'item') {
-                    const selectedItem = itemsList.find(i => i.id === value);
+        // پیدا کردن آیتم در حال تغییر
+        const itemToUpdate = orderItems.find(item => item.id === id);
+        if (!itemToUpdate) return;
 
-                    return {
-                        ...item,
-                        item: value,
-                        quantity: selectedItem?.weight || 0,
-                        unit: selectedItem?.unit,
-                        description: '',
-                        isRegistered: !!selectedItem
-                    };
-                } else {
-                    return { ...item, [field]: value };
-                }
-            }
-            return item;
-        });
+        // ایجاد یک کپی از آیتم برای به‌روزرسانی
+        const updatedItem = { ...itemToUpdate };
+
+        // اگر فیلد item تغییر کرد (یعنی محصول از کامبو باکس انتخاب شد)
+        if (field === 'item') {
+            const selectedItem = itemsList.find(i => i.id === value);
+            updatedItem.item = value;
+            updatedItem.unit = selectedItem?.unit;
+            updatedItem.isRegistered = !!selectedItem;
+            // ✅ مقدار Miktar را به 0 یا مقدار فعلی تنظیم کنید، آن را دست‌نخورده نگه دارید.
+            //updatedItem.quantity = 0;
+        }
+        // اگر فیلد quantity تغییر کرد
+        else if (field === 'quantity') {
+            const numericValue = parseFloat(value);
+            updatedItem.quantity = isNaN(numericValue) ? 0 : numericValue;
+        }
+        // اگر فیلد دیگری تغییر کرد
+        else {
+            (updatedItem as any)[field] = value;
+        }
+
+        // به‌روزرسانی نهایی آرایه وضعیت (state)
+        const updatedOrderItems = orderItems.map(item =>
+            item.id === id ? updatedItem : item
+        );
         setOrderItems(updatedOrderItems);
     };
 
@@ -342,7 +353,7 @@ const ManualEntryForm = () => {
     const validateForm = (): boolean => {
         debugger
         let isValid = true;
-        if (!network) { setNetworkError(true); isValid = false; } else { setNetworkError(false); }
+        // if (!network) { setNetworkError(true); isValid = false; } else { setNetworkError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
         const hasEmptyItem = orderItems.some(item => !item.item || item.quantity <= 0);
         if (orderItems.length === 0 || hasEmptyItem) {
@@ -372,7 +383,7 @@ const ManualEntryForm = () => {
         if (!validateForm()) return;
         const orderData = {
             docDate: docDate?.toISOString(),
-            networkId: Number(network),
+            networkId: network == "" ? null : Number(network),
             status: 0,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
@@ -404,7 +415,7 @@ const ManualEntryForm = () => {
         const orderData = {
             id: Number(editingId),
             docDate: docDate?.toISOString(),
-            networkId: Number(network),
+            networkId: network == "" ? null : Number(network),
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String(item.quantity)),
@@ -563,12 +574,16 @@ const ManualEntryForm = () => {
 
     // Table filtering and sorting
     const filteredOrders = ordersList.filter(order => {
-        const matchesSearch = order.network.title.toLowerCase().includes(searchTerm.toLowerCase());
+        // ابتدا بررسی کنید که network وجود داشته باشد.
+        const networkTitle = order.network ? order.network.title : '';
+        const matchesSearch = networkTitle.toLowerCase().includes(searchTerm.toLowerCase());
+
         const matchesStatus =
             statusFilter === 'all' ||
             (statusFilter === 'pending' && order.status === 0) ||
             (statusFilter === 'approved' && order.status === 1) ||
             (statusFilter === 'rejected' && order.status === 2);
+
         return matchesSearch && matchesStatus;
     });
 
@@ -589,7 +604,7 @@ const ManualEntryForm = () => {
                 <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
                 <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
                             Şebeke
                         </CustomFormLabel>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -703,7 +718,7 @@ const ManualEntryForm = () => {
                             paginatedOrders.length > 0 ? (
                                 paginatedOrders.map((row) => (
                                     <TableRow key={row.id}>
-                                        <TableCell><Typography variant="h6">{row.network.title}</Typography></TableCell>
+                                        <TableCell><Typography variant="h6">{row.network ? row.network.title : "-"}</Typography></TableCell>
                                         <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
                                         <TableCell>
                                             <Stack direction="row" alignItems="center" spacing={1}>
