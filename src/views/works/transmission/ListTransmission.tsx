@@ -15,7 +15,7 @@ import {
 import { useTheme } from '@mui/material/styles';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import BlankCard from 'src/components/shared/BlankCard';
-import { IconPlus, IconEdit, IconTrash, IconDots, IconX, IconMap, IconPencil, IconMinus, IconChartDots, IconArrowRight } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconDots, IconX, IconMap, IconPencil, IconMinus, IconChartDots, IconArrowRight, IconRefresh } from '@tabler/icons-react';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -26,10 +26,7 @@ import DeleteAllConfirmationModal from './DeleteAllConfirmationModal';
 import RegisterNewNodesModal from './RegisterNewNodesModal';
 import { keyframes } from '@mui/system';
 
-
 import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType } from './types';
-
-
 
 type SortableTransmissionKeys = keyof Pick<TransmissionRow, 'fromProductType' | 'toProductType' | 'distance' | 'miktarTipi' | 'formulaTitle' | 'createAt' | 'recordStatus'>;
 
@@ -63,9 +60,9 @@ const descendingComparator = <T, Key extends keyof T>(
     return 0;
 };
 const blinkAnimation = keyframes`
-  0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
-  50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
-  100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
 const getComparator = (
     order: 'asc' | 'desc',
@@ -119,7 +116,6 @@ const ListTransmission = () => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
-    // const [statusFilter, setStatusFilter] = useState<'all' | 'aktif' | 'pasif'>('all');
     const [orderBy, setOrderBy] = useState<SortableTransmissionKeys>('recordStatus');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const fromProductTypeRef = useRef<HTMLInputElement>(null);
@@ -127,8 +123,6 @@ const ListTransmission = () => {
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<TransmissionRow | null>(null);
     const openMenu = Boolean(anchorEl);
-
-    // const [isDirekConfirmModalOpen, setIsDirekConfirmModalOpen] = useState(false);
 
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
     const [availableItems, setAvailableItems] = useState<SelectOption[]>([]);
@@ -144,22 +138,19 @@ const ListTransmission = () => {
     const [transmissionIdToDelete, setTransmissionIdToDelete] = useState<string | null>(null);
     const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
 
-    // const [usedFromNodes, setUsedFromNodes] = useState<string[]>([]);
     const [usedToNodes, setUsedToNodes] = useState<string[]>([]);
     const [openDeleteAllModal, setOpenDeleteAllModal] = useState<boolean>(false);
     const [dependentTransmissions, setDependentTransmissions] = useState<TransmissionRow[]>([]);
-
     const [transmissionSummary, setTransmissionSummary] = useState<any[]>([]);
 
-    // ✅ Yeni state'ler burada tanımlanıyor
     const [nodesToRegister, setNodesToRegister] = useState<MapNode[]>([]);
     const [openRegistrationModal, setOpenRegistrationModal] = useState<boolean>(false);
     const [openConfirmationModal, setOpenConfirmationModal] = useState<boolean>(false);
     const [pendingTransmissions, setPendingTransmissions] = useState<TransmissionRow[]>([]);
-
-
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    const [isInitialEntry, setIsInitialEntry] = useState(true);
+    const [openSelectTrafoModal, setOpenSelectTrafoModal] = useState(false);
 
     const clearAlert = () => {
         setAlertMessage(null);
@@ -208,7 +199,8 @@ const ListTransmission = () => {
         setAddedItems([]);
         setSelectedItem(null);
         setItemQuantity('');
-    }, [itemsList, addedItems]);
+        setIsInitialEntry(transmissionList.length === 0);
+    }, [itemsList, addedItems, transmissionList]);
 
     const combinedProductTypeOptions = useMemo(() => {
         if (!allProductTypes.length || !channelRowsData.length) {
@@ -238,23 +230,68 @@ const ListTransmission = () => {
         return finalOptions;
     }, [allProductTypes, channelRowsData]);
 
+    const trafoOptions = useMemo(() => {
+        return combinedProductTypeOptions.filter(option => option.parent === null);
+    }, [combinedProductTypeOptions]);
+
+    const availableTrafoOptions = useMemo(() => {
+        const registeredTrafos = new Set(
+            transmissionList.flatMap(row => [row.fromProductTypeId, row.toProductTypeId])
+        );
+
+        return trafoOptions.filter(option => !registeredTrafos.has(option.id));
+    }, [trafoOptions, transmissionList]);
+
 
     const toProductTypeOptions = useMemo(() => {
         if (!fromProductType) {
             return [];
         }
-
         const allOptions = combinedProductTypeOptions;
+        const usedNodes = transmissionList.map(row => row.toProductTypeId);
 
         return allOptions.filter(option => {
             if (option.id === fromProductType.id) return false;
             if (option.parent === null) return false;
-            if (usedToNodes.includes(option.id)) return false;
-
+            if (usedNodes.includes(option.id)) return false;
             return true;
         });
-    }, [fromProductType, usedToNodes, combinedProductTypeOptions]);
+    }, [fromProductType, transmissionList, combinedProductTypeOptions]);
 
+    const findLastNodeInChain = useCallback((startNodeId: string): SelectOption | null => {
+        let currentNodeId = startNodeId;
+        let nextNodeId = null;
+        let lastNode = null;
+
+        const allNodesMap = new Map(combinedProductTypeOptions.map(opt => [opt.id, opt]));
+
+        do {
+            nextNodeId = null;
+            const nextRow = transmissionList.find(row => String(row.fromProductTypeId) === currentNodeId);
+            if (nextRow) {
+                nextNodeId = String(nextRow.toProductTypeId);
+                currentNodeId = nextNodeId;
+            }
+        } while (nextNodeId);
+
+        lastNode = allNodesMap.get(currentNodeId) || null;
+        return lastNode;
+    }, [combinedProductTypeOptions, transmissionList]);
+
+    const handleSelectTrafo = useCallback((trafo: SelectOption) => {
+        const lastNode = findLastNodeInChain(trafo.id);
+        if (lastNode) {
+            setFromProductType(lastNode);
+        } else {
+            setFromProductType(trafo);
+        }
+        setToProductType(null);
+        setDistance('');
+        setFormulaTitle('');
+        setAddedItems([]);
+        setOpenSelectTrafoModal(false);
+        setIsInitialEntry(false);
+    }, [findLastNodeInChain]);
 
     const fetchProductTypes = useCallback(async () => {
         setLoadingFormOptions(true);
@@ -423,7 +460,6 @@ const ListTransmission = () => {
         }
     }, [navigate, showAlert]);
 
-
     const fetchTransmissionList = useCallback(async (currentNetworkId: string) => {
         setLoadingList(true);
         const authToken = localStorage.getItem('authToken');
@@ -452,7 +488,7 @@ const ListTransmission = () => {
                     }
                 }
             );
-            debugger
+
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 const combinedOptionsMap = new Map(combinedProductTypeOptions.map(opt => [opt.id, opt.name]));
                 const transmissionSummaryData = response.data.data.transmissionSummary || [];
@@ -489,12 +525,17 @@ const ListTransmission = () => {
                 });
 
                 setTransmissionList(processedData);
+                if (processedData.length > 0) {
+                    const lastNodeId = processedData[processedData.length - 1].toProductTypeId;
+                    const lastNode = combinedProductTypeOptions.find(opt => opt.id === lastNodeId) || null;
+                    setFromProductType(lastNode);
+                    setIsInitialEntry(false);
+                } else {
+                    setFromProductType(null);
+                    setIsInitialEntry(true);
+                }
 
-
-                // const usedFromNodes = processedData.map((row: TransmissionRow) => String(row.fromProductTypeId!));
                 const usedToNodes = processedData.map((row: TransmissionRow) => String(row.toProductTypeId!));
-
-                // setUsedFromNodes(usedFromNodes);
                 setUsedToNodes(usedToNodes);
 
                 setFinalCalculationData(_prev => {
@@ -524,6 +565,9 @@ const ListTransmission = () => {
                 setTransmissionList([]);
                 setFinalCalculationData(new Map());
                 setUsedToNodes([]);
+                setTransmissionSummary([]);
+                setIsInitialEntry(true);
+                setFromProductType(null);
             }
         } catch (e: any) {
             console.error("Error fetching transmission list:", e);
@@ -532,10 +576,12 @@ const ListTransmission = () => {
             setFinalCalculationData(new Map());
             setUsedToNodes([]);
             setTransmissionSummary([]);
+            setIsInitialEntry(true);
+            setFromProductType(null);
         } finally {
             setLoadingList(false);
         }
-    }, [navigate, showAlert, itemsList, combinedProductTypeOptions]);
+    }, [navigate, showAlert, combinedProductTypeOptions]);
 
     const fetchDataForModal = useCallback(async (networkId: string) => {
         const authToken = localStorage.getItem('authToken');
@@ -545,7 +591,6 @@ const ListTransmission = () => {
             setLoadingList(false);
             return;
         }
-        debugger
         try {
             const response = await axios.get(
                 `${server.baseurl}${server.initialoperations}get-network-by-work-id/${Number(networkId)}`,
@@ -560,7 +605,7 @@ const ListTransmission = () => {
         } catch (e: any) {
             setTransmissionSummary([]);
         }
-    }, []);
+    }, [navigate, showAlert]);
 
     const getListProductTypes = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -743,14 +788,18 @@ const ListTransmission = () => {
         setItemQuantity('');
     }, [editingItem, itemsList]);
 
+    const isFormComplete = useMemo(() => {
+        return fromProductType && toProductType && distance && addedItems.length > 0;
+    }, [fromProductType, toProductType, distance, addedItems]);
+
     const handleAddRowToTransmissionList = useCallback(async () => {
         if (!fromProductType || !toProductType || !distance || addedItems.length === 0) {
             showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
             return;
         }
 
-        if (transmissionList.length === 0 && fromProductType.parent !== null) {
-            showAlert('İlk iletim, bir ana düğümden (Parent) başlamalıdır.', 'warning');
+        if (isInitialEntry && fromProductType.parent !== null) {
+            showAlert('İlk iletim, bir ana düğümden (TRAFO) başlamalıdır.', 'warning');
             return;
         }
 
@@ -778,7 +827,6 @@ const ListTransmission = () => {
                 itemId: parseInt(item.id)
             })) || []
         };
-        debugger
         try {
             await axios.post(server.baseurl + server.initialoperations + "create-TransmissionRow", { networkId: parseInt(networkId!), createTransmissionRows: [payload] }, {
                 headers: { "Authorization": `Bearer ${authToken}` }
@@ -793,7 +841,7 @@ const ListTransmission = () => {
             setLoadingButton(false);
             resetFormFields();
         }
-    }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, resetFormFields, transmissionList.length]);
+    }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, resetFormFields, isInitialEntry]);
 
     const handleBatchUpdate = useCallback(async (listToUpdate: TransmissionRow[]) => {
         setLoadingButton(true);
@@ -823,16 +871,15 @@ const ListTransmission = () => {
                 itemId: parseInt(item.id)
             })) || []
         }));
-        debugger
         try {
             await axios.put(server.baseurl + server.initialoperations + "update-TransmissionRow",
                 { networkId: Number(networkId), createTransmissionRows: payload },
-                // { networkId: parseInt(networkId!), createTransmissionRows: [payload] },
                 {
                     headers: { "Authorization": `Bearer ${authToken}` }
                 });
 
             showAlert('Değişiklikler başarıyla kaydedildi!', 'success');
+            setHasUnsavedChanges(false);
             if (networkId) {
                 fetchTransmissionList(networkId);
             }
@@ -866,6 +913,8 @@ const ListTransmission = () => {
             setUsedToNodes([]);
             setFinalCalculationData(new Map());
             setOpenDeleteAllModal(false);
+            setIsInitialEntry(true);
+            setHasUnsavedChanges(false);
 
         } catch (e: any) {
             showAlert(e.response?.data?.message || 'Kayıtlar silinirken bir hata oluştu.', 'error');
@@ -901,7 +950,7 @@ const ListTransmission = () => {
 
     const handleEditClick = (row: TransmissionRow) => {
         setEditingRowId(row.id);
-
+        setIsInitialEntry(false);
         const fromOption = combinedProductTypeOptions.find(opt => opt.id === row.fromProductTypeId) || null;
         const toOption = combinedProductTypeOptions.find(opt => opt.id === row.toProductTypeId) || null;
 
@@ -911,7 +960,7 @@ const ListTransmission = () => {
         if (row.miktarTipi !== 'TR-Connection') {
             setMiktarTipi(row.miktarTipi);
         } else {
-            setMiktarTipi('Yeni YG'); // یا هر مقدار پیش‌فرض دیگری
+            setMiktarTipi('Yeni YG');
         }
         setFormulaTitle(row.formulaTitle);
         setAddedItems(row.items || []);
@@ -949,7 +998,7 @@ const ListTransmission = () => {
         setTransmissionList(prev => prev.map(row => row.id === editingRowId ? updatedRow : row));
 
         resetFormFields();
-        showAlert('İletim başarıyla güncellendi.', 'success');
+        showAlert('İletim başarıyla güncellendi. Kaydetmek için butona tıklayın.', 'info');
 
     }, [editingRowId, fromProductType, toProductType, distance, miktarTipi, formulaTitle, addedItems, showAlert, resetFormFields, transmissionList, networkId]);
 
@@ -957,7 +1006,6 @@ const ListTransmission = () => {
         const dependentRows = transmissionList.filter(
             item => item.fromProductTypeId === row.toProductTypeId
         );
-        debugger
         setDependentTransmissions(dependentRows);
         setTransmissionIdToDelete(row.id);
         setOpenDeleteModal(true);
@@ -990,23 +1038,20 @@ const ListTransmission = () => {
             setHasUnsavedChanges(true);
             setTransmissionList(newTransmissionList);
             showAlert('Kayıt yerel olarak silindi. Değişiklikleri sunucuya kaydetmek için "Kaydet" düğmesine basın.', 'info');
-            handleBatchUpdate(transmissionList);
+            handleBatchUpdate(newTransmissionList);
             setOpenDeleteModal(false);
         }
 
     }, [transmissionIdToDelete, transmissionList, showAlert, handleBatchUpdate, handleConfirmDeleteAll]);
 
     const handleSaveMapChanges = useCallback(async (updatedTransmissions: TransmissionRow[], newlyCreatedNodes: MapNode[]) => {
-        // Eğer yeni düğüm varsa, onay modalını aç
         if (newlyCreatedNodes.length > 0) {
             setPendingTransmissions(updatedTransmissions);
             setNodesToRegister(newlyCreatedNodes);
             setOpenConfirmationModal(true);
         } else {
-            // Yeni düğüm yoksa, değişiklikleri doğrudan kaydet
             setTransmissionList(updatedTransmissions);
             await handleBatchUpdate(updatedTransmissions);
-
             showAlert('Başarıyla güncellenip kaydedildi!', 'success');
         }
     }, [handleBatchUpdate, showAlert]);
@@ -1014,10 +1059,8 @@ const ListTransmission = () => {
     const handleConfirmRegistration = useCallback(async (confirm: boolean) => {
         setOpenConfirmationModal(false);
         if (confirm) {
-            // Eğer onaylarsa, kayıt modalını aç
             setOpenRegistrationModal(true);
         } else {
-            // Eğer reddederse, yeni düğümleri yok say ve sadece mevcut değişiklikleri kaydet
             if (pendingTransmissions.length > 0) {
                 setTransmissionList(pendingTransmissions);
                 await handleBatchUpdate(pendingTransmissions);
@@ -1047,30 +1090,21 @@ const ListTransmission = () => {
         await handleBatchUpdate(finalTransmissions);
 
         showAlert('Tüm değişiklikler başarıyla kaydedildi!', 'success');
-
         getListProductTypes();
     }, [pendingTransmissions, handleBatchUpdate, showAlert, getListProductTypes]);
 
 
     const filteredTransmissionList = useMemo(() => {
-        setSearchTerm("")
-        if (!networkId) return [];
         return transmissionList.filter(row => {
             const matchesSearch = searchTerm === '' ||
                 row.fromProductType.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 row.toProductType.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 row.formulaTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 String(row.distance).includes(searchTerm.toLowerCase());
-            // const matchesRecordStatus = statusFilter === 'all' ||
-            //     (statusFilter === 'aktif' && row.recordStatus === 0) ||
-            //     (statusFilter === 'pasif' && row.recordStatus === 1);
 
             return matchesSearch
-            //  && matchesRecordStatus;
         });
-    }, [transmissionList, searchTerm,
-        // statusFilter,
-        networkId]);
+    }, [transmissionList, searchTerm, networkId]);
 
     const sortedAndFilteredTransmissionList = useMemo(() => {
         return stableSort(filteredTransmissionList, getComparator(order, orderBy));
@@ -1142,9 +1176,31 @@ const ListTransmission = () => {
                             size="small"
                         />
                     </Stack>
-
                 </Stack>
                 <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={() => {
+                            resetFormFields();
+                            setIsInitialEntry(true);
+                        }}
+                        startIcon={<IconRefresh />}
+                        disabled={loadingButton}
+                    >
+                        Yeni TRAFO'dan Başla
+                    </Button>
+                    {transmissionList.length > 0 && (
+                        <Button
+                            variant="outlined"
+                            color="info"
+                            onClick={() => setOpenSelectTrafoModal(true)}
+                            startIcon={<IconPlus />}
+                            disabled={loadingButton}
+                        >
+                            TRAFO Seç
+                        </Button>
+                    )}
                     <Button
                         variant="contained"
                         color="secondary"
@@ -1161,25 +1217,31 @@ const ListTransmission = () => {
                         </Button>
                     </CustomTooltip>
                 </Stack>
-
             </Stack>
 
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Grid container spacing={2} alignItems="flex-end">
                     <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="from-product-type" required>Kaynak Ürün Tipi</CustomFormLabel>
+                        <CustomFormLabel htmlFor="from-product-type" required>
+                            Kaynak Geresi
+                        </CustomFormLabel>
                         <Autocomplete
                             id="from-product-type"
-                            options={combinedProductTypeOptions}
+                            options={isInitialEntry ? availableTrafoOptions : [fromProductType].filter(Boolean) as SelectOption[]}
+
+                            // options={isInitialEntry ? availableTrafoOptions : [fromProductType].filter(Boolean) as SelectOption[]}
                             getOptionLabel={(option) => option.name}
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             value={fromProductType}
-                            onChange={(_e, newValue) => setFromProductType(newValue)}
+                            onChange={(_e, newValue) => {
+                                setFromProductType(newValue);
+                                setToProductType(null); // هر وقت گره مبدا تغییر کرد، گره مقصد را پاک کن.
+                            }}
                             renderInput={(params) => <TextField {...params} label="Seç" variant="outlined" size="small" />}
                             onOpen={() => handleAutocompleteOpen(fromProductTypeRef)}
                             sx={{ '& .MuiAutocomplete-inputRoot': { py: 0.5 } }}
                             onInputChange={(_event) => { }}
-                            disabled={isFormDisabled}
+                            disabled={isFormDisabled || loadingList || (transmissionList.length > 0 && !isInitialEntry)}
                         />
                     </Grid>
                     <Grid item xs={12} sm={4}>
@@ -1195,7 +1257,7 @@ const ListTransmission = () => {
                             onOpen={() => handleAutocompleteOpen(toProductTypeRef)}
                             sx={{ '& .MuiAutocomplete-inputRoot': { py: 0.5 } }}
                             onInputChange={(_event) => { }}
-                            disabled={isFormDisabled}
+                            disabled={isFormDisabled || !fromProductType || toProductTypeOptions.length === 0}
                         />
                     </Grid>
                     <Grid item xs={12} sm={4}>
@@ -1256,7 +1318,6 @@ const ListTransmission = () => {
                         />
                         {selectedItem && selectedItem.unit && (
                             <Typography variant="body1" sx={{ whiteSpace: 'nowrap' }}>
-                                {/* {selectedItem.weight ? `${selectedItem.weight} ${selectedItem.unit.title}` : selectedItem.unit.title} */}
                                 {selectedItem.unit.title}
                             </Typography>
                         )}
@@ -1296,9 +1357,9 @@ const ListTransmission = () => {
                                 color="primary"
                                 onClick={handleAddItem}
                                 disabled={!selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0}
-                                sx={{ minWidth: 40, height: 40 }}
+                                startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconPlus />}
                             >
-                                <IconPlus size={20} />
+
                             </Button>
                         )}
                     </Stack>
@@ -1376,7 +1437,8 @@ const ListTransmission = () => {
                                 variant="contained"
                                 color="primary"
                                 onClick={handleAddRowToTransmissionList}
-                                disabled={loadingButton || !fromProductType || !toProductType || !distance || addedItems.length === 0}
+
+                                disabled={loadingButton || !isFormComplete}
                                 startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconPlus />}
                             >
                                 Ekle
@@ -1387,20 +1449,8 @@ const ListTransmission = () => {
             </Paper>
             <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
             <Stack direction="row" justifyContent="flex-end" mb={3} mt={3} spacing={2}>
-                {/* <Button
-                    variant="contained"
-                    color="info"
-                    onClick={() => handleBatchUpdate(transmissionList)}
-                    disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
-                    startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
-                >
-                    Kaydet (Tümünü Güncelle)
-                </Button> */}
                 <Box
                     sx={{
-                        // position: 'fixed',
-                        // bottom: 24,
-                        // left: 24,
                         zIndex: 1000,
                         display: hasUnsavedChanges ? 'block' : 'none',
                         animation: `${hasUnsavedChanges ? `${blinkAnimation} 1.5s infinite` : 'none'}`,
@@ -1705,6 +1755,36 @@ const ListTransmission = () => {
                 onConfirm={handleConfirmDeleteAll}
                 loading={loadingButton}
             />
+
+            <Dialog
+                open={openSelectTrafoModal}
+                onClose={() => setOpenSelectTrafoModal(false)}
+                aria-labelledby="select-trafo-modal-title"
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle id="select-trafo-modal-title">
+                    Mevcut TRAFO Seç
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Autocomplete
+                        options={trafoOptions}
+                        getOptionLabel={(option) => option.name}
+                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                        onChange={(_e, newValue) => {
+                            if (newValue) {
+                                handleSelectTrafo(newValue);
+                            }
+                        }}
+                        renderInput={(params) => <TextField {...params} label="TRAFO Seç" variant="outlined" size="small" />}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenSelectTrafoModal(false)} color="error">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };
