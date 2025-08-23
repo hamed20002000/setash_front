@@ -10,12 +10,13 @@ import {
     MenuItem,
     TableSortLabel,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    Alert, DialogContentText
+    Alert, DialogContentText,
+    InputAdornment
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import BlankCard from 'src/components/shared/BlankCard';
-import { IconPlus, IconEdit, IconTrash, IconDots, IconX, IconMap, IconPencil, IconMinus, IconChartDots, IconArrowRight, IconRefresh } from '@tabler/icons-react';
+import { IconPlus, IconEdit, IconTrash, IconDots, IconX, IconMap, IconPencil, IconMinus, IconChartDots, IconArrowRight, IconRefresh, IconSearch } from '@tabler/icons-react';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -138,7 +139,7 @@ const ListTransmission = () => {
     const [transmissionIdToDelete, setTransmissionIdToDelete] = useState<string | null>(null);
     const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
 
-    const [usedToNodes, setUsedToNodes] = useState<string[]>([]);
+    // const [usedToNodes, setUsedToNodes] = useState<string[]>([]);
     const [openDeleteAllModal, setOpenDeleteAllModal] = useState<boolean>(false);
     const [dependentTransmissions, setDependentTransmissions] = useState<TransmissionRow[]>([]);
     const [transmissionSummary, setTransmissionSummary] = useState<any[]>([]);
@@ -535,8 +536,8 @@ const ListTransmission = () => {
                     setIsInitialEntry(true);
                 }
 
-                const usedToNodes = processedData.map((row: TransmissionRow) => String(row.toProductTypeId!));
-                setUsedToNodes(usedToNodes);
+                // const usedToNodes = processedData.map((row: TransmissionRow) => String(row.toProductTypeId!));
+                // setUsedToNodes(usedToNodes);
 
                 setFinalCalculationData(_prev => {
                     const newMap = new Map<string, Map<string, AddedItem>>();
@@ -564,7 +565,7 @@ const ListTransmission = () => {
                 showAlert(response.data.message || 'Veri alınamadı.', 'error');
                 setTransmissionList([]);
                 setFinalCalculationData(new Map());
-                setUsedToNodes([]);
+                // setUsedToNodes([]);
                 setTransmissionSummary([]);
                 setIsInitialEntry(true);
                 setFromProductType(null);
@@ -574,7 +575,7 @@ const ListTransmission = () => {
             showAlert('Sunucudan iletim listesi alınırken bir hata oluştu.', 'error');
             setTransmissionList([]);
             setFinalCalculationData(new Map());
-            setUsedToNodes([]);
+            // setUsedToNodes([]);
             setTransmissionSummary([]);
             setIsInitialEntry(true);
             setFromProductType(null);
@@ -910,7 +911,7 @@ const ListTransmission = () => {
             showAlert('Tüm kayıtlar başarıyla silindi!', 'success');
 
             setTransmissionList([]);
-            setUsedToNodes([]);
+            // setUsedToNodes([]);
             setFinalCalculationData(new Map());
             setOpenDeleteAllModal(false);
             setIsInitialEntry(true);
@@ -965,10 +966,10 @@ const ListTransmission = () => {
         setFormulaTitle(row.formulaTitle);
         setAddedItems(row.items || []);
 
-        const currentUsedToNodes = transmissionList
-            .filter(r => r.toProductTypeId && r.id !== row.id)
-            .map(r => r.toProductTypeId!);
-        setUsedToNodes(currentUsedToNodes);
+        // const currentUsedToNodes = transmissionList
+        //     .filter(r => r.toProductTypeId && r.id !== row.id)
+        //     .map(r => r.toProductTypeId!);
+        // setUsedToNodes(currentUsedToNodes);
         const itemsInRow = row.items?.map(item => item.id) || [];
         setAvailableItems(prev => prev.filter(item => !itemsInRow.includes(item.id)));
     };
@@ -1449,6 +1450,22 @@ const ListTransmission = () => {
             </Paper>
             <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
             <Stack direction="row" justifyContent="flex-end" mb={3} mt={3} spacing={2}>
+
+
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={3} md={8}>
+                        <TextField
+                            label="Şantiye Ara"
+                            variant="outlined"
+                            fullWidth
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                        />
+                    </Grid>
+
+                </Grid>
+
                 <Box
                     sx={{
                         zIndex: 1000,
@@ -1492,6 +1509,9 @@ const ListTransmission = () => {
                 >
                     Toplam Kayıtları Görüntüle
                 </Button>
+
+
+
             </Stack>
 
             {alertMessage && (
@@ -1502,7 +1522,11 @@ const ListTransmission = () => {
                 </Stack>
             )}
             <BlankCard>
+
+
+
                 <TableContainer>
+
                     <Table>
                         <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
