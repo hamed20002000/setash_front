@@ -186,7 +186,7 @@ const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                                         fullWidth
                                         type="number"
                                         size="small"
-                                        value={item.price || ''}
+                                        value={item.price !== undefined && !isNaN(item.price) ? item.price : ''}
                                         onChange={(e) => onItemChange(item.id, 'price', Number(e.target.value))}
                                         onFocus={handleFocus} // ✅ رویداد onFocus اضافه شده است
                                         inputRef={priceRef} // ✅ رفرنس به input اضافه شده است

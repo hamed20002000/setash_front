@@ -785,11 +785,13 @@ const ListCategory = () => {
               İsim
             </CustomFormLabel>
           </Grid>
-          <Grid item xs={12} sm={5}> {/* 🔴 تغییر اندازه از sm={5} به sm={8} برای اشغال فضای بیشتر */}
+          <Grid item xs={12} sm={7}> {/* 🔴 تغییر اندازه از sm={5} به sm={8} برای اشغال فضای بیشتر */}
             <CustomTextField
               id="category-name"
               placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
-              fullWidth
+
+              sx={{ width: '100%' }}
+              size="small"
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setName(e.target.value);
@@ -803,7 +805,7 @@ const ListCategory = () => {
               helperText={nameHelperText}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <Stack direction="row" spacing={1} justifyContent="flex-end">
               {editingId !== null ? (
                 <>

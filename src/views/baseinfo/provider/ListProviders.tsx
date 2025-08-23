@@ -474,11 +474,11 @@ const ListProviders = () => {
                 }
             });
             if (response.data.httpStatusCode === 201) {
-                showAlert('Yeni sağlayıcı başarıyla eklendi!', 'success');
+                showAlert('Yeni Tedarikçi başarıyla eklendi!', 'success');
                 resetFormAndState();
                 fetchProviders();
             } else {
-                showAlert(response.data.message || 'Sağlayıcı eklenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Tedarikçi eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -486,7 +486,7 @@ const ListProviders = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            showAlert(e.response?.data?.message || 'Sağlayıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'Tedarikçi eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -513,11 +513,11 @@ const ListProviders = () => {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
             });
             if (response.data.httpStatusCode === 200) {
-                showAlert('Sağlayıcı başarıyla güncellendi!', 'success');
+                showAlert('Tedarikçi başarıyla güncellendi!', 'success');
                 resetFormAndState();
                 fetchProviders();
             } else {
-                showAlert(response.data.message || 'Sağlayıcı güncellenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Tedarikçi güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response && e.response.status === 401) {
@@ -525,7 +525,7 @@ const ListProviders = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            showAlert(e.response?.data?.message || 'Sağlayıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'Tedarikçi güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -693,14 +693,16 @@ const ListProviders = () => {
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'Sağlayıcıyı Düzenle' : 'Yeni Sağlayıcı Kaydı'}</Typography>
+                    <Typography variant="h5" mb={2}>{editingId ? 'Sağlayıcıyı Düzenle' : 'Yeni Tedarikçi Kaydı'}</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="provider-name" required>İsim</CustomFormLabel>
                             <CustomTextField
                                 id="provider-name"
-                                placeholder="Sağlayıcı Adı"
-                                fullWidth
+                                placeholder="Tedarikçi Adı"
+
+                                sx={{ width: '100%' }}
+                                size="small"
                                 value={name}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     setName(e.target.value);
@@ -716,7 +718,9 @@ const ListProviders = () => {
                             <CustomTextField
                                 id="provider-phonenumber"
                                 placeholder="Telefon Numarası"
-                                fullWidth
+
+                                sx={{ width: '100%' }}
+                                size="small"
                                 value={phoneNumber}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     setPhoneNumber(e.target.value);
@@ -728,7 +732,9 @@ const ListProviders = () => {
                         </Grid>
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                            <FormControl fullWidth error={regionIdError}>
+                            <FormControl
+                                sx={{ width: '100%' }}
+                                size="small" error={regionIdError}>
                                 <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
                                 <Select
                                     labelId="select-region-label"
@@ -759,11 +765,11 @@ const ListProviders = () => {
                                 {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
                             </FormControl>
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={8}>
                             <CustomFormLabel htmlFor="provider-address">Adres</CustomFormLabel>
                             <CustomTextField
                                 id="provider-address"
-                                placeholder="Sağlayıcı Adresi"
+                                placeholder="Tedarikçi Adresi"
                                 fullWidth
                                 value={address}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -774,7 +780,7 @@ const ListProviders = () => {
                                 helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6}>
+                        <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="firm-type" required>Setaş'tan mı?  </CustomFormLabel>
                             <RadioGroup
                                 row
@@ -799,15 +805,15 @@ const ListProviders = () => {
                                                 {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
                                             </Button>
                                         </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni sağlayıcı moduna dön" : ""}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Tedarikçi moduna dön" : ""}>
                                             <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
                                         </CustomTooltip>
                                     </>
                                 ) : (
                                     <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir sağlayıcı ekle" : ""}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Tedarikçi ekle" : ""}>
                                             <Button variant="contained" color="success" onClick={insertProvider} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Sağlayıcı Ekle'}
+                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Tedarikçi Ekle'}
                                             </Button>
                                         </CustomTooltip>
                                     </>
@@ -828,7 +834,7 @@ const ListProviders = () => {
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>
                             <TextField
-                                label="Sağlayıcı Ara"
+                                label="Tedarikçi Ara"
                                 variant="outlined"
                                 fullWidth
                                 value={searchTerm}
@@ -986,7 +992,7 @@ const ListProviders = () => {
                                     <TableRow>
                                         <TableCell colSpan={8} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">
-                                                Bu işe ait hiç sağlayıcı bulunamadı.
+                                                Bu işe ait hiç Tedarikçi bulunamadı.
                                             </Typography>
                                         </TableCell>
                                     </TableRow>

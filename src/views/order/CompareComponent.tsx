@@ -571,6 +571,23 @@ const CompareComponent = () => {
     const sortedAndFilteredOrders = stableSort(filteredOrders, getComparator(order, orderBy));
     const paginatedOrders = sortedAndFilteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+    const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+        if (priceInput === null || priceInput === undefined) {
+            return '₺0.00';
+        }
+        const cleanedString = String(priceInput).replace(/[$,]/g, '');
+        const numericValue = parseFloat(cleanedString);
+        if (isNaN(numericValue)) {
+            return '₺0.00';
+        }
+        const formattedPrice = numericValue.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        return formattedPrice.replace('$', '₺');
+    };
     return (
         <Box>
             {alertMessage && (
@@ -584,8 +601,8 @@ const CompareComponent = () => {
 
                 {/* Şebeke ve Tarih */}
                 <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                    <Grid item xs={12} md={8}>
+                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} >
                             Şebeke
                         </CustomFormLabel>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -596,14 +613,14 @@ const CompareComponent = () => {
                                     setNetwork(newValue ? newValue.id : ''); setSelectedWork(newValue ? newValue.work : null);
                                     if (networkError && newValue) setNetworkError(false);
                                 }} renderInput={(params) => (
-                                    <TextField {...params} label="Şebeke Seçin" variant="outlined" fullWidth error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
+                                    <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
                                     />
                                 )} sx={{ flexGrow: 1 }}
                             />
                             {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
                         </Box>
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={4}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Tarihi
@@ -617,7 +634,7 @@ const CompareComponent = () => {
                                 inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
                                     <TextField {...params}
-                                        fullWidth error={docDateError}
+                                        size="small" error={docDateError}
                                         helperText={docDateError ? "Bu alan zorunludur!" : ""} />
                                 )}
                             />
@@ -643,7 +660,9 @@ const CompareComponent = () => {
                                     {...params}
                                     label="Depo Seçin"
                                     variant="outlined"
-                                    fullWidth
+
+                                    sx={{ width: '100%' }}
+                                    size="small"
                                     error={warehouseError}
                                     helperText={warehouseError ? "Bu alan zorunludur!" : ""}
                                 />
@@ -665,7 +684,9 @@ const CompareComponent = () => {
                                     {...params}
                                     label="İhale Seçin"
                                     variant="outlined"
-                                    fullWidth
+
+                                    sx={{ width: '100%' }}
+                                    size="small"
                                     error={tenderError}
                                     helperText={tenderError ? "Bu alan zorunludur!" : ""}
                                 />
@@ -852,7 +873,7 @@ const CompareComponent = () => {
                                         <TableCell>{detail.quantity}</TableCell>
                                         <TableCell>{detail.item.unit.title}</TableCell>
                                         <TableCell> <Typography>{stripHtml(detail.description)}</Typography></TableCell>
-                                        <TableCell>{detail.price}</TableCell>
+                                        <TableCell>{cleanAndFormatPrice(detail.price)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

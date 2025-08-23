@@ -1,10 +1,9 @@
-
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     useParams,
-    //  useSearchParams,
+    // useSearchParams,
     useNavigate
 } from 'react-router-dom';
 import {
@@ -17,7 +16,8 @@ import {
     FormLabel, Paper,
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
     Chip,
-    IconButton
+    IconButton,
+    List, ListItem, ListItemButton, ListItemText
 } from '@mui/material';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -27,7 +27,7 @@ import RegisterUnregisteredItemModal, { RegisterItemInitialData } from '../../te
 import { ApiItemType } from '../../tender/TenderDetails';
 import NetworkItemInputForm, { AvailableItemOption } from './NetworkItemInputForm';
 import NetworkDetailsTable from './NetworkDetailsTable';
-import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown, IconArrowRight } from '@tabler/icons-react';
+import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown, IconArrowRight, IconBuildingArch } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
@@ -110,7 +110,6 @@ const NetworkDetails = () => {
     const [dmmValue, setDmmValue] = useState<string>('');
     const [mevcutValue, setMevcutValue] = useState<string>('');
     const [selectedRadioOption, setSelectedRadioOption] = useState<'yeni' | 'dmm' | 'mevcut'>('yeni');
-    const [trAdiRegistered, setTrAdiRegistered] = useState<boolean>(false);
     const [selectedProductError, setSelectedProductError] = useState<boolean>(false);
     const [selectedProductHelperText, setSelectedProductHelperText] = useState<string>('');
     const [yeniError, setYeniError] = useState<boolean>(false);
@@ -149,17 +148,17 @@ const NetworkDetails = () => {
     const [isUnregisteredProductTypesExpanded, setIsUnregisteredProductTypesExpanded] = useState<boolean>(false);
     const [isUnregisteredItemsExpanded, setIsUnregisteredItemsExpanded] = useState<boolean>(false);
     const productAutocompleteTextFieldRef = useRef<HTMLInputElement>(null);
-    const [loadingData, setLoadingData] = useState<boolean>(true); // ✅ اضافه شده
+    const [loadingData, setLoadingData] = useState<boolean>(true);
+    const [openTrafoSelectionModal, setOpenTrafoSelectionModal] = useState(false);
+    const [selectedTrafo, setSelectedTrafo] = useState<WorkDetailRow | null>(null);
 
+    // ✅ وضعیت جدید برای پیگیری تغییرات محلی
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
 
     const filteredItemsForWorkItemForm = useMemo(() => {
-        // ایجاد یک Set از IDهای آیتم‌هایی که در حال حاضر برای این sub-entry ثبت شده‌اند.
         const registeredItemIds = new Set(itemsToRegister.map(item => item.id));
 
-        // فیلتر کردن لیست اصلی آیتم‌ها
         return itemsListForWorkItemForm.filter(item => {
-            // اگر آیتم فعلی در لیست ثبت شده‌ها نیست، آن را برگردان
-            // یا اگر در حال ویرایش هستیم و این آیتم، آیتم در حال ویرایش نیست.
             const isRegistered = registeredItemIds.has(item.id);
             const isEditingThisItem = editingItemTempId && itemsToRegister.find(i => i.tempId === editingItemTempId)?.id === item.id;
 
@@ -204,6 +203,7 @@ const NetworkDetails = () => {
         setItemsToRegister([]);
         setEditingSubEntry(null);
         setIsEditingSubEntry(false);
+        setEditingItemTempId(null);
     }, []);
 
     const getListProductTypes = useCallback(() => {
@@ -259,7 +259,6 @@ const NetworkDetails = () => {
             setLoadingItemsForWorkItemForm(false);
             return;
         }
-        debugger
         try {
             const response = await axios.get(server.baseurl + server.baseinfo + "get-item", {
                 headers: {
@@ -292,7 +291,6 @@ const NetworkDetails = () => {
         }
     }, [navigate, showAlert]);
 
-    // ✅ تابع جدید برای واکشی داده‌های اولیه از API
     const getInitialData = useCallback(async () => {
         if (!networkId) {
             showAlert('Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
@@ -322,13 +320,11 @@ const NetworkDetails = () => {
                 apiData.networkTrAdis.forEach(trAdiItem => {
                     const subEntries: WorkDetailSubEntry[] = [];
                     trAdiItem.channelRows.forEach(channelRow => {
-                        // Check if a parent with a different ID already exists in the subEntries
                         const isExistingParent = subEntries.some(sub => sub.id === channelRow.id);
                         if (isExistingParent) {
-                            return; // Skip if this is a duplicate entry (e.g., child of a previously processed row)
+                            return;
                         }
 
-                        // Determine quantity fields based on productStatus
                         let yeni = '';
                         let dmm = '';
                         let mevcut = '';
@@ -340,9 +336,8 @@ const NetworkDetails = () => {
                             mevcut = channelRow.label;
                         }
 
-                        // Map channelRowItems to WorkItemDetail
                         const workItemDetails: WorkItemDetail[] = channelRow.channelRowItems.map(item => ({
-                            id: item.item.id, // Using item ID as unique ID
+                            id: item.item.id,
                             tempId: `temp-${item.id}-${Date.now()}-${Math.random()}`,
                             name: item.item.name,
                             value: item.value,
@@ -367,10 +362,11 @@ const NetworkDetails = () => {
                     convertedData.push(newRow);
                 });
 
-                // Update the state
                 const updatedDataWithTotals = updateToplamRow(convertedData);
                 setRegisteredWorkEntries(updatedDataWithTotals);
                 showAlert('Veriler başarıyla yüklendi!', 'success');
+                // ✅ تغییرات را در ابتدا به false برگردانید
+                setHasUnsavedChanges(false);
             } else {
                 showAlert(response.data.message || 'İş detayları alınırken bir hata oluştu.', 'error');
             }
@@ -446,7 +442,7 @@ const NetworkDetails = () => {
 
     const handleStartNewTrAdiEntry = useCallback(() => {
         setTrAdi('');
-        setTrAdiRegistered(false);
+        setSelectedTrafo(null);
         resetMainFormFields();
         setItemsToRegister([]);
         showAlert('Yeni TR ADI ve alt öğeleri girebilirsiniz.', 'info');
@@ -494,10 +490,10 @@ const NetworkDetails = () => {
     const handleRegisterNewEntry = async () => {
         clearAlert();
         let hasError = false;
-        if (!trAdiRegistered && !trAdi.trim()) {
+        if (!selectedTrafo && !trAdi.trim()) {
             showAlert('TR ADI alanı boş bırakılamaz!', 'warning');
             hasError = true;
-        } else if (trAdiRegistered && !trAdi.trim()) {
+        } else if (selectedTrafo && !trAdi.trim()) {
             showAlert('TR ADI daha önce kaydedildi, boş bırakılamaz!', 'warning');
             hasError = true;
         }
@@ -552,9 +548,9 @@ const NetworkDetails = () => {
         if (hasError) {
             return;
         }
-        const currentTrAdiRow = registeredWorkEntries.find(row => row.trAdi === trAdi);
-        if (currentTrAdiRow && selectedProduct) {
-            const isDnAlreadyRegistered = currentTrAdiRow.subEntries.some(
+
+        if (selectedTrafo && selectedProduct) {
+            const isDnAlreadyRegistered = selectedTrafo.subEntries.some(
                 subEntry => subEntry.dn === selectedProduct.name && !subEntry.isToplamRow
             );
             if (isDnAlreadyRegistered) {
@@ -562,11 +558,12 @@ const NetworkDetails = () => {
                 return;
             }
         }
+
         setLoadingRegisterButton(true);
         const dnValueForDisplay = selectedProduct ? selectedProduct.name : 'Bilinmeyen';
         const newSubEntry: WorkDetailSubEntry = {
             id: String(Date.now()),
-            trAdiParentId: '',
+            trAdiParentId: selectedTrafo ? selectedTrafo.id : '',
             dn: dnValueForDisplay,
             yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
             dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
@@ -575,7 +572,7 @@ const NetworkDetails = () => {
             isToplamRow: false,
         };
 
-        if (!trAdiRegistered) {
+        if (!selectedTrafo) {
             const newTrAdiRowId = `tradi-${Date.now()}`;
             const newTrAdiRow: WorkDetailRow = {
                 id: newTrAdiRowId,
@@ -583,11 +580,11 @@ const NetworkDetails = () => {
                 subEntries: [{ ...newSubEntry, trAdiParentId: newTrAdiRowId }]
             };
             setRegisteredWorkEntries(prev => updateToplamRow([...prev, newTrAdiRow]));
-            setTrAdiRegistered(true);
+            setSelectedTrafo(newTrAdiRow);
         } else {
             setRegisteredWorkEntries(prevEntries => {
                 const updatedEntries = prevEntries.map(row => {
-                    if (row.trAdi === trAdi) {
+                    if (row.id === selectedTrafo.id) {
                         const existingSubEntriesWithoutToplam = row.subEntries.filter(sub => !sub.isToplamRow);
                         return { ...row, subEntries: [...existingSubEntriesWithoutToplam, { ...newSubEntry, trAdiParentId: row.id }] };
                     }
@@ -599,6 +596,7 @@ const NetworkDetails = () => {
         showAlert('Yeni giriş başarıyla tabloya eklendi!', 'success');
         resetMainFormFields();
         setLoadingRegisterButton(false);
+        setHasUnsavedChanges(true); // ✅ ثبت تغییر
     };
 
     const handleDownloadExcelTemplate = useCallback(() => {
@@ -689,31 +687,6 @@ const NetworkDetails = () => {
                 setLoadingFileUpload(false);
                 return;
             }
-            // const getCellValueIntelligently = (rowIdx: number, colIdx: number): string => {
-            //     const cellAddress = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
-            //     const cell = worksheet[cellAddress];
-            //     if (cell && typeof cell.v === 'number') {
-            //         return String(cell.v);
-            //     }
-            //     if (cell && cell.v !== undefined && cell.v !== null) {
-            //         return String(cell.v).trim();
-            //     }
-            //     if (worksheet['!merges']) {
-            //         for (const merge of worksheet['!merges']) {
-            //             if (rowIdx >= merge.s.r && rowIdx <= merge.e.r &&
-            //                 colIdx >= merge.s.c && colIdx <= merge.e.c) {
-            //                 const mergedTopLeftCellAddress = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
-            //                 const mergedTopLeftCell = worksheet[mergedTopLeftCellAddress];
-            //                 if (mergedTopLeftCell && mergedTopLeftCell.v !== undefined && mergedTopLeftCell.v !== null) {
-            //                     return String(mergedTopLeftCell.v).trim();
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     return '';
-            // };
-
-
 
             const itemDefinitions: { name: string; nameColIdx: number; valueColIdx: number }[] = [];
             let lastHeaderName = '';
@@ -870,16 +843,12 @@ const NetworkDetails = () => {
             showAlert('Excel dosyası başarıyla yüklendi ve tablo güncellendi!', 'success');
             setUnregisteredProductTypes(Array.from(newUnregisteredProductTypes));
             setUnregisteredItems(Array.from(newUnregisteredItems));
-            if (newRegisteredWorkEntries.length > 0) {
-                setTrAdi(newRegisteredWorkEntries[newRegisteredWorkEntries.length - 1]?.trAdi || '');
-                setTrAdiRegistered(true);
-            } else {
-                setTrAdi('');
-                setTrAdiRegistered(false);
-            }
+
+            setSelectedTrafo(null);
+            setTrAdi('');
             resetMainFormFields();
             setItemsToRegister([]);
-
+            setHasUnsavedChanges(true); // ✅ ثبت تغییر بعد از آپلود اکسل
         } catch (error: any) {
             console.log("Excel işleme hatası:", error);
             showAlert('Excel dosyası işlenirken bir hata oluştu. Lütfen dosyanın formatını kontrol edin veya', 'error');
@@ -993,29 +962,35 @@ const NetworkDetails = () => {
             )
         );
         showAlert(`'${newTrAdiName}' adlı TR ADI başarıyla güncellendi!`, 'success');
+        setHasUnsavedChanges(true); // ✅ ثبت تغییر
     }, [showAlert]);
 
     const handleDeleteTrAdiFromTable = useCallback((trAdiId: string) => {
         setRegisteredWorkEntries(prevEntries => {
             const updatedEntries = prevEntries.filter(row => row.id !== trAdiId);
-            if (prevEntries.some(row => row.id === trAdiId && row.trAdi === trAdi)) {
+            if (selectedTrafo && selectedTrafo.id === trAdiId) {
+                setSelectedTrafo(null);
                 setTrAdi('');
-                setTrAdiRegistered(false);
+                resetMainFormFields();
+            } else if (updatedEntries.length === 0) {
+                setSelectedTrafo(null);
+                setTrAdi('');
                 resetMainFormFields();
             }
             return updatedEntries;
         });
         showAlert('TR ADI ve tüm alt öğeleri başarıyla silindi!', 'success');
-    }, [showAlert, trAdi, resetMainFormFields]);
+        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+    }, [showAlert, selectedTrafo, resetMainFormFields]);
 
     const handleLoadSubEntryForEdit = useCallback((subEntry: WorkDetailSubEntry) => {
-        const parentTrAdi = registeredWorkEntries.find(row => row.id === subEntry.trAdiParentId)?.trAdi;
+        const parentTrAdi = registeredWorkEntries.find(row => row.id === subEntry.trAdiParentId);
         if (parentTrAdi) {
-            setTrAdi(parentTrAdi);
-            setTrAdiRegistered(true);
+            setTrAdi(parentTrAdi.trAdi);
+            setSelectedTrafo(parentTrAdi);
         } else {
             setTrAdi('');
-            setTrAdiRegistered(false);
+            setSelectedTrafo(null);
         }
         const product = allProductTypesFromAPI.find(p => p.name === subEntry.dn);
         setSelectedProduct(product || null);
@@ -1098,23 +1073,19 @@ const NetworkDetails = () => {
         }
         setLoadingRegisterButton(true);
 
-        // ✅ NEW: We will create the updated sub-entry from the current state values
         const updatedSubEntry: WorkDetailSubEntry = {
-            ...editingSubEntry!, // Use editingSubEntry as the base
+            ...editingSubEntry!,
             dn: selectedProduct ? selectedProduct.name : '',
             yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
             dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
             mevcut: selectedRadioOption === 'mevcut' ? selectedValue : '',
-            itemDetails: itemsToRegister, // Use the latest items from state
+            itemDetails: itemsToRegister,
         };
 
         setRegisteredWorkEntries(prevEntries => {
             const updatedEntries = prevEntries.map(row => {
                 if (row.id === updatedSubEntry.trAdiParentId) {
-                    // Find the index of the sub-entry to update
                     const subEntryIndex = row.subEntries.findIndex(sub => sub.id === updatedSubEntry.id);
-
-                    // If it's a valid index and not the total row
                     if (subEntryIndex !== -1 && !row.subEntries[subEntryIndex]?.isToplamRow) {
                         const newSubEntries = [...row.subEntries];
                         newSubEntries[subEntryIndex] = updatedSubEntry;
@@ -1129,7 +1100,7 @@ const NetworkDetails = () => {
         showAlert('Alt öğe başarıyla güncellendi!', 'success');
         resetMainFormFields();
         setLoadingRegisterButton(false);
-
+        setHasUnsavedChanges(true); // ✅ ثبت تغییر
     }, [
         editingSubEntry,
         selectedProduct,
@@ -1159,55 +1130,46 @@ const NetworkDetails = () => {
             if (editingSubEntry && editingSubEntry.id === subEntryId) {
                 resetMainFormFields();
                 setTrAdi('');
-                setTrAdiRegistered(false);
+                setSelectedTrafo(null);
             } else if (updatedEntries.length === 0) {
                 setTrAdi('');
-                setTrAdiRegistered(false);
+                setSelectedTrafo(null);
                 resetMainFormFields();
             }
             return updatedEntries;
         });
         showAlert('Alt öğe başarıyla silindi!', 'success');
-    }, [showAlert, editingSubEntry, resetMainFormFields, trAdi, updateToplamRow]);
+        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+    }, [showAlert, editingSubEntry, resetMainFormFields, updateToplamRow]);
 
     const handleTrAdiEditedInTable = useCallback((trAdiId: string, trAdiName: string) => {
         const currentTrAdiRow = registeredWorkEntries.find(row => row.id === trAdiId);
         if (currentTrAdiRow) {
             setTrAdi(trAdiName);
-            setTrAdiRegistered(true);
+            setSelectedTrafo({ ...currentTrAdiRow, trAdi: trAdiName });
         }
-    }, [setTrAdi, setTrAdiRegistered, registeredWorkEntries]);
+    }, [setTrAdi, registeredWorkEntries]);
 
     const filteredProductTypes = useMemo(() => {
-        // مرحله اول: تعیین نوع داده مورد نیاز (type 0 یا type 1)
-        const requiredType = registeredWorkEntries.length > 0 && trAdiRegistered ? 1 : 0;
-
-        // مرحله دوم: فیلتر کردن لیست اصلی بر اساس type
+        const requiredType = selectedTrafo ? 1 : 0;
         const filteredByType = allProductTypesFromAPI.filter(
             productType => productType.type === requiredType
         );
-
-        // مرحله سوم: شناسایی D.N های ثبت‌شده در جدول
         const registeredDnNames = new Set<string>();
-        registeredWorkEntries.forEach(trAdiRow => {
-            trAdiRow.subEntries.forEach(sub => {
+        const currentTrafo = selectedTrafo || registeredWorkEntries.find(row => row.trAdi === trAdi);
+        if (currentTrafo) {
+            currentTrafo.subEntries.forEach(sub => {
                 if (!sub.isToplamRow) {
                     registeredDnNames.add(sub.dn);
                 }
             });
-        });
-
-        // مرحله چهارم: فیلتر کردن D.N های ثبت‌شده از لیست کمبو
+        }
         return filteredByType.filter(productType => {
             const isRegistered = registeredDnNames.has(productType.name);
             const isEditingThisOne = isEditingSubEntry && editingSubEntry?.dn === productType.name;
-
-            // اگر در حال ویرایش هستیم، اجازه می‌دهیم آیتم فعلی نمایش داده شود
             if (isEditingThisOne) {
                 return true;
             }
-
-            // اگر ثبت شده است، آن را حذف کن (در هر دو حالت)
             return !isRegistered;
         });
     }, [
@@ -1215,7 +1177,8 @@ const NetworkDetails = () => {
         registeredWorkEntries,
         isEditingSubEntry,
         editingSubEntry,
-        trAdiRegistered,
+        selectedTrafo,
+        trAdi,
     ]);
 
     const transformToApiFormat = useCallback(() => {
@@ -1333,7 +1296,6 @@ const NetworkDetails = () => {
     }, [networkId, registeredWorkEntries, allProductTypesFromAPI, showAlert]);
 
     const handleSendAllRegisteredData = async () => {
-        debugger
         clearAlert();
         if (registeredWorkEntries.length === 0) {
             showAlert('Sunucuya gönderilecek kayıtlı iş detayı bulunmamaktadır.', 'warning');
@@ -1366,6 +1328,7 @@ const NetworkDetails = () => {
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Tüm kayıtlar başarıyla sunucuya gönderildi ve güncellendi!', 'success');
+                setHasUnsavedChanges(false); // ✅ بازنشانی وضعیت تغییرات بعد از ثبت موفق
             } else {
                 showAlert(response.data.message || 'Kayıtlar sunucuya gönderilirken bir hata oluştu.', 'error');
             }
@@ -1382,8 +1345,6 @@ const NetworkDetails = () => {
         }
     };
 
-    // ... سایر import ها و کدها ...
-
     const handleExportExcel = useCallback(() => {
         if (registeredWorkEntries.length === 0) {
             showAlert('Dışa aktarılacak kayıtlı iş detayı bulunmamaktadır.', 'warning');
@@ -1393,7 +1354,6 @@ const NetworkDetails = () => {
         showAlert('Excel dışa aktarılıyor...', 'info');
 
         try {
-            // 1. تمام آیتم‌های یکتا از کل جدول را جمع‌آوری می‌کنیم.
             const allUniqueItems = new Set<string>();
             registeredWorkEntries.forEach(trAdiRow => {
                 trAdiRow.subEntries.forEach(subEntry => {
@@ -1404,7 +1364,6 @@ const NetworkDetails = () => {
             });
             const uniqueItemNames = Array.from(allUniqueItems);
 
-            // 2. هدرهای ستون‌ها را می‌سازیم.
             const header = [
                 'TR ADI',
                 'D.N',
@@ -1414,7 +1373,6 @@ const NetworkDetails = () => {
                 ...uniqueItemNames
             ];
 
-            // 3. داده‌های جدول را برای اکسپورت آماده می‌کنیم، شامل ردیف‌های "TOPLAM" موجود
             const dataRows: any[] = [];
             registeredWorkEntries.forEach(trAdiRow => {
                 const trAdiTitle = trAdiRow.trAdi;
@@ -1429,7 +1387,6 @@ const NetworkDetails = () => {
                         'MEVCUT': subEntry.mevcut
                     };
 
-                    // مقادیر آیتم‌های پویا را اضافه می‌کنیم.
                     uniqueItemNames.forEach(itemName => {
                         const item = subEntry.itemDetails.find(d => d.name === itemName);
                         row[itemName] = item ? parseFloat(item.value) : '';
@@ -1440,10 +1397,8 @@ const NetworkDetails = () => {
                 });
             });
 
-            // 4. ساخت ورک‌شیت و ورک‌بوک
             const ws = XLSX.utils.json_to_sheet(dataRows, { header: header });
 
-            // تنظیمات عرض ستون‌ها
             const columnWidths = [
                 { wch: 20 }, // TR ADI
                 { wch: 20 }, // D.N
@@ -1454,7 +1409,6 @@ const NetworkDetails = () => {
             ];
             ws['!cols'] = columnWidths;
 
-            // 5. ایجاد و دانلود فایل اکسل
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'WorkDetails');
 
@@ -1473,14 +1427,20 @@ const NetworkDetails = () => {
             window.URL.revokeObjectURL(url);
 
             showAlert('Excel başarıyla dışa aktarıldı!', 'success');
-
         } catch (error: any) {
             console.error("Excel dışa aktarılırken hata:", error);
             showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
     }, [registeredWorkEntries, showAlert]);
 
-    // ✅ اضافه شده: نمایش بارگذاری اولیه داده‌ها
+    const handleSelectTrafo = useCallback((trafo: WorkDetailRow) => {
+        setSelectedTrafo(trafo);
+        setTrAdi(trafo.trAdi);
+        resetMainFormFields();
+        setOpenTrafoSelectionModal(false);
+        showAlert(`'${trafo.trAdi}' adlı trafo başarıyla seçildi. Artık bu trafo için alt öğe ekleyebilirsiniz.`, 'success');
+    }, [showAlert, resetMainFormFields]);
+
     if (loadingData || loadingProductTypes || loadingItemsForWorkItemForm || loadingExcelTemplate || loadingFileUpload) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" height="80vh">
@@ -1492,6 +1452,15 @@ const NetworkDetails = () => {
 
     return (
         <>
+            <style>
+                {`
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+    `}
+            </style>
             <div style={{
                 borderBottom: "1px solid",
                 margin: "10px 0 30px 0",
@@ -1509,6 +1478,16 @@ const NetworkDetails = () => {
                                     İş Detayları:
                                 </Typography>
                                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                                    {registeredWorkEntries.length > 1 && (
+                                        <Button
+                                            variant="outlined"
+                                            color="secondary"
+                                            onClick={() => setOpenTrafoSelectionModal(true)}
+                                            startIcon={<IconBuildingArch />}
+                                        >
+                                            Trafo Seç
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="contained"
                                         color="primary"
@@ -1550,11 +1529,13 @@ const NetworkDetails = () => {
                                         </Button>
                                     </CustomTooltip>
                                 </Stack>
-                                {/* <CustomFormLabel>Yeni Öğeleri Kaydet</CustomFormLabel> */}
                             </Stack>
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="tr-adi" required>TR ADI</CustomFormLabel>
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
+                                <CustomFormLabel htmlFor="tr-adi" required>TR ADI</CustomFormLabel>
+
+                            </Stack>
                             <TextField
                                 id="tr-adi"
                                 placeholder="TR ADI"
@@ -1563,9 +1544,9 @@ const NetworkDetails = () => {
                                 onChange={(e) => setTrAdi(e.target.value)}
                                 variant="outlined"
                                 size="small"
-                                disabled={trAdiRegistered && !isEditingSubEntry}
+                                disabled={selectedTrafo !== null}
                             />
-                            {trAdiRegistered && !isEditingSubEntry && (
+                            {selectedTrafo && (
                                 <Button
                                     variant="outlined"
                                     color="secondary"
@@ -1726,7 +1707,6 @@ const NetworkDetails = () => {
                         <Grid item xs={12}>
                             <NetworkItemInputForm
                                 availableItems={filteredItemsForWorkItemForm}
-                                // availableItems={itemsListForWorkItemForm}
                                 onAddItem={handleAddItemToRegister}
                                 itemsToRegister={itemsToRegister}
                                 onRemoveItem={handleRemoveItemToRegister}
@@ -1865,14 +1845,27 @@ const NetworkDetails = () => {
                                     </Button>
                                 )}
                                 {registeredWorkEntries.length > 0 && (
-                                    <Button
-                                        variant="contained"
-                                        color="success"
-                                        onClick={handleSendAllRegisteredData}
-                                        disabled={loadingRegisterButton}
-                                    >
-                                        Tüm Kayıtları Gönder
-                                    </Button>
+                                    // ✅ دکمه به همراه تولتیپ و انیمیشن
+
+
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yapılan tüm değişiklikleri sunucuya kaydetmek için tıklayın." : ""}>
+                                        <Button
+                                            variant="contained"
+                                            color="success"
+                                            onClick={handleSendAllRegisteredData}
+                                            disabled={loadingRegisterButton}
+                                            sx={{
+                                                ...(hasUnsavedChanges && {
+                                                    animation: 'pulse-red 2s infinite',
+                                                    backgroundColor: 'red', // یا رنگ دلخواه دیگر
+                                                })
+                                            }}
+                                        >
+                                            Tüm Kayıtları Gönder
+                                        </Button>
+
+                                    </CustomTooltip>
+
                                 )}
                             </Stack>
                         </Grid>
@@ -1952,6 +1945,30 @@ const NetworkDetails = () => {
                 initialData={initialItemModalData}
                 showAlert={showAlert}
             />
+
+            <Dialog
+                open={openTrafoSelectionModal}
+                onClose={() => setOpenTrafoSelectionModal(false)}
+                aria-labelledby="trafo-selection-modal-title"
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle id="trafo-selection-modal-title">Trafo Seç</DialogTitle>
+                <DialogContent dividers>
+                    <List>
+                        {registeredWorkEntries.filter(row => row.trAdi.toUpperCase() !== 'TOPLAM').map(trafo => (
+                            <ListItem key={trafo.id} disablePadding>
+                                <ListItemButton onClick={() => handleSelectTrafo(trafo)}>
+                                    <ListItemText primary={trafo.trAdi} />
+                                </ListItemButton>
+                            </ListItem>
+                        ))}
+                    </List>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenTrafoSelectionModal(false)}>İptal</Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

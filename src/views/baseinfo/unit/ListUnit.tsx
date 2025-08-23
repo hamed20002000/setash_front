@@ -539,7 +539,9 @@ const ListUnit = () => {
             <CustomTextField
               id="unit-name"
               placeholder="Ölçü Adı"
-              fullWidth
+
+              sx={{ width: '100%' }}
+              size="small"
               value={name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setName(e.target.value);

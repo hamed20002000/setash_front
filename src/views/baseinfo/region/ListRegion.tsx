@@ -755,11 +755,13 @@ const ListRegion = () => {
                             İsim
                         </CustomFormLabel>
                     </Grid>
-                    <Grid item xs={12} sm={5}>
+                    <Grid item xs={12} sm={7}>
                         <CustomTextField
                             id="region-name"
                             placeholder={currentParentRegion ? "Şehir Adı" : "Bölge Adı"}
-                            fullWidth
+
+                            sx={{ width: '100%' }}
+                            size="small"
                             value={name}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                 setName(e.target.value);
@@ -774,7 +776,7 @@ const ListRegion = () => {
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={4}>
                         <Stack direction="row" spacing={1} justifyContent="flex-end">
                             {editingId !== null ? (
                                 <>

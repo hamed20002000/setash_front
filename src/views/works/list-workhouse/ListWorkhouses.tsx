@@ -670,7 +670,9 @@ const ListWorkhouses = () => {
                             <CustomTextField
                                 id="workhouse-name"
                                 placeholder="Şantiye Adı"
-                                fullWidth
+
+                                sx={{ width: '100%' }}
+                                size="small"
                                 value={name}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     setName(e.target.value);
@@ -686,7 +688,9 @@ const ListWorkhouses = () => {
                             <CustomTextField
                                 id="workhouse-code"
                                 placeholder="Şantiye Kodu"
-                                fullWidth
+
+                                sx={{ width: '100%' }}
+                                size="small"
                                 value={code}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     setCode(e.target.value);
@@ -698,7 +702,9 @@ const ListWorkhouses = () => {
                         </Grid>
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                            <FormControl fullWidth error={regionIdError}>
+                            <FormControl
+                                sx={{ width: '100%' }}
+                                size="small" error={regionIdError}>
                                 <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
                                 <Select
                                     labelId="select-region-label"

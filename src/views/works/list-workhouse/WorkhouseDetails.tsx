@@ -594,28 +594,32 @@ const WorkhouseDetails = () => {
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" mb={2}>Genel Bilgiler</Typography>
                 <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <CustomFormLabel htmlFor="workhouse-owner" required>
                             Sahibi
                         </CustomFormLabel>
                         <CustomTextField
                             id="workhouse-owner"
                             placeholder="Sahip Adı"
-                            fullWidth
+
+                            size="small"
+                            sx={{ width: '100%' }}
                             value={owner}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOwner(e.target.value)}
                             error={ownerError}
                             helperText={ownerError ? "Bu alan zorunludur." : ""}
                         />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <CustomFormLabel htmlFor="workhouse-price" required>
                             Kirası
                         </CustomFormLabel>
                         <CustomTextField
                             id="workhouse-price"
                             placeholder="Kirası"
-                            fullWidth
+
+                            size="small"
+                            sx={{ width: '100%' }}
                             type="number"
                             value={price}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrice(Number(e.target.value))}
@@ -625,9 +629,9 @@ const WorkhouseDetails = () => {
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                            <CustomFormLabel htmlFor="start-date" required>
                                 Kira Başlangıç Tarihi
                             </CustomFormLabel>
                             <DatePicker
@@ -648,7 +652,9 @@ const WorkhouseDetails = () => {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        fullWidth
+
+                                        size="small"
+                                        sx={{ width: '100%' }}
                                         error={startDateError}
                                         helperText={startDateError ? "Başlangıç tarihi boş olamaz!" : formErrors || ""}
                                     />
@@ -657,9 +663,9 @@ const WorkhouseDetails = () => {
                         </LocalizationProvider>
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                            <CustomFormLabel htmlFor="end-date" required>
                                 Kira Bitiş Tarihi
                             </CustomFormLabel>
                             <DatePicker
@@ -680,7 +686,9 @@ const WorkhouseDetails = () => {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        fullWidth
+
+                                        size="small"
+                                        sx={{ width: '100%' }}
                                         error={endDateError}
                                         helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
                                     />

@@ -328,6 +328,9 @@ const ExcelImportComponent = () => {
         else if (field === 'quantity') {
             const numericValue = parseFloat(value);
             updatedItem.quantity = isNaN(numericValue) ? 0 : numericValue;
+        } else if (field === 'price') {
+            const numericValue = parseFloat(value);
+            updatedItem.price = isNaN(numericValue) ? 0 : numericValue; // ✅ اگر NaN بود، 0 را ذخیره کن
         }
         // اگر فیلد دیگری تغییر کرد
         else {
@@ -494,7 +497,7 @@ const ExcelImportComponent = () => {
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String((item.quantity).toFixed(2))),
-                price: String(item.price) == "" ? "0.00" : parseFloat(String(item.price)).toFixed(2),
+                price: String(item.price) == "" || item.price == undefined ? "0.00" : parseFloat(String(item.price)).toFixed(2),
                 description: item.description
             }))
         };
@@ -531,7 +534,7 @@ const ExcelImportComponent = () => {
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String(item.quantity)),
-                price: item.price,
+                price: String(item.price) == "" || item.price == undefined ? "0.00" : parseFloat(String(item.price)).toFixed(2),
                 description: item.description
             }))
         };
@@ -575,23 +578,34 @@ const ExcelImportComponent = () => {
 
     const handleEditClick = (row: OrderType) => {
         setEditingId(row.id);
-        const selectedNetwork = networks.find(net => net.title === row.network.title);
-        if (selectedNetwork) {
-            setNetwork(selectedNetwork.id);
-            setSelectedWork(selectedNetwork.work);
+
+        // ✅ بررسی وجود row.network قبل از دسترسی به ویژگی‌های آن
+        if (row.network) {
+            const selectedNetwork = networks.find(net => net.title === row.network.title);
+            if (selectedNetwork) {
+                setNetwork(selectedNetwork.id);
+                setSelectedWork(selectedNetwork.work);
+            }
+        } else {
+            // ✅ در صورتی که network وجود ندارد، وضعیت‌ها را به حالت پیش‌فرض برگردانید یا مطابق نیاز مدیریت کنید
+            setNetwork('');
+            setSelectedWork(null);
         }
+
         setDocDate(new Date(row.docDate));
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
+            const priceValue = detail.price !== null && !isNaN(Number(detail.price)) ? Number(detail.price) : 0;
+
             return {
                 id: detail.id,
-                item: fullItem ? fullItem.id : '', // ✅ ID آیتم را ذخیره کنید
+                item: fullItem ? fullItem.id : '',
                 quantity: detail.quantity,
                 description: detail.description,
-                isEditing: false, // ✅ حتماً این را روی true تنظیم کنید تا ویرایش شود
+                isEditing: false, // ✅ این باید true باشد تا امکان ویرایش فراهم شود
                 unit: fullItem ? fullItem.unit : undefined,
                 isRegistered: true,
-                price: detail.price
+                price: priceValue
             };
         });
         setOrderItems(itemsToEdit);
@@ -722,6 +736,23 @@ const ExcelImportComponent = () => {
     const sortedAndFilteredOrders = stableSort(filteredOrders, getComparator(order, orderBy));
     const paginatedOrders = sortedAndFilteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+    const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+        if (priceInput === null || priceInput === undefined) {
+            return '₺0.00';
+        }
+        const cleanedString = String(priceInput).replace(/[$,]/g, '');
+        const numericValue = parseFloat(cleanedString);
+        if (isNaN(numericValue)) {
+            return '₺0.00';
+        }
+        const formattedPrice = numericValue.toLocaleString('en-US', {
+            style: 'currency',
+            currency: 'USD',
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+        return formattedPrice.replace('$', '₺');
+    };
 
     return (
         <Box>
@@ -733,8 +764,8 @@ const ExcelImportComponent = () => {
             <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
                 <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                    <Grid item xs={12} md={8}>
+                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
                             Şebeke
                         </CustomFormLabel>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -745,14 +776,14 @@ const ExcelImportComponent = () => {
                                     setNetwork(newValue ? newValue.id : ''); setSelectedWork(newValue ? newValue.work : null);
                                     if (networkError && newValue) setNetworkError(false);
                                 }} renderInput={(params) => (
-                                    <TextField {...params} label="Şebeke Seçin" variant="outlined" fullWidth error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
+                                    <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
                                     />
                                 )} sx={{ flexGrow: 1 }}
                             />
                             {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
                         </Box>
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={4}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Tarihi
@@ -766,7 +797,7 @@ const ExcelImportComponent = () => {
                                 inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
                                     <TextField {...params}
-                                        fullWidth error={docDateError}
+                                        size="small" error={docDateError}
                                         helperText={docDateError ? "Başlangıç tarihi boş olamaz!" : ""} />
                                 )}
                             />
@@ -919,7 +950,7 @@ const ExcelImportComponent = () => {
                                                 {row.status === 0 && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
                                                 {row.status === 1 && <CheckCircleOutlineIcon color="success" fontSize="small" />}
                                                 {row.status === 2 && <HighlightOffIcon color="error" fontSize="small" />}
-                                                <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 0 ? "Onaylandı" : "Reddedildi"}</Typography>
+                                                <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}</Typography>
                                             </Stack>
                                         </TableCell>
                                         <TableCell>
@@ -991,7 +1022,7 @@ const ExcelImportComponent = () => {
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
                                                     <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
                                                         <ListItemIcon><IconTrash size={18} /></ListItemIcon>
-                                                        Sil
+                                                        Silmek
                                                     </MenuItem>
                                                 </CustomTooltip>
 
@@ -1056,7 +1087,7 @@ const ExcelImportComponent = () => {
                                         <TableCell>{detail.quantity}</TableCell>
                                         <TableCell>{detail.item.unit.title}</TableCell>
                                         <TableCell> <Typography>{stripHtml(detail.description)}</Typography></TableCell>
-                                        <TableCell>{detail.price}</TableCell>
+                                        <TableCell>{cleanAndFormatPrice(detail.price)}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>

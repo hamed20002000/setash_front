@@ -421,7 +421,6 @@ const ListWarehouses = () => {
         } else {
             setAddressError(false);
         }
-        // ✅ از state جدید برای بررسی استفاده می‌کنیم
         if (!selectedRegionId) {
             setRegionIdError(true);
             isValid = false;
@@ -676,7 +675,8 @@ const ListWarehouses = () => {
                             <CustomTextField
                                 id="Warehouse-name"
                                 placeholder="depo Adı"
-                                fullWidth
+
+                                size="small"
                                 value={name}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     setName(e.target.value);
@@ -685,6 +685,8 @@ const ListWarehouses = () => {
                                 inputRef={nameInputRef}
                                 error={nameError}
                                 helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
+
+                                sx={{ width: '100%' }}
                             />
                         </Grid>
                         <Grid item xs={12} sm={4}>
@@ -692,7 +694,8 @@ const ListWarehouses = () => {
                             <CustomTextField
                                 id="Warehouse-code"
                                 placeholder="depo Kodu"
-                                fullWidth
+
+                                size="small"
                                 value={code}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     setCode(e.target.value);
@@ -700,11 +703,14 @@ const ListWarehouses = () => {
                                 }}
                                 error={codeError}
                                 helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
+                                sx={{ width: '100%' }}
                             />
                         </Grid>
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                            <FormControl fullWidth error={regionIdError}>
+                            <FormControl
+                                size="small" error={regionIdError}
+                                sx={{ width: '100%' }}>
                                 <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
                                 <Select
                                     labelId="select-region-label"
@@ -736,7 +742,7 @@ const ListWarehouses = () => {
                             </FormControl>
                         </Grid>
                         <Grid item xs={12} sm={12}>
-                            <CustomFormLabel htmlFor="Warehouse-address">Adres</CustomFormLabel>
+                            <CustomFormLabel htmlFor="Warehouse-address" required>Adres</CustomFormLabel>
                             <CustomTextField
                                 id="Warehouse-address"
                                 placeholder="depo Adresi"

@@ -627,7 +627,7 @@ const ListWorks = () => {
                     {editingId ? 'İşi Düzenle' : 'Yeni İş Kaydı'}
                 </Typography>
                 <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             İhale Seç
                         </CustomFormLabel>
@@ -635,12 +635,15 @@ const ListWorks = () => {
                             <Typography variant="body1" sx={{
                                 border: '1px solid #ccc',
                                 borderRadius: '4px',
-                                padding: '12px 14px',
+                                padding: '6px 14px',
                                 backgroundColor: '#f5f5f5',
                                 color: 'text.secondary',
                                 width: '100%',
                                 boxSizing: 'border-box'
-                            }}>
+
+                            }}
+
+                            >
                                 {selectedTenderOption ? selectedTenderOption.title : 'İhale Seçilmedi'}
                             </Typography>
                         ) : (
@@ -656,6 +659,8 @@ const ListWorks = () => {
                                         setTenderIdError(false);
                                     }
                                 }}
+
+                                size="small"
                                 isOptionEqualToValue={(option, value) => option.id === value.id}
                                 renderInput={(params) => (
                                     <TextField
@@ -669,14 +674,16 @@ const ListWorks = () => {
                             />
                         )}
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <CustomFormLabel htmlFor="work-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                             İş Başlığı
                         </CustomFormLabel>
                         <CustomTextField
                             id="work-title"
                             placeholder="İş Başlığı"
-                            fullWidth
+                            sx={{ width: '100%' }}
+
+                            size="small"
                             value={title}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                 setTitle(e.target.value);
@@ -690,7 +697,7 @@ const ListWorks = () => {
                         />
                     </Grid>
 
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Başlangıç Tarihi
@@ -713,7 +720,9 @@ const ListWorks = () => {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        fullWidth
+                                        sx={{ width: '100%' }}
+
+                                        size="small"
                                         error={startDateError}
                                         helperText={startDateError ? "Başlangıç tarihi boş olamaz!" : ""}
                                     />
@@ -721,7 +730,7 @@ const ListWorks = () => {
                             />
                         </LocalizationProvider>
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Bitiş Tarihi
@@ -744,7 +753,9 @@ const ListWorks = () => {
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
-                                        fullWidth
+
+                                        size="small"
+                                        sx={{ width: '100%' }}
                                         error={endDateError}
                                         helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
                                     />

@@ -1124,7 +1124,7 @@ const ListTransmission = () => {
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
                         <Chip
-                            label={`Ağ: ${networkTitleForDisplay}`}
+                            label={`Şebeke: ${networkTitleForDisplay}`}
                             color="primary"
                             variant="filled"
                             size="small"

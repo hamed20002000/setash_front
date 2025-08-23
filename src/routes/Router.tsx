@@ -26,6 +26,8 @@ const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/list-wareh
 const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
 const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/ListDrivers')));
 const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
+const ListInvoices = Loadable(lazy(() => import('../views/warehouse/list-invoice/ListInvoices')));
+const ListReceipt = Loadable(lazy(() => import('../views/warehouse/list-receipt/ListReceipt')));
 
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
@@ -70,6 +72,8 @@ const Router = [
       { path: '/order/list-order/', element: <ListOrders /> },
       { path: '/driver/list-driver/', element: <ListDrivers /> },
       { path: '/provider/list-provider/', element: <ListProviders /> },
+      { path: '/invoice/list-invoice/', element: <ListInvoices /> },
+      { path: '/receipt/list-receipt/', element: <ListReceipt /> },
 
       { path: '*', element: <Navigate to="/auth/404" /> },
     ],
