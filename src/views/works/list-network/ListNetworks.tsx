@@ -1,7 +1,7 @@
 // src/views/networks/ListNetwork.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -26,6 +26,8 @@ import DeleteNetwork from './DeleteNetwork';
 
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
+
+import { useAuth } from 'src/context/AuthContext';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -107,6 +109,20 @@ const ListNetwork = () => {
     const [networkTitleToDelete, setNetworkTitleToDelete] = useState<string>('');
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
 
 
     useEffect(() => {
@@ -553,99 +569,109 @@ const ListNetwork = () => {
                     </Button>
                 </CustomTooltip>
             </Box>
-            <Box component="div" sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", mb: 2 }}>
-                {/* <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography> */}
-                <form>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="network-name" required>Şebeke Adı:</CustomFormLabel>
-                            <CustomTextField
-                                id="network-name"
-                                name="title"
-                                placeholder="Şebeke Adı"
-                                fullWidth
-                                value={newNetworkData.title}
-                                onChange={handleNetworkNameChange}
-                                required
-                                size="small"
-                                sx={{ mb: 1 }}
-                                inputRef={networkTitleInputRef}
-                                error={titleError}
-                                helperText={titleError ? "Şebeke adı boş olamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="network-description">Açıklama:</CustomFormLabel>
-                            <ReactQuill
-                                theme="snow"
-                                value={newNetworkData.description}
-                                onChange={handleDescriptionChange}
-                                style={{
-                                    height: '150px',
-                                    marginBottom: '20px',
-                                    border: descriptionError ? '1px solid red' : undefined
-                                }}
-                            />
-                            {descriptionError && (
-                                <Typography color="error" variant="caption" sx={{ mt: -2, display: 'block' }}>
-                                    Açıklama boş olamaz!
-                                </Typography>
-                            )}
-                        </Grid>
-                        <Grid item xs={12} sx={{ mt: { xs: 5, sm: 2 } }}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <input type="hidden" name="workId" value={newNetworkData.workId} />
-                                {editingId ? (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke güncelle" : ""}>
-                                            <Button
-                                                variant="contained"
-                                                color="info"
-                                                onClick={editNetwork}
-                                                disabled={loadingButton}
-                                            >
-                                                {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Güncelle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Düzenlemeyi iptal et ve yeni kayıt moduna dön" : ""}>
-                                            <Button
-                                                variant="outlined"
-                                                color="secondary"
-                                                onClick={resetFormAndState}
-                                                disabled={loadingButton}
-                                                sx={{ ml: 2 }}
-                                            >
-                                                İptal Et
-                                            </Button>
-                                        </CustomTooltip>
-                                    </>
-                                ) : (
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke kaydet" : ""}>
-                                        <Button
-                                            variant="contained"
-                                            color="primary"
-                                            onClick={insertNetwork}
-                                            disabled={loadingButton}
-                                        >
-                                            {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
-                                        </Button>
-                                    </CustomTooltip>
+
+            {(hasCreatePermission || hasEditPermission) && (
+                <Box component="div" sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", mb: 2 }}>
+                    {/* <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography> */}
+                    <form>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6}>
+                                <CustomFormLabel htmlFor="network-name" required>Şebeke Adı:</CustomFormLabel>
+                                <CustomTextField
+                                    id="network-name"
+                                    name="title"
+                                    placeholder="Şebeke Adı"
+                                    fullWidth
+                                    value={newNetworkData.title}
+                                    onChange={handleNetworkNameChange}
+                                    required
+                                    size="small"
+                                    sx={{ mb: 1 }}
+                                    inputRef={networkTitleInputRef}
+                                    error={titleError}
+                                    helperText={titleError ? "Şebeke adı boş olamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="network-description">Açıklama:</CustomFormLabel>
+                                <ReactQuill
+                                    theme="snow"
+                                    value={newNetworkData.description}
+                                    onChange={handleDescriptionChange}
+                                    style={{
+                                        height: '150px',
+                                        marginBottom: '20px',
+                                        border: descriptionError ? '1px solid red' : undefined
+                                    }}
+                                />
+                                {descriptionError && (
+                                    <Typography color="error" variant="caption" sx={{ mt: -2, display: 'block' }}>
+                                        Açıklama boş olamaz!
+                                    </Typography>
                                 )}
-                            </Stack>
+                            </Grid>
+                            <Grid item xs={12} sx={{ mt: { xs: 5, sm: 2 } }}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                    <input type="hidden" name="workId" value={newNetworkData.workId} />
+                                    {editingId ? (
+                                        <>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke güncelle" : ""}>
+                                                <Button
+                                                    variant="contained"
+                                                    color="info"
+                                                    onClick={editNetwork}
+                                                    disabled={loadingButton}
+                                                >
+                                                    {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Güncelle'}
+                                                </Button>
+                                            </CustomTooltip>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Düzenlemeyi iptal et ve yeni kayıt moduna dön" : ""}>
+                                                <Button
+                                                    variant="outlined"
+                                                    color="secondary"
+                                                    onClick={resetFormAndState}
+                                                    disabled={loadingButton}
+                                                    sx={{ ml: 2 }}
+                                                >
+                                                    İptal Et
+                                                </Button>
+                                            </CustomTooltip>
+                                        </>
+                                    ) : (
+
+                                        <>
+                                            {hasCreatePermission && (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke kaydet" : ""}>
+                                                    <Button
+                                                        variant="contained"
+                                                        color="primary"
+                                                        onClick={insertNetwork}
+                                                        disabled={loadingButton}
+                                                    >
+                                                        {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
+                                                    </Button>
+                                                </CustomTooltip>
+
+                                            )}
+                                        </>
+                                    )}
+                                </Stack>
+                            </Grid>
                         </Grid>
-                    </Grid>
-                </form>
-                {alertMessage && (
-                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                        <Alert severity={alertSeverity}>{alertMessage}</Alert>
-                    </Stack>
-                )}
-                {formErrors && (
-                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                        <Alert severity="error">{formErrors}</Alert>
-                    </Stack>
-                )}
-            </Box>
+                    </form>
+                    {alertMessage && (
+                        <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                            <Alert severity={alertSeverity}>{alertMessage}</Alert>
+                        </Stack>
+                    )}
+                    {formErrors && (
+                        <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                            <Alert severity="error">{formErrors}</Alert>
+                        </Stack>
+                    )}
+                </Box>
+
+            )}
             <Box sx={{ p: 2, mt: 4 }}>
                 <Typography variant="h5" mb={2}>Mevcut Şebeke</Typography>
                 <Grid container spacing={2} alignItems="center" mb={2}>
@@ -780,7 +806,7 @@ const ListNetwork = () => {
                                                     'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                 }}
                                             >
-                                                {selectedRowForMenu?.recordStatus === 0 ? (
+                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                     <>
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ağ için İletken İcmali" : ""}>
                                                             <MenuItem onClick={handleDefineTransmission}>
@@ -811,22 +837,27 @@ const ListNetwork = () => {
                                                     </CustomTooltip>
                                                 )}
 
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke düzenle" : ""}>
-                                                    <MenuItem onClick={handleEditClick}>
-                                                        <ListItemIcon>
-                                                            <IconEdit width={18} />
-                                                        </ListItemIcon>
-                                                        Düzenlemek
-                                                    </MenuItem>
-                                                </CustomTooltip>
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke sil" : ""}>
-                                                    <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                        <ListItemIcon>
-                                                            <IconTrash width={18} />
-                                                        </ListItemIcon>
-                                                        Silmek
-                                                    </MenuItem>
-                                                </CustomTooltip>
+                                                {hasEditPermission && (
+
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke düzenle" : ""}>
+                                                        <MenuItem onClick={handleEditClick}>
+                                                            <ListItemIcon>
+                                                                <IconEdit width={18} />
+                                                            </ListItemIcon>
+                                                            Düzenlemek
+                                                        </MenuItem>
+                                                    </CustomTooltip>
+                                                )}
+                                                {hasDeletePermission && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke sil" : ""}>
+                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                            <ListItemIcon>
+                                                                <IconTrash width={18} />
+                                                            </ListItemIcon>
+                                                            Silmek
+                                                        </MenuItem>
+                                                    </CustomTooltip>
+                                                )}
                                             </Menu>
                                         </TableCell>
                                     </TableRow>

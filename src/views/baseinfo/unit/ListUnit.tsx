@@ -1,7 +1,7 @@
 // ListUnit.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef } from "react"; // Added useRef here
+import React, { useEffect, useState, useRef, useMemo } from "react"; // Added useRef here
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -28,6 +28,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
   if (!dateString) return "N/A";
@@ -168,6 +169,19 @@ const ListUnit = () => {
   // **New states for input validation error**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
+
+  const { allowedOperations } = useAuth();
+  const hasCreatePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+  }, [allowedOperations]);
+
+  const hasEditPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+  }, [allowedOperations]);
+
+  const hasDeletePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+  }, [allowedOperations]);
 
 
   const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: UnitType) => {
@@ -529,74 +543,81 @@ const ListUnit = () => {
         margin: "10px 0 30px 0",
         padding: "10px 15px 30px 15px"
       }}>
-        <Grid container spacing={1}>
-          <Grid item xs={12} sm={1} display="flex" alignItems="center">
-            <CustomFormLabel htmlFor="unit-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-              İsim
-            </CustomFormLabel>
-          </Grid>
-          <Grid item xs={12} sm={7}>
-            <CustomTextField
-              id="unit-name"
-              placeholder="Ölçü Adı"
 
-              sx={{ width: '100%' }}
-              size="small"
-              value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setName(e.target.value);
-                if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
-                  setNameError(false); // Clear the error
-                  setNameHelperText(''); // Clear the helper text
-                }
-              }}
-              inputRef={unitNameInputRef}
-              error={nameError}
-              helperText={nameHelperText}
-            />
+        {(hasCreatePermission || hasEditPermission) && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} sm={1} display="flex" alignItems="center">
+              <CustomFormLabel htmlFor="unit-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                İsim
+              </CustomFormLabel>
+            </Grid>
+            <Grid item xs={12} sm={7}>
+              <CustomTextField
+                id="unit-name"
+                placeholder="Ölçü Adı"
+
+                sx={{ width: '100%' }}
+                size="small"
+                value={name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setName(e.target.value);
+                  if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
+                    setNameError(false); // Clear the error
+                    setNameHelperText(''); // Clear the helper text
+                  }
+                }}
+                inputRef={unitNameInputRef}
+                error={nameError}
+                helperText={nameHelperText}
+              />
+            </Grid>
+            <Grid item xs={12} sm={1}></Grid>
+            <Grid item xs={12} sm={3}>
+              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                {editingId !== null ? (
+                  <>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili Ölçüi güncelleyin" : ""}>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        onClick={editUnit}
+                        disabled={loadingButton}
+                      >
+                        {loadingButton ? <>
+                          <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                        </> : 'Düzenlemek'}
+                      </Button>
+                    </CustomTooltip>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Ölçü moduna dön" : ""}>
+                      <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                        İptal Et
+                      </Button>
+                    </CustomTooltip>
+                  </>
+                ) : (
+
+                  <>
+                    {hasCreatePermission && (
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Ölçü ekle" : ""}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={insertUnit}
+                          disabled={loadingButton}
+                        >
+                          {loadingButton ? <>
+                            <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                          </> : 'Yeni Ölçü Ekle'}
+                        </Button>
+                      </CustomTooltip>
+
+                    )}
+                  </>
+                )}
+              </Stack>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={1}></Grid>
-          <Grid item xs={12} sm={3}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              {editingId !== null ? (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili Ölçüi güncelleyin" : ""}>
-                    <Button
-                      variant="contained"
-                      color="info"
-                      onClick={editUnit}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Düzenlemek'}
-                    </Button>
-                  </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Ölçü moduna dön" : ""}>
-                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                      İptal Et
-                    </Button>
-                  </CustomTooltip>
-                </>
-              ) : (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Ölçü ekle" : ""}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={insertUnit}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Yeni Ölçü Ekle'}
-                    </Button>
-                  </CustomTooltip>
-                </>
-              )}
-            </Stack>
-          </Grid>
-        </Grid>
+        )}
         {alertMessage && (
           <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
             <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -761,7 +782,7 @@ const ListUnit = () => {
                           'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                         }}
                       >
-                        {selectedRowForMenu?.recordStatus === 0 ? (
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu Ölçüi pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
@@ -771,7 +792,9 @@ const ListUnit = () => {
                               Pasif Yap
                             </MenuItem>
                           </CustomTooltip>
-                        ) : (
+
+                        )}
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu Ölçüi aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
@@ -782,24 +805,28 @@ const ListUnit = () => {
                             </MenuItem>
                           </CustomTooltip>
                         )}
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu Ölçüi düzenle" : ""}>
-                          <MenuItem onClick={handleEditClick}>
-                            <ListItemIcon>
-                              <IconEdit width={18} />
-                            </ListItemIcon>
-                            Düzenlemek
-                          </MenuItem>
-                        </CustomTooltip>
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu Ölçüi sil" : ""}>
-                          <MenuItem onClick={handleClickOpenDeleteModal}>
-                            <ListItemIcon>
-                              <IconTrash width={18} />
-                            </ListItemIcon>
-                            Silmek
-                          </MenuItem>
-                        </CustomTooltip>
+                        {hasEditPermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu Ölçüi düzenle" : ""}>
+                            <MenuItem onClick={handleEditClick}>
+                              <ListItemIcon>
+                                <IconEdit width={18} />
+                              </ListItemIcon>
+                              Düzenlemek
+                            </MenuItem>
+                          </CustomTooltip>
+                        )}
+                        {hasDeletePermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu Ölçüi sil" : ""}>
+                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                              <ListItemIcon>
+                                <IconTrash width={18} />
+                              </ListItemIcon>
+                              Silmek
+                            </MenuItem>
+                          </CustomTooltip>
+                        )}
                       </Menu>
                     </TableCell>
                   </TableRow>

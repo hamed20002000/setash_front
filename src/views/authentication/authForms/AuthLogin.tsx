@@ -10,7 +10,7 @@ import {
   IconButton,
   Alert,
 } from '@mui/material';
-import {  useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import BoltIcon from '@mui/icons-material/Bolt';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
@@ -23,8 +23,10 @@ import CustomTextField from '../../../components/forms/theme-elements/CustomText
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import Logo from '../../../layouts/full/shared/logo/Logo';
 
+import server from 'src/assets/address.json';
 
-import { useAuth } from 'src/context/AuthContext'; 
+
+import { useAuth } from 'src/context/AuthContext';
 
 // Keyframes برای افکت "جریان الکتریکی" (بدون تغییر)
 const electricFlow = keyframes`
@@ -66,7 +68,7 @@ const ElectricEffect = styled('span')({
 const AuthLogin = ({ title, subtext }: loginType) => {
   const navigate = useNavigate();
 
-  const { loadAuthData } = useAuth(); // **loadAuthData را از useAuth دریافت کنید**
+  const { loadAuthData } = useAuth();
 
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -99,9 +101,8 @@ const AuthLogin = ({ title, subtext }: loginType) => {
     clearAlert();
 
     try {
-      const LOGIN_API_URL = 'https://setasportal.com/api/auth/login';
+      const LOGIN_API_URL = server.baseurl + server.login + 'login';
 
-      // استفاده از axios به جای fetch
       const response = await axios.post(
         LOGIN_API_URL,
         { username, password },
@@ -121,8 +122,8 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         debugger
         if (token) {
           localStorage.setItem('authToken', token); // ذخیره توکن
-          
-           loadAuthData(); 
+
+          loadAuthData();
           showAlert('Giriş başarılı!', 'success');
 
           navigate('/dashboards/dashboard'); // هدایت به صفحه اصلی یا داشبورد
@@ -136,10 +137,11 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         throw new Error(errorMessage);
       }
 
-    } catch (err: any) {debugger
-      
-      const errorMessage = (err.response?.data?.message=="Username or Password is not corrected!"?"Şifre veya Kullanıcı Adı yanlış!":"")
-       || (err.message=="Request failed with status code 400"?"Kullanıcı adınızı veya şifrenizi girin.":"") || 'Giriş sırasında beklenmeyen bir hata oluştu.';
+    } catch (err: any) {
+      debugger
+
+      const errorMessage = (err.response?.data?.message == "Username or Password is not corrected!" ? "Şifre veya Kullanıcı Adı yanlış!" : "")
+        || (err.message == "Request failed with status code 400" ? "Kullanıcı adınızı veya şifrenizi girin." : "") || 'Giriş sırasında beklenmeyen bir hata oluştu.';
       showAlert(errorMessage, 'error');
     } finally {
       setLoading(false);
@@ -153,7 +155,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         display: "flex",
         justifyContent: "start",
       }}>
-        <Logo/>
+        <Logo />
       </div>
       {title ? (
         <Typography fontWeight="700" variant="h3" mb={1}>
@@ -191,7 +193,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
               value={password}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
               InputProps={{
-              
+
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton

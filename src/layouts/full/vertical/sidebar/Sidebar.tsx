@@ -18,229 +18,229 @@ import { AppState } from 'src/store/Store';
 
 const Sidebar = () => {
 
-  const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up('lg'));
+    const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up('lg'));
 
-  const customizer = useSelector((state: AppState) => state.customizer);
+    const customizer = useSelector((state: AppState) => state.customizer);
 
-  const dispatch = useDispatch();
+    const dispatch = useDispatch();
 
-  const theme = useTheme();
+    const theme = useTheme();
 
-  const toggleWidth =
+    const toggleWidth =
 
-    customizer.isCollapse && !customizer.isSidebarHover
+        customizer.isCollapse && !customizer.isSidebarHover
 
-      ? customizer.MiniSidebarWidth
+            ? customizer.MiniSidebarWidth
 
-      : customizer.SidebarWidth;
+            : customizer.SidebarWidth;
 
 
 
-  const onHoverEnter = () => {
+    const onHoverEnter = () => {
 
-    if (customizer.isCollapse) {
+        if (customizer.isCollapse) {
 
-      dispatch(hoverSidebar(true));
+            dispatch(hoverSidebar(true));
 
-    }
+        }
 
-  };
+    };
 
 
 
-  const onHoverLeave = () => {
+    const onHoverLeave = () => {
 
-    dispatch(hoverSidebar(false));
+        dispatch(hoverSidebar(false));
 
-  };
+    };
 
 
 
-  if (lgUp) {
+    if (lgUp) {
 
-    return (
+        return (
 
-      <Box
+            <Box
 
-        sx={{
+                sx={{
 
-          width: toggleWidth,
+                    width: toggleWidth,
 
-          flexShrink: 0,
+                    flexShrink: 0,
 
-          ...(customizer.isCollapse && {
+                    ...(customizer.isCollapse && {
 
-            position: 'absolute',
+                        position: 'absolute',
 
-          }),
+                    }),
 
-        }}
+                }}
 
-      >
+            >
 
-        {/* ------------------------------------------- */}
+                {/* ------------------------------------------- */}
 
-        {/* Sidebar for desktop */}
+                {/* Sidebar for desktop */}
 
-        {/* ------------------------------------------- */}
+                {/* ------------------------------------------- */}
 
-        <Drawer
+                <Drawer
 
-          anchor="left"
+                    anchor="left"
 
-          open
+                    open
 
-          onMouseEnter={onHoverEnter}
+                    onMouseEnter={onHoverEnter}
 
-          onMouseLeave={onHoverLeave}
+                    onMouseLeave={onHoverLeave}
 
-          variant="permanent"
+                    variant="permanent"
 
-          PaperProps={{
+                    PaperProps={{
 
-            sx: {
+                        sx: {
 
-              transition: theme.transitions.create('width', {
+                            transition: theme.transitions.create('width', {
 
-                duration: theme.transitions.duration.shortest,
+                                duration: theme.transitions.duration.shortest,
 
-              }),
+                            }),
 
-              width: toggleWidth,
+                            width: toggleWidth,
 
-              boxSizing: 'border-box',
+                            boxSizing: 'border-box',
 
-            },
+                        },
 
-          }}
+                    }}
 
-        >
+                >
 
-          {/* ------------------------------------------- */}
+                    {/* ------------------------------------------- */}
 
-          {/* Sidebar Box */}
+                    {/* Sidebar Box */}
 
-          {/* ------------------------------------------- */}
+                    {/* ------------------------------------------- */}
 
-          <Box
+                    <Box
 
-            sx={{
+                        sx={{
 
-              height: '100%',
+                            height: '100%',
 
-            }}
+                        }}
 
-          >
+                    >
 
-            {/* ------------------------------------------- */}
+                        {/* ------------------------------------------- */}
 
-            {/* Logo */}
+                        {/* Logo */}
 
-            {/* ------------------------------------------- */}
+                        {/* ------------------------------------------- */}
 
-            <Box px={3} sx={{
+                        <Box px={3} sx={{
 
-              marginTop:"15px"
+                            marginTop: "15px"
 
-            }}>
+                        }}>
 
-              <Logo />
+                            <Logo />
 
-              {/* <h2>Setashf</h2> */}
+                            {/* <h2>Setashf</h2> */}
 
-            </Box>
+                        </Box>
 
-            <Scrollbar sx={{ height: 'calc(100% - 190px)' }}>
+                        <Scrollbar sx={{ height: 'calc(100% - 190px)' }}>
 
-              {/* ------------------------------------------- */}
+                            {/* ------------------------------------------- */}
 
-              {/* Sidebar Items */}
+                            {/* Sidebar Items */}
 
-              {/* ------------------------------------------- */}
+                            {/* ------------------------------------------- */}
 
-              <SidebarItems />
+                            <SidebarItems />
 
-            </Scrollbar>
+                        </Scrollbar>
 
-            <Profile />
+                        <Profile />
 
-          </Box>
+                    </Box>
 
-        </Drawer>
+                </Drawer>
 
-      </Box>
+            </Box>
 
-    );
+        );
 
-  }
+    }
 
 
 
-  return (
+    return (
 
-    <Drawer
+        <Drawer
 
-      anchor="left"
+            anchor="left"
 
-      open={customizer.isMobileSidebar}
+            open={customizer.isMobileSidebar}
 
-      onClose={() => dispatch(toggleMobileSidebar())}
+            onClose={() => dispatch(toggleMobileSidebar())}
 
-      variant="temporary"
+            variant="temporary"
 
-      PaperProps={{
+            PaperProps={{
 
-        sx: {
+                sx: {
 
-          width: customizer.SidebarWidth,
+                    width: customizer.SidebarWidth,
 
 
 
-          // backgroundColor:
+                    // backgroundColor:
 
-          //   customizer.activeMode === 'dark'
+                    //   customizer.activeMode === 'dark'
 
-          //     ? customizer.darkBackground900
+                    //     ? customizer.darkBackground900
 
-          //     : customizer.activeSidebarBg,
+                    //     : customizer.activeSidebarBg,
 
-          // color: customizer.activeSidebarBg === '#ffffff' ? '' : 'white',
+                    // color: customizer.activeSidebarBg === '#ffffff' ? '' : 'white',
 
-          border: '0 !important',
+                    border: '0 !important',
 
-          boxShadow: (theme) => theme.shadows[8],
+                    boxShadow: (theme) => theme.shadows[8],
 
-        },
+                },
 
-      }}
+            }}
 
-    >
+        >
 
-      {/* ------------------------------------------- */}
+            {/* ------------------------------------------- */}
 
-      {/* Logo */}
+            {/* Logo */}
 
-      {/* ------------------------------------------- */}
+            {/* ------------------------------------------- */}
 
-      <Box px={2}>
+            <Box px={2}>
 
-        <Logo />
+                <Logo />
 
-              {/* <h2>Setash</h2> */}
+                {/* <h2>Setash</h2> */}
 
-      </Box>
+            </Box>
 
-      {/* ------------------------------------------- */}
+            {/* ------------------------------------------- */}
 
-      {/* Sidebar For Mobile */}
+            {/* Sidebar For Mobile */}
 
-      {/* ------------------------------------------- */}
+            {/* ------------------------------------------- */}
 
-      <SidebarItems />
+            <SidebarItems />
 
-    </Drawer>
+        </Drawer>
 
-  );
+    );
 
 };
 

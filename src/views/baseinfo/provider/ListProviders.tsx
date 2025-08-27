@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -24,6 +24,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -219,6 +220,19 @@ const ListProviders = () => {
     const [selectedAddress, setSelectedAddress] = useState('');
 
     const { isTooltipGloballyEnabled } = useTooltip();
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -692,141 +706,147 @@ const ListProviders = () => {
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
-                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'Sağlayıcıyı Düzenle' : 'Yeni Tedarikçi Kaydı'}</Typography>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="provider-name" required>İsim</CustomFormLabel>
-                            <CustomTextField
-                                id="provider-name"
-                                placeholder="Tedarikçi Adı"
+                {(hasCreatePermission || hasEditPermission) && (
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Typography variant="h5" mb={2}>{editingId ? 'Sağlayıcıyı Düzenle' : 'Yeni Tedarikçi Kaydı'}</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="provider-name" required>İsim</CustomFormLabel>
+                                <CustomTextField
+                                    id="provider-name"
+                                    placeholder="Tedarikçi Adı"
 
-                                sx={{ width: '100%' }}
-                                size="small"
-                                value={name}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setName(e.target.value);
-                                    if (nameError && e.target.value.trim()) setNameError(false);
-                                }}
-                                inputRef={nameInputRef}
-                                error={nameError}
-                                helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="provider-phonenumber" required>Telefon Numarası</CustomFormLabel>
-                            <CustomTextField
-                                id="provider-phonenumber"
-                                placeholder="Telefon Numarası"
-
-                                sx={{ width: '100%' }}
-                                size="small"
-                                value={phoneNumber}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setPhoneNumber(e.target.value);
-                                    if (phoneNumberError && e.target.value.trim()) setPhoneNumberError(false);
-                                }}
-                                error={phoneNumberError}
-                                helperText={phoneNumberError ? "Telefon Numarası boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                            <FormControl
-                                sx={{ width: '100%' }}
-                                size="small" error={regionIdError}>
-                                <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
-                                <Select
-                                    labelId="select-region-label"
-                                    id="select-region"
-                                    value={selectedRegionId || ''}
-                                    label="Bölge Seçin"
-                                    open={isRegionSelectOpen}
-                                    onOpen={handleOpenRegionSelect}
-                                    onClose={handleCloseRegionSelect}
-                                    onChange={(event) => {
-                                        const selectedId = event.target.value as number;
-                                        setSelectedRegionId(selectedId);
-                                        if (regionIdError && selectedId) setRegionIdError(false);
+                                    sx={{ width: '100%' }}
+                                    size="small"
+                                    value={name}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setName(e.target.value);
+                                        if (nameError && e.target.value.trim()) setNameError(false);
                                     }}
-                                    renderValue={renderSelectedRegion}
-                                    MenuProps={{ sx: { maxHeight: 400 } }}
+                                    inputRef={nameInputRef}
+                                    error={nameError}
+                                    helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="provider-phonenumber" required>Telefon Numarası</CustomFormLabel>
+                                <CustomTextField
+                                    id="provider-phonenumber"
+                                    placeholder="Telefon Numarası"
+
+                                    sx={{ width: '100%' }}
+                                    size="small"
+                                    value={phoneNumber}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setPhoneNumber(e.target.value);
+                                        if (phoneNumberError && e.target.value.trim()) setPhoneNumberError(false);
+                                    }}
+                                    error={phoneNumberError}
+                                    helperText={phoneNumberError ? "Telefon Numarası boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
+                                <FormControl
+                                    sx={{ width: '100%' }}
+                                    size="small" error={regionIdError}>
+                                    <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
+                                    <Select
+                                        labelId="select-region-label"
+                                        id="select-region"
+                                        value={selectedRegionId || ''}
+                                        label="Bölge Seçin"
+                                        open={isRegionSelectOpen}
+                                        onOpen={handleOpenRegionSelect}
+                                        onClose={handleCloseRegionSelect}
+                                        onChange={(event) => {
+                                            const selectedId = event.target.value as number;
+                                            setSelectedRegionId(selectedId);
+                                            if (regionIdError && selectedId) setRegionIdError(false);
+                                        }}
+                                        renderValue={renderSelectedRegion}
+                                        MenuProps={{ sx: { maxHeight: 400 } }}
+                                    >
+                                        {loadingData ? (
+                                            <MenuItem disabled>
+                                                <CircularProgress size={20} /> Yükleniyor...
+                                            </MenuItem>
+                                        ) : regionTree.length > 0 ? (
+                                            renderRegionTree(regionTree)
+                                        ) : (
+                                            <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+                                        )}
+                                    </Select>
+                                    {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} sm={8}>
+                                <CustomFormLabel htmlFor="provider-address">Adres</CustomFormLabel>
+                                <CustomTextField
+                                    id="provider-address"
+                                    placeholder="Tedarikçi Adresi"
+                                    fullWidth
+                                    value={address}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setAddress(e.target.value);
+                                        if (addressError && e.target.value.trim()) setAddressError(false);
+                                    }}
+                                    error={addressError}
+                                    helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="firm-type" required>Setaş'tan mı?  </CustomFormLabel>
+                                <RadioGroup
+                                    row
+                                    aria-labelledby="firm-type-label"
+                                    value={firm}
+                                    onChange={(e) => {
+                                        setFirm(e.target.value);
+                                        if (firmError && e.target.value) setFirmError(false);
+                                    }}
                                 >
-                                    {loadingData ? (
-                                        <MenuItem disabled>
-                                            <CircularProgress size={20} /> Yükleniyor...
-                                        </MenuItem>
-                                    ) : regionTree.length > 0 ? (
-                                        renderRegionTree(regionTree)
+                                    <FormControlLabel value="1" control={<Radio />} label="Evet" />
+                                    <FormControlLabel value="0" control={<Radio />} label="Hayır" />
+                                </RadioGroup>
+                                {firmError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Firma türü zorunludur!</Typography>}
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                    {editingId !== null ? (
+                                        <>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili sağlayıcıyı güncelleyin" : ""}>
+                                                <Button variant="contained" color="info" onClick={editProvider} disabled={loadingButton}>
+                                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                                </Button>
+                                            </CustomTooltip>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Tedarikçi moduna dön" : ""}>
+                                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
+                                            </CustomTooltip>
+                                        </>
                                     ) : (
-                                        <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+
+                                        <>
+                                            {hasCreatePermission && (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Tedarikçi ekle" : ""}>
+                                                    <Button variant="contained" color="success" onClick={insertProvider} disabled={loadingButton}>
+                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Tedarikçi Ekle'}
+                                                    </Button>
+                                                </CustomTooltip>
+
+                                            )}
+                                        </>
                                     )}
-                                </Select>
-                                {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
-                            </FormControl>
+                                </Stack>
+                            </Grid>
                         </Grid>
-                        <Grid item xs={12} sm={8}>
-                            <CustomFormLabel htmlFor="provider-address">Adres</CustomFormLabel>
-                            <CustomTextField
-                                id="provider-address"
-                                placeholder="Tedarikçi Adresi"
-                                fullWidth
-                                value={address}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setAddress(e.target.value);
-                                    if (addressError && e.target.value.trim()) setAddressError(false);
-                                }}
-                                error={addressError}
-                                helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="firm-type" required>Setaş'tan mı?  </CustomFormLabel>
-                            <RadioGroup
-                                row
-                                aria-labelledby="firm-type-label"
-                                value={firm}
-                                onChange={(e) => {
-                                    setFirm(e.target.value);
-                                    if (firmError && e.target.value) setFirmError(false);
-                                }}
-                            >
-                                <FormControlLabel value="1" control={<Radio />} label="Evet" />
-                                <FormControlLabel value="0" control={<Radio />} label="Hayır" />
-                            </RadioGroup>
-                            {firmError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Firma türü zorunludur!</Typography>}
-                        </Grid>
-                        <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                {editingId !== null ? (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili sağlayıcıyı güncelleyin" : ""}>
-                                            <Button variant="contained" color="info" onClick={editProvider} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni Tedarikçi moduna dön" : ""}>
-                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
-                                        </CustomTooltip>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Tedarikçi ekle" : ""}>
-                                            <Button variant="contained" color="success" onClick={insertProvider} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Tedarikçi Ekle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                    </>
-                                )}
+                        {alertMessage && (
+                            <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                                <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                             </Stack>
-                        </Grid>
-                    </Grid>
-                    {alertMessage && (
-                        <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                            <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
-                        </Stack>
-                    )}
-                </Paper>
+                        )}
+                    </Paper>
+                )}
             </div>
 
             <BlankCard>
@@ -951,7 +971,7 @@ const ListProviders = () => {
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
 
-                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}>
@@ -961,7 +981,9 @@ const ListProviders = () => {
                                                                 Pasif Yap
                                                             </MenuItem>
                                                         </CustomTooltip>
-                                                    ) : (
+
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı aktif yap" : ""}>
                                                             <MenuItem onClick={handleSetActive}>
@@ -972,18 +994,22 @@ const ListProviders = () => {
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}>
-                                                            <ListItemIcon><IconEdit width={18} /></ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                            <ListItemIcon><IconTrash width={18} /></ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}>
+                                                                <ListItemIcon><IconEdit width={18} /></ListItemIcon>
+                                                                Düzenlemek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon><IconTrash width={18} /></ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

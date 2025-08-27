@@ -1,7 +1,7 @@
 // ListRegion.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer,
@@ -50,6 +50,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -221,6 +222,18 @@ const ListRegion = () => {
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
 
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
 
     // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
     const findRegionById = useCallback((regions: ApiRegionType[], id: string): ApiRegionType | undefined => {
@@ -749,74 +762,81 @@ const ListRegion = () => {
                         ))}
                     </Paper>
                 )}
-                <Grid container spacing={1}>
-                    <Grid item xs={12} sm={1} display="flex" alignItems="center">
-                        <CustomFormLabel htmlFor="region-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                            İsim
-                        </CustomFormLabel>
-                    </Grid>
-                    <Grid item xs={12} sm={7}>
-                        <CustomTextField
-                            id="region-name"
-                            placeholder={currentParentRegion ? "Şehir Adı" : "Bölge Adı"}
 
-                            sx={{ width: '100%' }}
-                            size="small"
-                            value={name}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                setName(e.target.value);
-                                if (nameError && e.target.value.trim()) {
-                                    setNameError(false);
-                                    setNameHelperText('');
-                                }
-                            }}
-                            inputRef={regionNameInputRef}
-                            error={nameError}
-                            helperText={nameHelperText}
-                        />
-                    </Grid>
+                {(hasCreatePermission || hasEditPermission) && (
+                    <Grid container spacing={1}>
+                        <Grid item xs={12} sm={1} display="flex" alignItems="center">
+                            <CustomFormLabel htmlFor="region-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                İsim
+                            </CustomFormLabel>
+                        </Grid>
+                        <Grid item xs={12} sm={7}>
+                            <CustomTextField
+                                id="region-name"
+                                placeholder={currentParentRegion ? "Şehir Adı" : "Bölge Adı"}
 
-                    <Grid item xs={12} sm={4}>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            {editingId !== null ? (
-                                <>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili bölgeyi güncelleyin" : ""}>
-                                        <Button
-                                            variant="contained"
-                                            color="info"
-                                            onClick={editRegion}
-                                            disabled={loadingButton}
-                                        >
-                                            {loadingButton ? <>
-                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                                            </> : 'Düzenlemek'}
-                                        </Button>
-                                    </CustomTooltip>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni bölge moduna dön" : ""}>
-                                        <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                                            İptal Et
-                                        </Button>
-                                    </CustomTooltip>
-                                </>
-                            ) : (
-                                <>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir bölge ekle" : ""}>
-                                        <Button
-                                            variant="contained"
-                                            color="success"
-                                            onClick={insertRegion}
-                                            disabled={loadingButton}
-                                        >
-                                            {loadingButton ? <>
-                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                                            </> : (currentParentRegion ? 'Şehir Ekle' : 'Yeni Bölge Ekle')}
-                                        </Button>
-                                    </CustomTooltip>
-                                </>
-                            )}
-                        </Stack>
+                                sx={{ width: '100%' }}
+                                size="small"
+                                value={name}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    setName(e.target.value);
+                                    if (nameError && e.target.value.trim()) {
+                                        setNameError(false);
+                                        setNameHelperText('');
+                                    }
+                                }}
+                                inputRef={regionNameInputRef}
+                                error={nameError}
+                                helperText={nameHelperText}
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} sm={4}>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                {editingId !== null ? (
+                                    <>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili bölgeyi güncelleyin" : ""}>
+                                            <Button
+                                                variant="contained"
+                                                color="info"
+                                                onClick={editRegion}
+                                                disabled={loadingButton}
+                                            >
+                                                {loadingButton ? <>
+                                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                                                </> : 'Düzenlemek'}
+                                            </Button>
+                                        </CustomTooltip>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni bölge moduna dön" : ""}>
+                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                                                İptal Et
+                                            </Button>
+                                        </CustomTooltip>
+                                    </>
+                                ) : (
+
+                                    <>
+                                        {hasCreatePermission && (
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir bölge ekle" : ""}>
+                                                <Button
+                                                    variant="contained"
+                                                    color="success"
+                                                    onClick={insertRegion}
+                                                    disabled={loadingButton}
+                                                >
+                                                    {loadingButton ? <>
+                                                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                                                    </> : (currentParentRegion ? 'Şehir Ekle' : 'Yeni Bölge Ekle')}
+                                                </Button>
+                                            </CustomTooltip>
+
+                                        )}
+                                    </>
+                                )}
+                            </Stack>
+                        </Grid>
                     </Grid>
-                </Grid>
+                )}
                 {alertMessage && (
                     <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
                         <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1012,7 +1032,8 @@ const ListRegion = () => {
                                                         'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                     }}
                                                 >
-                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu bölgeyi pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}>
@@ -1022,7 +1043,9 @@ const ListRegion = () => {
                                                                 Pasif Yap
                                                             </MenuItem>
                                                         </CustomTooltip>
-                                                    ) : (
+
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu bölgeyi aktif yap" : ""}>
                                                             <MenuItem onClick={handleSetActive}>
@@ -1033,24 +1056,28 @@ const ListRegion = () => {
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    <CustomTooltip placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu bölgeyi düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}>
-                                                            <ListItemIcon>
-                                                                <IconEdit width={18} />
-                                                            </ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu bölgeyi sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                            <ListItemIcon>
-                                                                <IconTrash width={18} />
-                                                            </ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu bölgeyi düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}>
+                                                                <ListItemIcon>
+                                                                    <IconEdit width={18} />
+                                                                </ListItemIcon>
+                                                                Düzenlemek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu bölgeyi sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon>
+                                                                    <IconTrash width={18} />
+                                                                </ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

@@ -1533,12 +1533,12 @@ const NetworkDetails = () => {
                         </Grid>
                         <Grid item xs={12} sm={6}>
                             <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
-                                <CustomFormLabel htmlFor="tr-adi" required>TR ADI</CustomFormLabel>
+                                <CustomFormLabel htmlFor="tr-adi" required>Trafo Bölgesi</CustomFormLabel>
 
                             </Stack>
                             <TextField
                                 id="tr-adi"
-                                placeholder="TR ADI"
+                                placeholder="Trafo Bölgesi"
                                 fullWidth
                                 value={trAdi}
                                 onChange={(e) => setTrAdi(e.target.value)}

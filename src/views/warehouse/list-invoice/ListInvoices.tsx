@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -12,8 +12,8 @@ import {
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
-import { styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconFileInvoice, IconCheck, IconX } from '@tabler/icons-react';
+import { styled, keyframes } from '@mui/material/styles';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconFileInvoice, IconCheck, IconX, IconPencil } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -25,8 +25,10 @@ import InvoiceItemsTable from './InvoiceItemsTable';
 import DeleteInvoiceModal from './DeleteInvoice';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import Logo from 'src/assets/images/logos/logo.svg';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
+import { useAuth } from 'src/context/AuthContext';
 
 // Type Definitions
 interface ProviderType {
@@ -58,13 +60,16 @@ interface InvoiceItem {
     discountPercent: number;
     discountAmount: number;
     description: string;
+    orderDetailId?: string | null;
+    providerId?: number;
+    firm?: boolean;
 }
 interface InvoiceType {
     id: number;
-    invoiceNo: string | null; // Fatura numarası
-    provider: { id: string; name: string; } | null;
+    invoiceNo: string | null;
+    provider: { id: string; name: string; firm: boolean; } | null;
     driver: { id: string; name: string; } | null;
-    warehouse?: { // `warehouse` nesnesini ekleyin
+    warehouse?: {
         id: string;
         name: string;
         code?: string;
@@ -76,6 +81,13 @@ interface InvoiceType {
     totalAmount?: number;
     status: number;
     invoiceDetails: InvoiceDetailType[];
+    driverVehicleId: string | null;
+    driverVehicle?: {
+        id: string;
+        name: string;
+        model: string;
+        plaque: string;
+    } | null;
 }
 interface InvoiceDetailType {
     id: number;
@@ -85,6 +97,9 @@ interface InvoiceDetailType {
     discountPercent: number;
     discountAmount: number;
     description: string;
+    provider?: { id: string; name: string; firm: boolean; } | null;
+    firm?: boolean;
+    orderDetail?: { id: string; quantity: string; price: string; } | null;
 }
 interface VehicleType {
     id: number;
@@ -111,6 +126,30 @@ interface WarehouseType {
     status: string;
     createAt: string;
 }
+
+const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+    if (priceInput === null || priceInput === undefined) {
+        return '₺0.00';
+    }
+    const cleanedString = String(priceInput).replace(/[$,]/g, '');
+    const numericValue = parseFloat(cleanedString);
+    if (isNaN(numericValue)) {
+        return '₺0.00';
+    }
+    const formattedPrice = numericValue.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    return formattedPrice.replace('$', '₺');
+};
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
 
 // Table Style and Functions
 type SortableInvoiceKeys = 'invoiceNo' | 'provider.name' | 'driver.name' | 'docDate' | 'status' | 'totalAmount';
@@ -158,13 +197,22 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
+// تابع کمکی برای پاکسازی و تبدیل رشته به عدد
+const cleanAndConvertNumber = (value: string | number | undefined | null): number => {
+    if (value === null || value === undefined) {
+        return 0;
+    }
+    const cleanedString = String(value).replace(/[^\d.-]/g, '');
+    const numericValue = parseFloat(cleanedString);
+    return isNaN(numericValue) ? 0 : numericValue;
+};
+
 const ListInvoices = () => {
     const navigate = useNavigate();
     const [providers, setProviders] = useState<ProviderType[]>([]);
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
 
-    const [provider, setProvider] = useState<number | string | null>('');
     const [driver, setDriver] = useState('');
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
@@ -172,14 +220,12 @@ const ListInvoices = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Vehicle States
     const [vehiclesList, setVehiclesList] = useState<VehicleType[]>([]);
     const [openVehicleModal, setOpenVehicleModal] = useState<boolean>(false);
     const [selectedVehicle, setSelectedVehicle] = useState<number | null>(null);
     const [selectedVehicleName, setSelectedVehicleName] = useState<string | null>(null);
     const [tempSelectedVehicle, setTempSelectedVehicle] = useState<number | null>(null);
 
-    // Table States
     const [invoicesList, setInvoicesList] = useState<InvoiceType[]>([]);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -199,6 +245,7 @@ const ListInvoices = () => {
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
 
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [statusError, setStatusError] = useState(false);
     const [description, setDescription] = useState('');
     const [idRow, setIdRow] = useState(0);
@@ -206,6 +253,28 @@ const ListInvoices = () => {
 
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
     const [warehouse, setWarehouse] = useState<number | null>(null);
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    }, [allowedOperations]);
+
+    const hasStatusPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
+    }, [allowedOperations]);
+
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -218,104 +287,95 @@ const ListInvoices = () => {
         }
     };
 
-
     const handlePrintInvoice = (invoice: InvoiceType) => {
-        if (!invoice) {
-            console.error('Fatura verisi bulunamadı.');
-            return;
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const logoImg = new Image();
+        logoImg.src = Logo;
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(logoImg, 'PNG', 15, 15, 30, 30);
+
+            doc.setFontSize(18);
+            doc.text('Fatura Detayları', pageWidth - 15, 30, { align: 'right' });
+
+            doc.setFontSize(12);
+            doc.text(`Fatura No: ${invoice.invoiceNo || '-'}`, pageWidth - 15, 40, { align: 'right' });
+
+            const hasOrder = invoice.invoiceDetails.some(detail => detail.orderDetail);
+            if (hasOrder) {
+                doc.text('Tedarik Tipi: Siparişli Fatura', pageWidth - 15, 47, { align: 'right' });
+            } else {
+                doc.text('Tedarik Tipi: Siparişsiz Fatura', pageWidth - 15, 47, { align: 'right' });
+            }
+
+            doc.text(`Sürücü: ${invoice.driver?.name || '-'}`, pageWidth - 15, 54, { align: 'right' });
+            doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, pageWidth - 15, 61, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, pageWidth - 15, 68, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        };
+
+        const rows = invoice.invoiceDetails.map(detail => [
+            detail.provider?.name || invoice.provider?.name || '-',
+            detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
+            detail.item?.name || '-',
+            Number(detail.quantity).toFixed(2) || '-',
+            detail.item?.unit?.title || '-',
+            cleanAndFormatPrice(detail.price),
+            Number(detail.discountPercent).toFixed(2) || '-',
+            cleanAndFormatPrice(detail.discountAmount),
+            detail.description || '-',
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 80,
+                head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
+                body: rows,
+                // **این خط را اصلاح کنید:**
+                theme: 'grid', // تغییر تم به 'grid' برای اضافه کردن border
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 25 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 30 },
+                    3: { cellWidth: 15 },
+                    4: { cellWidth: 15 },
+                    5: { cellWidth: 20 },
+                    6: { cellWidth: 20 },
+                    7: { cellWidth: 25 },
+                    8: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+            });
+
+            doc.save(`Fatura_${invoice.id}.pdf`);
+        } catch (error) {
+            console.error("PDF oluşturulurken bir hata oluştu: ", error);
+            // showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
         }
-
-        // یک کانتینر موقت برای رندر کردن محتوای PDF ایجاد کنید
-        const pdfContainer = document.createElement('div');
-        pdfContainer.id = 'pdf-container';
-        pdfContainer.style.width = '210mm';
-        pdfContainer.style.fontFamily = 'Arial, sans-serif';
-        pdfContainer.style.padding = '20mm';
-        pdfContainer.style.boxSizing = 'border-box';
-        pdfContainer.style.backgroundColor = 'white';
-
-        // هدر PDF: لوگو، عنوان و اطلاعات فاکتور
-        const header = `
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20mm;">
-            <img src="${Logo}" style="height: 50px; width: auto;" />
-            <div style="text-align: right;">
-                <strong>Fatura No:</strong> ${invoice.invoiceNo || '-'}<br>
-                <strong>Tedarikçi:</strong> ${invoice.provider?.name || '-'}<br>
-                <strong>Sürücü:</strong> ${invoice.driver?.name || '-'}<br>
-                <strong>Depo:</strong> ${invoice.warehouse?.name || '-'}
-            </div>
-        </div>
-    `;
-
-        // جدول اقلام فاکتور
-        const tableHeader = `
-        <table style="width: 100%; border-collapse: collapse; margin-top: 10mm;">
-            <thead>
-                <tr style="background-color: #f2f2f2;">
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Ürün Adı</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Miktar</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Birim</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Fiyat</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">İndirim %</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">İndirim Miktarı</th>
-                    <th style="border: 1px solid #ddd; padding: 8px; text-align: left;">Açıklama</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-        // داده‌های جدول را با ستون‌های جدید پر کنید
-        const tableRows = invoice.invoiceDetails.map(detail => `
-        <tr>
-            <td style="border: 1px solid #ddd; padding: 8px;">${detail.item?.name || '-'}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${detail.quantity}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${detail.item?.unit?.title || '-'}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${cleanAndFormatPrice(detail.price)}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${detail.discountPercent}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${cleanAndFormatPrice(detail.discountAmount)}</td>
-            <td style="border: 1px solid #ddd; padding: 8px;">${detail.description || '-'}</td>
-        </tr>
-    `).join('');
-
-        const tableFooter = `
-            </tbody>
-        </table>
-    `;
-
-        // فوتر PDF
-        const footer = `
-        <div style="border-top: 1px solid black; margin-top: 50mm; padding-top: 10mm; display: flex; justify-content: space-between; align-items: flex-end;">
-            <div style="text-align: left;">
-                <strong>Tarih:</strong> ${format(new Date(), 'dd MMMM yyyy', { locale: tr })}
-            </div>
-            <div style="text-align: right;">
-                <strong>İmza</strong>
-            </div>
-        </div>
-    `;
-
-        // محتوا را به کانتینر موقت اضافه کنید
-        pdfContainer.innerHTML = header + tableHeader + tableRows + tableFooter + footer;
-
-        // کانتینر را به صورت موقت به بدنه صفحه اضافه کنید
-        document.body.appendChild(pdfContainer);
-
-        // html2canvas را اجرا کنید
-        html2canvas(pdfContainer, { scale: 2 }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Fatura_${invoice.id}.pdf`);
-
-            // کانتینر موقت را حذف کنید
-            document.body.removeChild(pdfContainer);
-        });
     };
-
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -332,6 +392,7 @@ const ListInvoices = () => {
     const fetchVehicles = useCallback(async (driverId: string) => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
+
         if (!authToken) {
             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
             setLoadingData(false);
@@ -350,20 +411,19 @@ const ListInvoices = () => {
                     model: String(item.model),
                     id: Number(item.id)
                 }));
-
                 const activeVehicles = formattedData.filter(item => item.recordStatus === 0);
                 setVehiclesList(activeVehicles);
 
-                if (activeVehicles.length === 1) {
+                // اگر بیش از یک خودرو داشت، مودال را باز کن
+                if (activeVehicles.length > 1) {
+                    setOpenVehicleModal(true);
+                    setTempSelectedVehicle(activeVehicles[0].id); // اولین مورد را به صورت موقت انتخاب کن
+                } else if (activeVehicles.length === 1) {
                     setSelectedVehicle(activeVehicles[0].id);
                     setSelectedVehicleName(`${activeVehicles[0].name} (${activeVehicles[0].plaque})`);
-                } else if (activeVehicles.length > 1) {
-                    setOpenVehicleModal(true);
-                    setTempSelectedVehicle(activeVehicles[0].id);
                 } else {
                     setSelectedVehicle(null);
                     setSelectedVehicleName(null);
-                    showAlert('Bu sürücünün aktif aracı yok.', 'warning');
                 }
             } else {
                 setVehiclesList([]);
@@ -455,7 +515,6 @@ const ListInvoices = () => {
     }, [navigate, showAlert]);
 
     const getInvoices = useCallback(async () => {
-        debugger
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -503,7 +562,6 @@ const ListInvoices = () => {
 
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 const allWarehouses = response.data.data as WarehouseType[];
-                // فیلتر کردن انبارهای فعال
                 const activeWarehouses = allWarehouses.filter(item => item.recordStatus === 0);
 
                 const WarehousesWithStatus = activeWarehouses.map((item) => ({
@@ -533,6 +591,7 @@ const ListInvoices = () => {
 
     const handleAddInvoiceItem = (newItem: InvoiceItem) => {
         setInvoiceItems(prevItems => [...prevItems, newItem]);
+        setHasUnsavedChanges(true);
     };
 
     const handleUpdateInvoiceItem = (updatedItem: InvoiceItem) => {
@@ -548,8 +607,8 @@ const ListInvoices = () => {
     };
 
     const validateForm = (): boolean => {
-        if (!provider || !driver || !docDate || !warehouse) { // اضافه کردن !warehouse
-            showAlert('Lütfen tüm zorunlu alanları (Tedarikçi, Sürücü, Depo, Tarih) doldurun.', 'warning');
+        if (!driver || !docDate || !warehouse || !selectedVehicle) {
+            showAlert('Lütfen tüm zorunlu alanları (Sürücü, Depo, Tarih ve Araç) doldurun.', 'warning');
             return false;
         }
         const hasInvalidItem = invoiceItems.some(item => !item.item || item.quantity <= 0 || item.price <= 0 || isNaN(item.quantity) || isNaN(item.price));
@@ -561,7 +620,7 @@ const ListInvoices = () => {
     };
 
     const resetForm = () => {
-        setProvider('');
+        setHasUnsavedChanges(false);
         setDriver('');
         setDocDate(new Date());
         setInvoiceItems([]);
@@ -577,7 +636,6 @@ const ListInvoices = () => {
 
         const invoiceData = {
             docDate: docDate?.toISOString(),
-            providerId: Number(provider),
             status: 0,
             statusDescription: '',
             driverId: Number(driver),
@@ -590,7 +648,9 @@ const ListInvoices = () => {
                 discountPercent: (item.discountPercent).toFixed(2),
                 discountAmount: (item.discountAmount).toFixed(2),
                 description: item.description,
-                orderDetailId: null
+                orderDetailId: item.orderDetailId,
+                providerId: item.providerId,
+                firm: item.firm
             }))
         };
         const authToken = localStorage.getItem('authToken');
@@ -605,6 +665,7 @@ const ListInvoices = () => {
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 201) {
+                setHasUnsavedChanges(false);
                 resetForm();
                 getInvoices();
                 showAlert('Fatura başarıyla kaydedildi!', 'success');
@@ -621,8 +682,8 @@ const ListInvoices = () => {
         if (!validateForm() || !editingId) return;
 
         const invoiceData = {
+            id: Number(editingId),
             docDate: docDate?.toISOString(),
-            providerId: Number(provider),
             driverId: Number(driver),
             warehouseId: Number(warehouse),
             driverVehicleId: Number(selectedVehicle),
@@ -632,9 +693,13 @@ const ListInvoices = () => {
                 price: (item.price).toFixed(2),
                 discountPercent: (item.discountPercent).toFixed(2),
                 discountAmount: (item.discountAmount).toFixed(2),
-                description: item.description
+                description: item.description,
+                orderDetailId: item.orderDetailId ? Number(item.orderDetailId) : null,
+                providerId: item.providerId,
+                firm: item.firm
             }))
-        }; debugger
+        };
+        debugger
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         try {
@@ -657,38 +722,86 @@ const ListInvoices = () => {
         }
     };
 
-    const handleEditClick = (row: InvoiceType) => {
+    const handleEditClick = async (row: InvoiceType) => {
         setEditingId(row.id);
-        const providerIdAsNumber = row.provider?.id ? Number(row.provider.id) : null;
-        const selectedProvider = providers.find(p => p.id === providerIdAsNumber);
-        if (selectedProvider) {
-            setProvider(selectedProvider.id.toString());
-        } else {
-            setProvider('');
-        }
+        handleCloseMenu();
+        clearAlert();
+
         const selectedDriver = row.driver ? drivers.find(d => d.id === row.driver?.id) : null;
-        if (selectedDriver) setDriver(selectedDriver.id);
-        else setDriver('');
-        const selectedWarehouse = warehousesList.find(w => w.id === Number(row.warehouse?.id));
-        if (selectedWarehouse) {
-            setWarehouse(selectedWarehouse.id);
+
+        if (selectedDriver && selectedDriver.id) {
+            setDriver(selectedDriver.id);
+
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                navigate("/");
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                return;
+            }
+
+            try {
+                // دریافت لیست کامل خودروهای راننده
+                const response = await axios.get(
+                    `${server.baseurl}${server.warehouse}get-driver-vehicle-by-driver-id/${selectedDriver.id}`,
+                    { headers: { "Authorization": `Bearer ${authToken}` } }
+                );
+
+                if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
+                    const activeVehicles = response.data.data.map((item: any) => ({
+                        ...item,
+                        model: String(item.model),
+                        id: Number(item.id)
+                    })).filter((item: any) => item.recordStatus === 0);
+
+                    // **منطق اصلی: ابتدا نام خودروی فاکتور را نمایش بده**
+                    let vehicleToShowId = null;
+                    let vehicleToShowName = null;
+
+                    if (row.driverVehicle) {
+                        vehicleToShowId = Number(row.driverVehicle.id);
+                        vehicleToShowName = `${row.driverVehicle.name} (${row.driverVehicle.plaque})`;
+                    } else if (activeVehicles.length > 0) {
+                        // اگر فاکتور خودرو نداشت، اولین خودروی راننده را به صورت پیش‌فرض نمایش بده
+                        vehicleToShowId = activeVehicles[0].id;
+                        vehicleToShowName = `${activeVehicles[0].name} (${activeVehicles[0].plaque})`;
+                    }
+
+                    setVehiclesList(activeVehicles);
+                    setSelectedVehicle(vehicleToShowId);
+                    setSelectedVehicleName(vehicleToShowName);
+
+                } else {
+                    setVehiclesList([]);
+                    setSelectedVehicle(null);
+                    setSelectedVehicleName(null);
+                    showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
+                }
+            } catch (e: any) {
+                console.error("Failed to fetch vehicles:", e);
+                setVehiclesList([]);
+                setSelectedVehicle(null);
+                setSelectedVehicleName(null);
+                showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
+            }
         } else {
-            setWarehouse(null);
+            setDriver('');
+            setSelectedVehicle(null);
+            setSelectedVehicleName(null);
+            setVehiclesList([]);
+            showAlert('Faturada geçerli bir sürücü bilgisi bulunamadı.', 'warning');
         }
+
+        // ادامه منطق برای سایر فیلدهای فرم (انبار، تاریخ و آیتم‌ها)
+        const selectedWarehouse = warehousesList.find(w => Number(w.id) === Number(row.warehouse?.id));
+        setWarehouse(selectedWarehouse ? selectedWarehouse.id : null);
         setDocDate(new Date(row.docDate));
 
-        // تابع کمکی برای پاک کردن کاراکترهای غیرعددی
-        const cleanAndConvertNumber = (value: string | number | undefined): number => {
-            if (typeof value === 'string') {
-                const cleanedString = value.replace(/[$,]/g, '');
-                const numberValue = Number(cleanedString);
-                return isNaN(numberValue) ? 0 : numberValue;
-            }
-            return value ?? 0;
-        };
-
-        const itemsToEdit: InvoiceItem[] = row.invoiceDetails.map(detail => {
+        const itemsToEdit = row.invoiceDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
+            const detailProvider = providers.find(p => Number(p.id) === Number(detail.provider?.id));
+            const orderDetailId = (detail.orderDetail && detail.orderDetail.id) ? detail.orderDetail.id : null;
+            debugger
+
             return {
                 id: detail.id,
                 item: fullItem ? fullItem.id : '',
@@ -698,13 +811,13 @@ const ListInvoices = () => {
                 discountPercent: cleanAndConvertNumber(detail.discountPercent),
                 discountAmount: cleanAndConvertNumber(detail.discountAmount),
                 description: detail.description,
+                orderDetailId: orderDetailId,
+                providerId: detailProvider?.id,
+                firm: detailProvider?.firm === '1'
             };
         });
         setInvoiceItems(itemsToEdit);
-        handleCloseMenu();
-        clearAlert();
     };
-
     const handleSelectVehicle = () => {
         const vehicle = vehiclesList.find(v => v.id === tempSelectedVehicle);
         if (vehicle) {
@@ -712,6 +825,10 @@ const ListInvoices = () => {
             setSelectedVehicleName(`${vehicle.name} (${vehicle.plaque})`);
         }
         setOpenVehicleModal(false);
+    };
+
+    const handleOpenVehicleModal = () => {
+        setOpenVehicleModal(true);
     };
 
     // Table Handlers
@@ -729,8 +846,13 @@ const ListInvoices = () => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0);
     };
-    const handleOpenModal = (details: InvoiceDetailType[]) => {
-        setModalDetails(details); setOpenModal(true);
+    const handleOpenModal = (details: InvoiceDetailType[], provider: { id: string; name: string; firm: boolean; } | null) => {
+        const detailsWithProvider = details.map(detail => ({
+            ...detail,
+            provider: detail.provider || provider
+        }));
+        setModalDetails(detailsWithProvider);
+        setOpenModal(true);
     };
     const handleCloseModal = () => { setOpenModal(false); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: InvoiceType) => {
@@ -748,9 +870,7 @@ const ListInvoices = () => {
 
     const handleClickOpenStatusModal = (id: number, action: 'approve' | 'reject') => {
         setStatusToUpdate(action === 'approve' ? 1 : 2);
-
         setIdRow(id)
-
         setDescription('');
         setOpenStatusModal(true);
         handleCloseMenu();
@@ -814,7 +934,7 @@ const ListInvoices = () => {
     const filteredInvoices = invoicesList.filter(invoice => {
         const providerName = invoice.provider?.name || '';
         const driverName = invoice.driver?.name || '';
-        const invoiceNo = invoice.invoiceNo || ''; // Filtreleme için fatura numarasını ekle
+        const invoiceNo = invoice.invoiceNo || '';
         const matchesSearch = providerName.toLowerCase().includes(searchTerm.toLowerCase()) || driverName.toLowerCase().includes(searchTerm.toLowerCase()) || invoiceNo.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus =
             statusFilter === 'all' ||
@@ -827,132 +947,141 @@ const ListInvoices = () => {
     const sortedAndFilteredInvoices = stableSort(filteredInvoices, getComparator(order, orderBy));
     const paginatedInvoices = sortedAndFilteredInvoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
-        if (priceInput === null || priceInput === undefined) {
-            return '₺0.00';
-        }
-        const cleanedString = String(priceInput).replace(/[$,]/g, '');
-        const numericValue = parseFloat(cleanedString);
-        if (isNaN(numericValue)) {
-            return '₺0.00';
-        }
-        const formattedPrice = numericValue.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
-        return formattedPrice.replace('$', '₺');
-    };
+    // Memoized value to check if the form is complete
+    const isFormComplete = useMemo(() => {
+        const isMainFormComplete = driver && docDate && warehouse && selectedVehicle;
+        const hasValidItems = invoiceItems.length > 0 && !invoiceItems.some(item => !item.item || item.quantity <= 0 || item.price <= 0 || isNaN(item.quantity) || isNaN(item.price));
+        return isMainFormComplete && hasValidItems;
+    }, [driver, docDate, warehouse, invoiceItems, selectedVehicle]);
+
 
     return (
         <Box>
-            {/* Registration Form */}
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" mb={2}>Fatura Detayları</Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={3}>
-                        <CustomFormLabel htmlFor="provider-autocomplete" required>Tedarikçi</CustomFormLabel>
-                        <Autocomplete<ProviderType>
-                            id="provider-autocomplete" options={providers} getOptionLabel={(option) => option.name}
-                            value={providers.find(p => p.id === Number(provider)) || null}
-                            onChange={(_event, newValue) => setProvider(newValue ? newValue.id.toString() : '')}
-                            renderInput={(params) => <TextField {...params} label="Tedarikçi Seçin" variant="outlined" size="small" />}
+
+            {(hasCreatePermission || hasEditPermission) && (
+                <>
+
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Typography variant="h6" mb={2}>Fatura Detayları</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} md={4}>
+                                <CustomFormLabel htmlFor="driver-autocomplete" required>Sürücü</CustomFormLabel>
+                                <Stack direction="row" alignItems="center" spacing={2}>
+                                    <Autocomplete<DriverType>
+                                        id="driver-autocomplete" options={drivers} getOptionLabel={(option) => option.name}
+                                        value={drivers.find(d => d.id === driver) || null}
+                                        onChange={(_event, newValue) => {
+                                            const newDriverId = newValue ? newValue.id : '';
+                                            setDriver(newDriverId);
+                                            setSelectedVehicle(null);
+                                            setSelectedVehicleName(null);
+                                            setVehiclesList([]);
+                                            if (newDriverId) {
+                                                fetchVehicles(newDriverId);
+                                            }
+                                        }}
+                                        renderInput={(params) => <TextField {...params} label="Sürücü Seçin" variant="outlined" size="small" />}
+                                        sx={{ flexGrow: 1 }}
+                                    />
+                                    {selectedVehicleName && (vehiclesList.length > 1) && (
+                                        <IconButton onClick={handleOpenVehicleModal} size="small">
+                                            <IconPencil size={20} />
+                                        </IconButton>
+                                    )}
+                                </Stack>
+                                {selectedVehicleName && (
+                                    <Chip sx={{ mt: 2 }} label={selectedVehicleName} color="primary" variant="outlined" />
+                                )}
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <CustomFormLabel htmlFor="warehouse-autocomplete" required>Depo</CustomFormLabel>
+                                <Autocomplete<WarehouseType>
+                                    id="warehouse-autocomplete"
+                                    options={warehousesList}
+                                    getOptionLabel={(option) => option.name}
+                                    value={warehousesList.find(w => w.id === warehouse) || null}
+                                    onChange={(_event, newValue) => setWarehouse(newValue ? newValue.id : null)}
+                                    renderInput={(params) => <TextField {...params} label="Depo Seçin" variant="outlined" size="small" />}
+                                />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <CustomFormLabel htmlFor="doc-date" required>Tarihi</CustomFormLabel>
+                                    <DatePicker
+                                        value={docDate} onChange={(newValue) => setDocDate(newValue)}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => <TextField {...params} size="small" sx={{ width: "100%" }} />}
+                                    />
+                                </LocalizationProvider>
+                            </Grid>
+                        </Grid>
+
+                        <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
+                        <InvoiceItemsTable
+                            items={invoiceItems}
+                            itemsList={itemsList}
+                            onAddItem={handleAddInvoiceItem}
+                            onRemoveItem={handleRemoveInvoiceItem}
+                            onUpdateItem={handleUpdateInvoiceItem}
+                            providersList={providers}
                         />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
 
-                        <CustomFormLabel htmlFor="driver-autocomplete" required>Sürücü</CustomFormLabel>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                            <Autocomplete<DriverType>
-                                id="driver-autocomplete" options={drivers} getOptionLabel={(option) => option.name}
-                                value={drivers.find(d => d.id === driver) || null}
-                                onChange={(_event, newValue) => {
-                                    const newDriverId = newValue ? newValue.id : '';
-                                    setDriver(newDriverId);
-                                    setSelectedVehicle(null);
-                                    setSelectedVehicleName(null);
-                                    setVehiclesList([]);
-                                    if (newDriverId) {
-                                        fetchVehicles(newDriverId);
-                                    }
-                                }}
-                                renderInput={(params) => <TextField {...params} label="Sürücü Seçin" variant="outlined" size="small" />}
-                                sx={{ flexGrow: 1 }} // Take up available space
-                            />
-                        </Stack>
+                        <Box mt={3} textAlign="right">
+                            {editingId ? (
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                    <Button variant="contained" color="info" onClick={handleUpdateInvoice}>Düzenle</Button>
+                                    <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
+                                </Stack>
+                            ) : (
 
-                        {selectedVehicleName && (
-                            <Chip sx={{ mt: 2 }} label={selectedVehicleName} color="primary" variant="outlined" />
-                        )}
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <CustomFormLabel htmlFor="warehouse-autocomplete" required>Depo</CustomFormLabel>
-                        <Autocomplete<WarehouseType>
-                            id="warehouse-autocomplete"
-                            options={warehousesList}
-                            getOptionLabel={(option) => option.name}
-                            value={warehousesList.find(w => w.id === warehouse) || null}
-                            onChange={(_event, newValue) => setWarehouse(newValue ? newValue.id : null)}
-                            renderInput={(params) => <TextField {...params} label="Depo Seçin" variant="outlined" size="small" />}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="doc-date" required>Tarihi</CustomFormLabel>
-                            <DatePicker
-                                value={docDate} onChange={(newValue) => setDocDate(newValue)}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => <TextField {...params} size="small" />}
-                            />
-                        </LocalizationProvider>
-                    </Grid>
-                </Grid>
+                                <>
+                                    {hasCreatePermission && (
+                                        <CustomTooltip
+                                            title={isTooltipGloballyEnabled && hasUnsavedChanges ? "tüm değişiklikleri kaydetmek için buraya tıklayın" : ""}
+                                            placement="right"
+                                        >
+                                            <Button
+                                                variant="contained"
+                                                color="primary"
+                                                onClick={handleSaveInvoice}
+                                                disabled={!isFormComplete}
+                                                sx={{
+                                                    animation: isFormComplete ? `${blinkAnimation} 1.5s infinite` : 'none',
+                                                }}
+                                            >
+                                                Faturayı Kaydet
+                                            </Button>
+                                        </CustomTooltip>
+                                    )}
+                                </>
+                            )}
+                        </Box>
+                    </Paper>
 
-                <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
-                <InvoiceItemsTable
-                    items={invoiceItems}
-                    itemsList={itemsList}
-                    onAddItem={handleAddInvoiceItem}
-                    onRemoveItem={handleRemoveInvoiceItem}
-                    onUpdateItem={handleUpdateInvoiceItem}
-                />
+                    <Box sx={{ p: 2 }}>
+                        <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={12} sm={6} md={8}>
+                                <TextField
+                                    label="Fatura Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
+                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <ToggleButtonGroup
+                                    value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
+                                >
+                                    <StyledToggleButton value="all" aria-label="all invoices">Tümü</StyledToggleButton>
+                                    <StyledToggleButton value="pending" aria-label="pending invoices">Beklemede</StyledToggleButton>
+                                    <StyledToggleButton value="approved" aria-label="approved invoices">Onaylandı</StyledToggleButton>
+                                    <StyledToggleButton value="rejected" aria-label="rejected invoices">Reddedildi</StyledToggleButton>
+                                </ToggleButtonGroup>
+                            </Grid>
+                        </Grid>
+                    </Box>
 
-                <Box mt={3} textAlign="right">
-                    {editingId ? (
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button variant="contained" color="info" onClick={handleUpdateInvoice}>Düzenle</Button>
-                            <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
-                        </Stack>
-                    ) : (
-                        <Button variant="contained" color="primary" onClick={handleSaveInvoice}>Faturayı Kaydet</Button>
-                    )}
-                </Box>
-            </Paper>
-
-            {/* Invoices Table */}
-            <Box sx={{ p: 2 }}>
-                <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
-                <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={6} md={8}>
-                        <TextField
-                            label="Fatura Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
-                            InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                        <ToggleButtonGroup
-                            value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
-                        >
-                            <StyledToggleButton value="all" aria-label="all invoices">Tümü</StyledToggleButton>
-                            <StyledToggleButton value="pending" aria-label="pending invoices">Beklemede</StyledToggleButton>
-                            <StyledToggleButton value="approved" aria-label="approved invoices">Onaylandı</StyledToggleButton>
-                            <StyledToggleButton value="rejected" aria-label="rejected invoices">Reddedildi</StyledToggleButton>
-                        </ToggleButtonGroup>
-                    </Grid>
-                </Grid>
-            </Box>
-
+                </>
+            )}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
@@ -962,15 +1091,9 @@ const ListInvoices = () => {
                 <Table aria-label="invoice table">
                     <TableHead>
                         <TableRow>
-                            {/* Yeni eklenen fatura numarası kolonu */}
                             <TableCell>
                                 <TableSortLabel active={orderBy === 'invoiceNo'} direction={orderBy === 'invoiceNo' ? order : 'asc'} onClick={() => handleRequestSort('invoiceNo')}>
                                     <Typography variant="h6">Fatura No</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'provider.name'} direction={orderBy === 'provider.name' ? order : 'asc'} onClick={() => handleRequestSort('provider.name')}>
-                                    <Typography variant="h6">Tedarikçi</Typography>
                                 </TableSortLabel>
                             </TableCell>
                             <TableCell>
@@ -985,6 +1108,10 @@ const ListInvoices = () => {
                                 <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
                                     <Typography variant="h6">Tarihi</Typography>
                                 </TableSortLabel>
+                            </TableCell>
+
+                            <TableCell>
+                                <Typography variant="h6">Kayıt Tipi </Typography>
                             </TableCell>
                             <TableCell>
                                 <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
@@ -1007,7 +1134,6 @@ const ListInvoices = () => {
                                                 {row.invoiceNo ? row.invoiceNo : '-'}
                                             </Typography>
                                         </TableCell>
-                                        <TableCell><Typography variant="h6">{row.provider?.name || '-'}</Typography></TableCell>
                                         <TableCell><Typography variant="h6">{row.driver?.name || '-'}</Typography></TableCell>
                                         <TableCell>
                                             <Typography variant="h6">
@@ -1015,6 +1141,13 @@ const ListInvoices = () => {
                                             </Typography>
                                         </TableCell>
                                         <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
+                                        <TableCell>
+                                            {row.invoiceDetails.some(detail => detail.orderDetail) ? (
+                                                <Chip label=" Siparişli" color="success" size="small" />
+                                            ) : (
+                                                <Chip label=" Siparişsiz" color="default" size="small" />
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <Stack direction="row" alignItems="center" spacing={1}>
                                                 {row.status === 0 && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
@@ -1024,7 +1157,7 @@ const ListInvoices = () => {
                                             </Stack>
                                         </TableCell>
                                         <TableCell>
-                                            <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails)}>
+                                            <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>
                                                 Görünüm
                                             </Button>
                                         </TableCell>
@@ -1039,7 +1172,7 @@ const ListInvoices = () => {
                                                 open={openMenu && selectedInvoiceForMenu?.id === row.id}
                                                 onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                             >
-                                                {selectedInvoiceForMenu?.status === 0 && (
+                                                {hasStatusPermission && selectedInvoiceForMenu?.status === 0 && (
                                                     <>
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
                                                             <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
@@ -1055,7 +1188,7 @@ const ListInvoices = () => {
                                                         </CustomTooltip>
                                                     </>
                                                 )}
-                                                {selectedInvoiceForMenu?.status === 1 && (
+                                                {hasStatusPermission && selectedInvoiceForMenu?.status === 1 && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı reddedin" : ""}>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                             <ListItemIcon><IconX size={18} /></ListItemIcon>
@@ -1063,7 +1196,7 @@ const ListInvoices = () => {
                                                         </MenuItem>
                                                     </CustomTooltip>
                                                 )}
-                                                {selectedInvoiceForMenu?.status === 2 && (
+                                                {hasStatusPermission && selectedInvoiceForMenu?.status === 2 && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
                                                             <ListItemIcon><IconCheck size={18} /></ListItemIcon>
@@ -1071,21 +1204,27 @@ const ListInvoices = () => {
                                                         </MenuItem>
                                                     </CustomTooltip>
                                                 )}
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı düzenleyin" : ""}>
-                                                    <MenuItem onClick={() => handleEditClick(row)}>
-                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
-                                                    </MenuItem>
-                                                </CustomTooltip>
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı silin" : ""}>
-                                                    <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.provider?.name || '-')}>
-                                                        <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
-                                                    </MenuItem>
-                                                </CustomTooltip>
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı Yazdırın" : ""}>
-                                                    <MenuItem onClick={() => handlePrintInvoice(row)}>
-                                                        <ListItemIcon><IconFileInvoice size={18} /></ListItemIcon> Yazdır
-                                                    </MenuItem>
-                                                </CustomTooltip>
+                                                {hasEditPermission && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı düzenleyin" : ""}>
+                                                        <MenuItem onClick={() => handleEditClick(row)}>
+                                                            <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
+                                                        </MenuItem>
+                                                    </CustomTooltip>
+                                                )}
+                                                {hasDeletePermission && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı silin" : ""}>
+                                                        <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.provider?.name || '-')}>
+                                                            <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
+                                                        </MenuItem>
+                                                    </CustomTooltip>
+                                                )}
+                                                {hasDownloadPermission && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı Yazdırın" : ""}>
+                                                        <MenuItem onClick={() => handlePrintInvoice(row)}>
+                                                            <ListItemIcon><IconFileInvoice size={18} /></ListItemIcon> Yazdır
+                                                        </MenuItem>
+                                                    </CustomTooltip>
+                                                )}
                                             </Menu>
                                         </TableCell>
                                     </TableRow>
@@ -1108,6 +1247,8 @@ const ListInvoices = () => {
                         <Table size="small">
                             <TableHead>
                                 <TableRow>
+                                    <TableCell>Tedarikçi</TableCell>
+                                    <TableCell>Firm</TableCell>
                                     <TableCell>Ürün Adı</TableCell>
                                     <TableCell>Miktar</TableCell>
                                     <TableCell>Birim</TableCell>
@@ -1120,6 +1261,16 @@ const ListInvoices = () => {
                             <TableBody>
                                 {modalDetails.map((detail, index) => (
                                     <TableRow key={index}>
+                                        <TableCell>{detail.provider?.name || '-'}</TableCell>
+                                        <TableCell>
+                                            {detail.provider?.firm !== undefined ? (
+                                                <Chip
+                                                    label={detail.provider.firm ? "Şirket İçi" : "Şirket Dışı"}
+                                                    color={detail.provider.firm ? "primary" : "secondary"}
+                                                    size="small"
+                                                />
+                                            ) : '-'}
+                                        </TableCell>
                                         <TableCell>{detail.item?.name}</TableCell>
                                         <TableCell>{detail.quantity}</TableCell>
                                         <TableCell>{detail.item?.unit?.title}</TableCell>
@@ -1136,7 +1287,6 @@ const ListInvoices = () => {
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* Vehicle Selection Modal */}
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Araç Seçimi</DialogTitle>
                 <DialogContent>

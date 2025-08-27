@@ -53,6 +53,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
         }
 
         setIsDeleting(true);
+        debugger
         try {
             const response = await axios.delete(
                 `${server.baseurl}${server.initialoperations}delete-invoice/${invoiceIdToDelete}`,
@@ -75,7 +76,9 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
         } catch (e: any) {
             console.error("Error deleting invoice:", e);
             if (e.response && e.response.status === 500) {
-                setOpenDeletionErrorModal(true);
+                showAlert('Bu fatura şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.', 'error');
+
+                onClose();
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

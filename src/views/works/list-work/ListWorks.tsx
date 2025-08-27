@@ -1,7 +1,7 @@
 // src/views/work/ListWorks.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef, SyntheticEvent } from "react";
+import React, { useEffect, useState, useRef, SyntheticEvent, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -30,6 +30,8 @@ import DeleteWork from './DeleteWork';
 
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
+
+import { useAuth } from 'src/context/AuthContext';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -162,6 +164,22 @@ const ListWorks = () => {
     const [tenderIdError, setTenderIdError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tenderIdFromUrl = params.get('tenderId');
@@ -626,184 +644,192 @@ const ListWorks = () => {
                 <Typography variant="h5" mb={2}>
                     {editingId ? 'İşi Düzenle' : 'Yeni İş Kaydı'}
                 </Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sm={3}>
-                        <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                            İhale Seç
-                        </CustomFormLabel>
-                        {editingId !== null ? (
-                            <Typography variant="body1" sx={{
-                                border: '1px solid #ccc',
-                                borderRadius: '4px',
-                                padding: '6px 14px',
-                                backgroundColor: '#f5f5f5',
-                                color: 'text.secondary',
-                                width: '100%',
-                                boxSizing: 'border-box'
 
-                            }}
+                {(hasCreatePermission || hasEditPermission) && (
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} sm={3}>
+                            <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                İhale Seç
+                            </CustomFormLabel>
+                            {editingId !== null ? (
+                                <Typography variant="body1" sx={{
+                                    border: '1px solid #ccc',
+                                    borderRadius: '4px',
+                                    padding: '6px 14px',
+                                    backgroundColor: '#f5f5f5',
+                                    color: 'text.secondary',
+                                    width: '100%',
+                                    boxSizing: 'border-box'
 
-                            >
-                                {selectedTenderOption ? selectedTenderOption.title : 'İhale Seçilmedi'}
-                            </Typography>
-                        ) : (
-                            <Autocomplete
-                                id="tender-autocomplete"
-                                options={tenderOptions}
-                                getOptionLabel={(option) => option.title}
-                                value={selectedTenderOption}
-                                onChange={(event: SyntheticEvent, newValue: TenderOption | null) => {
-                                    console.log(event);
-                                    setSelectedTenderOption(newValue);
-                                    if (tenderIdError && newValue) {
-                                        setTenderIdError(false);
-                                    }
                                 }}
+
+                                >
+                                    {selectedTenderOption ? selectedTenderOption.title : 'İhale Seçilmedi'}
+                                </Typography>
+                            ) : (
+                                <Autocomplete
+                                    id="tender-autocomplete"
+                                    options={tenderOptions}
+                                    getOptionLabel={(option) => option.title}
+                                    value={selectedTenderOption}
+                                    onChange={(event: SyntheticEvent, newValue: TenderOption | null) => {
+                                        console.log(event);
+                                        setSelectedTenderOption(newValue);
+                                        if (tenderIdError && newValue) {
+                                            setTenderIdError(false);
+                                        }
+                                    }}
+
+                                    size="small"
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="İhale Ara"
+                                            error={tenderIdError}
+                                            helperText={tenderIdError ? "İhale seçimi zorunludur!" : ""}
+                                        />
+                                    )}
+                                    sx={{ width: '100%' }}
+                                />
+                            )}
+                        </Grid>
+                        <Grid item xs={12} sm={3}>
+                            <CustomFormLabel htmlFor="work-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                İş Başlığı
+                            </CustomFormLabel>
+                            <CustomTextField
+                                id="work-title"
+                                placeholder="İş Başlığı"
+                                sx={{ width: '100%' }}
 
                                 size="small"
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="İhale Ara"
-                                        error={tenderIdError}
-                                        helperText={tenderIdError ? "İhale seçimi zorunludur!" : ""}
-                                    />
-                                )}
-                                sx={{ width: '100%' }}
-                            />
-                        )}
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                        <CustomFormLabel htmlFor="work-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                            İş Başlığı
-                        </CustomFormLabel>
-                        <CustomTextField
-                            id="work-title"
-                            placeholder="İş Başlığı"
-                            sx={{ width: '100%' }}
-
-                            size="small"
-                            value={title}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                setTitle(e.target.value);
-                                if (titleError && e.target.value.trim()) {
-                                    setTitleError(false);
-                                }
-                            }}
-                            inputRef={workTitleInputRef}
-                            error={titleError}
-                            helperText={titleError ? "İş başlığı boş olamaz!" : ""}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12} sm={3}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                                Başlangıç Tarihi
-                            </CustomFormLabel>
-                            <DatePicker
-                                label=""
-                                value={startDate}
-                                onChange={(newValue) => {
-                                    setStartDate(newValue);
-                                    if (startDateError && newValue) setStartDateError(false);
-                                    if (endDate && newValue && newValue > endDate) {
-                                        setEndDateError(true);
-                                        setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
-                                    } else {
-                                        setEndDateError(false);
-                                        setFormErrors(null);
+                                value={title}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    setTitle(e.target.value);
+                                    if (titleError && e.target.value.trim()) {
+                                        setTitleError(false);
                                     }
                                 }}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        sx={{ width: '100%' }}
-
-                                        size="small"
-                                        error={startDateError}
-                                        helperText={startDateError ? "Başlangıç tarihi boş olamaz!" : ""}
-                                    />
-                                )}
+                                inputRef={workTitleInputRef}
+                                error={titleError}
+                                helperText={titleError ? "İş başlığı boş olamaz!" : ""}
                             />
-                        </LocalizationProvider>
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                                Bitiş Tarihi
-                            </CustomFormLabel>
-                            <DatePicker
-                                label=""
-                                value={endDate}
-                                onChange={(newValue) => {
-                                    setEndDate(newValue);
-                                    if (endDateError && newValue) setEndDateError(false);
-                                    if (startDate && newValue && newValue < startDate) {
-                                        setEndDateError(true);
-                                        setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
-                                    } else {
-                                        setEndDateError(false);
-                                        setFormErrors(null);
-                                    }
-                                }}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
+                        </Grid>
 
-                                        size="small"
-                                        sx={{ width: '100%' }}
-                                        error={endDateError}
-                                        helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
-                                    />
+                        <Grid item xs={12} sm={3}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                    Başlangıç Tarihi
+                                </CustomFormLabel>
+                                <DatePicker
+                                    label=""
+                                    value={startDate}
+                                    onChange={(newValue) => {
+                                        setStartDate(newValue);
+                                        if (startDateError && newValue) setStartDateError(false);
+                                        if (endDate && newValue && newValue > endDate) {
+                                            setEndDateError(true);
+                                            setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
+                                        } else {
+                                            setEndDateError(false);
+                                            setFormErrors(null);
+                                        }
+                                    }}
+                                    inputFormat="dd/MM/yyyy"
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            sx={{ width: '100%' }}
+
+                                            size="small"
+                                            error={startDateError}
+                                            helperText={startDateError ? "Başlangıç tarihi boş olamaz!" : ""}
+                                        />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} sm={3}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                    Bitiş Tarihi
+                                </CustomFormLabel>
+                                <DatePicker
+                                    label=""
+                                    value={endDate}
+                                    onChange={(newValue) => {
+                                        setEndDate(newValue);
+                                        if (endDateError && newValue) setEndDateError(false);
+                                        if (startDate && newValue && newValue < startDate) {
+                                            setEndDateError(true);
+                                            setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
+                                        } else {
+                                            setEndDateError(false);
+                                            setFormErrors(null);
+                                        }
+                                    }}
+                                    inputFormat="dd/MM/yyyy"
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+
+                                            size="small"
+                                            sx={{ width: '100%' }}
+                                            error={endDateError}
+                                            helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
+                                        />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                {editingId !== null ? (
+                                    <>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili işi güncelleyin" : ""}>
+                                            <Button
+                                                variant="contained"
+                                                color="info"
+                                                onClick={editWork}
+                                                disabled={loadingButton}
+                                            >
+                                                {loadingButton ? <>
+                                                    <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
+                                                </> : 'Düzenle'}
+                                            </Button>
+                                        </CustomTooltip>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni iş moduna dön" : ""}>
+                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                                                İptal Et
+                                            </Button>
+                                        </CustomTooltip>
+                                    </>
+                                ) : (
+
+                                    <>
+                                        {hasCreatePermission && (
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir iş ekle" : ""}>
+                                                <Button
+                                                    variant="contained"
+                                                    color="success"
+                                                    onClick={insertWork}
+                                                    disabled={loadingButton}
+                                                >
+                                                    {loadingButton ? <>
+                                                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
+                                                    </> : 'Yeni İş Ekle'}
+                                                </Button>
+                                            </CustomTooltip>
+
+                                        )}
+                                    </>
                                 )}
-                            />
-                        </LocalizationProvider>
+                            </Stack>
+                        </Grid>
                     </Grid>
-                    <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            {editingId !== null ? (
-                                <>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili işi güncelleyin" : ""}>
-                                        <Button
-                                            variant="contained"
-                                            color="info"
-                                            onClick={editWork}
-                                            disabled={loadingButton}
-                                        >
-                                            {loadingButton ? <>
-                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
-                                            </> : 'Düzenle'}
-                                        </Button>
-                                    </CustomTooltip>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni iş moduna dön" : ""}>
-                                        <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                                            İptal Et
-                                        </Button>
-                                    </CustomTooltip>
-                                </>
-                            ) : (
-                                <>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir iş ekle" : ""}>
-                                        <Button
-                                            variant="contained"
-                                            color="success"
-                                            onClick={insertWork}
-                                            disabled={loadingButton}
-                                        >
-                                            {loadingButton ? <>
-                                                <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...
-                                            </> : 'Yeni İş Ekle'}
-                                        </Button>
-                                    </CustomTooltip>
-                                </>
-                            )}
-                        </Stack>
-                    </Grid>
-                </Grid>
+
+                )}
                 {alertMessage && (
                     <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
                         <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1009,15 +1035,21 @@ const ListWorks = () => {
                                                         'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                     }}
                                                 >
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iş için yeni bir şantiye kaydı oluştur" : ""}>
-                                                        <MenuItem onClick={handleGoToWorkhouses}>
-                                                            <ListItemIcon>
-                                                                <IconPlus width={18} />
-                                                            </ListItemIcon>
-                                                            Şantiye Ekle
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+
+
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iş için yeni bir şantiye kaydı oluştur" : ""}>
+                                                            <MenuItem onClick={handleGoToWorkhouses}>
+                                                                <ListItemIcon>
+                                                                    <IconPlus width={18} />
+                                                                </ListItemIcon>
+                                                                Şantiye Ekle
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+
+
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}>
                                                                 <ListItemIcon>
@@ -1036,23 +1068,27 @@ const ListWorks = () => {
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
+                                                    {hasEditPermission && (
 
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}>
-                                                            <ListItemIcon>
-                                                                <IconEdit width={18} />
-                                                            </ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                            <ListItemIcon>
-                                                                <IconTrash width={18} />
-                                                            </ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}>
+                                                                <ListItemIcon>
+                                                                    <IconEdit width={18} />
+                                                                </ListItemIcon>
+                                                                Düzenlemek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu işi sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon>
+                                                                    <IconTrash width={18} />
+                                                                </ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

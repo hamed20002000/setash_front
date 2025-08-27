@@ -15,28 +15,30 @@ import {
 } from '@mui/material';
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
-// ✅ مسیر را به دقت بررسی کنید و اگر متفاوت است، اصلاح کنید
 import { getDynamicMenuItems, MenuitemsType } from '../../vertical/sidebar/MenuItems';
-// در مسیر بالا، فرض شده است که MenuItems در src/layouts/full/shared/sidebar قرار دارد.
+import { useAuth } from 'src/context/AuthContext';
 
 const Search = () => {
   const [showDrawer2, setShowDrawer2] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [allDynamicMenus, setAllDynamicMenus] = useState<MenuitemsType[]>([]);
   const [loadingMenus, setLoadingMenus] = useState(false);
+  const { allowedOperations } = useAuth();
 
   const loadMenus = useCallback(async () => {
     setLoadingMenus(true);
     try {
-      const menus = await getDynamicMenuItems();
+      const operationNames = allowedOperations?.map(op => op.systemOperationName) || [];
+
+      const menus = await getDynamicMenuItems(operationNames);
+
       setAllDynamicMenus(menus);
     } catch (error) {
       console.error("Error loading dynamic menus for search:", error);
-      // می‌توانید اینجا showAlert نمایش دهید
     } finally {
       setLoadingMenus(false);
     }
-  }, []);
+  }, [allowedOperations]);
 
   useEffect(() => {
     if (showDrawer2 && allDynamicMenus.length === 0 && !loadingMenus) {

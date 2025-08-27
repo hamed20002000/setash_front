@@ -20,6 +20,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
+import { useAuth } from 'src/context/AuthContext';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -230,6 +231,21 @@ const ListWorkhouses = () => {
     const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
 
     const { isTooltipGloballyEnabled } = useTooltip();
+
+
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
 
     const fetchWorkInfo = useCallback(async () => {
         if (!workId) return;
@@ -662,125 +678,133 @@ const ListWorkhouses = () => {
                         </CustomTooltip>
                     </Stack>
                 )}
-                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="workhouse-name" required>İsim</CustomFormLabel>
-                            <CustomTextField
-                                id="workhouse-name"
-                                placeholder="Şantiye Adı"
 
-                                sx={{ width: '100%' }}
-                                size="small"
-                                value={name}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setName(e.target.value);
-                                    if (nameError && e.target.value.trim()) setNameError(false);
-                                }}
-                                inputRef={nameInputRef}
-                                error={nameError}
-                                helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="workhouse-code" required>Kod</CustomFormLabel>
-                            <CustomTextField
-                                id="workhouse-code"
-                                placeholder="Şantiye Kodu"
+                {(hasCreatePermission || hasEditPermission) && (
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="workhouse-name" required>İsim</CustomFormLabel>
+                                <CustomTextField
+                                    id="workhouse-name"
+                                    placeholder="Şantiye Adı"
 
-                                sx={{ width: '100%' }}
-                                size="small"
-                                value={code}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setCode(e.target.value);
-                                    if (codeError && e.target.value.trim()) setCodeError(false);
-                                }}
-                                error={codeError}
-                                helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                            <FormControl
-                                sx={{ width: '100%' }}
-                                size="small" error={regionIdError}>
-                                <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
-                                <Select
-                                    labelId="select-region-label"
-                                    id="select-region"
-                                    value={selectedRegionId || ''} // ✅ از state جدید استفاده می‌کنیم
-                                    label="Bölge Seçin"
-                                    open={isRegionSelectOpen}
-                                    onOpen={handleOpenRegionSelect}
-                                    onClose={handleCloseRegionSelect}
-                                    onChange={(event) => {
-                                        const selectedId = event.target.value as number;
-                                        setSelectedRegionId(selectedId); // ✅ state جدید
-                                        if (regionIdError && selectedId) setRegionIdError(false);
+                                    sx={{ width: '100%' }}
+                                    size="small"
+                                    value={name}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setName(e.target.value);
+                                        if (nameError && e.target.value.trim()) setNameError(false);
                                     }}
-                                    renderValue={renderSelectedRegion}
-                                    MenuProps={{ sx: { maxHeight: 400 } }}
-                                >
-                                    {loadingData ? (
-                                        <MenuItem disabled>
-                                            <CircularProgress size={20} /> Yükleniyor...
-                                        </MenuItem>
-                                    ) : regionTree.length > 0 ? (
-                                        renderRegionTree(regionTree)
+                                    inputRef={nameInputRef}
+                                    error={nameError}
+                                    helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="workhouse-code" required>Kod</CustomFormLabel>
+                                <CustomTextField
+                                    id="workhouse-code"
+                                    placeholder="Şantiye Kodu"
+
+                                    sx={{ width: '100%' }}
+                                    size="small"
+                                    value={code}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setCode(e.target.value);
+                                        if (codeError && e.target.value.trim()) setCodeError(false);
+                                    }}
+                                    error={codeError}
+                                    helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
+                                <FormControl
+                                    sx={{ width: '100%' }}
+                                    size="small" error={regionIdError}>
+                                    <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
+                                    <Select
+                                        labelId="select-region-label"
+                                        id="select-region"
+                                        value={selectedRegionId || ''} // ✅ از state جدید استفاده می‌کنیم
+                                        label="Bölge Seçin"
+                                        open={isRegionSelectOpen}
+                                        onOpen={handleOpenRegionSelect}
+                                        onClose={handleCloseRegionSelect}
+                                        onChange={(event) => {
+                                            const selectedId = event.target.value as number;
+                                            setSelectedRegionId(selectedId); // ✅ state جدید
+                                            if (regionIdError && selectedId) setRegionIdError(false);
+                                        }}
+                                        renderValue={renderSelectedRegion}
+                                        MenuProps={{ sx: { maxHeight: 400 } }}
+                                    >
+                                        {loadingData ? (
+                                            <MenuItem disabled>
+                                                <CircularProgress size={20} /> Yükleniyor...
+                                            </MenuItem>
+                                        ) : regionTree.length > 0 ? (
+                                            renderRegionTree(regionTree)
+                                        ) : (
+                                            <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+                                        )}
+                                    </Select>
+                                    {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} sm={12}>
+                                <CustomFormLabel htmlFor="workhouse-address" required>Adres</CustomFormLabel>
+                                <CustomTextField
+                                    id="workhouse-address"
+                                    placeholder="Şantiye Adresi"
+                                    fullWidth
+                                    value={address}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setAddress(e.target.value);
+                                        if (addressError && e.target.value.trim()) setAddressError(false);
+                                    }}
+                                    error={addressError}
+                                    helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                    {editingId !== null ? (
+                                        <>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili şantiyeyi güncelleyin" : ""}>
+                                                <Button variant="contained" color="info" onClick={editWorkhouse} disabled={loadingButton}>
+                                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                                </Button>
+                                            </CustomTooltip>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni şantiye moduna dön" : ""}>
+                                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
+                                            </CustomTooltip>
+                                        </>
                                     ) : (
-                                        <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+
+                                        <>
+                                            {hasCreatePermission && (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir şantiye ekle" : ""}>
+                                                    <Button variant="contained" color="success" onClick={insertWorkhouse} disabled={loadingButton}>
+                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
+                                                    </Button>
+                                                </CustomTooltip>
+
+                                            )}
+                                        </>
                                     )}
-                                </Select>
-                                {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
-                            </FormControl>
+                                </Stack>
+                            </Grid>
                         </Grid>
-                        <Grid item xs={12} sm={12}>
-                            <CustomFormLabel htmlFor="workhouse-address" required>Adres</CustomFormLabel>
-                            <CustomTextField
-                                id="workhouse-address"
-                                placeholder="Şantiye Adresi"
-                                fullWidth
-                                value={address}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setAddress(e.target.value);
-                                    if (addressError && e.target.value.trim()) setAddressError(false);
-                                }}
-                                error={addressError}
-                                helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                {editingId !== null ? (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili şantiyeyi güncelleyin" : ""}>
-                                            <Button variant="contained" color="info" onClick={editWorkhouse} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni şantiye moduna dön" : ""}>
-                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
-                                        </CustomTooltip>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir şantiye ekle" : ""}>
-                                            <Button variant="contained" color="success" onClick={insertWorkhouse} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                    </>
-                                )}
+                        {alertMessage && (
+                            <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                                <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                             </Stack>
-                        </Grid>
-                    </Grid>
-                    {alertMessage && (
-                        <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                            <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
-                        </Stack>
-                    )}
-                </Paper>
+                        )}
+                    </Paper>
+
+                )}
             </div>
 
             <BlankCard>
@@ -873,26 +897,33 @@ const ListWorkhouses = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detayları kaydet" : ""}>
-                                                        <MenuItem onClick={handleNavigateToDetails}>
-                                                            <ListItemIcon>
-                                                                <IconPlus width={18} />
-                                                            </ListItemIcon>
-                                                            Detayları Kaydet
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}>
-                                                            <ListItemIcon><IconEdit width={18} /></ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                            <ListItemIcon><IconTrash width={18} /></ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detayları kaydet" : ""}>
+                                                            <MenuItem onClick={handleNavigateToDetails}>
+                                                                <ListItemIcon>
+                                                                    <IconPlus width={18} />
+                                                                </ListItemIcon>
+                                                                Detayları Kaydet
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}>
+                                                                <ListItemIcon><IconEdit width={18} /></ListItemIcon>
+                                                                Düzenlemek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu şantiyeyi sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon><IconTrash width={18} /></ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

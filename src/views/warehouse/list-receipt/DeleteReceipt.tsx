@@ -52,7 +52,7 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
         setIsDeleting(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-receipt/${receiptIdToDelete}`,
+                `${server.baseurl}${server.warehouse}delete-receipt/${receiptIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",

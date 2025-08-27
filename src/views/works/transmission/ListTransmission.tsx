@@ -11,7 +11,8 @@ import {
     TableSortLabel,
     Dialog, DialogTitle, DialogContent, DialogActions,
     Alert, DialogContentText,
-    InputAdornment
+    InputAdornment,
+    useMediaQuery
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
@@ -28,6 +29,7 @@ import RegisterNewNodesModal from './RegisterNewNodesModal';
 import { keyframes } from '@mui/system';
 
 import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType } from './types';
+import { useAuth } from 'src/context/AuthContext';
 
 type SortableTransmissionKeys = keyof Pick<TransmissionRow, 'fromProductType' | 'toProductType' | 'distance' | 'miktarTipi' | 'formulaTitle' | 'createAt' | 'recordStatus'>;
 
@@ -93,6 +95,9 @@ const ListTransmission = () => {
     const tenderId = searchParams.get('tenderId');
     const { isTooltipGloballyEnabled } = useTooltip();
     const theme = useTheme();
+
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+
     const [networkTitleForDisplay, setNetworkTitleForDisplay] = useState('Yükleniyor...');
     const [workTitleForDisplay, setWorkTitleForDisplay] = useState('Yükleniyor...');
     const [tenderTitleForDisplay, setTenderTitleForDisplay] = useState('Yükleniyor...');
@@ -139,7 +144,6 @@ const ListTransmission = () => {
     const [transmissionIdToDelete, setTransmissionIdToDelete] = useState<string | null>(null);
     const [openDeleteModal, setOpenDeleteModal] = useState<boolean>(false);
 
-    // const [usedToNodes, setUsedToNodes] = useState<string[]>([]);
     const [openDeleteAllModal, setOpenDeleteAllModal] = useState<boolean>(false);
     const [dependentTransmissions, setDependentTransmissions] = useState<TransmissionRow[]>([]);
     const [transmissionSummary, setTransmissionSummary] = useState<any[]>([]);
@@ -152,6 +156,21 @@ const ListTransmission = () => {
 
     const [isInitialEntry, setIsInitialEntry] = useState(true);
     const [openSelectTrafoModal, setOpenSelectTrafoModal] = useState(false);
+
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
 
     const clearAlert = () => {
         setAlertMessage(null);
@@ -536,9 +555,6 @@ const ListTransmission = () => {
                     setIsInitialEntry(true);
                 }
 
-                // const usedToNodes = processedData.map((row: TransmissionRow) => String(row.toProductTypeId!));
-                // setUsedToNodes(usedToNodes);
-
                 setFinalCalculationData(_prev => {
                     const newMap = new Map<string, Map<string, AddedItem>>();
                     processedData.forEach((row: TransmissionRow) => {
@@ -565,7 +581,6 @@ const ListTransmission = () => {
                 showAlert(response.data.message || 'Veri alınamadı.', 'error');
                 setTransmissionList([]);
                 setFinalCalculationData(new Map());
-                // setUsedToNodes([]);
                 setTransmissionSummary([]);
                 setIsInitialEntry(true);
                 setFromProductType(null);
@@ -575,7 +590,6 @@ const ListTransmission = () => {
             showAlert('Sunucudan iletim listesi alınırken bir hata oluştu.', 'error');
             setTransmissionList([]);
             setFinalCalculationData(new Map());
-            // setUsedToNodes([]);
             setTransmissionSummary([]);
             setIsInitialEntry(true);
             setFromProductType(null);
@@ -911,7 +925,6 @@ const ListTransmission = () => {
             showAlert('Tüm kayıtlar başarıyla silindi!', 'success');
 
             setTransmissionList([]);
-            // setUsedToNodes([]);
             setFinalCalculationData(new Map());
             setOpenDeleteAllModal(false);
             setIsInitialEntry(true);
@@ -966,10 +979,6 @@ const ListTransmission = () => {
         setFormulaTitle(row.formulaTitle);
         setAddedItems(row.items || []);
 
-        // const currentUsedToNodes = transmissionList
-        //     .filter(r => r.toProductTypeId && r.id !== row.id)
-        //     .map(r => r.toProductTypeId!);
-        // setUsedToNodes(currentUsedToNodes);
         const itemsInRow = row.items?.map(item => item.id) || [];
         setAvailableItems(prev => prev.filter(item => !itemsInRow.includes(item.id)));
     };
@@ -1155,365 +1164,390 @@ const ListTransmission = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                        <Chip
-                            label={`Şebeke: ${networkTitleForDisplay}`}
-                            color="primary"
-                            variant="filled"
-                            size="small"
-                        />
-                        <Chip
-                            label={`İş: ${workTitleForDisplay}`}
-                            color="success"
-                            variant="filled"
-                            size="small"
-                        />
-                        <Chip
-                            label={`İhale: ${tenderTitleForDisplay}`}
-                            color="info"
-                            variant="filled"
-                            size="small"
-                        />
-                    </Stack>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3} flexWrap="wrap" gap={1}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" gap={1}>
+                    <Chip
+                        label={`Şebeke: ${networkTitleForDisplay}`}
+                        color="primary"
+                        variant="filled"
+                        size="small"
+                    />
+                    <Chip
+                        label={`İş: ${workTitleForDisplay}`}
+                        color="success"
+                        variant="filled"
+                        size="small"
+                    />
+                    <Chip
+                        label={`İhale: ${tenderTitleForDisplay}`}
+                        color="info"
+                        variant="filled"
+                        size="small"
+                    />
                 </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Button
-                        variant="outlined"
-                        color="secondary"
-                        onClick={() => {
-                            resetFormFields();
-                            setIsInitialEntry(true);
-                        }}
-                        startIcon={<IconRefresh />}
-                        disabled={loadingButton}
-                    >
-                        Yeni TRAFO'dan Başla
-                    </Button>
-                    {transmissionList.length > 0 && (
+
+                {(hasCreatePermission || hasEditPermission) && (
+                    <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
                         <Button
                             variant="outlined"
-                            color="info"
-                            onClick={() => setOpenSelectTrafoModal(true)}
-                            startIcon={<IconPlus />}
+                            color="secondary"
+                            onClick={() => {
+                                resetFormFields();
+                                setIsInitialEntry(true);
+                            }}
+                            startIcon={<IconRefresh />}
                             disabled={loadingButton}
                         >
-                            TRAFO Seç
+                            Yeni TRAFO'dan Başla
                         </Button>
-                    )}
-                    <Button
-                        variant="contained"
-                        color="secondary"
-                        onClick={handleOpenMapModal}
-                        disabled={!networkId || loadingList || transmissionList.length === 0}
-                        startIcon={<IconMap />}
-                    >
-                        Haritayı Görüntüle
-                    </Button>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                            endIcon={<IconArrowRight size={20} />}>
-                            Geri Dön
-                        </Button>
-                    </CustomTooltip>
-                </Stack>
-            </Stack>
-
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Grid container spacing={2} alignItems="flex-end">
-                    <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="from-product-type" required>
-                            Kaynak Geresi
-                        </CustomFormLabel>
-                        <Autocomplete
-                            id="from-product-type"
-                            options={isInitialEntry ? availableTrafoOptions : [fromProductType].filter(Boolean) as SelectOption[]}
-
-                            // options={isInitialEntry ? availableTrafoOptions : [fromProductType].filter(Boolean) as SelectOption[]}
-                            getOptionLabel={(option) => option.name}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            value={fromProductType}
-                            onChange={(_e, newValue) => {
-                                setFromProductType(newValue);
-                                setToProductType(null); // هر وقت گره مبدا تغییر کرد، گره مقصد را پاک کن.
-                            }}
-                            renderInput={(params) => <TextField {...params} label="Seç" variant="outlined" size="small" />}
-                            onOpen={() => handleAutocompleteOpen(fromProductTypeRef)}
-                            sx={{ '& .MuiAutocomplete-inputRoot': { py: 0.5 } }}
-                            onInputChange={(_event) => { }}
-                            disabled={isFormDisabled || loadingList || (transmissionList.length > 0 && !isInitialEntry)}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="to-product-type" required>Hedef Ürün Tipi</CustomFormLabel>
-                        <Autocomplete
-                            id="to-product-type"
-                            options={toProductTypeOptions}
-                            getOptionLabel={(option) => option.name}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            value={toProductType}
-                            onChange={(_e, newValue) => setToProductType(newValue)}
-                            renderInput={(params) => <TextField {...params} label="Seç" variant="outlined" size="small" />}
-                            onOpen={() => handleAutocompleteOpen(toProductTypeRef)}
-                            sx={{ '& .MuiAutocomplete-inputRoot': { py: 0.5 } }}
-                            onInputChange={(_event) => { }}
-                            disabled={isFormDisabled || !fromProductType || toProductTypeOptions.length === 0}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                        <CustomFormLabel htmlFor="distance" required>Mesafe</CustomFormLabel>
-                        <TextField
-                            id="distance"
-                            type="number"
-                            placeholder="Mesafe"
-                            fullWidth
-                            value={distance}
-                            onChange={(e) => setDistance(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            inputProps={{ min: 0 }}
-                            disabled={isFormDisabled}
-                        />
-                    </Grid>
-                </Grid>
-                <Grid container spacing={2} alignItems="flex-end" sx={{ mt: 2 }}>
-                    <Grid item xs={12} sm={6}>
-                        <CustomFormLabel component="legend">Miktar Tipi</CustomFormLabel>
-                        <RadioGroup row name="miktar-tipi" value={miktarTipi} onChange={(e) => setMiktarTipi(e.target.value as 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG')}>
-                            <FormControlLabel value="Yeni YG" control={<Radio size="small" />} label="Yeni YG" disabled={isFormDisabled} />
-                            <FormControlLabel value="Yeni AG" control={<Radio size="small" />} label="Yeni AG" disabled={isFormDisabled} />
-                            <FormControlLabel value="DMM YG" control={<Radio size="small" />} label="DMM YG" disabled={isFormDisabled} />
-                            <FormControlLabel value="DMM AG" control={<Radio size="small" />} label="DMM AG" disabled={isFormDisabled} />
-                        </RadioGroup>
-                    </Grid>
-                    <Grid item xs={12} sm={6}>
-                        <CustomFormLabel htmlFor="formula-title">Formül Başlığı</CustomFormLabel>
-                        <TextField
-                            id="formula-title"
-                            placeholder="Formül Başlığı"
-                            fullWidth
-                            value={formulaTitle}
-                            onChange={(e) => setFormulaTitle(e.target.value)}
-                            variant="outlined"
-                            size="small"
-                            disabled={isFormDisabled}
-                        />
-                    </Grid>
-                </Grid>
-                <Box mt={3}>
-                    <Typography variant="h6" gutterBottom>
-                        Şebeke ve Miktar Ekle
-                    </Typography>
-                    <Stack direction="row" spacing={2} alignItems="center" mt={4} mb={2}>
-                        <Autocomplete
-                            id="item-select"
-                            options={availableItems}
-                            getOptionLabel={(option) => option.name}
-                            isOptionEqualToValue={(option, value) => option.id === value.id}
-                            value={selectedItem}
-                            onChange={(_e, newValue) => setSelectedItem(newValue)}
-                            renderInput={(params) => <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" />}
-                            sx={{ flexGrow: 1 }}
-                            disabled={loadingItems}
-                        />
-                        {selectedItem && selectedItem.unit && (
-                            <Typography variant="body1" sx={{ whiteSpace: 'nowrap' }}>
-                                {selectedItem.unit.title}
-                            </Typography>
-                        )}
-                        <TextField
-                            id="item-quantity"
-                            label="Miktar"
-                            type="number"
-                            size="small"
-                            value={itemQuantity}
-                            onChange={(e) => setItemQuantity(e.target.value)}
-                            sx={{ width: 100 }}
-                            InputProps={{ inputProps: { min: 0 } }}
-                        />
-                        {editingItem ? (
-                            <>
-                                <Button
-                                    variant="contained"
-                                    color="info"
-                                    onClick={handleUpdateEditedItem}
-                                    disabled={!selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0}
-                                    sx={{ minWidth: 40, height: 40 }}
-                                >
-                                    <IconEdit size={20} />
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    color="secondary"
-                                    onClick={handleCancelEditItem}
-                                    sx={{ minWidth: 40, height: 40 }}
-                                >
-                                    <IconX size={20} />
-                                </Button>
-                            </>
-                        ) : (
+                        {transmissionList.length > 0 && (
                             <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleAddItem}
-                                disabled={!selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0}
-                                startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconPlus />}
+                                variant="outlined"
+                                color="info"
+                                onClick={() => setOpenSelectTrafoModal(true)}
+                                startIcon={<IconPlus />}
+                                disabled={loadingButton}
                             >
-
+                                TRAFO Seç
                             </Button>
                         )}
+
+                        {hasCreatePermission && (
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={handleOpenMapModal}
+                                disabled={!networkId || loadingList || transmissionList.length === 0}
+                                startIcon={<IconMap />}
+                            >
+                                Haritayı Görüntüle
+                            </Button>
+
+                        )}
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                endIcon={<IconArrowRight size={20} />}>
+                                Geri Dön
+                            </Button>
+                        </CustomTooltip>
                     </Stack>
-                    <Box
-                        sx={{
-                            p: 1,
-                            border: '1px solid rgba(0, 0, 0, 0.12)',
-                            borderRadius: '4px',
-                            minHeight: 40,
-                            display: 'flex',
-                            flexWrap: 'wrap',
-                            gap: 1
-                        }}
-                    >
-                        {addedItems.map(item => (
+
+                )}
+            </Stack>
+
+            {(hasCreatePermission || hasEditPermission) && (
+                <>
+
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Grid container spacing={2} alignItems="flex-end">
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="from-product-type" required>
+                                    Kaynak Geresi
+                                </CustomFormLabel>
+                                <Autocomplete
+                                    id="from-product-type"
+                                    options={isInitialEntry ? availableTrafoOptions : [fromProductType].filter(Boolean) as SelectOption[]}
+                                    getOptionLabel={(option) => option.name}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={fromProductType}
+                                    onChange={(_e, newValue) => {
+                                        setFromProductType(newValue);
+                                        setToProductType(null);
+                                    }}
+                                    renderInput={(params) => <TextField {...params} label="Seç" variant="outlined" size="small" />}
+                                    onOpen={() => handleAutocompleteOpen(fromProductTypeRef)}
+                                    sx={{ '& .MuiAutocomplete-inputRoot': { py: 0.5 } }}
+                                    onInputChange={(_event) => { }}
+                                    disabled={isFormDisabled || loadingList || (transmissionList.length > 0 && !isInitialEntry)}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="to-product-type" required>Hedef Ürün Tipi</CustomFormLabel>
+                                <Autocomplete
+                                    id="to-product-type"
+                                    options={toProductTypeOptions}
+                                    getOptionLabel={(option) => option.name}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={toProductType}
+                                    onChange={(_e, newValue) => setToProductType(newValue)}
+                                    renderInput={(params) => <TextField {...params} label="Seç" variant="outlined" size="small" />}
+                                    onOpen={() => handleAutocompleteOpen(toProductTypeRef)}
+                                    sx={{ '& .MuiAutocomplete-inputRoot': { py: 0.5 } }}
+                                    onInputChange={(_event) => { }}
+                                    disabled={isFormDisabled || !fromProductType || toProductTypeOptions.length === 0}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="distance" required>Mesafe</CustomFormLabel>
+                                <TextField
+                                    id="distance"
+                                    type="number"
+                                    placeholder="Mesafe"
+                                    fullWidth
+                                    value={distance}
+                                    onChange={(e) => setDistance(e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    inputProps={{ min: 0 }}
+                                    disabled={isFormDisabled}
+                                />
+                            </Grid>
+                        </Grid>
+                        <Grid container spacing={2} alignItems="flex-end" sx={{ mt: 2 }}>
+                            <Grid item xs={12} sm={6}>
+                                <CustomFormLabel component="legend">Miktar Tipi</CustomFormLabel>
+                                <RadioGroup row name="miktar-tipi" value={miktarTipi} onChange={(e) => setMiktarTipi(e.target.value as 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG')}>
+                                    <FormControlLabel value="Yeni YG" control={<Radio size="small" />} label="Yeni YG" disabled={isFormDisabled} />
+                                    <FormControlLabel value="Yeni AG" control={<Radio size="small" />} label="Yeni AG" disabled={isFormDisabled} />
+                                    <FormControlLabel value="DMM YG" control={<Radio size="small" />} label="DMM YG" disabled={isFormDisabled} />
+                                    <FormControlLabel value="DMM AG" control={<Radio size="small" />} label="DMM AG" disabled={isFormDisabled} />
+                                </RadioGroup>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <CustomFormLabel htmlFor="formula-title">Formül Başlığı</CustomFormLabel>
+                                <TextField
+                                    id="formula-title"
+                                    placeholder="Formül Başlığı"
+                                    fullWidth
+                                    value={formulaTitle}
+                                    onChange={(e) => setFormulaTitle(e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    disabled={isFormDisabled}
+                                />
+                            </Grid>
+                        </Grid>
+                        <Box mt={3}>
+                            <Typography variant="h6" gutterBottom>
+                                Şebeke ve Miktar Ekle
+                            </Typography>
+                            <Grid container spacing={2} alignItems="center" mt={isSmallScreen ? 1 : 4} mb={2}>
+                                <Grid item xs={12} sm={6} md={6}>
+                                    <Autocomplete
+                                        id="item-select"
+                                        options={availableItems}
+                                        getOptionLabel={(option) => option.name}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        value={selectedItem}
+                                        onChange={(_e, newValue) => setSelectedItem(newValue)}
+                                        renderInput={(params) => <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" />}
+                                        sx={{ flexGrow: 1 }}
+                                        disabled={loadingItems}
+                                    />
+                                </Grid>
+                                <Grid item xs={12} sm={3} md={2}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        {selectedItem && selectedItem.unit && (
+                                            <Typography variant="body1" sx={{ whiteSpace: 'nowrap' }}>
+                                                {selectedItem.unit.title}
+                                            </Typography>
+                                        )}
+                                        <TextField
+                                            id="item-quantity"
+                                            label="Miktar"
+                                            type="number"
+                                            size="small"
+                                            fullWidth
+                                            value={itemQuantity}
+                                            onChange={(e) => setItemQuantity(e.target.value)}
+                                            InputProps={{ inputProps: { min: 0 } }}
+                                        />
+                                    </Stack>
+                                </Grid>
+                                <Grid item xs={12} sm={3} md={4} sx={{ textAlign: isSmallScreen ? 'right' : 'left' }}>
+                                    {editingItem ? (
+                                        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ width: '100%' }}>
+                                            <Button
+                                                variant="contained"
+                                                color="info"
+                                                onClick={handleUpdateEditedItem}
+                                                disabled={!selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0}
+                                                startIcon={<IconEdit size={20} />}
+                                            >
+                                                Güncelle
+                                            </Button>
+                                            <Button
+                                                variant="outlined"
+                                                color="secondary"
+                                                onClick={handleCancelEditItem}
+                                                startIcon={<IconX size={20} />}
+                                            >
+                                                İptal
+                                            </Button>
+                                        </Stack>
+                                    ) : (
+                                        <>
+                                            {hasCreatePermission && (
+                                                <Button
+                                                    variant="contained"
+                                                    color="primary"
+                                                    onClick={handleAddItem}
+                                                    disabled={!selectedItem || !itemQuantity || parseFloat(itemQuantity) <= 0}
+                                                    startIcon={loadingItems ? <CircularProgress size={20} color="inherit" /> : <IconPlus size={20} />}
+                                                >
+                                                    Ekle
+                                                </Button>
+
+                                            )}
+                                        </>
+                                    )}
+                                </Grid>
+                            </Grid>
                             <Box
-                                key={item.id}
                                 sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    backgroundColor: theme.palette.action.selected,
-                                    border: `1px solid ${theme.palette.divider}`,
+                                    p: 1,
+                                    border: '1px solid rgba(0, 0, 0, 0.12)',
                                     borderRadius: '4px',
-                                    padding: '4px 8px',
+                                    minHeight: 40,
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: 1
                                 }}
                             >
-                                <Typography variant="body2" sx={{ mr: 1, color: theme.palette.text.primary }}>
-                                    {`${item.name}: ${item.quantity}`}
-                                </Typography>
-                                <IconButton
-                                    onClick={() => handleEditAddedItem(item)}
-                                    size="small"
-                                    sx={{ color: theme.palette.info.main }}
-                                    disabled={!!editingItem && editingItem.id !== item.id}
-                                >
-                                    <IconPencil size={16} />
-                                </IconButton>
-                                <IconButton
-                                    onClick={() => handleDeleteAddedItem(item.id)}
-                                    size="small"
-                                    sx={{ color: theme.palette.error.main }}
-                                    disabled={!!editingItem && editingItem.id !== item.id}
-                                >
-                                    <IconTrash size={16} />
-                                </IconButton>
+                                {addedItems.map(item => (
+                                    <Box
+                                        key={item.id}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            backgroundColor: theme.palette.action.selected,
+                                            border: `1px solid ${theme.palette.divider}`,
+                                            borderRadius: '4px',
+                                            padding: '4px 8px',
+                                        }}
+                                    >
+                                        <Typography variant="body2" sx={{ mr: 1, color: theme.palette.text.primary }}>
+                                            {`${item.name}: ${item.quantity}`}
+                                        </Typography>
+                                        <IconButton
+                                            onClick={() => handleEditAddedItem(item)}
+                                            size="small"
+                                            sx={{ color: theme.palette.info.main }}
+                                            disabled={!!editingItem && editingItem.id !== item.id}
+                                        >
+                                            <IconPencil size={16} />
+                                        </IconButton>
+                                        <IconButton
+                                            onClick={() => handleDeleteAddedItem(item.id)}
+                                            size="small"
+                                            sx={{ color: theme.palette.error.main }}
+                                            disabled={!!editingItem && editingItem.id !== item.id}
+                                        >
+                                            <IconTrash size={16} />
+                                        </IconButton>
+                                    </Box>
+                                ))}
                             </Box>
-                        ))}
-                    </Box>
-                </Box>
-                <Grid item xs={12}>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
-                        {editingRowId ? (
-                            <>
-                                <Button
-                                    variant="contained"
-                                    color="info"
-                                    onClick={handleUpdateRowInTransmissionList}
-                                    disabled={loadingButton || !fromProductType || !toProductType || !distance || addedItems.length === 0}
-                                    startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
-                                >
-                                    Güncelle
-                                </Button>
-                                <Button
+                        </Box>
+                        <Grid item xs={12}>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
+                                {editingRowId ? (
+                                    <>
+                                        <Button
+                                            variant="contained"
+                                            color="info"
+                                            onClick={handleUpdateRowInTransmissionList}
+                                            disabled={loadingButton || !isFormComplete}
+                                            startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
+                                        >
+                                            Güncelle
+                                        </Button>
+                                        <Button
+                                            variant="outlined"
+                                            color="secondary"
+                                            onClick={resetFormFields}
+                                            disabled={loadingButton}
+                                            startIcon={<IconX />}
+                                        >
+                                            İptal
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleAddRowToTransmissionList}
+                                        disabled={loadingButton || !isFormComplete}
+                                        startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconPlus />}
+                                    >
+                                        Ekle
+                                    </Button>
+                                )}
+                            </Stack>
+                        </Grid>
+                    </Paper>
+                    <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
+                    <Box sx={{ p: 2 }}>
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={12} sm={4}>
+                                <TextField
+                                    label="Şantiye Ara"
                                     variant="outlined"
-                                    color="secondary"
-                                    onClick={resetFormFields}
-                                    disabled={loadingButton}
-                                    startIcon={<IconX />}
-                                >
-                                    İptal
-                                </Button>
-                            </>
-                        ) : (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleAddRowToTransmissionList}
+                                    fullWidth
+                                    size="small"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={8}>
+                                <Stack direction={isSmallScreen ? "column" : "row"} justifyContent="flex-end" spacing={1} flexWrap="wrap" gap={1}>
 
-                                disabled={loadingButton || !isFormComplete}
-                                startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconPlus />}
-                            >
-                                Ekle
-                            </Button>
-                        )}
-                    </Stack>
-                </Grid>
-            </Paper>
-            <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
-            <Stack direction="row" justifyContent="flex-end" mb={3} mt={3} spacing={2}>
+                                    {hasEditPermission && (<Box
+                                        sx={{
+                                            zIndex: 1000,
+                                            animation: `${hasUnsavedChanges ? `${blinkAnimation} 1.5s infinite` : 'none'}`,
+                                            '&:hover': { animation: 'none' },
+                                            width: isSmallScreen ? '100%' : 'auto'
+                                        }}
+                                    >
+                                        <CustomTooltip
+                                            title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}
+                                            placement={isSmallScreen ? "top" : "right"}
+                                        >
+                                            <Button
+                                                variant="contained"
+                                                color="info"
+                                                onClick={() => handleBatchUpdate(transmissionList)}
+                                                disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
+                                                startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
+                                                fullWidth={isSmallScreen}
+                                            >
+                                                {loadingButton ? 'Kaydediliyor...' : 'Kaydet (Tümünü Güncelle)'}
+                                            </Button>
+                                        </CustomTooltip>
 
+                                    </Box>)}
+                                    {hasDeletePermission && (
+                                        <Button
+                                            variant="outlined"
+                                            color="error"
+                                            onClick={handleDeleteAll}
+                                            disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
+                                            startIcon={<IconTrash />}
+                                            fullWidth={isSmallScreen}
+                                        >
+                                            Hepsini Sil
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="contained"
+                                        color="success"
+                                        onClick={handleOpenFinalCalcModal}
+                                        disabled={Array.from(finalCalculationData.values()).flatMap(m => Array.from(m.values())).length === 0}
+                                        startIcon={<IconChartDots />}
+                                        fullWidth={isSmallScreen}
+                                    >
+                                        Toplam Kayıtları Görüntüle
+                                    </Button>
+                                </Stack>
+                            </Grid>
+                        </Grid>
+                    </Box>
 
-                <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={3} md={8}>
-                        <TextField
-                            label="Şantiye Ara"
-                            variant="outlined"
-                            fullWidth
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                        />
-                    </Grid>
+                </>
 
-                </Grid>
-
-                <Box
-                    sx={{
-                        zIndex: 1000,
-                        display: hasUnsavedChanges ? 'block' : 'none',
-                        animation: `${hasUnsavedChanges ? `${blinkAnimation} 1.5s infinite` : 'none'}`,
-                        '&:hover': {
-                            animation: 'none',
-                        },
-                    }}
-                >
-                    <CustomTooltip
-                        title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}
-                        placement="right"
-                    >
-                        <Button
-                            variant="contained"
-                            color="info"
-                            onClick={() => handleBatchUpdate(transmissionList)}
-                            disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
-                            startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
-                        >
-                            {loadingButton ? 'Kaydediliyor...' : 'Kaydet (Tümünü Güncelle)'}
-                        </Button>
-                    </CustomTooltip>
-                </Box>
-                <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={handleDeleteAll}
-                    disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
-                    startIcon={<IconTrash />}
-                >
-                    Hepsini Sil
-                </Button>
-                <Button
-                    variant="contained"
-                    color="success"
-                    onClick={handleOpenFinalCalcModal}
-                    disabled={Array.from(finalCalculationData.values()).flatMap(m => Array.from(m.values())).length === 0}
-                    startIcon={<IconChartDots />}
-                >
-                    Toplam Kayıtları Görüntüle
-                </Button>
-
-
-
-            </Stack>
-
+            )}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1522,11 +1556,7 @@ const ListTransmission = () => {
                 </Stack>
             )}
             <BlankCard>
-
-
-
                 <TableContainer>
-
                     <Table>
                         <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
@@ -1626,22 +1656,26 @@ const ListTransmission = () => {
                                                         'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                     }}
                                                 >
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iletimi düzenle" : ""}>
-                                                        <MenuItem onClick={() => { handleEditClick(selectedRowForMenu!); handleCloseMenu(); }}>
-                                                            <ListItemIcon>
-                                                                <IconEdit width={18} />
-                                                            </ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iletimi sil" : ""}>
-                                                        <MenuItem onClick={() => { handleDeleteClick(selectedRowForMenu!); handleCloseMenu(); }}>
-                                                            <ListItemIcon>
-                                                                <IconTrash width={18} />
-                                                            </ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iletimi düzenle" : ""}>
+                                                            <MenuItem onClick={() => { handleEditClick(selectedRowForMenu!); handleCloseMenu(); }}>
+                                                                <ListItemIcon>
+                                                                    <IconEdit width={18} />
+                                                                </ListItemIcon>
+                                                                Düzenlemek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iletimi sil" : ""}>
+                                                            <MenuItem onClick={() => { handleDeleteClick(selectedRowForMenu!); handleCloseMenu(); }}>
+                                                                <ListItemIcon>
+                                                                    <IconTrash width={18} />
+                                                                </ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -15,15 +15,19 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconFileDownload } from '@tabler/icons-react';
 import DeleteWarehouse from './DeleteWarehouse';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -35,7 +39,6 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
-
 
 interface WarehouseType {
     id: number;
@@ -53,7 +56,6 @@ interface WarehouseType {
         recordStatus: number;
     };
 }
-
 
 interface RegionType {
     id: number;
@@ -75,13 +77,6 @@ interface FlattenedRegionType {
     label: string;
     depth: number;
 }
-// interface RegionTreeSelectMenuItemProps {
-//     node: RegionNode;
-//     selectedId: number | null;
-//     onSelect: (nodeId: number | null, nodeName: string) => void;
-//     onCloseParentSelect: () => void;
-// }
-
 
 type SortableWarehouseKeys = keyof Pick<WarehouseType, 'name' | 'code' | 'address' | 'createAt' | 'recordStatus'>;
 
@@ -179,7 +174,6 @@ const ListWarehouses = () => {
     const [name, setName] = useState<string>('');
     const [code, setCode] = useState<string>('');
     const [address, setAddress] = useState<string>('');
-    // ✅ فقط id منطقه انتخاب شده را ذخیره می‌کنیم
     const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
 
     const [WarehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
@@ -215,7 +209,6 @@ const ListWarehouses = () => {
     const [regionOptions, setRegionOptions] = useState<FlattenedRegionType[]>([]);
     const [regionMap, setRegionMap] = useState<Map<number, string>>(new Map());
 
-    // const [regionsListNested, setRegionsListNested] = useState<RegionType[]>([]);
     const [regionTree, setRegionTree] = useState<RegionNode[]>([]);
     const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
@@ -224,6 +217,23 @@ const ListWarehouses = () => {
     const [selectedAddress, setSelectedAddress] = useState('');
 
     const { isTooltipGloballyEnabled } = useTooltip();
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    }, [allowedOperations]);
 
 
     const fetchRegions = useCallback(async () => {
@@ -240,7 +250,6 @@ const ListWarehouses = () => {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             if (response.data.httpStatusCode === 200) {
-                // setRegionsListNested(response.data.data);
                 const regionTreeData = buildRegionTree(response.data.data);
                 setRegionTree(regionTreeData);
                 const flattened = flattenRegions(response.data.data);
@@ -266,12 +275,10 @@ const ListWarehouses = () => {
             setLoadingData(false);
             return;
         }
-        debugger
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-warehouses", {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
-            debugger
             if (response.data.httpStatusCode === 200) {
                 const allWarehouses = response.data.data as WarehouseType[];
                 const WarehousesWithStatus = allWarehouses.map((item) => ({
@@ -287,7 +294,7 @@ const ListWarehouses = () => {
         } finally {
             setLoadingData(false);
         }
-    }, []);
+    }, [navigate]);
 
     useEffect(() => {
         fetchRegions();
@@ -348,7 +355,6 @@ const ListWarehouses = () => {
             setAddress(selectedRowForMenu.address);
             setEditingId(Number(selectedRowForMenu.id));
 
-            // ✅ به جای شیء کامل، فقط id را به state می‌دهیم
             if (selectedRowForMenu.region) {
                 setSelectedRegionId(selectedRowForMenu.region.id);
             } else {
@@ -393,7 +399,7 @@ const ListWarehouses = () => {
         setName('');
         setCode('');
         setAddress('');
-        setSelectedRegionId(null); // ✅ state جدید
+        setSelectedRegionId(null);
         setEditingId(null);
         setNameError(false);
         setCodeError(false);
@@ -447,7 +453,7 @@ const ListWarehouses = () => {
                 name,
                 code,
                 address,
-                regionId: Number(selectedRegionId) // ✅ از state جدید استفاده می‌کنیم
+                regionId: Number(selectedRegionId)
             };
             const response = await axios.post(server.baseurl + server.initialoperations + "create-Warehouse",
                 payload, {
@@ -487,7 +493,7 @@ const ListWarehouses = () => {
                 name,
                 code,
                 address,
-                regionId: Number(selectedRegionId) // ✅ از state جدید استفاده می‌کنیم
+                regionId: Number(selectedRegionId)
             };
             const response = await axios.put(server.baseurl + server.initialoperations + "update-Warehouse", payload, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
@@ -570,12 +576,12 @@ const ListWarehouses = () => {
         setPage(0);
     };
 
-    const filteredWarehousesList = WarehousesList.filter(WarehousesList => {
-        const matchesSearch = WarehousesList.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredWarehousesList = WarehousesList.filter(wh => {
+        const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus =
             statusFilter === 'all' ||
-            (statusFilter === 'active' && WarehousesList.recordStatus === 0) ||
-            (statusFilter === 'inactive' && WarehousesList.recordStatus === 1);
+            (statusFilter === 'active' && wh.recordStatus === 0) ||
+            (statusFilter === 'inactive' && wh.recordStatus === 1);
         return matchesSearch && matchesStatus;
     });
     const sortedAndFilteredWarehousesList = stableSort(filteredWarehousesList, getComparator(order, orderBy));
@@ -650,8 +656,6 @@ const ListWarehouses = () => {
     const handleOpenRegionSelect = () => setIsRegionSelectOpen(true);
     const handleCloseRegionSelect = () => setIsRegionSelectOpen(false);
 
-
-
     const handleSetActive = () => {
         if (selectedRowForMenu) {
             sendStatusUpdate(selectedRowForMenu.id, 0);
@@ -663,138 +667,231 @@ const ListWarehouses = () => {
         }
     };
 
+    // New PDF download handler
+    const handleDownloadAllWarehousesPDF = async () => {
+        if (!WarehousesList || WarehousesList.length === 0) {
+            showAlert('PDF oluşturulacak depo bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // افزودن فونت برای پشتیبانی از کاراکترهای ترکی
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.setFontSize(18);
+            doc.text('Tüm Depolar Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+        };
+
+        const rows = WarehousesList.map(wh => [
+            wh.name || '-',
+            wh.code || '-',
+            wh.address || '-',
+            wh.region?.name || '-',
+            formatDateDisplay(wh.createAt),
+            wh.status,
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+                body: rows,
+                theme: 'grid', // تغییر تم به 'grid' برای اضافه کردن border
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 40 },
+                    3: { cellWidth: 35 },
+                    4: { cellWidth: 25 },
+                    5: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+            });
+
+            doc.save('Tüm_Depolar_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
     return (
         <>
-            <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
-                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'depoyi Düzenle' : 'Yeni depo Kaydı'}</Typography>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="Warehouse-name" required>İsim</CustomFormLabel>
-                            <CustomTextField
-                                id="Warehouse-name"
-                                placeholder="depo Adı"
+            {(hasCreatePermission || hasEditPermission) && (
+                <Box sx={{ p: 3 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                        <Typography variant="h5">Depolar</Typography>
 
-                                size="small"
-                                value={name}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setName(e.target.value);
-                                    if (nameError && e.target.value.trim()) setNameError(false);
-                                }}
-                                inputRef={nameInputRef}
-                                error={nameError}
-                                helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
-
-                                sx={{ width: '100%' }}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="Warehouse-code" required>Kod</CustomFormLabel>
-                            <CustomTextField
-                                id="Warehouse-code"
-                                placeholder="depo Kodu"
-
-                                size="small"
-                                value={code}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setCode(e.target.value);
-                                    if (codeError && e.target.value.trim()) setCodeError(false);
-                                }}
-                                error={codeError}
-                                helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
-                                sx={{ width: '100%' }}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                            <FormControl
-                                size="small" error={regionIdError}
-                                sx={{ width: '100%' }}>
-                                <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
-                                <Select
-                                    labelId="select-region-label"
-                                    id="select-region"
-                                    value={selectedRegionId || ''} // ✅ از state جدید استفاده می‌کنیم
-                                    label="Bölge Seçin"
-                                    open={isRegionSelectOpen}
-                                    onOpen={handleOpenRegionSelect}
-                                    onClose={handleCloseRegionSelect}
-                                    onChange={(event) => {
-                                        const selectedId = event.target.value as number;
-                                        setSelectedRegionId(selectedId); // ✅ state جدید
-                                        if (regionIdError && selectedId) setRegionIdError(false);
+                        {hasDownloadPermission && (
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleDownloadAllWarehousesPDF}
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData || WarehousesList.length === 0}
+                            >
+                                Tüm Depoları İndir (PDF)
+                            </Button>
+                        )}
+                    </Stack>
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Typography variant="h5" mb={2}>{editingId ? 'Depoyu Düzenle' : 'Yeni Depo Kaydı'}</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="Warehouse-name" required>İsim</CustomFormLabel>
+                                <CustomTextField
+                                    id="Warehouse-name"
+                                    placeholder="Depo Adı"
+                                    size="small"
+                                    value={name}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setName(e.target.value);
+                                        if (nameError && e.target.value.trim()) setNameError(false);
                                     }}
-                                    renderValue={renderSelectedRegion}
-                                    MenuProps={{ sx: { maxHeight: 400 } }}
-                                >
-                                    {loadingData ? (
-                                        <MenuItem disabled>
-                                            <CircularProgress size={20} /> Yükleniyor...
-                                        </MenuItem>
-                                    ) : regionTree.length > 0 ? (
-                                        renderRegionTree(regionTree)
+                                    inputRef={nameInputRef}
+                                    error={nameError}
+                                    helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
+                                    sx={{ width: '100%' }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="Warehouse-code" required>Kod</CustomFormLabel>
+                                <CustomTextField
+                                    id="Warehouse-code"
+                                    placeholder="Depo Kodu"
+                                    size="small"
+                                    value={code}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setCode(e.target.value);
+                                        if (codeError && e.target.value.trim()) setCodeError(false);
+                                    }}
+                                    error={codeError}
+                                    helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
+                                    sx={{ width: '100%' }}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
+                                <FormControl
+                                    size="small" error={regionIdError}
+                                    sx={{ width: '100%' }}>
+                                    <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
+                                    <Select
+                                        labelId="select-region-label"
+                                        id="select-region"
+                                        value={selectedRegionId || ''}
+                                        label="Bölge Seçin"
+                                        open={isRegionSelectOpen}
+                                        onOpen={handleOpenRegionSelect}
+                                        onClose={handleCloseRegionSelect}
+                                        onChange={(event) => {
+                                            const selectedId = event.target.value as number;
+                                            setSelectedRegionId(selectedId);
+                                            if (regionIdError && selectedId) setRegionIdError(false);
+                                        }}
+                                        renderValue={renderSelectedRegion}
+                                        MenuProps={{ sx: { maxHeight: 400 } }}
+                                    >
+                                        {loadingData ? (
+                                            <MenuItem disabled>
+                                                <CircularProgress size={20} /> Yükleniyor...
+                                            </MenuItem>
+                                        ) : regionTree.length > 0 ? (
+                                            renderRegionTree(regionTree)
+                                        ) : (
+                                            <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+                                        )}
+                                    </Select>
+                                    {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
+                                </FormControl>
+                            </Grid>
+                            <Grid item xs={12} sm={12}>
+                                <CustomFormLabel htmlFor="Warehouse-address" required>Adres</CustomFormLabel>
+                                <CustomTextField
+                                    id="Warehouse-address"
+                                    placeholder="Depo Adresi"
+                                    fullWidth
+                                    value={address}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setAddress(e.target.value);
+                                        if (addressError && e.target.value.trim()) setAddressError(false);
+                                    }}
+                                    error={addressError}
+                                    helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                    {editingId !== null ? (
+                                        <>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyi güncelleyin" : ""}>
+                                                <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
+                                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                                </Button>
+                                            </CustomTooltip>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni depo moduna dön" : ""}>
+                                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
+                                            </CustomTooltip>
+                                        </>
                                     ) : (
-                                        <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
-                                    )}
-                                </Select>
-                                {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} sm={12}>
-                            <CustomFormLabel htmlFor="Warehouse-address" required>Adres</CustomFormLabel>
-                            <CustomTextField
-                                id="Warehouse-address"
-                                placeholder="depo Adresi"
-                                fullWidth
-                                value={address}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setAddress(e.target.value);
-                                    if (addressError && e.target.value.trim()) setAddressError(false);
-                                }}
-                                error={addressError}
-                                helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                {editingId !== null ? (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyi güncelleyin" : ""}>
-                                            <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni depo moduna dön" : ""}>
-                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
-                                        </CustomTooltip>
-                                    </>
-                                ) : (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir depo ekle" : ""}>
-                                            <Button variant="contained" color="success" onClick={insertWarehouse} disabled={loadingButton}>
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni depo Ekle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                    </>
-                                )}
-                            </Stack>
-                        </Grid>
-                    </Grid>
-                    {alertMessage && (
-                        <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                            <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
-                        </Stack>
-                    )}
-                </Paper>
-            </div>
 
+                                        <>
+                                            {hasCreatePermission && (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir depo ekle" : ""}>
+                                                    <Button variant="contained" color="success" onClick={insertWarehouse} disabled={loadingButton}>
+                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Depo Ekle'}
+                                                    </Button>
+                                                </CustomTooltip>
+
+                                            )}
+                                        </>
+                                    )}
+                                </Stack>
+                            </Grid>
+                        </Grid>
+                    </Paper>
+                </Box>
+
+            )}
+            {alertMessage && (
+                <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
+                    <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                </Stack>
+            )}
             <BlankCard>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>
                             <TextField
-                                label="depo Ara"
+                                label="Depo Ara"
                                 variant="outlined"
                                 fullWidth
                                 value={searchTerm}
@@ -820,7 +917,7 @@ const ListWarehouses = () => {
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress />
-                        <Typography variant="h6" sx={{ ml: 2 }}>depoler yükleniyor...</Typography>
+                        <Typography variant="h6" sx={{ ml: 2 }}>Depolar yükleniyor...</Typography>
                     </Box>
                 ) : (
                     <TableContainer>
@@ -869,7 +966,6 @@ const ListWarehouses = () => {
                                             </TableCell>
                                             <TableCell><Typography variant="h6">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
-
                                             <TableCell>
                                                 <Chip
                                                     label={row.status}
@@ -902,10 +998,9 @@ const ListWarehouses = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-
-                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu Direki pasif yap" : ""}>
+                                                            title={isTooltipGloballyEnabled ? "Bu Depoyu pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}>
                                                                 <ListItemIcon>
                                                                     <DoNotDisturbOnRoundedIcon width={18} />
@@ -915,7 +1010,7 @@ const ListWarehouses = () => {
                                                         </CustomTooltip>
                                                     ) : (
                                                         <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu Direki aktif yap" : ""}>
+                                                            title={isTooltipGloballyEnabled ? "Bu Depoyu aktif yap" : ""}>
                                                             <MenuItem onClick={handleSetActive}>
                                                                 <ListItemIcon>
                                                                     <DoneRoundedIcon width={18} />
@@ -924,18 +1019,22 @@ const ListWarehouses = () => {
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu depoyi düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}>
-                                                            <ListItemIcon><IconEdit width={18} /></ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu depoyi sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                            <ListItemIcon><IconTrash width={18} /></ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Depoyu düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}>
+                                                                <ListItemIcon><IconEdit width={18} /></ListItemIcon>
+                                                                Düzenlemek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Depoyu sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon><IconTrash width={18} /></ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

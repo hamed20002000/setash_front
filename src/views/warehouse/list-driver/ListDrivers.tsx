@@ -6,14 +6,15 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, Chip,
+    useMediaQuery,
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus, IconFileDownload, IconFileText } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -25,6 +26,12 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { RadioGroup, FormControlLabel, Radio } from '@mui/material';
 import DeleteDriver from "./DeleteDriver";
 import CarDetailsModal from "./CarDetailsModal";
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
+
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -37,6 +44,19 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
+interface VehicleData {
+    id: number;
+    name: string;
+    model: number;
+    plaque: string;
+    recordStatus: number;
+    brand?: string; // Add brand field for better reporting
+}
+
+interface DriverWithVehicles extends internal {
+    driverVehicles: VehicleData[];
+}
+
 interface internal {
     id: number;
     name: string;
@@ -48,6 +68,7 @@ interface internal {
     recordStatus: number;
     createAt: string;
     status: string;
+    driverVehicles?: VehicleData[];
 }
 
 type SortableDriverKeys = keyof Pick<internal, 'name' | 'family' | 'identityNo' | 'createAt' | 'recordStatus'>;
@@ -94,6 +115,9 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 
 const ListDrivers = () => {
     const navigate = useNavigate();
+    const theme = useTheme();
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+    const isMediumScreen = useMediaQuery(theme.breakpoints.down('md'));
 
     // Form States
     const [firstName, setFirstName] = useState('');
@@ -137,6 +161,25 @@ const ListDrivers = () => {
     const [openCarDetailsModal, setOpenCarDetailsModal] = useState(false);
     const [selectedDriver, setSelectedDriver] = useState<internal | null>(null);
 
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    }, [allowedOperations]);
+
+
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -160,12 +203,10 @@ const ListDrivers = () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); setLoadingData(false); return; }
-        debugger
         try {
             const response = await axios.get(server.baseurl + server.warehouse + "get-drivers", {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
-            debugger
             if (response.data.httpStatusCode === 200) {
                 const allDrivers = response.data.data as internal[];
                 const driversWithStatus = allDrivers.map((item) => ({
@@ -225,7 +266,6 @@ const ListDrivers = () => {
             navigate("/");
             return;
         }
-        debugger
         const payload = {
             name: firstName,
             family: lastName,
@@ -247,7 +287,7 @@ const ListDrivers = () => {
                 }
             );
             if (response.data.httpStatusCode === 201) {
-                showAlert(`Sürücü başarıyla eklendi'}!`, 'success');
+                showAlert(`Sürücü başarıyla eklendi!`, 'success');
                 resetFormAndState();
                 fetchDrivers();
             } else {
@@ -282,7 +322,6 @@ const ListDrivers = () => {
             identityNo,
             internal: internal == "0" ? false : true
         };
-        debugger
         try {
             const response = await axios.put(
                 server.baseurl + server.warehouse + "update-driver",
@@ -308,7 +347,7 @@ const ListDrivers = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            showAlert(e.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -346,7 +385,6 @@ const ListDrivers = () => {
         handleCloseMenu();
     };
 
-    // تابع اصلاح‌شده برای باز کردن مودال حذف
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
             setDriverToDelete(selectedRowForMenu);
@@ -355,7 +393,6 @@ const ListDrivers = () => {
         handleCloseMenu();
     };
 
-    // تابع اصلاح‌شده برای مدیریت بسته شدن مودال حذف
     const handleCloseDeleteModal = () => {
         setOpenDeleteModal(false);
         setDriverToDelete(null);
@@ -363,7 +400,6 @@ const ListDrivers = () => {
     };
 
     const handleClickOpenCarDetailsModal = (driver: internal) => {
-        debugger
         setSelectedDriver(driver);
         setOpenCarDetailsModal(true);
     };
@@ -423,7 +459,7 @@ const ListDrivers = () => {
 
     const filteredDrivers = useMemo(() => {
         return driversList.filter(d => {
-            const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.family.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.family.toLowerCase().includes(searchTerm.toLowerCase()) || d.identityNo.includes(searchTerm);
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'active' && d.recordStatus === 0) ||
@@ -438,13 +474,308 @@ const ListDrivers = () => {
 
     const paginatedDrivers = sortedAndFilteredDrivers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+    // توابع دانلود PDF جدید
+    const handleDownloadAllDriversPDF = async () => {
+        if (!driversList || driversList.length === 0) {
+            showAlert('PDF oluşturulacak sürücü bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.setFontSize(18);
+            doc.text('Tüm Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+        };
+
+        const rows = driversList.map(driver => [
+            `${driver.name} ${driver.family}`,
+            formatDateDisplay(driver.birthdate),
+            driver.fatherName,
+            driver.identityNo,
+            driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+            driver.recordStatus === 0 ? 'Aktif' : 'Pasif',
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 25 },
+                    2: { cellWidth: 30 },
+                    3: { cellWidth: 25 },
+                    4: { cellWidth: 20 },
+                    5: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+            });
+
+            doc.save('Tüm_Sürücüler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+
+    const handleDownloadDriversWithCarsPDF = async () => {
+        showAlert('Araçlı sürücü bilgileri alınıyor, lütfen bekleyin...', 'info');
+        try {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                return;
+            }
+
+            const response = await axios.get(`${server.baseurl}${server.warehouse}get-drivers-with-vehicle`, {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (response.data.httpStatusCode !== 200 || !response.data.data) {
+                showAlert(response.data.message || 'Araçlı sürücü verileri alınamadı.', 'error');
+                return;
+            }
+
+            const driversWithCars: DriverWithVehicles[] = response.data.data;
+            if (driversWithCars.length === 0) {
+                showAlert('Araçlı sürücü bulunamadı.', 'warning');
+                return;
+            }
+
+            const doc = new jsPDF();
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+
+            let yOffset = 20;
+
+            // Header for the entire document
+            doc.addImage(Logo, 'PNG', 15, yOffset, 30, 30);
+            doc.setFontSize(18);
+            doc.text('Araçlı Sürücüler Raporu', doc.internal.pageSize.getWidth() - 15, yOffset + 15, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, doc.internal.pageSize.getWidth() - 15, yOffset + 25, { align: 'right' });
+            yOffset += 45;
+
+            driversWithCars.forEach(driver => {
+                if (yOffset > doc.internal.pageSize.getHeight() - 50) {
+                    doc.addPage();
+                    yOffset = 20;
+                }
+
+                // Driver details header
+                doc.setFontSize(14);
+                doc.text(`Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`, 15, yOffset);
+                yOffset += 10;
+
+                // Vehicles table for this driver
+                const vehicleRows = driver.driverVehicles.map(car => [
+                    car.name || '-',
+                    car.model || '-',
+                    car.plaque || '-',
+                    car.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                ]);
+
+                autoTable(doc, {
+                    startY: yOffset,
+                    head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
+                    body: vehicleRows,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    margin: { left: 15, right: 15 },
+                });
+                yOffset = (doc as any).lastAutoTable.finalY + 10;
+            });
+
+            // Add footer to the last page
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+
+            doc.save('Araçlı_Sürücüler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+    const handleDownloadDriverDetailsPDF = async (driver: internal) => {
+        if (!driver) {
+            showAlert('Sürücü verisi bulunamadı.', 'warning');
+            return;
+        }
+
+        showAlert('Araç bilgileri alınıyor, lütfen bekleyin...', 'info');
+
+        try {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                return;
+            }
+
+            const response = await axios.get(
+                `${server.baseurl}${server.warehouse}get-driver-vehicle-by-driver-id/${driver.id}`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+
+            const vehicles = response.data.data.map((item: any) => ({
+                name: item.name,
+                model: item.model,
+                plaque: item.plaque,
+                recordStatus: item.recordStatus,
+            }));
+
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+
+            let yOffset = 20;
+
+            // Header
+            doc.addImage(Logo, 'PNG', 15, yOffset, 30, 30);
+            doc.setFontSize(18);
+            doc.text('Sürücü Detay Raporu', pageWidth - 15, yOffset + 15, { align: 'right' });
+            yOffset += 40;
+
+            // Driver Info
+            doc.setFontSize(12);
+            doc.text(`Adı Soyadı: ${driver.name} ${driver.family}`, 15, yOffset);
+            doc.text(`TC Kimlik No: ${driver.identityNo}`, 15, yOffset + 7);
+            doc.text(`Baba Adı: ${driver.fatherName}`, 15, yOffset + 14);
+            doc.text(`Doğum Tarihi: ${formatDateDisplay(driver.birthdate)}`, 15, yOffset + 21);
+            doc.text(`Sürücü Tipi: ${driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı'}`, 15, yOffset + 28);
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, yOffset, { align: 'right' });
+            yOffset += 40;
+
+            // Vehicle Table
+            doc.setFontSize(14);
+            doc.text('Araç Detayları', 15, yOffset);
+            yOffset += 5;
+
+            const vehicleRows = vehicles.map((car: any) => [
+                car.name || '-',
+                car.model || '-',
+                car.plaque || '-',
+                car.recordStatus === 0 ? 'Aktif' : 'Pasif',
+            ]);
+
+            autoTable(doc, {
+                startY: yOffset,
+                head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
+                body: vehicleRows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                margin: { left: 15, right: 15 },
+            });
+
+            // Footer
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+            doc.save(`Sürücü_Detay_${driver.id}.pdf`);
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (e: any) {
+            console.error("Detay PDF oluşturulurken hata:", e);
+            showAlert('Detay PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+
     return (
         <>
-            <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ p: 3 }}>
+
+                {(hasCreatePermission || hasEditPermission) && (
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                        <Typography variant="h5">Sürücüler</Typography>
+
+                        {hasDownloadPermission && (
+                            <Stack direction={isSmallScreen ? "column" : "row"} spacing={2} flexWrap="wrap" gap={1}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllDriversPDF}
+                                    startIcon={<IconFileDownload />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Tüm Sürücüleri İndir
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    color="secondary"
+                                    onClick={handleDownloadDriversWithCarsPDF}
+                                    startIcon={<IconFileDownload />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Araçlı Sürücüleri İndir
+                                </Button>
+                            </Stack>
+                        )}
+                    </Stack>
+
+                )}
+                {alertMessage && (
+                    <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
+                        <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                    </Stack>
+                )}
+                <Paper elevation={3} sx={{ p: isSmallScreen ? 2 : 3, mb: 3 }}>
                     <Typography variant="h5" mb={2}>{editingId ? 'Sürücüyü Düzenle' : 'Yeni Sürücü Kaydı'}</Typography>
                     <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={6} md={4}>
                             <CustomFormLabel htmlFor="driver-firstName" required>Adı</CustomFormLabel>
                             <CustomTextField
                                 id="driver-firstName"
@@ -456,7 +787,7 @@ const ListDrivers = () => {
                                 helperText={firstNameError ? "Adı alanı boş bırakılamaz!" : ""}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={6} md={4}>
                             <CustomFormLabel htmlFor="driver-lastName" required>Soyadı</CustomFormLabel>
                             <CustomTextField
                                 id="driver-lastName"
@@ -467,10 +798,8 @@ const ListDrivers = () => {
                                 helperText={lastNameError ? "Soyadı alanı boş bırakılamaz!" : ""}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel htmlFor="start-date" required>
-                                Doğum Tarihi
-                            </CustomFormLabel>
+                        <Grid item xs={12} sm={6} md={4}>
+                            <CustomFormLabel htmlFor="start-date" required>Doğum Tarihi</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <DatePicker
                                     label=""
@@ -491,7 +820,7 @@ const ListDrivers = () => {
                                 />
                             </LocalizationProvider>
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={6} md={4}>
                             <CustomFormLabel htmlFor="driver-fatherName" required>Baba Adı</CustomFormLabel>
                             <CustomTextField
                                 id="driver-fatherName"
@@ -502,7 +831,7 @@ const ListDrivers = () => {
                                 helperText={fatherNameError ? "Baba adı alanı boş bırakılamaz!" : ""}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={6} md={4}>
                             <CustomFormLabel htmlFor="driver-identityNo" required>TC</CustomFormLabel>
                             <CustomTextField
                                 id="driver-identityNo"
@@ -513,8 +842,8 @@ const ListDrivers = () => {
                                 helperText={nationalCodeError ? "TC boş bırakılamaz!" : ""}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <CustomFormLabel required>Setaş Sürücüsü mü?  </CustomFormLabel>
+                        <Grid item xs={12} sm={6} md={4}>
+                            <CustomFormLabel required>Setaş Sürücüsü mü?</CustomFormLabel>
                             <RadioGroup
                                 row
                                 value={internal}
@@ -525,50 +854,52 @@ const ListDrivers = () => {
                             </RadioGroup>
                         </Grid>
                         <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
                                 {editingId !== null ? (
                                     <>
                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili sürücüyü güncelleyin" : ""}>
-                                            <Button variant="contained" color="info" onClick={editDriver} disabled={loadingButton}>
+                                            <Button variant="contained" color="info" onClick={editDriver} disabled={loadingButton} fullWidth={isSmallScreen}>
                                                 {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Düzenle'}
                                             </Button>
                                         </CustomTooltip>
                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et" : ""}>
-                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
+                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit} fullWidth={isSmallScreen}>İptal Et</Button>
                                         </CustomTooltip>
                                     </>
                                 ) : (
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir sürücü ekle" : ""}>
-                                        <Button variant="contained" color="success" onClick={insertDriver} disabled={loadingButton}>
-                                            {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Yeni Sürücü Ekle'}
-                                        </Button>
-                                    </CustomTooltip>
+
+                                    <>
+                                        {hasCreatePermission && (
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir sürücü ekle" : ""}>
+                                                <Button variant="contained" color="success" onClick={insertDriver} disabled={loadingButton} fullWidth={isSmallScreen}>
+                                                    {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Yeni Sürücü Ekle'}
+                                                </Button>
+                                            </CustomTooltip>
+
+                                        )}
+                                    </>
                                 )}
                             </Stack>
                         </Grid>
                     </Grid>
-                    {alertMessage && (
-                        <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                            <Alert severity={alertSeverity}>{alertMessage}</Alert>
-                        </Stack>
-                    )}
                 </Paper>
-            </div>
+            </Box>
 
             <BlankCard>
-                <Box sx={{ p: 2 }}>
+                <Box sx={{ p: isSmallScreen ? 2 : 3 }}>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={8}>
+                        <Grid item xs={12} md={6}>
                             <TextField
                                 label="Sürücü Ara"
                                 variant="outlined"
                                 fullWidth
+                                size={isSmallScreen ? "small" : "medium"}
                                 value={searchTerm}
                                 onChange={handleSearchChange}
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid item xs={12} md={6}>
                             <ToggleButtonGroup
                                 value={statusFilter}
                                 exclusive
@@ -593,24 +924,13 @@ const ListDrivers = () => {
                         <Table aria-label="Sürücü tablosu">
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} style={{ color: "#171c23" }}><Typography variant="h6">Adı</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'family'} direction={orderBy === 'family' ? order : 'asc'} onClick={() => handleRequestSort('family')} style={{ color: "#171c23" }}><Typography variant="h6">Soyadı</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell><Typography variant="h6">Doğum Tarihi</Typography></TableCell>
-                                    <TableCell><Typography variant="h6">Baba Adı</Typography></TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} style={{ color: "#171c23" }}><Typography variant="h6">TC</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell><Typography variant="h6">Sürücü Tipi</Typography></TableCell>
-                                    {/* <TableCell>
-                                        <TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} style={{ color: "#171c23" }}><Typography variant="h6">Oluşturulma Tarihi</Typography></TableSortLabel>
-                                    </TableCell> */}
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel>
-                                    </TableCell>
+                                    <TableCell><TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} style={{ color: "#171c23" }}><Typography variant="h6">Adı</Typography></TableSortLabel></TableCell>
+                                    <TableCell><TableSortLabel active={orderBy === 'family'} direction={orderBy === 'family' ? order : 'asc'} onClick={() => handleRequestSort('family')} style={{ color: "#171c23" }}><Typography variant="h6">Soyadı</Typography></TableSortLabel></TableCell>
+                                    {!isSmallScreen && <TableCell><Typography variant="h6">Doğum Tarihi</Typography></TableCell>}
+                                    {!isSmallScreen && <TableCell><Typography variant="h6">Baba Adı</Typography></TableCell>}
+                                    <TableCell><TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} style={{ color: "#171c23" }}><Typography variant="h6">TC</Typography></TableSortLabel></TableCell>
+                                    {!isMediumScreen && <TableCell><Typography variant="h6">Sürücü Tipi</Typography></TableCell>}
+                                    <TableCell><TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel></TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
                             </TableHead>
@@ -620,16 +940,15 @@ const ListDrivers = () => {
                                         <TableRow key={row.id}>
                                             <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{row.family}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.birthdate)}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{row.fatherName}</Typography></TableCell>
+                                            {!isSmallScreen && <TableCell><Typography variant="h6">{formatDateDisplay(row.birthdate)}</Typography></TableCell>}
+                                            {!isSmallScreen && <TableCell><Typography variant="h6">{row.fatherName}</Typography></TableCell>}
                                             <TableCell><Typography variant="h6">{row.identityNo}</Typography></TableCell>
-                                            <TableCell>
+                                            {!isMediumScreen && <TableCell>
                                                 <Chip
                                                     label={row.internal === '1' ? 'Şirket İçi(Setaş)' : 'Şirket Dışı'}
                                                     color={row.internal === '1' ? 'primary' : 'secondary'}
                                                 />
-                                            </TableCell>
-                                            {/* <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell> */}
+                                            </TableCell>}
                                             <TableCell>
                                                 <Chip
                                                     label={row.status}
@@ -645,40 +964,62 @@ const ListDrivers = () => {
                                                 <Menu
                                                     id="basic-menu"
                                                     anchorEl={anchorEl}
-                                                    open={Boolean(anchorEl)}
+                                                    open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sürücü için araç detaylarını kaydet" : ""}>
-                                                        <MenuItem onClick={() => {
-                                                            handleClickOpenCarDetailsModal(selectedRowForMenu!);
-                                                            handleCloseMenu();
-                                                        }}>
-                                                            <ListItemIcon><IconPlus width={18} /></ListItemIcon>Ayrıntıları Kaydet
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                    {selectedRowForMenu?.recordStatus === 0 ? (
+
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sürücü için araç detaylarını kaydet" : ""}>
+                                                            <MenuItem onClick={() => {
+                                                                handleClickOpenCarDetailsModal(selectedRowForMenu!);
+                                                                handleCloseMenu();
+                                                            }}>
+                                                                <ListItemIcon><IconPlus width={18} /></ListItemIcon>Ayrıntıları Kaydet
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+
+                                                    )}
+
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sürücü detaylarını PDF olarak indir" : ""}>
+                                                            <MenuItem onClick={() => {
+                                                                handleDownloadDriverDetailsPDF(selectedRowForMenu!);
+                                                                handleCloseMenu();
+                                                            }}>
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>
+                                                                Sürücü Detayları PDF İndir
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}><ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>Pasif Yap</MenuItem>
                                                         </CustomTooltip>
-                                                    ) : (
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü aktif yap" : ""}>
                                                             <MenuItem onClick={handleSetActive}><ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>Aktif Yap</MenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>
-                                                    </CustomTooltip>
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>
-                                                    </CustomTooltip>
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={9} align="center">
+                                        <TableCell colSpan={isSmallScreen ? 5 : isMediumScreen ? 7 : 8} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">Hiç sürücü bulunamadı.</Typography>
                                         </TableCell>
                                     </TableRow>
@@ -705,11 +1046,10 @@ const ListDrivers = () => {
                     driverIdToDelete={Number(driverToDelete.id)}
                     driverNameToDelete={`${driverToDelete.name} ${driverToDelete.family}`}
                     onClose={handleCloseDeleteModal}
-                    onDeleteSuccess={fetchDrivers} // از fetchDrivers به جای یک تابع جداگانه استفاده کنید
+                    onDeleteSuccess={fetchDrivers}
                     showAlert={showAlert}
                 />
             )}
-
             <CarDetailsModal
                 open={openCarDetailsModal}
                 onClose={() => setOpenCarDetailsModal(false)}

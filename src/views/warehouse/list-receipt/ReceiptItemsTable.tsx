@@ -1,68 +1,22 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// src/views/Warehouse/ReceiptItemsTable.tsx
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
-    TextField, Box, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions,
-    Grid, Button, Chip, Stack,
+    TextField, Box, Typography, Autocomplete, Chip, Stack
 } from '@mui/material';
-import { IconPlus, IconTrash, IconEdit } from '@tabler/icons-react';
+import { IconTrash, IconEdit, IconReload, IconCheck, IconX } from '@tabler/icons-react';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
-
-// Type Definitions
-interface UnitType {
-    id: string;
-    title: string;
-    recordStatus: number;
-    createAt: string;
-}
-
-interface ItemType {
-    id: string;
-    name: string;
-    abbreviation: string;
-    recordStatus: number;
-    unit: UnitType;
-}
-
-interface InvoiceDetailType {
-    id: number;
-    quantity: number;
-    price: string;
-    description: string;
-    item: ItemType;
-}
-
-interface InvoiceType {
-    id: number;
-    docDate: string;
-    recordStatus: number;
-    invoiceDetails: InvoiceDetailType[];
-    invoiceNo: string;
-    status: number;
-}
-
-interface ReceiptItem {
-    id: number;
-    item: string; // Ürün ID'si
-    itemName: string; // Yeni: Ürün Adı
-    invoiceNo: string; // Yeni: Fatura Numarası
-    unit?: UnitType;
-    quantity: number;
-    description: string;
-    invoiceDetailId: number;
-}
-
-interface ReceiptItemsTableProps {
-    items: ReceiptItem[];
-    onAddItem: (newItem: ReceiptItem) => void;
-    onRemoveItem: (id: number) => void;
-    onUpdateItem: (updatedItem: ReceiptItem) => void;
-    showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
-}
+import {
+    InvoiceType,
+    ProcessedReceiptItem,
+    ReceiptItemsTableProps,
+} from './types';
+import { useNavigate } from 'react-router';
 
 const stripHtml = (htmlString: string) => {
     if (!htmlString) return "";
@@ -70,45 +24,34 @@ const stripHtml = (htmlString: string) => {
     return doc.body.textContent || "";
 };
 
-interface ReceiptItemFormState {
-    item: string;
-    itemName: string;
-    quantity: number;
-    description: string;
-    unit?: UnitType;
-    invoiceDetailId: number | null;
-}
-
-const initialFormState: ReceiptItemFormState = {
-    item: '',
-    itemName: '',
-    quantity: 0,
-    description: '',
-    unit: undefined,
-    invoiceDetailId: null
-};
+// const formatDateDisplay = (dateString: string | null): string => {
+//     if (!dateString) return "N/A";
+//     try {
+//         const date = new Date(dateString);
+//         return format(date, 'dd MMMM yyyy', { locale: tr });
+//     } catch (e) {
+//         return "Geçersiz Tarih";
+//     }
+// };
 
 const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
     items,
-    onAddItem,
-    onRemoveItem,
-    onUpdateItem,
+    deletedItems,
+    onItemsUpdate,
+    onItemDelete,
+    onRestoreItem,
     showAlert
 }) => {
-    const [openModal, setOpenModal] = useState(false);
-    const [modalContent, setModalContent] = useState('');
-    const [newItemForm, setNewItemForm] = useState(initialFormState);
-    const [editingItem, setEditingItem] = useState<ReceiptItem | null>(null);
-
+    const navigate = useNavigate();
     const [invoicesList, setInvoicesList] = useState<InvoiceType[]>([]);
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceType | null>(null);
-    const [invoiceDetailItems, setInvoiceDetailItems] = useState<InvoiceDetailType[]>([]);
-
+    const [editingItem, setEditingItem] = useState<ProcessedReceiptItem | null>(null);
     const { isTooltipGloballyEnabled } = useTooltip();
 
     const getInvoices = useCallback(async () => {
+
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) return;
+        if (!authToken) { navigate("/"); return; }
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-invoices", { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200) {
@@ -126,200 +69,137 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         getInvoices();
     }, [getInvoices]);
 
-    const handleFormChange = (field: keyof ReceiptItemFormState, value: any) => {
-        setNewItemForm(prevForm => {
-            let updatedValue = value;
-            if (['quantity'].includes(field)) {
-                updatedValue = value === '' ? 0 : Number(value);
-            }
-            return { ...prevForm, [field]: updatedValue };
-        });
-    };
+    // const handleInvoiceChange = (_event: any, newValue: InvoiceType | null) => {
+    //     setSelectedInvoice(newValue);
 
-    const handleAddItemAction = () => {
-        if (!newItemForm.invoiceDetailId || !selectedInvoice) {
-            showAlert("Lütfen bir fatura ve ürün seçin.", "warning");
-            return;
-        }
-
-        const newItem: ReceiptItem = {
-            id: Date.now(),
-            item: newItemForm.item,
-            itemName: newItemForm.itemName,
-            invoiceNo: selectedInvoice.invoiceNo,
-            quantity: Number(newItemForm.quantity),
-            description: newItemForm.description,
-            unit: newItemForm.unit,
-            invoiceDetailId: newItemForm.invoiceDetailId
-        };
-        onAddItem(newItem);
-        resetForm();
-    };
-
-    const handleUpdateItemAction = () => {
-        if (!editingItem || !selectedInvoice) return;
-
-        const updatedItem: ReceiptItem = {
-            id: editingItem.id,
-            item: newItemForm.item,
-            itemName: newItemForm.itemName,
-            invoiceNo: selectedInvoice.invoiceNo,
-            quantity: Number(newItemForm.quantity),
-            description: newItemForm.description,
-            unit: newItemForm.unit,
-            invoiceDetailId: newItemForm.invoiceDetailId!
-        };
-        onUpdateItem(updatedItem);
-        resetForm();
-    };
-
-    const handleEditClick = (item: ReceiptItem) => {
-        setEditingItem(item);
-        setNewItemForm({
-            item: item.item,
-            itemName: item.itemName,
-            quantity: item.quantity ?? 0,
-            description: item.description,
-            unit: item.unit,
-            invoiceDetailId: item.invoiceDetailId
-        });
-        const foundInvoice = invoicesList.find(invoice =>
-            invoice.invoiceDetails.some(detail => detail.id === item.invoiceDetailId)
-        );
-        if (foundInvoice) {
-            setSelectedInvoice(foundInvoice);
-            setInvoiceDetailItems(foundInvoice.invoiceDetails);
-        }
-    };
-
-    const resetForm = () => {
-        setEditingItem(null);
-        setNewItemForm(initialFormState);
-        setSelectedInvoice(null);
-        setInvoiceDetailItems([]);
-    };
-
-    // const handleOpenModal = (content: string) => {
-    //     setModalContent(stripHtml(content));
-    //     setOpenModal(true);
+    //     if (newValue) {
+    //         const newItems: ProcessedReceiptItem[] = newValue.invoiceDetails.map(detail => ({
+    //             id: Math.random() * 1000,
+    //             item: detail.item.id,
+    //             itemName: detail.item.name,
+    //             invoiceNo: newValue.invoiceNo,
+    //             unit: detail.item.unit,
+    //             quantity: detail.quantity,
+    //             description: detail.description,
+    //             invoiceDetailId: detail.id,
+    //             providerId: detail.provider?.id,
+    //             providerName: detail.provider?.name || 'N/A',
+    //             firm: detail.firm,
+    //             orderDetail: detail.orderDetail, // **اضافه شده**
+    //         }));
+    //         onItemsUpdate(newItems);
+    //     } else {
+    //         onItemsUpdate([]);
+    //     }
     // };
 
-    const handleCloseModal = () => {
-        setOpenModal(false);
-        setModalContent('');
-    };
+    // src/views/Warehouse/ReceiptItemsTable.tsx
+    // ... (imports)
 
     const handleInvoiceChange = (_event: any, newValue: InvoiceType | null) => {
         setSelectedInvoice(newValue);
-        setNewItemForm(initialFormState);
+
         if (newValue) {
-            setInvoiceDetailItems(newValue.invoiceDetails);
+            const newItems: ProcessedReceiptItem[] = newValue.invoiceDetails.map(detail => ({
+                id: Math.random() * 1000,
+                item: detail.item.id,
+                itemName: detail.item.name,
+                invoiceNo: newValue.invoiceNo,
+                unit: detail.item.unit,
+                quantity: Number(detail.quantity), // تبدیل رشته به عدد
+                description: detail.description,
+                invoiceDetailId: Number(detail.id), // تبدیل رشته به عدد
+                // اطمینان از اینکه providerId همیشه یک عدد است
+                providerId: detail.provider ? detail.provider.id : 0,
+                providerName: detail.provider?.name || 'N/A',
+                firm: detail.firm ?? false,
+                orderDetail: detail.orderDetail,
+            }));
+            onItemsUpdate(newItems);
         } else {
-            setInvoiceDetailItems([]);
+            onItemsUpdate([]);
         }
     };
 
-    const handleItemChange = (_event: any, newValue: InvoiceDetailType | null) => {
-        if (newValue) {
-            setNewItemForm({
-                ...newItemForm,
-                item: newValue.item.id,
-                itemName: newValue.item.name,
-                quantity: Number(newValue.quantity),
-                description: newValue.description,
-                unit: newValue.item.unit,
-                invoiceDetailId: newValue.id
-            });
-        } else {
-            setNewItemForm(initialFormState);
-        }
+    const handleEditClick = (item: ProcessedReceiptItem) => {
+        setEditingItem(item);
     };
 
-    // Filtrelenmiş ürün listesini oluştur
-    const availableInvoiceDetails = useMemo(() => {
-        if (!selectedInvoice) return [];
-        const addedDetailIds = new Set(items.map(i => i.invoiceDetailId));
-        return invoiceDetailItems.filter(detail =>
-            !addedDetailIds.has(detail.id) || (editingItem && detail.id === editingItem.invoiceDetailId)
-        );
-    }, [invoiceDetailItems, items, editingItem, selectedInvoice]);
+    const handleUpdateChange = (id: number, field: 'quantity' | 'description', value: any) => {
+        const updatedItems = items.map(item => {
+            if (item.id === id) {
+                return {
+                    ...item,
+                    [field]: field === 'quantity' ? Number(value) : value
+                };
+            }
+            return item;
+        });
+        onItemsUpdate(updatedItems);
+    };
 
-    const isFormValid = !!selectedInvoice && !!newItemForm.item && newItemForm.quantity > 0 && !!newItemForm.invoiceDetailId;
+    const handleDeleteClick = (item: ProcessedReceiptItem) => {
+        onItemDelete({ ...item, isDeleted: true });
+        const updatedItems = items.filter(i => i.id !== item.id);
+        onItemsUpdate(updatedItems);
+    };
+
+    const handleCancelEdit = () => {
+        setEditingItem(null);
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingItem) return;
+        const currentItem = items.find(i => i.id === editingItem.id);
+        if (currentItem && (currentItem.quantity <= 0 || isNaN(currentItem.quantity))) {
+            showAlert('Miktar 0\'dan büyük bir sayı olmalıdır.', 'warning');
+            return;
+        }
+        setEditingItem(null);
+        showAlert('Ürün başarıyla güncellendi.', 'success');
+    };
 
     return (
         <Paper elevation={3} sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>{editingItem ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</Typography>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="invoice-autocomplete" required>
-                        Fatura Seçin
-                    </CustomFormLabel>
-                    <Autocomplete<InvoiceType>
-                        id="invoice-autocomplete"
-                        options={invoicesList}
-                        getOptionLabel={(option) => `${option.invoiceNo} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
-                        value={selectedInvoice}
-                        onChange={handleInvoiceChange}
-                        renderInput={(params) => <TextField {...params} label="Fatura" variant="outlined" size="small" />}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="item-autocomplete" required>
-                        Ürün Seçin
-                    </CustomFormLabel>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Autocomplete<InvoiceDetailType>
-                            id="item-autocomplete"
-                            // `options` olarak filtrelenmiş listeyi kullan
-                            options={availableInvoiceDetails}
-                            getOptionLabel={(option) => option.item.name}
-                            value={availableInvoiceDetails.find(i => String(i.item.id) === String(newItemForm.item)) || null}
-                            onChange={handleItemChange}
-                            sx={{ flexGrow: 1 }}
-                            renderInput={(params) => <TextField {...params} label="Ürün Seçin" variant="outlined" size="small" />}
-                            disabled={!selectedInvoice}
-                        />
-                        {newItemForm.unit?.title && (
-                            <Chip label={newItemForm.unit.title} color="secondary" variant="outlined" />
-                        )}
-                    </Stack>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="Miktar" required>
-                        Miktar
-                    </CustomFormLabel>
-                    <TextField
-                        label="Miktar" type="number" size="small" fullWidth
-                        value={newItemForm.quantity !== 0 ? newItemForm.quantity : ''}
-                        onChange={(e) => handleFormChange('quantity', e.target.value)}
-                        InputProps={{ inputProps: { min: 0 } }}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="Açıklama">
-                        Açıklama
-                    </CustomFormLabel>
-                    <TextField
-                        label="Açıklama" size="small" fullWidth multiline rows={1}
-                        value={newItemForm.description || ''}
-                        onChange={(e) => handleFormChange('description', e.target.value)}
-                    />
-                </Grid>
-            </Grid>
-            <Box textAlign="right" sx={{ mb: 2 }}>
-                {editingItem ? (
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button variant="contained" color="info" onClick={handleUpdateItemAction} disabled={!isFormValid}>
-                            Düzenle
-                        </Button>
-                        <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
-                    </Stack>
-                ) : (
-                    <Button variant="contained" startIcon={<IconPlus />} onClick={handleAddItemAction} disabled={!isFormValid}>
-                        Ürün Ekle
-                    </Button>
-                )}
+            <Box mb={2}>
+                <CustomFormLabel htmlFor="invoice-autocomplete" required>Fatura Seçin</CustomFormLabel>
+                <Autocomplete<InvoiceType>
+                    id="invoice-autocomplete"
+                    options={invoicesList}
+                    getOptionLabel={(option) => `${option.invoiceNo} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
+                    value={selectedInvoice}
+                    onChange={handleInvoiceChange}
+                    renderInput={(params) => <TextField {...params}
+                        label="Fatura" variant="outlined" size="small" />
+                    }
+                    renderOption={(props, option) => (
+                        <Box component="li" {...props}>
+                            <Typography>
+                                <strong>{option.invoiceNo}</strong> {`(${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
+                            </Typography>
+                        </Box>
+                    )}
+                />
             </Box>
+
+            {deletedItems.length > 0 && (
+                <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
+                    <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler:</Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {deletedItems.map(item => (
+                            <Chip
+                                key={item.id}
+                                label={`${item.itemName} (${item.quantity})`}
+                                onDelete={() => onRestoreItem(item.id)}
+                                deleteIcon={<IconReload />}
+                                color="error"
+                                variant="outlined"
+                                sx={{ mb: 1 }}
+                            />
+                        ))}
+                    </Stack>
+                </Box>
+            )}
 
             <Typography variant="h6" gutterBottom>Eklenen Ürünler</Typography>
             <TableContainer sx={{ maxHeight: 600, overflowY: 'auto' }}>
@@ -327,10 +207,13 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                     <TableHead>
                         <TableRow>
                             <TableCell>Fatura No</TableCell>
+                            <TableCell>Tedarikçi</TableCell>
+                            <TableCell>Firma</TableCell>
                             <TableCell>Ürün</TableCell>
                             <TableCell>Miktar</TableCell>
                             <TableCell>Birim</TableCell>
                             <TableCell>Açıklama</TableCell>
+                            {/* <TableCell>Sipariş Detayı</TableCell>  */}
                             <TableCell align="right">İşlemler</TableCell>
                         </TableRow>
                     </TableHead>
@@ -339,54 +222,89 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                             items.map((item) => (
                                 <TableRow key={item.id}>
                                     <TableCell>{item.invoiceNo || '-'}</TableCell>
+                                    <TableCell>{item.providerName || '-'}</TableCell>
+                                    <TableCell>{item.firm ? 'Şirket İçi' : 'Şirket Dışı'}</TableCell>
+                                    <TableCell><Typography>{item.itemName || '-'}</Typography></TableCell>
                                     <TableCell>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                            <Typography>{item.itemName || '-'}</Typography>
-                                            {item.unit?.title && (
-                                                <Chip label={item.unit.title} color="secondary" variant="outlined" />
-                                            )}
-                                        </Box>
+                                        {editingItem?.id === item.id ? (
+                                            <TextField
+                                                type="number"
+                                                size="small"
+                                                value={item.quantity}
+                                                onChange={(e) => handleUpdateChange(item.id, 'quantity', e.target.value)}
+                                                InputProps={{ inputProps: { min: 0 } }}
+                                            />
+                                        ) : (
+                                            <Typography>{Number(item.quantity).toFixed(2)}</Typography>
+                                        )}
                                     </TableCell>
-                                    <TableCell><Typography>{Number(item.quantity).toFixed(2)}</Typography></TableCell>
                                     <TableCell><Typography>{item.unit?.title}</Typography></TableCell>
-                                    <TableCell><Typography>{stripHtml(item.description)}</Typography></TableCell>
+                                    <TableCell>
+                                        {editingItem?.id === item.id ? (
+                                            <TextField
+                                                size="small"
+                                                multiline
+                                                rows={1}
+                                                fullWidth
+                                                value={item.description}
+                                                onChange={(e) => handleUpdateChange(item.id, 'description', e.target.value)}
+                                            />
+                                        ) : (
+                                            <Typography>{stripHtml(item.description)}</Typography>
+                                        )}
+                                    </TableCell>
+                                    {/* <TableCell>
+                                        {item.orderDetail ? (
+                                            <Typography variant="body2">
+                                                <strong>{item.orderDetail.id}</strong><br />
+                                                ({formatDateDisplay(item.orderDetail.createAt)})
+                                            </Typography>
+                                        ) : (
+                                            '-'
+                                        )}
+                                    </TableCell> */}
                                     <TableCell align="right">
-                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü düzenle" : ""}>
-                                            <IconButton color="primary" onClick={() => handleEditClick(item)}>
-                                                <IconEdit size={20} />
-                                            </IconButton>
-                                        </CustomTooltip>
-                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü sil" : ""}>
-                                            <IconButton color="error" onClick={() => onRemoveItem(item.id)}>
-                                                <IconTrash size={20} />
-                                            </IconButton>
-                                        </CustomTooltip>
+                                        {editingItem?.id === item.id ? (
+                                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kaydet" : ""}>
+                                                    <IconButton color="success" onClick={handleSaveEdit}>
+                                                        <IconCheck size={20} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İptal" : ""}>
+                                                    <IconButton color="error" onClick={handleCancelEdit}>
+                                                        <IconX size={20} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                            </Stack>
+                                        ) : (
+                                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü düzenle" : ""}>
+                                                    <IconButton color="primary" onClick={() => handleEditClick(item)}>
+                                                        <IconEdit size={20} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü sil" : ""}>
+                                                    <IconButton color="error" onClick={() => handleDeleteClick(item)}>
+                                                        <IconTrash size={20} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                            </Stack>
+                                        )}
                                     </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={6} align="center">
-                                    <Typography variant="subtitle1" color="textSecondary">
-                                        Hiç ürün eklenmedi.
-                                    </Typography>
+                                <TableCell colSpan={9} align="center">
+                                    <Typography variant="subtitle1" color="textSecondary">Hiç ürün eklenmedi.</Typography>
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                 </Table>
             </TableContainer>
-
-            <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
-                <DialogTitle>Açıklama</DialogTitle>
-                <DialogContent dividers>
-                    <Typography>{modalContent}</Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseModal}>Kapat</Button>
-                </DialogActions>
-            </Dialog>
-        </Paper>
+        </Paper >
     );
 };
 

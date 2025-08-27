@@ -26,23 +26,19 @@ function App() {
   const customizer = useSelector((state: AppState) => state.customizer);
 
   return (
-    // Step 1: Wrap your entire application with the Redux Provider
     <Provider store={store}>
-      {/* Step 2: Wrap your application inside PersistGate */}
-      {/* This ensures the Redux state is rehydrated from localStorage before rendering */}
-      <PersistGate loading={null} persistor={persistor}> {/* `loading={null}` means no specific loading indicator */}
-        {/* Step 3: Your other Context Providers go inside PersistGate */}
+      <PersistGate loading={null} persistor={persistor}>
         <AuthProvider>
-          {/* <LayoutProvider> */}
           <TooltipProvider>
             <ThemeProvider theme={theme}>
               <RTL direction={customizer.activeDir}>
                 <CssBaseline />
-                <ScrollToTop>{routing}</ScrollToTop>
+                <ScrollToTop>
+                  {routing}
+                </ScrollToTop>
               </RTL>
             </ThemeProvider>
           </TooltipProvider>
-          {/* </LayoutProvider> */}
         </AuthProvider>
       </PersistGate>
     </Provider>

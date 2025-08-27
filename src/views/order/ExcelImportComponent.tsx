@@ -19,8 +19,9 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import html2canvas from 'html2canvas';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular'; // مطمئن شوید مسیر فایل فونت صحیح است
+import Logo from 'src/assets/images/logos/logo.png';
 import * as XLSX from 'xlsx';
 import OrderItemsTable from './OrderItemsTable';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
@@ -32,6 +33,7 @@ import DeleteOrderModal from './DeleteOrderModal';
 import RegisterUnregisteredItemModal from '../tender/RegisterUnregisteredItemModal';
 import SelectTenderItemsModal from './SelectTenderItemsModal';
 import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
+import { useAuth } from 'src/context/AuthContext';
 // Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
 interface Network { id: string; createAt: string; recordStatus: number; title: string; description: string; work: Work; }
@@ -128,6 +130,27 @@ const ExcelImportComponent = () => {
     const [description, setDescription] = useState('');
     const [statusError, setStatusError] = useState(false);
     const [idRow, setIdRow] = useState(0);
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    }, [allowedOperations]);
+
+    const hasStatusPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
+    }, [allowedOperations]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -245,68 +268,72 @@ const ExcelImportComponent = () => {
     };
 
     const exportToPdf = (orderData: OrderType) => {
-        // ایجاد یک کانتینر موقت
-        const pdfContainer = document.createElement('div');
-        pdfContainer.style.width = '100%';
-        pdfContainer.style.padding = '20px';
-        pdfContainer.style.backgroundColor = 'white';
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
 
-        // افزودن عنوان و اطلاعات سفارش به کانتینر
-        const title = document.createElement('h3');
-        title.innerText = `Sipariş #${orderData.id} Detayları`;
-        pdfContainer.appendChild(title);
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
 
-        const info = document.createElement('p');
-        info.innerHTML = `<strong>Şebeke:</strong> ${orderData.network.title}<br><strong>Tarih:</strong> ${formatDateDisplay(orderData.docDate)}`;
-        pdfContainer.appendChild(info);
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.setFontSize(18);
+            doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Sipariş No: ${orderData.id}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Şebeke: ${orderData.network.title || '-'}`, pageWidth - 15, 47, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, pageWidth - 15, 54, { align: 'right' });
+        };
 
-        // ساخت جدول HTML از داده‌های سفارش
-        const table = document.createElement('table');
-        table.style.width = '100%';
-        table.style.borderCollapse = 'collapse';
-        table.innerHTML = `
-        <thead>
-            <tr>
-                <th style="border: 1px solid black; padding: 8px;">Ürün Adı</th>
-                <th style="border: 1px solid black; padding: 8px;">Miktar</th>
-                <th style="border: 1px solid black; padding: 8px;">Birim</th>
-                <th style="border: 1px solid black; padding: 8px;">Açıklama</th>
-                <th style="border: 1px solid black; padding: 8px;">Fiyat</th>
-            </tr>
-        </thead>
-        <tbody>
-            ${orderData.orderDetails.map(detail => `
-                <tr>
-                    <td style="border: 1px solid black; padding: 8px;">${detail.item.name}</td>
-                    <td style="border: 1px solid black; padding: 8px;">${detail.quantity}</td>
-                    <td style="border: 1px solid black; padding: 8px;">${detail.item.unit.title}</td>
-                    <td style="border: 1px solid black; padding: 8px;">${stripHtml(detail.description)}</td>
-                    <td style="border: 1px solid black; padding: 8px;"></td>
-                </tr>
-            `).join('')}
-        </tbody>
-    `;
-        pdfContainer.appendChild(table);
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        };
 
-        // افزودن کانتینر به بدنه صفحه به صورت موقت
-        document.body.appendChild(pdfContainer);
+        const rows = orderData.orderDetails.map(detail => [
+            detail.item.name || '-',
+            Number(detail.quantity).toFixed(2) || '-',
+            detail.item.unit.title || '-',
+            stripHtml(detail.description) || '-',
+            cleanAndFormatPrice(detail.price),
+        ]);
 
-        // گرفتن اسکرین‌شات از کانتینر و تبدیل به PDF
-        html2canvas(pdfContainer).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        try {
+            autoTable(doc, {
+                startY: 70,
+                head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 50 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 20 },
+                    3: { cellWidth: 50 },
+                    4: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+            });
 
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Sipariş_${orderData.id}_Detayları.pdf`);
-
-            // حذف کانتینر موقت
-            document.body.removeChild(pdfContainer);
-        });
+            doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
     };
-
     const handleItemChange = (id: number, field: string, value: any) => {
         // پیدا کردن آیتم در حال تغییر
         const itemToUpdate = orderItems.find(item => item.id === id);
@@ -761,136 +788,144 @@ const ExcelImportComponent = () => {
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                 </Stack>
             )}
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
-                            Şebeke
-                        </CustomFormLabel>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Autocomplete<Network>
-                                id="network-autocomplete" options={networks} getOptionLabel={(option) => option.title}
-                                value={networks.find(net => net.id === network) || null}
-                                onChange={(_event, newValue) => {
-                                    setNetwork(newValue ? newValue.id : ''); setSelectedWork(newValue ? newValue.work : null);
-                                    if (networkError && newValue) setNetworkError(false);
-                                }} renderInput={(params) => (
-                                    <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
-                                    />
-                                )} sx={{ flexGrow: 1 }}
-                            />
-                            {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
-                        </Box>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                                Tarihi
-                            </CustomFormLabel>
-                            <DatePicker
-                                value={docDate}
-                                onChange={(newValue) => {
-                                    setDocDate(newValue);
-                                    if (docDateError && newValue) setDocDateError(false);
-                                }}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField {...params}
-                                        size="small" error={docDateError}
-                                        helperText={docDateError ? "Başlangıç tarihi boş olamaz!" : ""} />
-                                )}
-                            />
-                        </LocalizationProvider>
-                    </Grid>
-                </Grid>
-                <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
 
-                <Box sx={{ mb: 2 }}>
-                    <Stack
-                        direction={{ xs: 'column', sm: 'row' }}
-                        spacing={1}
-                        alignItems="stretch"
-                        flexWrap="wrap"
-                    >
-                        <Button
-                            variant="outlined"
-                            component="label"
-                            startIcon={<IconUpload />}
-                            sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
+            {(hasCreatePermission || hasEditPermission) && (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} md={8}>
+                            <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }}>
+                                Şebeke
+                            </CustomFormLabel>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Autocomplete<Network>
+                                    id="network-autocomplete" options={networks} getOptionLabel={(option) => option.title}
+                                    value={networks.find(net => net.id === network) || null}
+                                    onChange={(_event, newValue) => {
+                                        setNetwork(newValue ? newValue.id : ''); setSelectedWork(newValue ? newValue.work : null);
+                                        if (networkError && newValue) setNetworkError(false);
+                                    }} renderInput={(params) => (
+                                        <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
+                                        />
+                                    )} sx={{ flexGrow: 1 }}
+                                />
+                                {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
+                            </Box>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                    Tarihi
+                                </CustomFormLabel>
+                                <DatePicker
+                                    value={docDate}
+                                    onChange={(newValue) => {
+                                        setDocDate(newValue);
+                                        if (docDateError && newValue) setDocDateError(false);
+                                    }}
+                                    inputFormat="dd/MM/yyyy"
+                                    renderInput={(params) => (
+                                        <TextField {...params}
+                                            size="small" error={docDateError}
+                                            helperText={docDateError ? "Başlangıç tarihi boş olamaz!" : ""} />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                        </Grid>
+                    </Grid>
+                    <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
+
+                    <Box sx={{ mb: 2 }}>
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems="stretch"
+                            flexWrap="wrap"
                         >
-                            Dosya Seç
-                            <input
-                                type="file"
-                                onChange={handleFileChange}
-                                accept=".xlsx, .xls"
-                                style={{ display: 'none' }}
-                            />
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            color="secondary"
-                            href="/Siparis_Sablonu.xlsx"
-                            download="Siparis_Sablonu.xlsx"
-                            startIcon={<IconDownload />}
-                            sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
-                        >
-                            Şablonu İndir
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="secondary"
-                            onClick={handleOpenSelectTenderModal}
-                            startIcon={<IconListDetails />}
-                            sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
-                        >
-                            İhalden Ürün Seç
-                        </Button>
-                    </Stack>
-                    {file && <Typography variant="body2" sx={{ mt: 1 }}>Dosya Seçildi: {file.name}</Typography>}
-                </Box>
-                <OrderItemsTable
-                    items={orderItems} itemsList={itemsList} onItemChange={handleItemChange} onAddItem={handleAddItem}
-                    onRemoveItem={handleRemoveItem} onToggleEdit={handleToggleEdit} availableItemsList={availableItemsList}
-                    onOpenRegisterModal={handleOpenRegisterModal}
-                />
-                {orderItemsError && (
-                    <Typography variant="body2" color="error" sx={{ mt: 1 }}>Sipariş en az bir ürün içermeli ve tüm ürün alanları dolu olmalıdır!</Typography>
-                )}
-                <Box mt={3} textAlign="right">
-                    {/* منطق شرطی برای نمایش دکمه‌ها بر اساس وضعیت ویرایش */}
-                    {editingId ? (
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            {/* دکمه "Düzenle" برای ویرایش سفارش */}
                             <Button
-                                variant="contained"
-                                color="info"
-                                onClick={handleUpdateOrder} // ✅ تابعی برای به روز رسانی سفارش
+                                variant="outlined"
+                                component="label"
+                                startIcon={<IconUpload />}
+                                sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
                             >
-                                Düzenle
+                                Dosya Seç
+                                <input
+                                    type="file"
+                                    onChange={handleFileChange}
+                                    accept=".xlsx, .xls"
+                                    style={{ display: 'none' }}
+                                />
                             </Button>
-                            {/* دکمه "İptal Et" برای لغو ویرایش */}
                             <Button
                                 variant="outlined"
                                 color="secondary"
-                                onClick={resetForm} // ✅ از تابع resetForm برای لغو استفاده کنید
+                                href="/Siparis_Sablonu.xlsx"
+                                download="Siparis_Sablonu.xlsx"
+                                startIcon={<IconDownload />}
+                                sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
                             >
-                                İptal Et
+                                Şablonu İndir
+                            </Button>
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={handleOpenSelectTenderModal}
+                                startIcon={<IconListDetails />}
+                                sx={{ flexGrow: 1 }} // ✅ از flexGrow به جای fullWidth استفاده کنید
+                            >
+                                İhalden Ürün Seç
                             </Button>
                         </Stack>
-                    ) : (
-                        < Button
-                            variant="contained"
-                            color="primary"
-                            onClick={handleSaveOrder}
-                            disabled={hasUnregisteredItems || orderItems.length === 0}
-                        >
-                            Siparişi Kaydet
-                        </Button>
+                        {file && <Typography variant="body2" sx={{ mt: 1 }}>Dosya Seçildi: {file.name}</Typography>}
+                    </Box>
+                    <OrderItemsTable
+                        items={orderItems} itemsList={itemsList} onItemChange={handleItemChange} onAddItem={handleAddItem}
+                        onRemoveItem={handleRemoveItem} onToggleEdit={handleToggleEdit} availableItemsList={availableItemsList}
+                        onOpenRegisterModal={handleOpenRegisterModal}
+                    />
+                    {orderItemsError && (
+                        <Typography variant="body2" color="error" sx={{ mt: 1 }}>Sipariş en az bir ürün içermeli ve tüm ürün alanları dolu olmalıdır!</Typography>
                     )}
-                </Box>
-            </Paper >
+                    <Box mt={3} textAlign="right">
+                        {/* منطق شرطی برای نمایش دکمه‌ها بر اساس وضعیت ویرایش */}
+                        {editingId ? (
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                {/* دکمه "Düzenle" برای ویرایش سفارش */}
+                                <Button
+                                    variant="contained"
+                                    color="info"
+                                    onClick={handleUpdateOrder} // ✅ تابعی برای به روز رسانی سفارش
+                                >
+                                    Düzenle
+                                </Button>
+                                {/* دکمه "İptal Et" برای لغو ویرایش */}
+                                <Button
+                                    variant="outlined"
+                                    color="secondary"
+                                    onClick={resetForm} // ✅ از تابع resetForm برای لغو استفاده کنید
+                                >
+                                    İptal Et
+                                </Button>
+                            </Stack>
+                        ) : (
 
+                            <>
+                                {hasCreatePermission && (
+                                    < Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleSaveOrder}
+                                        disabled={hasUnregisteredItems || orderItems.length === 0}
+                                    >
+                                        Siparişi Kaydet
+                                    </Button>
+                                )}
+                            </>
+                        )}
+                    </Box>
+                </Paper >
+
+            )}
             <Box sx={{ p: 2 }}>
                 <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
                 <Grid container spacing={2} alignItems="center">
@@ -973,7 +1008,7 @@ const ExcelImportComponent = () => {
                                                 MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                             >
                                                 {/* Menü öğeleri, sipariş durumu 0 için */}
-                                                {selectedOrderForMenu?.status === 0 && (
+                                                {hasStatusPermission && selectedOrderForMenu?.status === 0 && (
                                                     <>
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
                                                             <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
@@ -991,7 +1026,7 @@ const ExcelImportComponent = () => {
                                                 )}
 
                                                 {/* Menü öğesi, sipariş durumu 1 için */}
-                                                {selectedOrderForMenu?.status === 1 && (
+                                                {hasStatusPermission && selectedOrderForMenu?.status === 1 && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                             <ListItemIcon><IconX size={18} /></ListItemIcon>
@@ -1001,7 +1036,7 @@ const ExcelImportComponent = () => {
                                                 )}
 
                                                 {/* Menü öğesi, sipariş durumu 2 için */}
-                                                {selectedOrderForMenu?.status === 2 && (
+                                                {hasStatusPermission && selectedOrderForMenu?.status === 2 && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
                                                             <ListItemIcon><IconCheck size={18} /></ListItemIcon>
@@ -1010,45 +1045,53 @@ const ExcelImportComponent = () => {
                                                     </CustomTooltip>
                                                 )}
 
-                                                {/* Düzenleme öğesi */}
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
-                                                    <MenuItem onClick={() => handleEditClick(row)}>
-                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon>
-                                                        Düzenle
-                                                    </MenuItem>
-                                                </CustomTooltip>
 
-                                                {/* Silme öğesi */}
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
-                                                    <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
-                                                        <ListItemIcon><IconTrash size={18} /></ListItemIcon>
-                                                        Silmek
-                                                    </MenuItem>
-                                                </CustomTooltip>
+                                                {hasEditPermission && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
+                                                        <MenuItem onClick={() => handleEditClick(row)}>
+                                                            <ListItemIcon><IconEdit size={18} /></ListItemIcon>
+                                                            Düzenle
+                                                        </MenuItem>
+                                                    </CustomTooltip>
 
-                                                {/* Excel İndir öğesi */}
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
-                                                    <MenuItem onClick={() => {
-                                                        if (selectedOrderForMenu) {
-                                                            exportToExcel(selectedOrderForMenu);
-                                                            handleCloseMenu();
-                                                        }
-                                                    }}>
-                                                        <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
-                                                    </MenuItem>
-                                                </CustomTooltip>
 
-                                                {/* PDF İndir öğesi */}
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
-                                                    <MenuItem onClick={() => {
-                                                        if (selectedOrderForMenu) {
-                                                            exportToPdf(selectedOrderForMenu);
-                                                            handleCloseMenu();
-                                                        }
-                                                    }}>
-                                                        <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
-                                                    </MenuItem>
-                                                </CustomTooltip>
+                                                )}
+                                                {hasDeletePermission && (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
+                                                        <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
+                                                            <ListItemIcon><IconTrash size={18} /></ListItemIcon>
+                                                            Silmek
+                                                        </MenuItem>
+                                                    </CustomTooltip>
+
+                                                )}
+                                                {hasDownloadPermission && (
+                                                    <>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
+                                                            <MenuItem onClick={() => {
+                                                                if (selectedOrderForMenu) {
+                                                                    exportToExcel(selectedOrderForMenu);
+                                                                    handleCloseMenu();
+                                                                }
+                                                            }}>
+                                                                <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+
+                                                        {/* PDF İndir öğesi */}
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
+                                                            <MenuItem onClick={() => {
+                                                                if (selectedOrderForMenu) {
+                                                                    exportToPdf(selectedOrderForMenu);
+                                                                    handleCloseMenu();
+                                                                }
+                                                            }}>
+                                                                <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+
+                                                    </>
+                                                )}
                                             </Menu>
                                         </TableCell>
                                     </TableRow>

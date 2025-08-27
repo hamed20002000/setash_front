@@ -1,7 +1,7 @@
 // ListCategory.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer,
@@ -48,6 +48,7 @@ import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
+import { useAuth } from 'src/context/AuthContext';
 // --- Updated Interface for API response and internal use ---
 interface ApiCategoryType {
   id: string;
@@ -209,8 +210,20 @@ const ListCategory = () => {
   // **State جدید برای مدیریت خطای ورودی نام**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
-  // const [codeError, setCodeError] = useState<boolean>(false); // 🔴 حذف شد
-  // const [codeHelperText, setCodeHelperText] = useState<string>(''); // 🔴 حذف شد
+
+
+  const { allowedOperations } = useAuth();
+  const hasCreatePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+  }, [allowedOperations]);
+
+  const hasEditPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+  }, [allowedOperations]);
+
+  const hasDeletePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+  }, [allowedOperations]);
 
 
   // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
@@ -779,73 +792,79 @@ const ListCategory = () => {
             ))}
           </Paper>
         )}
-        <Grid container spacing={1}>
-          <Grid item xs={12} sm={1} display="flex" alignItems="center">
-            <CustomFormLabel htmlFor="category-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-              İsim
-            </CustomFormLabel>
-          </Grid>
-          <Grid item xs={12} sm={7}> {/* 🔴 تغییر اندازه از sm={5} به sm={8} برای اشغال فضای بیشتر */}
-            <CustomTextField
-              id="category-name"
-              placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
 
-              sx={{ width: '100%' }}
-              size="small"
-              value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setName(e.target.value);
-                if (nameError && e.target.value.trim()) {
-                  setNameError(false);
-                  setNameHelperText('');
-                }
-              }}
-              inputRef={categoryNameInputRef}
-              error={nameError}
-              helperText={nameHelperText}
-            />
+        {(hasCreatePermission || hasEditPermission) && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} sm={1} display="flex" alignItems="center">
+              <CustomFormLabel htmlFor="category-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                İsim
+              </CustomFormLabel>
+            </Grid>
+            <Grid item xs={12} sm={7}> {/* 🔴 تغییر اندازه از sm={5} به sm={8} برای اشغال فضای بیشتر */}
+              <CustomTextField
+                id="category-name"
+                placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
+
+                sx={{ width: '100%' }}
+                size="small"
+                value={name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setName(e.target.value);
+                  if (nameError && e.target.value.trim()) {
+                    setNameError(false);
+                    setNameHelperText('');
+                  }
+                }}
+                inputRef={categoryNameInputRef}
+                error={nameError}
+                helperText={nameHelperText}
+              />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                {editingId !== null ? (
+                  <>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili kategoriyi güncelleyin" : ""}>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        onClick={editCategory}
+                        disabled={loadingButton}
+                      >
+                        {loadingButton ? <>
+                          <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                        </> : 'Düzenlemek'}
+                      </Button>
+                    </CustomTooltip>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni kategori moduna dön" : ""}>
+                      <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                        İptal Et
+                      </Button>
+                    </CustomTooltip>
+                  </>
+                ) : (
+
+                  <>
+                    {hasCreatePermission && (
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir kategori ekle" : ""}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={insertCategory}
+                          disabled={loadingButton}
+                        >
+                          {loadingButton ? <>
+                            <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                          </> : (currentParentCategory ? 'Alt Kategori Ekle' : 'Yeni Kategori Ekle')}
+                        </Button>
+                      </CustomTooltip>
+                    )}
+                  </>
+                )}
+              </Stack>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={4}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              {editingId !== null ? (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili kategoriyi güncelleyin" : ""}>
-                    <Button
-                      variant="contained"
-                      color="info"
-                      onClick={editCategory}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Düzenlemek'}
-                    </Button>
-                  </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni kategori moduna dön" : ""}>
-                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                      İptal Et
-                    </Button>
-                  </CustomTooltip>
-                </>
-              ) : (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir kategori ekle" : ""}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={insertCategory}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : (currentParentCategory ? 'Alt Kategori Ekle' : 'Yeni Kategori Ekle')}
-                    </Button>
-                  </CustomTooltip>
-                </>
-              )}
-            </Stack>
-          </Grid>
-        </Grid>
+        )}
         {alertMessage && (
           <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
             <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1041,7 +1060,8 @@ const ListCategory = () => {
                             'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                           }}
                         >
-                          {selectedRowForMenu?.recordStatus === 0 ? (
+
+                          {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                             <CustomTooltip placement="left"
                               title={isTooltipGloballyEnabled ? "Bu kategoriyi pasif yap" : ""}>
                               <MenuItem onClick={handleSetInactive}>
@@ -1051,7 +1071,9 @@ const ListCategory = () => {
                                 Pasif Yap
                               </MenuItem>
                             </CustomTooltip>
-                          ) : (
+
+                          )}
+                          {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                             <CustomTooltip placement="left"
                               title={isTooltipGloballyEnabled ? "Bu kategoriyi aktif yap" : ""}>
                               <MenuItem onClick={handleSetActive}>
@@ -1062,24 +1084,28 @@ const ListCategory = () => {
                               </MenuItem>
                             </CustomTooltip>
                           )}
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
-                            <MenuItem onClick={handleEditClick}>
-                              <ListItemIcon>
-                                <IconEdit width={18} />
-                              </ListItemIcon>
-                              Düzenlemek
-                            </MenuItem>
-                          </CustomTooltip>
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
-                            <MenuItem onClick={handleClickOpenDeleteModal}>
-                              <ListItemIcon>
-                                <IconTrash width={18} />
-                              </ListItemIcon>
-                              Silmek
-                            </MenuItem>
-                          </CustomTooltip>
+                          {hasEditPermission && (
+                            <CustomTooltip placement="left"
+                              title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
+                              <MenuItem onClick={handleEditClick}>
+                                <ListItemIcon>
+                                  <IconEdit width={18} />
+                                </ListItemIcon>
+                                Düzenlemek
+                              </MenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasDeletePermission && (
+                            <CustomTooltip placement="left"
+                              title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
+                              <MenuItem onClick={handleClickOpenDeleteModal}>
+                                <ListItemIcon>
+                                  <IconTrash width={18} />
+                                </ListItemIcon>
+                                Silmek
+                              </MenuItem>
+                            </CustomTooltip>
+                          )}
                         </Menu>
                       </TableCell>
                     </TableRow>

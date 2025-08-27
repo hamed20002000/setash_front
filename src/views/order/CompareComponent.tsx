@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -21,6 +21,7 @@ import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import OrderItemsTable from './OrderItemsTable';
 import DeleteOrderModal from './DeleteOrderModal';
+import { useAuth } from 'src/context/AuthContext';
 
 // Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
@@ -143,6 +144,27 @@ const CompareComponent = () => {
     const [description, setDescription] = useState('');
     const [statusError, setStatusError] = useState(false);
     const [idRow, setIdRow] = useState(0);
+
+    const { allowedOperations } = useAuth();
+    const hasCreatePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    }, [allowedOperations]);
+
+    const hasEditPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    }, [allowedOperations]);
+
+    const hasDeletePermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    // const hasDownloadPermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    // }, [allowedOperations]);
+
+    const hasStatusPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
+    }, [allowedOperations]);
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -596,139 +618,148 @@ const CompareComponent = () => {
                 </Stack>
             )}
 
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" mb={2}>Depo/İhale Karşılaştırması</Typography>
+            {(hasCreatePermission || hasEditPermission) && (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h6" mb={2}>Depo/İhale Karşılaştırması</Typography>
 
-                {/* Şebeke ve Tarih */}
-                <Grid container spacing={2}>
-                    <Grid item xs={12} md={8}>
-                        <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} >
-                            Şebeke
-                        </CustomFormLabel>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Autocomplete<Network>
-                                id="network-autocomplete" options={networks} getOptionLabel={(option) => option.title}
-                                value={networks.find(net => net.id === network) || null}
-                                onChange={(_event, newValue) => {
-                                    setNetwork(newValue ? newValue.id : ''); setSelectedWork(newValue ? newValue.work : null);
-                                    if (networkError && newValue) setNetworkError(false);
-                                }} renderInput={(params) => (
-                                    <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
-                                    />
-                                )} sx={{ flexGrow: 1 }}
-                            />
-                            {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
-                        </Box>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-                                Tarihi
+                    {/* Şebeke ve Tarih */}
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} md={8}>
+                            <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} >
+                                Şebeke
                             </CustomFormLabel>
-                            <DatePicker
-                                value={docDate}
-                                onChange={(newValue) => {
-                                    setDocDate(newValue);
-                                    if (docDateError && newValue) setDocDateError(false);
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Autocomplete<Network>
+                                    id="network-autocomplete" options={networks} getOptionLabel={(option) => option.title}
+                                    value={networks.find(net => net.id === network) || null}
+                                    onChange={(_event, newValue) => {
+                                        setNetwork(newValue ? newValue.id : ''); setSelectedWork(newValue ? newValue.work : null);
+                                        if (networkError && newValue) setNetworkError(false);
+                                    }} renderInput={(params) => (
+                                        <TextField {...params} label="Şebeke Seçin" variant="outlined" size="small" error={networkError} helperText={networkError ? "Bu alan zorunludur!" : ""}
+                                        />
+                                    )} sx={{ flexGrow: 1 }}
+                                />
+                                {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
+                            </Box>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                    Tarihi
+                                </CustomFormLabel>
+                                <DatePicker
+                                    value={docDate}
+                                    onChange={(newValue) => {
+                                        setDocDate(newValue);
+                                        if (docDateError && newValue) setDocDateError(false);
+                                    }}
+                                    inputFormat="dd/MM/yyyy"
+                                    renderInput={(params) => (
+                                        <TextField {...params}
+                                            size="small" error={docDateError}
+                                            helperText={docDateError ? "Bu alan zorunludur!" : ""} />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                        </Grid>
+                    </Grid>
+
+                    {/* Depo ve İhale */}
+                    <Grid container spacing={2} alignItems="center" sx={{ mt: 2 }}>
+
+                        <Grid item xs={12} md={5}>
+                            <Autocomplete<WarehouseType>
+                                id="warehouse-autocomplete"
+                                options={warehousesList}
+                                getOptionLabel={(option) => option.name}
+                                value={warehouse} // مقدار state جدید
+                                onChange={(_event, newValue) => {
+                                    setWarehouse(newValue); // ذخیره کل شیء در state
+                                    if (warehouseError && newValue) setWarehouseError(false);
                                 }}
-                                inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
-                                    <TextField {...params}
-                                        size="small" error={docDateError}
-                                        helperText={docDateError ? "Bu alan zorunludur!" : ""} />
+                                    <TextField
+                                        {...params}
+                                        label="Depo Seçin"
+                                        variant="outlined"
+
+                                        sx={{ width: '100%' }}
+                                        size="small"
+                                        error={warehouseError}
+                                        helperText={warehouseError ? "Bu alan zorunludur!" : ""}
+                                    />
                                 )}
                             />
-                        </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} md={5}>
+                            <Autocomplete<TenderType>
+                                id="tender-autocomplete"
+                                options={tendersList}
+                                getOptionLabel={(option) => option.title}
+                                value={tender} // مقدار state جدید
+                                onChange={(_event, newValue) => {
+                                    setTender(newValue); // ذخیره کل شیء در state
+                                    if (tenderError && newValue) setTenderError(false);
+                                }}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        label="İhale Seçin"
+                                        variant="outlined"
+
+                                        sx={{ width: '100%' }}
+                                        size="small"
+                                        error={tenderError}
+                                        helperText={tenderError ? "Bu alan zorunludur!" : ""}
+                                    />
+                                )}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={2}>
+                            <Box textAlign="right">
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    startIcon={<IconExchange />}
+                                    onClick={handleCompare}
+                                    fullWidth
+                                >
+                                    Karşılaştır
+                                </Button>
+                            </Box>
+                        </Grid>
                     </Grid>
-                </Grid>
 
-                {/* Depo ve İhale */}
-                <Grid container spacing={2} alignItems="center" sx={{ mt: 2 }}>
-
-                    <Grid item xs={12} md={5}>
-                        <Autocomplete<WarehouseType>
-                            id="warehouse-autocomplete"
-                            options={warehousesList}
-                            getOptionLabel={(option) => option.name}
-                            value={warehouse} // مقدار state جدید
-                            onChange={(_event, newValue) => {
-                                setWarehouse(newValue); // ذخیره کل شیء در state
-                                if (warehouseError && newValue) setWarehouseError(false);
-                            }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="Depo Seçin"
-                                    variant="outlined"
-
-                                    sx={{ width: '100%' }}
-                                    size="small"
-                                    error={warehouseError}
-                                    helperText={warehouseError ? "Bu alan zorunludur!" : ""}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={5}>
-                        <Autocomplete<TenderType>
-                            id="tender-autocomplete"
-                            options={tendersList}
-                            getOptionLabel={(option) => option.title}
-                            value={tender} // مقدار state جدید
-                            onChange={(_event, newValue) => {
-                                setTender(newValue); // ذخیره کل شیء در state
-                                if (tenderError && newValue) setTenderError(false);
-                            }}
-                            renderInput={(params) => (
-                                <TextField
-                                    {...params}
-                                    label="İhale Seçin"
-                                    variant="outlined"
-
-                                    sx={{ width: '100%' }}
-                                    size="small"
-                                    error={tenderError}
-                                    helperText={tenderError ? "Bu alan zorunludur!" : ""}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                        <Box textAlign="right">
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                startIcon={<IconExchange />}
-                                onClick={handleCompare}
-                                fullWidth
-                            >
-                                Karşılaştır
-                            </Button>
-                        </Box>
-                    </Grid>
-                </Grid>
-
-                <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
-                <OrderItemsTable
-                    items={orderItems} itemsList={itemsList} onItemChange={handleItemChange} onAddItem={handleAddItem}
-                    onRemoveItem={handleRemoveItem} onToggleEdit={handleToggleEdit} availableItemsList={availableItemsList}
-                    onOpenRegisterModal={handleOpenRegisterModal}
-                />
-                {orderItemsError && (
-                    <Typography variant="body2" color="error" sx={{ mt: 1 }}>Sipariş en az bir ürün içermeli ve tüm ürün alanları dolu olmalıdır!</Typography>
-                )}
-                <Box mt={3} textAlign="right">
-                    {editingId ? (
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            <Button variant="contained" color="info" onClick={handleUpdateOrder}>Düzenle</Button>
-                            <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
-                        </Stack>
-                    ) : (
-                        <Button variant="contained" color="primary" onClick={handleSaveOrder}>Siparişi Kaydet</Button>
+                    <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
+                    <OrderItemsTable
+                        items={orderItems} itemsList={itemsList} onItemChange={handleItemChange} onAddItem={handleAddItem}
+                        onRemoveItem={handleRemoveItem} onToggleEdit={handleToggleEdit} availableItemsList={availableItemsList}
+                        onOpenRegisterModal={handleOpenRegisterModal}
+                    />
+                    {orderItemsError && (
+                        <Typography variant="body2" color="error" sx={{ mt: 1 }}>Sipariş en az bir ürün içermeli ve tüm ürün alanları dolu olmalıdır!</Typography>
                     )}
-                </Box>
-            </Paper>
+                    <Box mt={3} textAlign="right">
+                        {editingId ? (
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button variant="contained" color="info" onClick={handleUpdateOrder}>Düzenle</Button>
+                                <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
+                            </Stack>
+                        ) : (
 
+                            <>
+                                {hasCreatePermission && (
+                                    <Button variant="contained" color="primary" onClick={handleSaveOrder}>
+                                        Siparişi Kaydet</Button>
+
+                                )}
+                            </>
+                        )}
+                    </Box>
+                </Paper>
+
+            )}
             {/* Orders Table */}
             <Box sx={{ p: 2 }}>
                 <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
@@ -806,7 +837,7 @@ const CompareComponent = () => {
                                             <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu && selectedOrderForMenu?.id === row.id} onClose={handleCloseMenu}
                                                 MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
 
-                                                {selectedOrderForMenu?.status === 0 && (
+                                                {hasStatusPermission && selectedOrderForMenu?.status === 0 && (
                                                     <>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
                                                             <ListItemIcon><IconCheck size={18} /></ListItemIcon>
@@ -820,7 +851,7 @@ const CompareComponent = () => {
                                                 )}
 
                                                 {/* If status is 1, show "Reddet" (Reject) */}
-                                                {selectedOrderForMenu?.status === 1 && (
+                                                {hasStatusPermission && selectedOrderForMenu?.status === 1 && (
                                                     <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                         <ListItemIcon><IconX size={18} /></ListItemIcon>
                                                         Reddet
@@ -828,14 +859,25 @@ const CompareComponent = () => {
                                                 )}
 
                                                 {/* If status is 2, show "Onayla" (Approve) */}
-                                                {selectedOrderForMenu?.status === 2 && (
+                                                {hasStatusPermission && selectedOrderForMenu?.status === 2 && (
                                                     <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
                                                         <ListItemIcon><IconCheck size={18} /></ListItemIcon>
                                                         Onayla
                                                     </MenuItem>
                                                 )}
-                                                <MenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
-                                                <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}><ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek</MenuItem>
+
+                                                {hasEditPermission && (
+                                                    <MenuItem onClick={() => handleEditClick(row)}>
+                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
+
+                                                )}
+                                                {hasDeletePermission && (
+                                                    <MenuItem onClick={() =>
+                                                        handleClickOpenDeleteModal(row.id, row.network.title)}>
+                                                        <ListItemIcon><IconTrash size={18} />
+                                                        </ListItemIcon> Silmek</MenuItem>
+
+                                                )}
                                             </Menu>
                                         </TableCell>
                                     </TableRow>

@@ -29,6 +29,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
   if (!dateString) return "N/A";
@@ -168,11 +169,23 @@ const SystemRole = () => {
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
 
-  // -----------------------------------------------------
-  // توابع هندلر با useCallback برای جلوگیری از رفرش مودال
-  // -----------------------------------------------------
+  const { allowedOperations } = useAuth();
+  const hasCreatePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+  }, [allowedOperations]);
 
-  // تابع showAlert که به ListSystemOperationModal ارسال می‌شود
+  const hasEditPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+  }, [allowedOperations]);
+
+  const hasDeletePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+  }, [allowedOperations]);
+
+  const hasChangeOpPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+  }, [allowedOperations]);
+
   const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
     setAlertMessage(message);
     setAlertSeverity(severity);
@@ -558,72 +571,78 @@ const SystemRole = () => {
         margin: "10px 0 30px 0",
         padding: "10px 15px 30px 15px"
       }}>
-        <Grid container spacing={1}>
-          <Grid item xs={12} sm={1} display="flex" alignItems="center">
-            <CustomFormLabel htmlFor="bl-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
-              İsim
-            </CustomFormLabel>
+
+        {(hasCreatePermission || hasEditPermission) && (
+          <Grid container spacing={1}>
+            <Grid item xs={12} sm={1} display="flex" alignItems="center">
+              <CustomFormLabel htmlFor="bl-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                İsim
+              </CustomFormLabel>
+            </Grid>
+            <Grid item xs={12} sm={7}>
+              <CustomTextField
+                id="name"
+                placeholder="Rol İsim"
+                fullWidth
+                value={name}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setName(e.target.value);
+                  if (nameError && e.target.value.trim()) {
+                    setNameError(false);
+                    setNameHelperText('');
+                  }
+                }}
+                inputRef={editFieldRef}
+                error={nameError}
+                helperText={nameHelperText}
+              />
+            </Grid>
+            <Grid item xs={12} sm={1}></Grid>
+            <Grid item xs={12} sm={3}>
+              <Stack direction="row" spacing={1} justifyContent="flex-end">
+                {editingId !== null ? (
+                  <>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili rolü güncelleyin" : ""}>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        onClick={editRole}
+                        disabled={loadingButton}
+                      >
+                        {loadingButton ? <>
+                          <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                        </> : 'Düzenlemek'}
+                      </Button>
+                    </CustomTooltip>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni rol moduna dön" : ""}>
+                      <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                        İptal Et
+                      </Button>
+                    </CustomTooltip>
+                  </>
+                ) : (
+                  <>
+                    {hasCreatePermission && (
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir rol ekle" : ""}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={insertRole}
+                          disabled={loadingButton}
+                        >
+                          {loadingButton ? <>
+                            <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                          </> : 'Yeni Rol Ekle'}
+                        </Button>
+                      </CustomTooltip>
+                    )}
+                  </>
+                )}
+              </Stack>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={7}>
-            <CustomTextField
-              id="name"
-              placeholder="Rol İsim"
-              fullWidth
-              value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setName(e.target.value);
-                if (nameError && e.target.value.trim()) {
-                  setNameError(false);
-                  setNameHelperText('');
-                }
-              }}
-              inputRef={editFieldRef}
-              error={nameError}
-              helperText={nameHelperText}
-            />
-          </Grid>
-          <Grid item xs={12} sm={1}></Grid>
-          <Grid item xs={12} sm={3}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              {editingId !== null ? (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili rolü güncelleyin" : ""}>
-                    <Button
-                      variant="contained"
-                      color="info"
-                      onClick={editRole}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Düzenlemek'}
-                    </Button>
-                  </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni rol moduna dön" : ""}>
-                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                      İptal Et
-                    </Button>
-                  </CustomTooltip>
-                </>
-              ) : (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir rol ekle" : ""}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={insertRole}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Yeni Rol Ekle'}
-                    </Button>
-                  </CustomTooltip>
-                </>
-              )}
-            </Stack>
-          </Grid>
-        </Grid>
+
+        )}
         {alertMessage && (
           <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
             <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -783,7 +802,8 @@ const SystemRole = () => {
                           'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                         }}
                       >
-                        {selectedRowForMenu?.recordStatus === 0 ? (
+
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
                             <MenuItem onClick={handleSetInactive}>
@@ -793,7 +813,9 @@ const SystemRole = () => {
                               Pasif Yap
                             </MenuItem>
                           </CustomTooltip>
-                        ) : (
+
+                        )}
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
                             <MenuItem onClick={handleSetActive}>
@@ -805,33 +827,40 @@ const SystemRole = () => {
                           </CustomTooltip>
                         )}
 
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
-                          <MenuItem onClick={handleClickOpenOperationModal}>
-                            <ListItemIcon>
-                              <IconPlus width={18} />
-                            </ListItemIcon>
-                            Operasyon Seçin
-                          </MenuItem>
-                        </CustomTooltip>
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
-                          <MenuItem onClick={handleEditClick}>
-                            <ListItemIcon>
-                              <IconEdit width={18} />
-                            </ListItemIcon>
-                            Düzenlemek
-                          </MenuItem>
-                        </CustomTooltip>
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
-                          <MenuItem onClick={handleClickOpenDeleteModal}>
-                            <ListItemIcon>
-                              <IconTrash width={18} />
-                            </ListItemIcon>
-                            Silmek
-                          </MenuItem>
-                        </CustomTooltip>
+                        {hasChangeOpPermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
+                            <MenuItem onClick={handleClickOpenOperationModal}>
+                              <ListItemIcon>
+                                <IconPlus width={18} />
+                              </ListItemIcon>
+                              Operasyon Seçin
+                            </MenuItem>
+                          </CustomTooltip>
+                        )}
+
+                        {hasEditPermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
+                            <MenuItem onClick={handleEditClick}>
+                              <ListItemIcon>
+                                <IconEdit width={18} />
+                              </ListItemIcon>
+                              Düzenlemek
+                            </MenuItem>
+                          </CustomTooltip>
+                        )}
+                        {hasDeletePermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
+                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                              <ListItemIcon>
+                                <IconTrash width={18} />
+                              </ListItemIcon>
+                              Silmek
+                            </MenuItem>
+                          </CustomTooltip>
+                        )}
                       </Menu>
                     </TableCell>
                   </TableRow>

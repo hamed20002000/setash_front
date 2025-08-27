@@ -38,6 +38,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
+import { useAuth } from 'src/context/AuthContext';
 
 const formatDateDisplay = (dateString: string | null): string => {
   if (!dateString) return "N/A";
@@ -409,6 +410,19 @@ const ListItemComponent = () => {
   const [descriptionHelperText, setDescriptionHelperText] = useState<string>('');
   const [weightError, setWeightError] = useState<boolean>(false);
   const [weightHelperText, setWeightHelperText] = useState<string>('');
+
+  const { allowedOperations } = useAuth();
+  const hasCreatePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+  }, [allowedOperations]);
+
+  const hasEditPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+  }, [allowedOperations]);
+
+  const hasDeletePermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+  }, [allowedOperations]);
 
 
   const categoryTreeForSelect = useMemo(() => {
@@ -1078,282 +1092,289 @@ const ListItemComponent = () => {
         margin: "10px 0 30px 0",
         padding: "10px 15px 30px 15px"
       }}>
-        <Grid container spacing={2}>
-          {/* Item Name */}
-          <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="item-name" required>Ürün Adı</CustomFormLabel>
-            <CustomTextField
-              id="item-name"
-              placeholder="Ürün Adı"
-              fullWidth
-              value={name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                setName(e.target.value);
-                if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
-                  setNameError(false); // Clear the error
-                  setNameHelperText(''); // Clear the helper text
-                }
-              }}
-              inputRef={itemNameInputRef}
-              error={nameError}
-              helperText={nameHelperText}
-            />
-          </Grid>
-          {/* Unit Selection (with search) */}
-          <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="select-unit" required>Ölçü</CustomFormLabel>
-            {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
-            <FormControl fullWidth error={unitIdError}>
-              <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
-              <Select
-                labelId="select-unit-label"
-                id="select-unit"
-                value={selectedUnitId || ''}
-                label="Ölçü Seçin"
-                onChange={(e) => {
-                  setSelectedUnitId(e.target.value as string);
-                  if (unitIdError) { // Clear error when a unit is selected
-                    setUnitIdError(false);
-                    setUnitIdHelperText('');
-                  }
-                }}
-                MenuProps={{
-                  sx: { maxHeight: 300 },
-                }}
-                renderValue={(selected: any) => {
-                  const unit = unitOptions.find(u => u.id === selected);
-                  return unit ? unit.title : '';
-                }}
-                onClose={() => setUnitSearchTerm('')}
-              >
-                <TextField
-                  autoFocus
-                  fullWidth
-                  placeholder="Ölçü Ara..."
-                  value={unitSearchTerm}
-                  onChange={handleUnitSearchChange}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <IconSearch size={20} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                {loadingUnits ? (
-                  <MuiMenuItem disabled>
-                    <CircularProgress size={20} /> Yükleniyor...
-                  </MuiMenuItem>
-                ) : filteredUnitOptions.length > 0 ? (
-                  filteredUnitOptions.map((unit) => (
-                    <MuiMenuItem key={unit.id} value={unit.id}>
-                      {unit.title}
-                    </MuiMenuItem>
-                  ))
-                ) : (
-                  <MuiMenuItem disabled>Hiç birim bulunamadı.</MuiMenuItem>
-                )}
-              </Select>
-              {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>} {/* **Display helper text** */}
-            </FormControl>
-            {/* </CustomTooltip> */}
-          </Grid>
-          {/* Category Selection (single-select tree) */}
-          <Grid item xs={12} md={6}>
-            <CustomFormLabel htmlFor="select-category" required>Kategori</CustomFormLabel>
-            {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Kategorileri seçmek için tıklayın" : ""}> */}
-            <FormControl fullWidth error={categoryIdError}> {/* **Added error prop to FormControl** */}
-              <InputLabel id="select-category-label">Kategori Seçin</InputLabel>
-              <Select
-                labelId="select-category-label"
-                id="select-category"
-                value={selectedCategoryId || ''}
-                open={isCategorySelectOpen}
-                onOpen={() => setIsCategorySelectOpen(true)}
-                onClose={handleCloseCategorySelect}
-                onChange={(event) => {
-                  const newValue = event.target.value as string;
-                  handleToggleCategorySelection(newValue, true);
-                  // Error clearing for category is handled inside handleToggleCategorySelection via useCallback
-                }}
-                renderValue={(selected: any) => {
-                  const category = allCategoriesFlat.find(cat => cat.id === selected);
-                  return category ? category.name : '';
-                }}
-                MenuProps={{
-                  sx: { maxHeight: 400 },
-                  onClose: () => {
-                    setCategorySearchTerm('');
-                    setIsCategorySelectOpen(false);
-                  },
-                }}
-              >
-                {/* Search field for categories */}
-                <TextField
-                  autoFocus
-                  fullWidth
-                  placeholder="Kategori Ara..."
-                  value={categorySearchTerm}
-                  onChange={handleCategorySearchChange}
-                  onClick={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                  sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <IconSearch size={20} />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
 
-                {/* Display category tree */}
-                {loadingCategories ? (
-                  <MuiMenuItem disabled>
-                    <CircularProgress size={20} /> Yükleniyor...
-                  </MuiMenuItem>
-                ) : categoryTreeForSelect.length > 0 ? (
-                  categoryTreeForSelect.map((node) => (
-                    <CategoryTreeSelectMenuItem
-                      key={node.id}
-                      node={node}
-                      onToggleSelection={handleToggleCategorySelection}
-                      selectedId={selectedCategoryId}
-                      onCloseParentSelect={handleCloseCategorySelect}
-                    />
-                  ))
-                ) : (
-                  <MuiMenuItem disabled>Hiç kategori bulunamadı.</MuiMenuItem>
-                )}
-              </Select>
-              {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{categoryIdHelperText}</Typography>} {/* **Display helper text** */}
-            </FormControl>
-            {/* </CustomTooltip> */}
-          </Grid>
-          {/* Abbreviation */}
-          <Grid item xs={12} md={3}>
-            <CustomFormLabel htmlFor="abbreviation">Kısaltma (4 Karakter)</CustomFormLabel>
-            <CustomTooltip title={isTooltipGloballyEnabled ? "Ürünün 4 karakterlik kısaltmasını girin" : ""}>
+        {(hasCreatePermission || hasEditPermission) && (
+          <Grid container spacing={2}>
+            {/* Item Name */}
+            <Grid item xs={12} md={6}>
+              <CustomFormLabel htmlFor="item-name" required>Ürün Adı</CustomFormLabel>
               <CustomTextField
-                id="abbreviation"
-                placeholder="Kısaltma"
+                id="item-name"
+                placeholder="Ürün Adı"
                 fullWidth
-                value={abbreviation}
+                value={name}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  setAbbreviation(e.target.value.substring(0, 4));
-                  if (abbreviationError && e.target.value.trim() && e.target.value.length === 4) {
-                    setAbbreviationError(false);
-                    setAbbreviationHelperText('');
+                  setName(e.target.value);
+                  if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
+                    setNameError(false); // Clear the error
+                    setNameHelperText(''); // Clear the helper text
                   }
                 }}
-                inputProps={{ maxLength: 4 }}
-                error={abbreviationError}
-                helperText={abbreviationHelperText}
+                inputRef={itemNameInputRef}
+                error={nameError}
+                helperText={nameHelperText}
               />
-            </CustomTooltip>
-          </Grid>
-          {/* ✅ اضافه شده: Weight */}
-          <Grid item xs={12} md={3}>
-            <CustomFormLabel htmlFor="weight">Ürün Birim Ağırlığı</CustomFormLabel>
-            <CustomTextField
-              id="weight"
-              placeholder="Ağırlık"
-              fullWidth
-              type="number"
-              value={weight}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const value = e.target.value;
-                if (value === '' || !isNaN(Number(value))) {
-                  setWeight(value === '' ? '' : Number(value));
-                }
-                if (weightError && value.trim()) {
-                  setWeightError(false);
-                  setWeightHelperText('');
-                }
-              }}
-              inputProps={{ min: 0, step: "0.01" }}
-              error={weightError}
-              helperText={weightHelperText}
-            />
-          </Grid>
-          {/* Description (text editor) */}
-          <Grid item xs={12}>
-            <CustomFormLabel htmlFor="description">Açıklama</CustomFormLabel>
-            <ReactQuill
-              theme="snow"
-              value={description}
-              onChange={(value) => {
-                setDescription(value);
-                if (descriptionError && value.trim() && value !== '<p><br></p>') {
-                  setDescriptionError(false);
-                  setDescriptionHelperText('');
-                }
-              }}
-              placeholder="Ürün açıklamasını girin..."
-              modules={{
-                toolbar: [
-                  [{ 'header': [1, 2, false] }],
-                  ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-                  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                  ['link', 'image'],
-                  ['clean']
-                ],
-              }}
-              formats={[
-                'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
-                'list', 'bullet', 'link', 'image'
-              ]}
-              style={{ height: '150px', marginBottom: '40px', border: descriptionError ? '1px solid red' : undefined }} // **Apply red border for description error**
-            />
-            {descriptionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{descriptionHelperText}</Typography>} {/* **Display helper text** */}
+            </Grid>
+            {/* Unit Selection (with search) */}
+            <Grid item xs={12} md={6}>
+              <CustomFormLabel htmlFor="select-unit" required>Ölçü</CustomFormLabel>
+              {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
+              <FormControl fullWidth error={unitIdError}>
+                <InputLabel id="select-unit-label">Ölçü Seçin</InputLabel>
+                <Select
+                  labelId="select-unit-label"
+                  id="select-unit"
+                  value={selectedUnitId || ''}
+                  label="Ölçü Seçin"
+                  onChange={(e) => {
+                    setSelectedUnitId(e.target.value as string);
+                    if (unitIdError) { // Clear error when a unit is selected
+                      setUnitIdError(false);
+                      setUnitIdHelperText('');
+                    }
+                  }}
+                  MenuProps={{
+                    sx: { maxHeight: 300 },
+                  }}
+                  renderValue={(selected: any) => {
+                    const unit = unitOptions.find(u => u.id === selected);
+                    return unit ? unit.title : '';
+                  }}
+                  onClose={() => setUnitSearchTerm('')}
+                >
+                  <TextField
+                    autoFocus
+                    fullWidth
+                    placeholder="Ölçü Ara..."
+                    value={unitSearchTerm}
+                    onChange={handleUnitSearchChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconSearch size={20} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  {loadingUnits ? (
+                    <MuiMenuItem disabled>
+                      <CircularProgress size={20} /> Yükleniyor...
+                    </MuiMenuItem>
+                  ) : filteredUnitOptions.length > 0 ? (
+                    filteredUnitOptions.map((unit) => (
+                      <MuiMenuItem key={unit.id} value={unit.id}>
+                        {unit.title}
+                      </MuiMenuItem>
+                    ))
+                  ) : (
+                    <MuiMenuItem disabled>Hiç birim bulunamadı.</MuiMenuItem>
+                  )}
+                </Select>
+                {unitIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{unitIdHelperText}</Typography>} {/* **Display helper text** */}
+              </FormControl>
+              {/* </CustomTooltip> */}
+            </Grid>
+            {/* Category Selection (single-select tree) */}
+            <Grid item xs={12} md={6}>
+              <CustomFormLabel htmlFor="select-category" required>Kategori</CustomFormLabel>
+              {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Kategorileri seçmek için tıklayın" : ""}> */}
+              <FormControl fullWidth error={categoryIdError}> {/* **Added error prop to FormControl** */}
+                <InputLabel id="select-category-label">Kategori Seçin</InputLabel>
+                <Select
+                  labelId="select-category-label"
+                  id="select-category"
+                  value={selectedCategoryId || ''}
+                  open={isCategorySelectOpen}
+                  onOpen={() => setIsCategorySelectOpen(true)}
+                  onClose={handleCloseCategorySelect}
+                  onChange={(event) => {
+                    const newValue = event.target.value as string;
+                    handleToggleCategorySelection(newValue, true);
+                    // Error clearing for category is handled inside handleToggleCategorySelection via useCallback
+                  }}
+                  renderValue={(selected: any) => {
+                    const category = allCategoriesFlat.find(cat => cat.id === selected);
+                    return category ? category.name : '';
+                  }}
+                  MenuProps={{
+                    sx: { maxHeight: 400 },
+                    onClose: () => {
+                      setCategorySearchTerm('');
+                      setIsCategorySelectOpen(false);
+                    },
+                  }}
+                >
+                  {/* Search field for categories */}
+                  <TextField
+                    autoFocus
+                    fullWidth
+                    placeholder="Kategori Ara..."
+                    value={categorySearchTerm}
+                    onChange={handleCategorySearchChange}
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                    sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconSearch size={20} />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
 
+                  {/* Display category tree */}
+                  {loadingCategories ? (
+                    <MuiMenuItem disabled>
+                      <CircularProgress size={20} /> Yükleniyor...
+                    </MuiMenuItem>
+                  ) : categoryTreeForSelect.length > 0 ? (
+                    categoryTreeForSelect.map((node) => (
+                      <CategoryTreeSelectMenuItem
+                        key={node.id}
+                        node={node}
+                        onToggleSelection={handleToggleCategorySelection}
+                        selectedId={selectedCategoryId}
+                        onCloseParentSelect={handleCloseCategorySelect}
+                      />
+                    ))
+                  ) : (
+                    <MuiMenuItem disabled>Hiç kategori bulunamadı.</MuiMenuItem>
+                  )}
+                </Select>
+                {categoryIdHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{categoryIdHelperText}</Typography>} {/* **Display helper text** */}
+              </FormControl>
+              {/* </CustomTooltip> */}
+            </Grid>
+            {/* Abbreviation */}
+            <Grid item xs={12} md={3}>
+              <CustomFormLabel htmlFor="abbreviation">Kısaltma (4 Karakter)</CustomFormLabel>
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Ürünün 4 karakterlik kısaltmasını girin" : ""}>
+                <CustomTextField
+                  id="abbreviation"
+                  placeholder="Kısaltma"
+                  fullWidth
+                  value={abbreviation}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    setAbbreviation(e.target.value.substring(0, 4));
+                    if (abbreviationError && e.target.value.trim() && e.target.value.length === 4) {
+                      setAbbreviationError(false);
+                      setAbbreviationHelperText('');
+                    }
+                  }}
+                  inputProps={{ maxLength: 4 }}
+                  error={abbreviationError}
+                  helperText={abbreviationHelperText}
+                />
+              </CustomTooltip>
+            </Grid>
+            {/* ✅ اضافه شده: Weight */}
+            <Grid item xs={12} md={3}>
+              <CustomFormLabel htmlFor="weight">Ürün Birim Ağırlığı</CustomFormLabel>
+              <CustomTextField
+                id="weight"
+                placeholder="Ağırlık"
+                fullWidth
+                type="number"
+                value={weight}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const value = e.target.value;
+                  if (value === '' || !isNaN(Number(value))) {
+                    setWeight(value === '' ? '' : Number(value));
+                  }
+                  if (weightError && value.trim()) {
+                    setWeightError(false);
+                    setWeightHelperText('');
+                  }
+                }}
+                inputProps={{ min: 0, step: "0.01" }}
+                error={weightError}
+                helperText={weightHelperText}
+              />
+            </Grid>
+            {/* Description (text editor) */}
+            <Grid item xs={12}>
+              <CustomFormLabel htmlFor="description">Açıklama</CustomFormLabel>
+              <ReactQuill
+                theme="snow"
+                value={description}
+                onChange={(value) => {
+                  setDescription(value);
+                  if (descriptionError && value.trim() && value !== '<p><br></p>') {
+                    setDescriptionError(false);
+                    setDescriptionHelperText('');
+                  }
+                }}
+                placeholder="Ürün açıklamasını girin..."
+                modules={{
+                  toolbar: [
+                    [{ 'header': [1, 2, false] }],
+                    ['bold', 'italic', 'underline', 'strike', 'blockquote'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                    ['link', 'image'],
+                    ['clean']
+                  ],
+                }}
+                formats={[
+                  'header', 'bold', 'italic', 'underline', 'strike', 'blockquote',
+                  'list', 'bullet', 'link', 'image'
+                ]}
+                style={{ height: '150px', marginBottom: '40px', border: descriptionError ? '1px solid red' : undefined }} // **Apply red border for description error**
+              />
+              {descriptionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{descriptionHelperText}</Typography>} {/* **Display helper text** */}
+
+            </Grid>
+
+            {/* Form Buttons */}
+            <Grid item xs={12}>
+              <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
+                {editingId !== null ? (
+                  <>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen ürünü güncelleyin" : ""}>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        onClick={editItem}
+                        disabled={loadingButton}
+                      >
+                        {loadingButton ? <>
+                          <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                        </> : 'Düzenlemek'}
+                      </Button>
+                    </CustomTooltip>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni ürün moduna dön" : ""}>
+                      <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                        İptal Et
+                      </Button>
+                    </CustomTooltip>
+                  </>
+                ) : (
+
+                  <>
+                    {hasCreatePermission && (
+                      <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir ürün ekle" : ""}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={insertItem}
+                          disabled={loadingButton}
+                        >
+                          {loadingButton ? <>
+                            <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
+                          </> : 'Yeni Ürün Ekle'}
+                        </Button>
+                      </CustomTooltip>
+                    )}
+                  </>
+                )}
+              </Stack>
+            </Grid>
           </Grid>
 
-          {/* Form Buttons */}
-          <Grid item xs={12}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
-              {editingId !== null ? (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen ürünü güncelleyin" : ""}>
-                    <Button
-                      variant="contained"
-                      color="info"
-                      onClick={editItem}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Düzenlemek'}
-                    </Button>
-                  </CustomTooltip>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni ürün moduna dön" : ""}>
-                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                      İptal Et
-                    </Button>
-                  </CustomTooltip>
-                </>
-              ) : (
-                <>
-                  <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir ürün ekle" : ""}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={insertItem}
-                      disabled={loadingButton}
-                    >
-                      {loadingButton ? <>
-                        <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
-                      </> : 'Yeni Ürün Ekle'}
-                    </Button>
-                  </CustomTooltip>
-                </>
-              )}
-            </Stack>
-          </Grid>
-        </Grid>
+        )}
         {alertMessage && (
           <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
             <Alert severity={alertSeverity} onClose={clearAlert}>
@@ -1603,7 +1624,8 @@ const ListItemComponent = () => {
                           'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                         }}
                       >
-                        {selectedRowForMenu?.recordStatus === 0 ? (
+
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu ürünü pasif yap" : ""}>
                             <MuiMenuItem onClick={handleSetInactive}>
@@ -1613,7 +1635,9 @@ const ListItemComponent = () => {
                               Pasif Yap
                             </MuiMenuItem>
                           </CustomTooltip>
-                        ) : (
+
+                        )}
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu ürünü aktif yap" : ""}>
                             <MuiMenuItem onClick={handleSetActive}>
@@ -1624,24 +1648,28 @@ const ListItemComponent = () => {
                             </MuiMenuItem>
                           </CustomTooltip>
                         )}
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu ürünü düzenle" : ""}>
-                          <MuiMenuItem onClick={handleEditClick}>
-                            <ListItemIcon>
-                              <IconEdit width={18} />
-                            </ListItemIcon>
-                            Düzenlemek
-                          </MuiMenuItem>
-                        </CustomTooltip>
-                        <CustomTooltip placement="left"
-                          title={isTooltipGloballyEnabled ? "Bu ürünü sil" : ""}>
-                          <MuiMenuItem onClick={handleClickOpenDeleteModal}>
-                            <ListItemIcon>
-                              <IconTrash width={18} />
-                            </ListItemIcon>
-                            Silmek
-                          </MuiMenuItem>
-                        </CustomTooltip>
+                        {hasEditPermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu ürünü düzenle" : ""}>
+                            <MuiMenuItem onClick={handleEditClick}>
+                              <ListItemIcon>
+                                <IconEdit width={18} />
+                              </ListItemIcon>
+                              Düzenlemek
+                            </MuiMenuItem>
+                          </CustomTooltip>
+                        )}
+                        {hasDeletePermission && (
+                          <CustomTooltip placement="left"
+                            title={isTooltipGloballyEnabled ? "Bu ürünü sil" : ""}>
+                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
+                              <ListItemIcon>
+                                <IconTrash width={18} />
+                              </ListItemIcon>
+                              Silmek
+                            </MuiMenuItem>
+                          </CustomTooltip>
+                        )}
                       </Menu>
                     </TableCell>
                   </TableRow>

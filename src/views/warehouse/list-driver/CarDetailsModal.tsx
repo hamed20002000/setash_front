@@ -74,7 +74,6 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
         }, 5000);
     }, []);
 
-    // Fetch vehicles for the selected driver
     const fetchVehicles = useCallback(async () => {
         if (!driverId) return;
 
