@@ -683,7 +683,7 @@ const ListWarehouses = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
             doc.setFontSize(18);
             doc.text('Tüm Depolar Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -732,6 +732,8 @@ const ListWarehouses = () => {
                     header();
                     footer();
                 },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
             });
 
             doc.save('Tüm_Depolar_Raporu.pdf');

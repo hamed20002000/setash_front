@@ -15,7 +15,10 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown } from '@tabler/icons-react';
+import {
+    IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
+    IconFileDownload
+} from '@tabler/icons-react';
 import DeleteProvider from './DeleteProvider';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -25,6 +28,12 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
+
+
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -232,6 +241,11 @@ const ListProviders = () => {
 
     const hasDeletePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -702,6 +716,76 @@ const ListProviders = () => {
         }
     };
 
+    const handleDownloadAllProvidersPDF = () => {
+        if (!providersList || providersList.length === 0) {
+            showAlert('PDF oluşturulacak tedarikçi bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+            doc.setFontSize(18);
+            doc.text('Tüm Tedarikçiler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        };
+
+        // آماده کردن داده‌ها برای جدول PDF
+        const rows = providersList.map(prov => [
+            prov.name,
+            prov.phoneNumber,
+            prov.address,
+            prov.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+            prov.region?.name || 'Bilinmiyor',
+            formatDateDisplay(prov.createAt),
+            prov.status
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [['İsim', 'Telefon', 'Adres', 'Firma', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 8,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Tüm_Tedarikciler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -850,6 +934,22 @@ const ListProviders = () => {
             </div>
 
             <BlankCard>
+
+                <>
+                    {hasDownloadPermission && (
+                        <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={handleDownloadAllProvidersPDF}
+                                startIcon={<IconFileDownload />}
+                            // You can add fullWidth if you want it to be responsive
+                            >
+                                Tüm Ürünleri İndir
+                            </Button>
+                        </Grid>
+                    )}
+                </>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>

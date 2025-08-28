@@ -13,7 +13,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { styled, keyframes } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconFileInvoice, IconCheck, IconX, IconPencil } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconFileInvoice, IconCheck, IconX, IconPencil, IconInfoCircle } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -64,6 +64,13 @@ interface InvoiceItem {
     providerId?: number;
     firm?: boolean;
 }
+interface InvoiceHeaderStatusHistory {
+    id: string;
+    status: number;
+    createAt: string;
+    recordStatus: number;
+    description: string | null;
+}
 interface InvoiceType {
     id: number;
     invoiceNo: string | null;
@@ -88,6 +95,7 @@ interface InvoiceType {
         model: string;
         plaque: string;
     } | null;
+    invoiceHeaderStatusHistories: InvoiceHeaderStatusHistory[];
 }
 interface InvoiceDetailType {
     id: number;
@@ -254,6 +262,9 @@ const ListInvoices = () => {
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
     const [warehouse, setWarehouse] = useState<number | null>(null);
 
+    const [openStatusHistoryModal, setOpenStatusHistoryModal] = useState(false);
+    const [statusHistoryData, setStatusHistoryData] = useState<any[]>([]);
+
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -299,7 +310,7 @@ const ListInvoices = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(logoImg, 'PNG', 15, 15, 30, 30);
+            doc.addImage(logoImg, 'PNG', 25, 25, 25, 25);
 
             doc.setFontSize(18);
             doc.text('Fatura Detayları', pageWidth - 15, 30, { align: 'right' });
@@ -368,6 +379,8 @@ const ListInvoices = () => {
                     header();
                     footer();
                 },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
             });
 
             doc.save(`Fatura_${invoice.id}.pdf`);
@@ -375,6 +388,16 @@ const ListInvoices = () => {
             console.error("PDF oluşturulurken bir hata oluştu: ", error);
             // showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
         }
+    };
+
+    const handleOpenStatusHistoryModal = (invoice: InvoiceType) => {
+        setStatusHistoryData(invoice.invoiceHeaderStatusHistories);
+        setOpenStatusHistoryModal(true);
+    };
+
+    const handleCloseStatusHistoryModal = () => {
+        setOpenStatusHistoryModal(false);
+        setStatusHistoryData([]);
     };
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -628,6 +651,7 @@ const ListInvoices = () => {
         setSelectedVehicle(null);
         setSelectedVehicleName(null);
         setVehiclesList([]);
+        setWarehouse(null);
         clearAlert();
     };
 
@@ -648,7 +672,7 @@ const ListInvoices = () => {
                 discountPercent: (item.discountPercent).toFixed(2),
                 discountAmount: (item.discountAmount).toFixed(2),
                 description: item.description,
-                orderDetailId: item.orderDetailId,
+                orderDetailId: item.orderDetailId ? Number(item.orderDetailId) : null,
                 providerId: item.providerId,
                 firm: item.firm
             }))
@@ -714,7 +738,13 @@ const ListInvoices = () => {
                 showAlert('Fatura başarıyla güncellendi!', 'success');
             } else { showAlert(response.data.message || 'Fatura güncellenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem('authToken'); navigate("/"); showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error'); }
+            if (e.response?.status === 401) {
+                localStorage.removeItem('authToken'); navigate("/");
+                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            }
+            else if (e.response?.status === 500) {
+                showAlert('Bu fatura düzenlenemez, çünkü kullanılmıştır.', 'error');
+            }
             else {
                 showAlert('Fatura güncellenirken bir hata oluştu.', 'error');
             }
@@ -1154,6 +1184,16 @@ const ListInvoices = () => {
                                                 {row.status === 1 && <CheckCircleOutlineIcon color="success" fontSize="small" />}
                                                 {row.status === 2 && <HighlightOffIcon color="error" fontSize="small" />}
                                                 <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}</Typography>
+                                                {row.invoiceHeaderStatusHistories && row.invoiceHeaderStatusHistories.length > 0 && (
+                                                    <CustomTooltip title="Durum geçmişini gör" placement="right">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleOpenStatusHistoryModal(row)}
+                                                        >
+                                                            <IconInfoCircle size={18} />
+                                                        </IconButton>
+                                                    </CustomTooltip>
+                                                )}
                                             </Stack>
                                         </TableCell>
                                         <TableCell>
@@ -1318,7 +1358,6 @@ const ListInvoices = () => {
                 </DialogActions>
             </Dialog>
 
-
             <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     {statusToUpdate === 1 ? 'Onaylama Açıklaması' : 'Reddetme Açıklaması'}
@@ -1349,6 +1388,60 @@ const ListInvoices = () => {
                     <Button onClick={handleUpdateStatus} color="primary">
                         Kaydet
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openStatusHistoryModal} onClose={handleCloseStatusHistoryModal} maxWidth="md" fullWidth>
+                <DialogTitle>
+                    <Typography variant="h5">Durum Geçmişi</Typography>
+                </DialogTitle>
+                <DialogContent dividers>
+                    <TableContainer component={Paper}>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell><Typography variant="h6">Tarih</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Durum</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {statusHistoryData.length > 0 ? (
+                                    statusHistoryData
+                                        // مرتب‌سازی بر اساس تاریخ، از جدید به قدیم
+                                        .sort((a, b) => new Date(b.createAt).getTime() - new Date(a.createAt).getTime())
+                                        .map((historyItem, index) => (
+                                            <TableRow key={index}>
+                                                <TableCell>
+                                                    {formatDateDisplay(historyItem.createAt)}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={historyItem.status === 0 ? "Beklemede" : historyItem.status === 1 ? "Onaylandı" : "Reddedildi"}
+                                                        color={historyItem.status === 0 ? "warning" : historyItem.status === 1 ? "success" : "error"}
+                                                        size="small"
+                                                    />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography>{historyItem.description || '-'}</Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={3} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Durum geçmişi bulunamadı.
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseStatusHistoryModal}>Kapat</Button>
                 </DialogActions>
             </Dialog>
 

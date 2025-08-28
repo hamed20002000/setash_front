@@ -165,7 +165,11 @@ const Landingpage = Loadable(lazy(() => import('../views/pages/landingpage/Landi
 const Router = [
   {
     path: '/',
-    element: <FullLayout />,
+    element: (
+      <PermissionGuard requiredOperationName="Görüntülemek">
+        <FullLayout />
+      </PermissionGuard>
+    ),
     children: [
       { path: '/', element: <Navigate to="/auth/login" /> },
       // ✅ استفاده از PermissionGuard برای هر مسیر که نیاز به دسترسی دارد

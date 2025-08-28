@@ -213,7 +213,7 @@ const ManualEntryForm = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
             doc.setFontSize(18);
             doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -262,6 +262,8 @@ const ManualEntryForm = () => {
                     header();
                     footer();
                 },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
             });
 
             doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);

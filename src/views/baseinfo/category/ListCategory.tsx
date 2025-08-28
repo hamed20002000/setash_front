@@ -38,7 +38,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight }
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight, IconFileDownload }
   from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -49,7 +49,12 @@ import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 import { useAuth } from 'src/context/AuthContext';
-// --- Updated Interface for API response and internal use ---
+
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
+
 interface ApiCategoryType {
   id: string;
   name: string;
@@ -225,6 +230,9 @@ const ListCategory = () => {
     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
   }, [allowedOperations]);
 
+  const hasDownloadPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+  }, [allowedOperations]);
 
   // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
   const findCategoryById = useCallback((categories: ApiCategoryType[], id: string): ApiCategoryType | undefined => {
@@ -758,7 +766,92 @@ const ListCategory = () => {
   };
 
   const formattedBreadcrumb = getFormattedBreadcrumbPath();
+  // Add the following function inside the `ListCategory` component, before the `return` statement.
 
+  const flattenAndPrepareCategoriesForPdf = (categories: ApiCategoryType[], path: string[] = []): string[][] => {
+    let rows: string[][] = [];
+
+    categories.forEach(category => {
+      const currentPath = [...path, category.name];
+      const fullCategoryName = currentPath.join(' > ');
+
+      const row = [
+        fullCategoryName,
+        formatDateDisplay(category.createAt),
+        category.recordStatus === 0 ? 'Aktif' : 'Pasif'
+      ];
+      rows.push(row);
+
+      if (category.categories && category.categories.length > 0) {
+        rows = rows.concat(flattenAndPrepareCategoriesForPdf(category.categories, currentPath));
+      }
+    });
+
+    return rows;
+  };
+
+  const handleDownloadAllCategoriesPDF = () => {
+    if (!rawApiCategories || rawApiCategories.length === 0) {
+      showAlert('PDF oluşturulacak kategori bulunamadı.', 'warning');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Add font for Turkish characters
+    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    const header = () => {
+      doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+      doc.setFontSize(18);
+      doc.text('Tüm Kategoriler Raporu', pageWidth - 15, 30, { align: 'right' });
+      doc.setFontSize(12);
+      doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+    };
+
+    const footer = () => {
+      doc.setFontSize(10);
+      doc.setTextColor(0);
+      doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+      doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    };
+
+    const rows = flattenAndPrepareCategoriesForPdf(rawApiCategories);
+
+    try {
+      // @ts-ignore
+      autoTable(doc, {
+        startY: 50,
+        head: [['Kategori Adı', 'Oluşturulma Tarihi', 'Durum']],
+        body: rows,
+        theme: 'grid',
+        styles: {
+          font: 'NotoSans',
+          fontStyle: 'normal',
+          fontSize: 10,
+          cellPadding: 2,
+          overflow: 'linebreak'
+        },
+        headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+        didDrawPage: () => {
+          header();
+          footer();
+        },
+        showHead: 'everyPage',
+        margin: { top: 50, bottom: 20 }
+      });
+
+      doc.save('Tüm_Kategoriler_Raporu.pdf');
+      showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    } catch (error: any) {
+      console.error('PDF oluşturulurken hata:', error);
+      showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    }
+  };
 
   return (
     <>
@@ -874,6 +967,22 @@ const ListCategory = () => {
         )}
       </div>
       <BlankCard>
+
+        <>
+          {hasDownloadPermission && (
+            <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={handleDownloadAllCategoriesPDF}
+                startIcon={<IconFileDownload />}
+              // You can add fullWidth if you want it to be responsive
+              >
+                Tüm Ürünleri İndir
+              </Button>
+            </Grid>
+          )}
+        </>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={8}>

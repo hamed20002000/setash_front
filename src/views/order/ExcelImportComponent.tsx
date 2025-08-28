@@ -20,7 +20,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
-import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular'; // مطمئن شوید مسیر فایل فونت صحیح است
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import * as XLSX from 'xlsx';
 import OrderItemsTable from './OrderItemsTable';
@@ -277,7 +277,7 @@ const ExcelImportComponent = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
             doc.setFontSize(18);
             doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -326,6 +326,8 @@ const ExcelImportComponent = () => {
                     header();
                     footer();
                 },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
             });
 
             doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);

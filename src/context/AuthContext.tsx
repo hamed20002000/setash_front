@@ -182,8 +182,7 @@ import {
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
   IconBuildingFactory, IconFileInvoice
 } from '@tabler/icons-react';
-import { useNavigate } from 'react-router';
-
+import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
 interface UserRole {
   id: string;
@@ -312,6 +311,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [isAuth, setIsAuth] = useState(false);
   // ✅ منطق فیلتر کردن منو بهینه شده است
@@ -368,6 +368,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
+  // const updateMenuAndOperations = useCallback(async (roleId: string) => {
+  //   setIsAuthDataLoading(true);
+  //   setAllowedOperations([]);
+  //   setMenuItems([]);
+
+  //   const authToken = localStorage.getItem('authToken');
+  //   if (!authToken) {
+  //     setIsAuthDataLoading(false);
+  //     return;
+  //   }
+
+  //   try {
+  //     const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
+  //       `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
+  //       { headers: { "Authorization": `Bearer ${authToken}` } }
+  //     );
+
+  //     // ✅ اینجا به جای systemOperation.name، id عملیات را در allowedOperations ذخیره می‌کنیم
+  //     const ops: AllowedOperation[] = operationsResponse.data?.data?.roleMenuOperations
+  //       .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
+  //       .map(op => ({
+  //         menuOperationId: op.menuOperation.id,
+  //         systemOperationId: op.menuOperation.systemOperation.id,
+  //         systemOperationName: op.menuOperation.systemOperation.name
+  //       })) || [];
+
+  //     setAllowedOperations(ops); // این خط state را به درستی تنظیم می‌کند
+
+  //     const rawMenus = await getRawMenusFromApi();
+  //     // ✅ اینجا باید آرایه ops را به تابع بدهی تا نوع داده‌ها مطابقت داشته باشد
+  //     const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
+
+
+
+  //     const finalMenuItems: MenuitemsType[] = [];
+  //     const dashboardItem = filteredMenus.find(item => item.title === 'Gösterge Paneli');
+  //     if (dashboardItem) {
+  //       finalMenuItems.push({ navlabel: true, subheader: '', id: uniqueId() });
+  //       finalMenuItems.push(dashboardItem);
+  //     }
+  //     filteredMenus.forEach(item => {
+  //       if (item.title !== 'Gösterge Paneli') {
+  //         finalMenuItems.push(item);
+  //       }
+  //     });
+
+  //     setMenuItems(finalMenuItems);
+  //   } catch (e) {
+  //     console.error("Failed to fetch menu and role data:", e);
+  //     setAllowedOperations([]);
+  //     setMenuItems([]);
+  //   } finally {
+  //     setIsAuthDataLoading(false);
+  //   }
+  // }, [getRawMenusFromApi, mapApiDataToMenuItems]);
+
   const updateMenuAndOperations = useCallback(async (roleId: string) => {
     setIsAuthDataLoading(true);
     setAllowedOperations([]);
@@ -376,7 +432,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) {
       setIsAuthDataLoading(false);
-      return;
+      return { ops: [], rawMenus: [] }; // ✅ بازگرداندن مقادیر خالی
     }
 
     try {
@@ -385,7 +441,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         { headers: { "Authorization": `Bearer ${authToken}` } }
       );
 
-      // ✅ اینجا به جای systemOperation.name، id عملیات را در allowedOperations ذخیره می‌کنیم
       const ops: AllowedOperation[] = operationsResponse.data?.data?.roleMenuOperations
         .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
         .map(op => ({
@@ -394,111 +449,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           systemOperationName: op.menuOperation.systemOperation.name
         })) || [];
 
-      setAllowedOperations(ops); // این خط state را به درستی تنظیم می‌کند
-
       const rawMenus = await getRawMenusFromApi();
-      // ✅ اینجا باید آرایه ops را به تابع بدهی تا نوع داده‌ها مطابقت داشته باشد
       const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
+      const finalMenuItems = filteredMenus.sort((a, b) => a.order - b.order);
 
-
-
-      const finalMenuItems: MenuitemsType[] = [];
-      const dashboardItem = filteredMenus.find(item => item.title === 'Gösterge Paneli');
-      if (dashboardItem) {
-        finalMenuItems.push({ navlabel: true, subheader: '', id: uniqueId() });
-        finalMenuItems.push(dashboardItem);
-      }
-      filteredMenus.forEach(item => {
-        if (item.title !== 'Gösterge Paneli') {
-          finalMenuItems.push(item);
-        }
-      });
-
+      // ✅ وضعیت‌ها را پس از دریافت اطلاعات کامل به‌روز می‌کنیم
+      setAllowedOperations(ops);
       setMenuItems(finalMenuItems);
+
+      // ✅ اطلاعات را برمی‌گردانیم تا در تابع updateActiveRole استفاده شود
+      return { ops, rawMenus };
+
     } catch (e) {
       console.error("Failed to fetch menu and role data:", e);
       setAllowedOperations([]);
       setMenuItems([]);
+      return { ops: [], rawMenus: [] }; // ✅ در صورت خطا مقادیر خالی را بازمی‌گردانیم
     } finally {
       setIsAuthDataLoading(false);
     }
   }, [getRawMenusFromApi, mapApiDataToMenuItems]);
-
-  // const loadAuthData = useCallback(async () => {
-  //   setIsAuthDataLoading(true);
-  //   const authToken = localStorage.getItem('authToken');
-  //   const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
-  //   const savedUsername = localStorage.getItem('lastLoggedInUsername');
-
-  //   let allActiveRoles: RoleApiResponse[] = [];
-  //   try {
-  //     const response = await axios.get<{ data: RoleApiResponse[] }>(
-  //       `${server.baseurl}${server.user}get-roles`,
-  //       { headers: { "Authorization": `Bearer ${authToken}` } }
-  //     );
-  //     if (response.data?.data) {
-  //       allActiveRoles = response.data.data.filter(role => role.recordStatus === 0);
-  //     }
-  //   } catch (e) {
-  //     console.error("Failed to fetch all active roles:", e);
-  //   }
-
-  //   if (authToken && allActiveRoles.length > 0) {
-  //     const decodedToken = decodeJwtToken(authToken);
-  //     if (decodedToken?.username) {
-  //       const currentUsername = decodedToken.username;
-  //       setUsername(currentUsername);
-
-  //       const userRoleNames = Array.isArray(decodedToken.role) ? decodedToken.role : [decodedToken.role];
-  //       const rolesFromToken = userRoleNames
-  //         .map(roleName => allActiveRoles.find(ar => ar.name === roleName))
-  //         .filter((role): role is RoleApiResponse => role !== undefined)
-  //         .map(role => ({ id: role.id, name: role.name }));
-  //       setUserRoles(rolesFromToken);
-
-  //       let roleToActivate: UserRole | null = null;
-  //       if (currentUsername === savedUsername && savedActiveRoleName) {
-  //         const foundRole = rolesFromToken.find(r => r.name === savedActiveRoleName);
-  //         if (foundRole) roleToActivate = foundRole;
-  //       }
-  //       if (!roleToActivate && rolesFromToken.length > 0) roleToActivate = rolesFromToken[0];
-
-  //       if (roleToActivate) {
-  //         setActiveRoleName(roleToActivate.name);
-  //         setActiveRoleId(roleToActivate.id);
-  //         localStorage.setItem('activeUserRoleName', roleToActivate.name);
-  //         localStorage.setItem('activeUserRoleId', roleToActivate.id);
-  //         updateMenuAndOperations(roleToActivate.id);
-  //       } else {
-  //         setActiveRoleName(null);
-  //         setActiveRoleId(null);
-  //         setAllowedOperations([]);
-  //         setMenuItems([]);
-  //       }
-  //       localStorage.setItem('lastLoggedInUsername', currentUsername);
-  //     } else {
-  //       setUsername('Guest');
-  //       setUserRoles([]);
-  //       setActiveRoleName(null);
-  //       setActiveRoleId(null);
-  //       setAllowedOperations([]);
-  //       setMenuItems([]);
-  //       localStorage.removeItem('authToken');
-  //     }
-  //   } else {
-  //     setIsAuth(false);
-  //     setUsername('Guest');
-  //     setUserRoles([]);
-  //     setActiveRoleName(null);
-  //     setActiveRoleId(null);
-  //     setAllowedOperations([]);
-  //     setMenuItems([]);
-  //     localStorage.removeItem('authToken');
-  //   }
-  //   setIsAuthDataLoading(false);
-  // }, [updateMenuAndOperations]);
-
-
   const loadAuthData = useCallback(async () => {
     setIsAuthDataLoading(true); // ✅ شروع حالت بارگذاری
     const authToken = localStorage.getItem('authToken');
@@ -607,18 +577,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [loadAuthData]);
 
-  const updateActiveRole = useCallback((newRoleName: string) => {
+  // const updateActiveRole = useCallback((newRoleName: string) => {
+  //   const role = userRoles.find(r => r.name === newRoleName);
+  //   if (role) {
+  //     setActiveRoleName(role.name);
+  //     setActiveRoleId(role.id);
+  //     localStorage.setItem('activeUserRoleName', role.name);
+  //     localStorage.setItem('activeUserRoleId', role.id);
+  //     updateMenuAndOperations(role.id);
+  //   } else {
+  //     console.warn(`Attempted to set an invalid role: ${newRoleName}.`);
+  //   }
+  // }, [userRoles, updateMenuAndOperations, navigate]);
+
+
+  const updateActiveRole = useCallback(async (newRoleName: string) => {
     const role = userRoles.find(r => r.name === newRoleName);
     if (role) {
+      // ✅ مرحله ۱: ابتدا وضعیت نقش‌های محلی را به‌روز کنید
       setActiveRoleName(role.name);
       setActiveRoleId(role.id);
       localStorage.setItem('activeUserRoleName', role.name);
       localStorage.setItem('activeUserRoleId', role.id);
-      updateMenuAndOperations(role.id);
+
+      // ✅ مرحله ۲: اطلاعات جدید را از سرور دریافت و منتظر تکمیل آن بمانید
+      const { ops, rawMenus } = await updateMenuAndOperations(role.id);
+
+      // ✅ مرحله ۳: منوهای فیلتر شده را با داده‌های جدیدی که به دست آورده‌ایم، ایجاد کنید
+      const newFilteredMenus = mapApiDataToMenuItems(rawMenus, ops);
+
+      // ✅ مرحله ۴: دسترسی به مسیر فعلی را با استفاده از منوهای جدید بررسی کنید
+      const currentPath = location.pathname;
+      const hasPermissionToCurrentPath = newFilteredMenus.some(item => {
+        const findPath = (menu: any): boolean => {
+          if (menu.href === currentPath) return true;
+          if (menu.children) {
+            return menu.children.some(findPath);
+          }
+          return false;
+        };
+        return findPath(item);
+      });
+
+      // ✅ مرحله ۵: اگر دسترسی وجود ندارد، کاربر را به داشبورد هدایت کنید
+      if (!hasPermissionToCurrentPath) {
+        navigate('/dashboards/dashboard');
+      }
     } else {
       console.warn(`Attempted to set an invalid role: ${newRoleName}.`);
     }
-  }, [userRoles, updateMenuAndOperations, navigate]);
+  }, [userRoles, navigate, location, updateMenuAndOperations, mapApiDataToMenuItems]);
+
 
   const authContextValue: AuthContextType = {
     username, userRoles, activeRoleName, activeRoleId, allowedOperations,

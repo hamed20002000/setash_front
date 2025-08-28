@@ -27,6 +27,7 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
   IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
+  IconPrinter,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -39,6 +40,10 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 
 const formatDateDisplay = (dateString: string | null): string => {
   if (!dateString) return "N/A";
@@ -50,6 +55,9 @@ const formatDateDisplay = (dateString: string | null): string => {
     return "Geçersiz Tarih";
   }
 };
+
+
+
 interface ItemType {
   id: string;
   name: string;
@@ -424,6 +432,9 @@ const ListItemComponent = () => {
     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
   }, [allowedOperations]);
 
+  const hasDownloadPermission = useMemo(() => {
+    return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+  }, [allowedOperations]);
 
   const categoryTreeForSelect = useMemo(() => {
     return buildCategoryTreeForSelect(allCategoriesFlat, categorySearchTerm, null);
@@ -1084,6 +1095,81 @@ const ListItemComponent = () => {
     setFullDescriptionContent('');
   };
 
+  const handlePrintAllItems = () => {
+    if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
+      showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // اطمینان از تعریف تابع stripHtml
+    const stripHtml = (htmlString: string) => { // ✅ نوع پارامتر را به string تغییر دهید
+      const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+      return doc.body.textContent || "";
+    };
+
+    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
+      const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
+      return [
+        item.name || '-',
+        item.unit?.title || '-',
+        item.category?.name || '-',
+        item.abbreviation || '-',
+        item.weight !== null ? String(item.weight) : '-',
+        descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
+        formatDateDisplay(item.createAt) || '-',
+        item.status || '-',
+      ];
+    });
+
+    try {
+      autoTable(doc, {
+        startY: 50,
+        head: [['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
+        body: rowsWithoutHtml,
+        theme: 'grid',
+        styles: {
+          font: 'NotoSans',
+          fontStyle: 'normal',
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak'
+        },
+        headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+        // این قلاب به صورت خودکار در هر صفحه جدید فراخوانی می‌شود
+        didDrawPage: (_data) => {
+          // هدر
+          doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+          doc.setFontSize(18);
+          doc.text('Tüm Ürünler Raporu', pageWidth - 15, 30, { align: 'right' });
+          doc.setFontSize(12);
+          doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+
+          // فوتر
+          doc.setFontSize(10);
+          doc.setTextColor(0);
+          doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        },
+        // تنظیمات اضافی برای تکرار هدر جدول در صفحات جدید
+        showHead: 'everyPage',
+        margin: { top: 50, bottom: 20 }, // فاصله از بالا برای هدر و از پایین برای فوتر
+      });
+      doc.save('Tüm_Ürünler_Raporu.pdf');
+      showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    } catch (error) {
+      console.error('PDF oluşturulurken hata:', error);
+      showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+    }
+  };
+
 
   return (
     <>
@@ -1384,6 +1470,19 @@ const ListItemComponent = () => {
         )}
       </div>
       <BlankCard>
+        <>
+          {hasDownloadPermission && (
+            <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
+              <Button
+                variant="outlined"
+                startIcon={<IconPrinter />}
+                onClick={handlePrintAllItems}
+              >
+                Tümünü Yazdır
+              </Button>
+            </Grid>
+          )}
+        </>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={8}>

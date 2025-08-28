@@ -545,6 +545,7 @@ const ListTransmission = () => {
                 });
 
                 setTransmissionList(processedData);
+                setHasUnsavedChanges(false);
                 if (processedData.length > 0) {
                     const lastNodeId = processedData[processedData.length - 1].toProductTypeId;
                     const lastNode = combinedProductTypeOptions.find(opt => opt.id === lastNodeId) || null;
@@ -1164,76 +1165,85 @@ const ListTransmission = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3} flexWrap="wrap" gap={1}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} flexWrap="wrap" gap={1}>
-                    <Chip
-                        label={`Şebeke: ${networkTitleForDisplay}`}
-                        color="primary"
-                        variant="filled"
-                        size="small"
-                    />
-                    <Chip
-                        label={`İş: ${workTitleForDisplay}`}
-                        color="success"
-                        variant="filled"
-                        size="small"
-                    />
-                    <Chip
-                        label={`İhale: ${tenderTitleForDisplay}`}
-                        color="info"
-                        variant="filled"
-                        size="small"
-                    />
-                </Stack>
+            <Grid container spacing={2} alignItems="center" justifyContent="space-between" mb={3}>
+                {/* بخش اول: نمایش اطلاعات اصلی */}
+                <Grid item xs={12} sm={3} md={3}>
+                    <Stack direction="column" alignItems="flex-start" flexWrap="wrap" gap={1}>
+                        <Chip
+                            label={`Şebeke: ${networkTitleForDisplay}`}
+                            color="primary"
+                            variant="filled"
+                            size="small"
+                        />
+                        <Chip
+                            label={`İş: ${workTitleForDisplay}`}
+                            color="success"
+                            variant="filled"
+                            size="small"
+                        />
+                        <Chip
+                            label={`İhale: ${tenderTitleForDisplay}`}
+                            color="info"
+                            variant="filled"
+                            size="small"
+                        />
+                    </Stack>
+                </Grid>
 
-                {(hasCreatePermission || hasEditPermission) && (
-                    <Stack direction="row" spacing={1} flexWrap="wrap" gap={1}>
-                        <Button
-                            variant="outlined"
-                            color="secondary"
-                            onClick={() => {
-                                resetFormFields();
-                                setIsInitialEntry(true);
-                            }}
-                            startIcon={<IconRefresh />}
-                            disabled={loadingButton}
-                        >
-                            Yeni TRAFO'dan Başla
-                        </Button>
-                        {transmissionList.length > 0 && (
+                {/* بخش دوم: نمایش دکمه‌ها */}
+                <Grid item xs={12} sm={9} md={9} sx={{ textAlign: isSmallScreen ? 'left' : 'right' }}>
+                    {(hasCreatePermission || hasEditPermission) && (
+                        <Stack direction="row" spacing={1} flexWrap="wrap" gap={1} justifyContent="flex-end">
                             <Button
                                 variant="outlined"
-                                color="info"
-                                onClick={() => setOpenSelectTrafoModal(true)}
-                                startIcon={<IconPlus />}
-                                disabled={loadingButton}
-                            >
-                                TRAFO Seç
-                            </Button>
-                        )}
-
-                        {hasCreatePermission && (
-                            <Button
-                                variant="contained"
                                 color="secondary"
-                                onClick={handleOpenMapModal}
-                                disabled={!networkId || loadingList || transmissionList.length === 0}
-                                startIcon={<IconMap />}
+                                onClick={() => {
+                                    resetFormFields();
+                                    setIsInitialEntry(true);
+                                }}
+                                startIcon={<IconRefresh />}
+                                disabled={loadingButton}
+                                fullWidth={isSmallScreen}
                             >
-                                Haritayı Görüntüle
+                                Yeni TRAFO'dan Başla
                             </Button>
+                            {transmissionList.length > 0 && (
+                                <Button
+                                    variant="outlined"
+                                    color="info"
+                                    onClick={() => setOpenSelectTrafoModal(true)}
+                                    startIcon={<IconPlus />}
+                                    disabled={loadingButton}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    TRAFO Seç
+                                </Button>
+                            )}
 
-                        )}
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                endIcon={<IconArrowRight size={20} />}>
-                                Geri Dön
-                            </Button>
-                        </CustomTooltip>
-                    </Stack>
-
-                )}
-            </Stack>
+                            {hasCreatePermission && (
+                                <Button
+                                    variant="contained"
+                                    color="secondary"
+                                    onClick={handleOpenMapModal}
+                                    disabled={!networkId || loadingList || transmissionList.length === 0}
+                                    startIcon={<IconMap />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Haritayı Görüntüle
+                                </Button>
+                            )}
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                    endIcon={<IconArrowRight size={20} />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Geri Dön
+                                </Button>
+                            </CustomTooltip>
+                        </Stack>
+                    )}
+                </Grid>
+            </Grid>
 
             {(hasCreatePermission || hasEditPermission) && (
                 <>
@@ -1509,7 +1519,7 @@ const ListTransmission = () => {
                                                 variant="contained"
                                                 color="info"
                                                 onClick={() => handleBatchUpdate(transmissionList)}
-                                                disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
+                                                disabled={loadingButton || !hasUnsavedChanges || isFormDisabled || transmissionList.length === 0}
                                                 startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
                                                 fullWidth={isSmallScreen}
                                             >

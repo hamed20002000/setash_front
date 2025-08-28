@@ -514,7 +514,7 @@ const ListTender = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-          doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+          doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
           doc.setFontSize(18);
           doc.text(`İhale Detayları`, pageWidth - 15, 30, { align: 'right' });
           doc.setFontSize(12);
@@ -584,6 +584,8 @@ const ListTender = () => {
             header();
             footer();
           },
+          showHead: 'everyPage',
+          margin: { top: 50, bottom: 20 }
         });
 
         doc.save(`${tenderData.title}-SatınAlma.pdf`);

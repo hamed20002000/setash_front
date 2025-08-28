@@ -1,8 +1,9 @@
+// InvoiceItemsTable.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
     TextField, Box, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions,
-    Grid, Button, Chip, Stack, Tabs, Tab
+    Grid, Button, Chip, Stack,
 } from '@mui/material';
 import { IconPlus, IconTrash, IconEdit, IconEye } from '@tabler/icons-react';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -120,12 +121,10 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     const [modalContent, setModalContent] = useState('');
     const [newItemForm, setNewItemForm] = useState(initialFormState);
     const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
-    const [tabValue, setTabValue] = useState<'without-order' | 'with-order'>('without-order');
 
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null);
     const [orderDetailItems, setOrderDetailItems] = useState<ItemType[]>([]);
-    // const [orderDetailId, setOrderDetailId] = useState<string | null>(null);
     const [openOrderDetailsModal, setOpenOrderDetailsModal] = useState(false);
 
     const { isTooltipGloballyEnabled } = useTooltip();
@@ -149,11 +148,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         getListOrders();
     }, []);
 
-    const handleTabChange = (_event: React.SyntheticEvent, newValue: 'without-order' | 'with-order') => {
-        setTabValue(newValue);
-        resetForm();
-    };
-
     const handleFormChange = (field: keyof InvoiceItemFormState, value: any) => {
         setNewItemForm(prevForm => {
             let updatedValue = value;
@@ -162,7 +156,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             }
             const updatedForm = { ...prevForm, [field]: updatedValue };
             if (field === 'item') {
-                const sourceList = tabValue === 'with-order' ? orderDetailItems : itemsList;
+                const sourceList = orderDetailItems;
                 const selectedItem = sourceList.find(i => i.id === value);
                 updatedForm.unit = selectedItem?.unit;
             }
@@ -170,17 +164,15 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         });
     };
 
-
     const handleEditClick = (item: InvoiceItem) => {
         setEditingItem(item);
         const selectedProvider = providersList.find(p => p.id === item.providerId) || null;
 
-        // تابع کمکی برای پاکسازی و تبدیل به عدد
         const cleanAndConvertNumber = (value: string | number | undefined): number => {
             if (typeof value === 'string') {
-                const cleanedString = value.replace(/[^\d.-]/g, ''); // حذف همه کاراکترها به جز اعداد، نقطه و خط تیره
-                const numberValue = parseFloat(cleanedString); // تبدیل به عدد اعشاری
-                return isNaN(numberValue) ? 0 : numberValue; // اگر NaN بود، 0 برگردان
+                const cleanedString = value.replace(/[^\d.-]/g, '');
+                const numberValue = parseFloat(cleanedString);
+                return isNaN(numberValue) ? 0 : numberValue;
             }
             return value ?? 0;
         };
@@ -190,21 +182,29 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             quantity: cleanAndConvertNumber(item.quantity),
             price: cleanAndConvertNumber(item.price),
             discountPercent: cleanAndConvertNumber(item.discountPercent),
-            discountAmount: cleanAndConvertNumber(item.discountAmount), // این خط اصلاح شده است
+            discountAmount: cleanAndConvertNumber(item.discountAmount),
             description: item.description,
             unit: item.unit,
             orderDetailId: item.orderDetailId,
             provider: selectedProvider,
         });
 
-        // ...بقیه کد
+        const associatedOrder = ordersList.find(order =>
+            order.orderDetails.some(detail => detail.id === item.orderDetailId)
+        );
+        setSelectedOrder(associatedOrder || null);
+        if (associatedOrder) {
+            const itemsFromOrder = associatedOrder.orderDetails.map(d => d.item);
+            setOrderDetailItems(itemsFromOrder);
+        } else {
+            setOrderDetailItems([]);
+        }
     };
     const resetForm = () => {
         setEditingItem(null);
         setNewItemForm(initialFormState);
         setSelectedOrder(null);
         setOrderDetailItems([]);
-        // setOrderDetailId(null);
     };
     const handleAddUpdateItem = () => {
         const itemToAdd: InvoiceItem = {
@@ -216,12 +216,11 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             discountAmount: Number(newItemForm.discountAmount),
             description: newItemForm.description,
             unit: newItemForm.unit,
-            // **این خط را اصلاح کنید:**
             orderDetailId: newItemForm.orderDetailId,
             providerId: newItemForm.provider?.id,
             firm: newItemForm.provider?.firm === '1',
         };
-        debugger
+
         if (editingItem) {
             onUpdateItem(itemToAdd);
         } else {
@@ -240,13 +239,11 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     };
 
     const handleOrderChange = (_event: any, newValue: OrderType | null) => {
-        // Sadece siparişle ilgili alanları sıfırlıyoruz.
         setSelectedOrder(newValue);
-        // setOrderDetailId(null);
         setOrderDetailItems([]);
         setNewItemForm(prevForm => ({
             ...initialFormState,
-            provider: prevForm.provider // En önemli değişiklik: provider bilgisini koruyoruz
+            provider: prevForm.provider
         }));
 
         if (newValue) {
@@ -259,37 +256,24 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         if (newValue && selectedOrder) {
             const orderDetail = selectedOrder.orderDetails.find(d => d.item.id === newValue.id);
             if (orderDetail) {
-                // setOrderDetailId(orderDetail.id);
                 setNewItemForm(prevForm => ({
-                    ...prevForm, // Mevcut formu koruyoruz
+                    ...prevForm,
                     item: newValue.id,
                     quantity: Number(orderDetail.quantity),
                     price: Number(orderDetail.price ? orderDetail.price.replace(/[^\d.-]/g, '') : 0),
                     description: orderDetail.description,
                     unit: newValue.unit,
+                    orderDetailId: orderDetail.id, // Set the orderDetailId here
                 }));
             }
         } else {
-            // setOrderDetailId(null);
             setNewItemForm(prevForm => ({
                 ...initialFormState,
-                provider: prevForm.provider // provider bilgisini burada da koruyoruz
+                provider: prevForm.provider
             }));
         }
     };
 
-    const handleItemChangeWithoutOrder = (_event: any, newValue: ItemType | null) => {
-        if (newValue) {
-            setNewItemForm({
-                ...initialFormState,
-                item: newValue.id,
-                unit: newValue.unit,
-                provider: newItemForm.provider,
-            });
-        } else {
-            setNewItemForm(initialFormState);
-        }
-    };
     const handleProviderChange = (_event: any, newValue: ProviderType | null) => {
         setNewItemForm(prev => ({
             ...prev,
@@ -304,7 +288,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     const handleCloseOrderDetailsModal = () => {
         setOpenOrderDetailsModal(false);
     };
-
 
     const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
         if (priceInput === null || priceInput === undefined) {
@@ -325,26 +308,17 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     };
 
     const availableItems = useMemo(() => {
-        if (tabValue === 'with-order' && selectedOrder) {
+        if (selectedOrder) {
             const addedItemIds = new Set(items.map(i => i.item));
             return orderDetailItems.filter(item => !addedItemIds.has(item.id) || item.id === newItemForm.item);
         }
-        return itemsList.filter(item =>
-            !items.some(invoiceItem => invoiceItem.item === item.id) || item.id === newItemForm.item
-        );
-    }, [tabValue, orderDetailItems, itemsList, items, newItemForm.item, selectedOrder]);
+        return []; // Return empty array if no order is selected
+    }, [orderDetailItems, items, newItemForm.item, selectedOrder]);
 
-    const isFormValid = tabValue === 'with-order'
-        ? !!selectedOrder && !!newItemForm.item && newItemForm.quantity > 0 && newItemForm.price > 0 && !!newItemForm.provider
-        : !!newItemForm.item && newItemForm.quantity > 0 && newItemForm.price > 0 && !!newItemForm.provider;
-
+    const isFormValid = !!selectedOrder && !!newItemForm.item && newItemForm.quantity > 0 && newItemForm.price > 0 && !!newItemForm.provider;
 
     return (
         <Paper elevation={3} sx={{ p: 2 }}>
-            <Tabs value={tabValue} onChange={handleTabChange} sx={{ mb: 2 }}>
-                <Tab label="Siparişsiz Kayıt" value="without-order" />
-                <Tab label="Siparişle Kayıt" value="with-order" />
-            </Tabs>
             <Typography variant="h6" gutterBottom>{editingItem ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12} sm={6}>
@@ -368,33 +342,33 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                         )}
                     </Stack>
                 </Grid>
-                {tabValue === 'with-order' && (
-                    <Grid item xs={12} sm={6}>
-                        <CustomFormLabel htmlFor="order-autocomplete" required>
-                            Sipariş Seçin
-                        </CustomFormLabel>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                            <Autocomplete<OrderType>
-                                id="order-autocomplete"
-                                options={ordersList}
-                                getOptionLabel={(option) => `${option.id} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
-                                value={selectedOrder}
-                                onChange={handleOrderChange}
-                                sx={{ flexGrow: 1 }}
-                                renderInput={(params) => <TextField {...params} label="Sipariş" variant="outlined" size="small" />}
-                            />
-                            {selectedOrder && (
-                                <Button
-                                    variant="outlined"
-                                    onClick={handleOpenOrderDetailsModal}
-                                >
-                                    Sipariş Detayları
-                                </Button>
-                            )}
-                        </Stack>
-                    </Grid>
-                )}
-                <Grid item xs={12} sm={tabValue === 'with-order' ? 6 : 6}>
+
+                <Grid item xs={12} sm={6}>
+                    <CustomFormLabel htmlFor="order-autocomplete" required>
+                        Sipariş Seçin
+                    </CustomFormLabel>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                        <Autocomplete<OrderType>
+                            id="order-autocomplete"
+                            options={ordersList}
+                            getOptionLabel={(option) => `${option.id} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
+                            value={selectedOrder}
+                            onChange={handleOrderChange}
+                            sx={{ flexGrow: 1 }}
+                            renderInput={(params) => <TextField {...params} label="Sipariş" variant="outlined" size="small" />}
+                        />
+                        {selectedOrder && (
+                            <Button
+                                variant="outlined"
+                                onClick={handleOpenOrderDetailsModal}
+                            >
+                                Sipariş Detayları
+                            </Button>
+                        )}
+                    </Stack>
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
                     <CustomFormLabel htmlFor="item-autocomplete" required>
                         Ürün Seçin
                     </CustomFormLabel>
@@ -404,16 +378,17 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                             options={availableItems}
                             getOptionLabel={(option) => option.name}
                             value={availableItems.find(i => i.id === newItemForm.item) || null}
-                            onChange={tabValue === 'with-order' ? handleOrderDetailItemChange : handleItemChangeWithoutOrder}
+                            onChange={handleOrderDetailItemChange}
                             sx={{ flexGrow: 1 }}
                             renderInput={(params) => <TextField {...params} label="Ürün Seçin" variant="outlined" size="small" />}
-                            disabled={tabValue === 'with-order' && !selectedOrder}
+                            disabled={!selectedOrder}
                         />
                         {newItemForm.unit?.title && (
                             <Chip label={newItemForm.unit.title} color="secondary" variant="outlined" />
                         )}
                     </Stack>
                 </Grid>
+
                 <Grid item xs={12} sm={3}>
                     <CustomFormLabel htmlFor="Miktar" required>
                         Miktar

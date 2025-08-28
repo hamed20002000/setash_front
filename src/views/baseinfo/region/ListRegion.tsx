@@ -36,7 +36,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight }
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight, IconFileDownload }
     from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -51,6 +51,11 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
+
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -233,6 +238,10 @@ const ListRegion = () => {
 
     const hasDeletePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
 
     // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
@@ -729,7 +738,92 @@ const ListRegion = () => {
 
     const formattedBreadcrumb = getFormattedBreadcrumbPath();
 
+    // Add the following function inside the `ListRegion` component, before the `return` statement.
 
+    const flattenAndPrepareRegionsForPdf = (regions: ApiRegionType[], path: string[] = []): string[][] => {
+        let rows: string[][] = [];
+
+        regions.forEach(region => {
+            const currentPath = [...path, region.name];
+            const fullRegionName = currentPath.join(' > ');
+
+            const row = [
+                fullRegionName,
+                String(region.depth),
+                formatDateDisplay(region.createAt),
+                region.recordStatus === 0 ? 'Aktif' : 'Pasif'
+            ];
+            rows.push(row);
+
+            if (region.regions && region.regions.length > 0) {
+                rows = rows.concat(flattenAndPrepareRegionsForPdf(region.regions, currentPath));
+            }
+        });
+
+        return rows;
+    };
+
+    const handleDownloadAllRegionsPDF = () => {
+        if (!rawApiRegions || rawApiRegions.length === 0) {
+            showAlert('PDF oluşturulacak bölge bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+            doc.setFontSize(18);
+            doc.text('Tüm Bölgeler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        };
+
+        const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
+
+        try {
+            // @ts-ignore - autoTable does not have a type definition for 'doc' property
+            autoTable(doc, {
+                startY: 50,
+                head: [['Bölge Adı', 'Derinlik', 'Oluşturulma Tarihi', 'Durum']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Tüm_Bölgeler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
     return (
         <>
             <div style={{
@@ -846,6 +940,21 @@ const ListRegion = () => {
                 )}
             </div>
             <BlankCard>
+                <>
+                    {hasDownloadPermission && (
+                        <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={handleDownloadAllRegionsPDF}
+                                startIcon={<IconFileDownload />}
+                            // You can add fullWidth if you want it to be responsive
+                            >
+                                Tüm Ürünleri İndir
+                            </Button>
+                        </Grid>
+                    )}
+                </>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={8}>

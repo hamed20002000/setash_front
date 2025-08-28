@@ -143,7 +143,7 @@ const ListReceipts = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(logoImg, 'PNG', 15, 15, 30, 30);
+            doc.addImage(logoImg, 'PNG', 25, 25, 25, 25);
             doc.setFontSize(18);
             doc.text('Fiş Detayları', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -196,6 +196,8 @@ const ListReceipts = () => {
                     header();
                     footer();
                 },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
             });
 
             doc.save(`Fiş_${receipt.code}.pdf`);
@@ -336,6 +338,7 @@ const ListReceipts = () => {
     };
 
     const handleUpdateReceipt = async () => {
+        debugger
         if (!validateForm() || !editingReceiptId) return;
         debugger
 
@@ -403,6 +406,9 @@ const ListReceipts = () => {
         debugger
         const warehouseObject = warehousesList.find(w => Number(w.id) === Number(row.warehouse.id)) || null;
         setSelectedWarehouse(warehouseObject);
+
+        // 👈 این خط را برای ذخیره ID انبار اضافه کنید
+        setWarehouse(row.warehouse.id);
         const processedItems: ProcessedReceiptItem[] = row.receiptDetails.map(detail => {
 
             const invoiceNo = detail.invoiceDetail?.invoiceHeader?.invoiceNo || '-';

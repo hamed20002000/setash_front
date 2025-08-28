@@ -474,7 +474,6 @@ const ListDrivers = () => {
 
     const paginatedDrivers = sortedAndFilteredDrivers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // توابع دانلود PDF جدید
     const handleDownloadAllDriversPDF = async () => {
         if (!driversList || driversList.length === 0) {
             showAlert('PDF oluşturulacak sürücü bulunamadı.', 'warning');
@@ -489,7 +488,7 @@ const ListDrivers = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
             doc.setFontSize(18);
             doc.text('Tüm Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -534,10 +533,13 @@ const ListDrivers = () => {
                     4: { cellWidth: 20 },
                     5: { cellWidth: 'auto' },
                 },
-                didDrawPage: () => {
+                didDrawPage: (_data) => {
                     header();
                     footer();
                 },
+                // ✅ اضافه شده: برای اطمینان از قرارگیری صحیح محتوا در صفحات جدید
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
             });
 
             doc.save('Tüm_Sürücüler_Raporu.pdf');
@@ -566,71 +568,87 @@ const ListDrivers = () => {
                 return;
             }
 
-            const driversWithCars: DriverWithVehicles[] = response.data.data;
+            const driversWithCars = response.data.data;
             if (driversWithCars.length === 0) {
                 showAlert('Araçlı sürücü bulunamadı.', 'warning');
                 return;
             }
 
             const doc = new jsPDF();
-
             const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.setFont('NotoSans');
 
-            let yOffset = 20;
+            // تعریف توابع هدر و فوتر به صورت مستقل برای استفاده در قلاب didDrawPage
+            const header = () => {
+                doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+                doc.setFontSize(18);
+                doc.text('Araçlı Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+                doc.setFontSize(12);
+                doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+            };
+            const footer = () => {
+                doc.setFontSize(10);
+                doc.setTextColor(0);
+                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            };
 
-            // Header for the entire document
-            doc.addImage(Logo, 'PNG', 15, yOffset, 30, 30);
-            doc.setFontSize(18);
-            doc.text('Araçlı Sürücüler Raporu', doc.internal.pageSize.getWidth() - 15, yOffset + 15, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, doc.internal.pageSize.getWidth() - 15, yOffset + 25, { align: 'right' });
-            yOffset += 45;
+            const tableBody: (string[] | { content: string; colSpan: number; styles: object }[])[] = [];
 
-            driversWithCars.forEach(driver => {
-                if (yOffset > doc.internal.pageSize.getHeight() - 50) {
-                    doc.addPage();
-                    yOffset = 20;
-                }
+            driversWithCars.forEach((driver: DriverWithVehicles) => {
+                // اضافه کردن اطلاعات راننده به عنوان یک ردیف در جدول
+                tableBody.push([
+                    {
+                        content: `Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`,
+                        colSpan: 4,
+                        styles: {
+                            fontStyle: 'bold',
+                            fillColor: [230, 230, 230],
+                            halign: 'center'
+                        }
+                    }
+                ]);
 
-                // Driver details header
-                doc.setFontSize(14);
-                doc.text(`Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`, 15, yOffset);
-                yOffset += 10;
-
-                // Vehicles table for this driver
+                // اضافه کردن اطلاعات خودروهای این راننده
                 const vehicleRows = driver.driverVehicles.map(car => [
                     car.name || '-',
-                    car.model || '-',
+                    String(car.model) || '-', // تبدیل عدد به رشته
                     car.plaque || '-',
                     car.recordStatus === 0 ? 'Aktif' : 'Pasif',
                 ]);
+                tableBody.push(...vehicleRows);
 
-                autoTable(doc, {
-                    startY: yOffset,
-                    head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
-                    body: vehicleRows,
-                    theme: 'grid',
-                    styles: {
-                        font: 'NotoSans',
-                        fontStyle: 'normal',
-                        fontSize: 10,
-                        cellPadding: 2,
-                        overflow: 'linebreak'
-                    },
-                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                    margin: { left: 15, right: 15 },
-                });
-                yOffset = (doc as any).lastAutoTable.finalY + 10;
+                // اضافه کردن یک خط جداکننده برای خوانایی بهتر بین رانندگان
+                if (driver !== driversWithCars[driversWithCars.length - 1]) {
+                    tableBody.push([{ content: '', colSpan: 4, styles: { fillColor: [255, 255, 255], minCellHeight: 5 } }]);
+                }
             });
 
-            // Add footer to the last page
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+            // فراخوانی نهایی autoTable برای رسم کل محتوا
+            autoTable(doc, {
+                startY: 50, // شروع محتوای جدول بعد از هدر صفحه اول
+                head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
+                body: tableBody,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: (_data) => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
 
             doc.save('Araçlı_Sürücüler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
@@ -674,40 +692,39 @@ const ListDrivers = () => {
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.setFont('NotoSans');
 
-            let yOffset = 20;
+            // تعریف هدر و فوتر به عنوان توابع
+            const header = () => {
+                doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
+                doc.setFontSize(18);
+                doc.text('Sürücü Detay Raporu', pageWidth - 15, 35, { align: 'right' });
+            };
+            const footer = () => {
+                doc.setFontSize(10);
+                doc.setTextColor(0);
+                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            };
 
-            // Header
-            doc.addImage(Logo, 'PNG', 15, yOffset, 30, 30);
-            doc.setFontSize(18);
-            doc.text('Sürücü Detay Raporu', pageWidth - 15, yOffset + 15, { align: 'right' });
-            yOffset += 40;
-
-            // Driver Info
+            // رسم هدر و اطلاعات راننده
+            header();
             doc.setFontSize(12);
-            doc.text(`Adı Soyadı: ${driver.name} ${driver.family}`, 15, yOffset);
-            doc.text(`TC Kimlik No: ${driver.identityNo}`, 15, yOffset + 7);
-            doc.text(`Baba Adı: ${driver.fatherName}`, 15, yOffset + 14);
-            doc.text(`Doğum Tarihi: ${formatDateDisplay(driver.birthdate)}`, 15, yOffset + 21);
-            doc.text(`Sürücü Tipi: ${driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı'}`, 15, yOffset + 28);
-            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, yOffset, { align: 'right' });
-            yOffset += 40;
+            doc.text(`Adı Soyadı: ${driver.name} ${driver.family}`, 15, 65);
+            doc.text(`TC Kimlik No: ${driver.identityNo}`, 15, 72);
+            doc.text(`Baba Adı: ${driver.fatherName}`, 15, 79);
+            doc.text(`Doğum Tarihi: ${formatDateDisplay(driver.birthdate)}`, 15, 86);
+            doc.text(`Sürücü Tipi: ${driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı'}`, 15, 93);
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 65, { align: 'right' });
 
-            // Vehicle Table
-            doc.setFontSize(14);
-            doc.text('Araç Detayları', 15, yOffset);
-            yOffset += 5;
-
-            const vehicleRows = vehicles.map((car: any) => [
-                car.name || '-',
-                car.model || '-',
-                car.plaque || '-',
-                car.recordStatus === 0 ? 'Aktif' : 'Pasif',
-            ]);
-
+            // رسم جدول خودروها
             autoTable(doc, {
-                startY: yOffset,
+                startY: 105,
                 head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
-                body: vehicleRows,
+                body: vehicles.map((car: any) => [
+                    car.name || '-',
+                    car.model || '-',
+                    car.plaque || '-',
+                    car.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                ]),
                 theme: 'grid',
                 styles: {
                     font: 'NotoSans',
@@ -718,13 +735,16 @@ const ListDrivers = () => {
                 },
                 headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
                 margin: { left: 15, right: 15 },
+                // ✅ اصلاح شده: این قلاب برای افزودن هدر و فوتر به صفحات بعدی است
+                didDrawPage: (_data) => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
             });
 
-            // Footer
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            // رسم فوتر
+            footer();
 
             doc.save(`Sürücü_Detay_${driver.id}.pdf`);
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
