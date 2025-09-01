@@ -180,7 +180,7 @@ import {
   IconPackage, IconGavel, IconPlus, IconChecklist, IconRoute, IconUserCog,
   IconInfoCircle, IconClipboardList, IconProgressCheck, IconGlobe, IconMap,
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
-  IconBuildingFactory, IconFileInvoice
+  IconBuildingFactory, IconFileInvoice, IconSitemap, IconHelmet
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
@@ -290,7 +290,9 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconPackage, IconGavel, IconPlus, IconChecklist, IconRoute, IconUserCog,
   IconInfoCircle, IconClipboardList, IconProgressCheck, IconGlobe, IconMap,
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
-  IconBuildingFactory, IconFileInvoice
+  IconBuildingFactory, IconFileInvoice,
+  IconSitemap: IconSitemap,
+  IconHelmet: IconHelmet
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;
@@ -307,13 +309,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [activeRoleId, setActiveRoleId] = useState<string | null>(null);
   const [allowedOperations, setAllowedOperations] = useState<AllowedOperation[]>([]);
   const [menuItems, setMenuItems] = useState<MenuitemsType[]>([]);
+
   const [isAuthDataLoading, setIsAuthDataLoading] = useState(false);
+  const [isAuth, setIsAuth] = useState(false);
+
 
 
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [isAuth, setIsAuth] = useState(false);
   // ✅ منطق فیلتر کردن منو بهینه شده است
   const mapApiDataToMenuItems = useCallback((apiData: ApiMenuItem[], allowedOperations: AllowedOperation[]): MenuitemsType[] => {
     if (!apiData || apiData.length === 0) return [];
@@ -531,6 +535,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             systemOperationId: op.menuOperation.systemOperation.id,
             systemOperationName: op.menuOperation.systemOperation.name
           })) || [];
+
+        console.log("Allowed Operations from API:", ops);
       }
 
       // ✅ فقط زمانی که تمام داده‌ها آماده است، وضعیت‌ها را به روز کنید

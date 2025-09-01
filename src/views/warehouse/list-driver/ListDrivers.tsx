@@ -488,7 +488,8 @@ const ListDrivers = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
+
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text('Tüm Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -500,6 +501,9 @@ const ListDrivers = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
             doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
         };
 
         const rows = driversList.map(driver => [
@@ -584,7 +588,7 @@ const ListDrivers = () => {
 
             // تعریف توابع هدر و فوتر به صورت مستقل برای استفاده در قلاب didDrawPage
             const header = () => {
-                doc.addImage(Logo, 'PNG', 15, 15, 30, 30);
+                doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
                 doc.setFontSize(18);
                 doc.text('Araçlı Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
                 doc.setFontSize(12);
@@ -595,6 +599,9 @@ const ListDrivers = () => {
                 doc.setTextColor(0);
                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+                const docAny = doc as any;
+                const pageCount = docAny.internal.getNumberOfPages();
+                doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
             const tableBody: (string[] | { content: string; colSpan: number; styles: object }[])[] = [];
@@ -694,7 +701,8 @@ const ListDrivers = () => {
 
             // تعریف هدر و فوتر به عنوان توابع
             const header = () => {
-                doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
+
+                doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
                 doc.setFontSize(18);
                 doc.text('Sürücü Detay Raporu', pageWidth - 15, 35, { align: 'right' });
             };
@@ -703,6 +711,9 @@ const ListDrivers = () => {
                 doc.setTextColor(0);
                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+                const docAny = doc as any;
+                const pageCount = docAny.internal.getNumberOfPages();
+                doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
             // رسم هدر و اطلاعات راننده
@@ -771,7 +782,7 @@ const ListDrivers = () => {
                                     startIcon={<IconFileDownload />}
                                     fullWidth={isSmallScreen}
                                 >
-                                    Tüm Sürücüleri İndir
+                                    Tüm Sürücüleri İndir (PDF)
                                 </Button>
                                 <Button
                                     variant="contained"
@@ -780,7 +791,7 @@ const ListDrivers = () => {
                                     startIcon={<IconFileDownload />}
                                     fullWidth={isSmallScreen}
                                 >
-                                    Araçlı Sürücüleri İndir
+                                    Araçlı Sürücüleri İndir (PDF)
                                 </Button>
                             </Stack>
                         )}

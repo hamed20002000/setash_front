@@ -506,7 +506,7 @@ const ListProductTypes = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text('Tüm Ürün Tipleri Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -518,6 +518,9 @@ const ListProductTypes = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         const rows = ProductTypesList.map(type => [
@@ -680,9 +683,8 @@ const ListProductTypes = () => {
                                 color="secondary"
                                 onClick={handleDownloadAllProductTypesPDF}
                                 startIcon={<IconFileDownload />}
-                            // You can add fullWidth if you want it to be responsive
                             >
-                                Tüm Ürünleri İndir
+                                Tüm Direkler-Trafoları İndir (PDF)
                             </Button>
                         </Grid>
                     )}

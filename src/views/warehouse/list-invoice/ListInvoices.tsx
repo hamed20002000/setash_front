@@ -310,7 +310,8 @@ const ListInvoices = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(logoImg, 'PNG', 25, 25, 25, 25);
+
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
 
             doc.setFontSize(18);
             doc.text('Fatura Detayları', pageWidth - 15, 30, { align: 'right' });
@@ -335,6 +336,9 @@ const ListInvoices = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         const rows = invoice.invoiceDetails.map(detail => [
@@ -668,9 +672,9 @@ const ListInvoices = () => {
             invoiceDetails: invoiceItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: Number(item.quantity),
-                price: (item.price).toFixed(2),
-                discountPercent: (item.discountPercent).toFixed(2),
-                discountAmount: (item.discountAmount).toFixed(2),
+                price: Number(item.price).toFixed(2),
+                discountPercent: Number(item.discountPercent).toFixed(2),
+                discountAmount: Number(item.discountAmount).toFixed(2),
                 description: item.description,
                 orderDetailId: item.orderDetailId ? Number(item.orderDetailId) : null,
                 providerId: item.providerId,
@@ -714,9 +718,9 @@ const ListInvoices = () => {
             invoiceDetails: invoiceItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: Number(item.quantity),
-                price: (item.price).toFixed(2),
-                discountPercent: (item.discountPercent).toFixed(2),
-                discountAmount: (item.discountAmount).toFixed(2),
+                price: Number(item.price).toFixed(2),
+                discountPercent: Number(item.discountPercent).toFixed(2),
+                discountAmount: Number(item.discountAmount).toFixed(2),
                 description: item.description,
                 orderDetailId: item.orderDetailId ? Number(item.orderDetailId) : null,
                 providerId: item.providerId,
@@ -1046,7 +1050,7 @@ const ListInvoices = () => {
                             </Grid>
                         </Grid>
 
-                        <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
+                        {/* <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography> */}
                         <InvoiceItemsTable
                             items={invoiceItems}
                             itemsList={itemsList}

@@ -731,7 +731,7 @@ const ListProviders = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text('Tüm Tedarikçiler Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -743,6 +743,9 @@ const ListProviders = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         // آماده کردن داده‌ها برای جدول PDF
@@ -945,7 +948,7 @@ const ListProviders = () => {
                                 startIcon={<IconFileDownload />}
                             // You can add fullWidth if you want it to be responsive
                             >
-                                Tüm Ürünleri İndir
+                                Tüm Bölgeleri İndir (PDF)
                             </Button>
                         </Grid>
                     )}

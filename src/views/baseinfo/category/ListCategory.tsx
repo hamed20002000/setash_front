@@ -818,6 +818,9 @@ const ListCategory = () => {
       doc.setTextColor(0);
       doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
       doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+      const docAny = doc as any;
+      const pageCount = docAny.internal.getNumberOfPages();
+      doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
 
     const rows = flattenAndPrepareCategoriesForPdf(rawApiCategories);
@@ -978,7 +981,7 @@ const ListCategory = () => {
                 startIcon={<IconFileDownload />}
               // You can add fullWidth if you want it to be responsive
               >
-                Tüm Ürünleri İndir
+                Tüm Kategorileri İndir (PDF)
               </Button>
             </Grid>
           )}

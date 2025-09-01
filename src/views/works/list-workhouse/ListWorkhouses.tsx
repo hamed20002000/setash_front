@@ -5,14 +5,16 @@ import {
     Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    TableSortLabel, FormControl, InputLabel, Select, ListItemText
+    TableSortLabel, FormControl, InputLabel, Select, ListItemText, Autocomplete
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconPlus, IconArrowRight } from '@tabler/icons-react';
+import {
+    IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconPlus, IconArrowRight, IconHelmet,
+    IconFileSpreadsheet, IconFileText
+} from '@tabler/icons-react';
 import DeleteWorkhouse from './DeleteWorkHouse';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -21,6 +23,12 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { useAuth } from 'src/context/AuthContext';
+
+
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -33,6 +41,18 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+interface WorkType {
+    id: number;
+    title: string;
+    startDate: string;
+    endDate: string;
+    tenderId: number;
+    tenderTitle: string;
+    createAt: string;
+    recordStatus: number;
+    status: string;
+}
 
 interface WorkhouseType {
     id: number;
@@ -83,13 +103,17 @@ interface FlattenedRegionType {
     label: string;
     depth: number;
 }
-// interface RegionTreeSelectMenuItemProps {
-//     node: RegionNode;
-//     selectedId: number | null;
-//     onSelect: (nodeId: number | null, nodeName: string) => void;
-//     onCloseParentSelect: () => void;
+// interface WorkhouseDetailItem {
+//     id: number;
+//     item: {
+//         name: string;
+//         unit: {
+//             title: string;
+//         };
+//     };
+//     quantity: number;
+//     description: string;
 // }
-
 
 type SortableWorkhouseKeys = keyof Pick<WorkhouseType, 'name' | 'code' | 'address' | 'createAt' | 'recordStatus'>;
 
@@ -188,11 +212,11 @@ const ListWorkhouses = () => {
     const [name, setName] = useState<string>('');
     const [code, setCode] = useState<string>('');
     const [address, setAddress] = useState<string>('');
-    // ✅ فقط id منطقه انتخاب شده را ذخیره می‌کنیم
     const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
+    const [selectedWorkId, setSelectedWorkId] = useState<number | null>(null); // ✅ New state for work combo
 
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
-    const [displayedWorkhouses, setDisplayedWorkhouses] = useState<WorkhouseType[]>([]);
+    const [worksList, setWorksList] = useState<WorkType[]>([]); // ✅ New state for works combo
     const [workInfo, setWorkInfo] = useState<WorkInfoType | null>(null);
     const [editingId, setEditingId] = useState<number | null>(null);
 
@@ -220,19 +244,17 @@ const ListWorkhouses = () => {
     const [codeError, setCodeError] = useState<boolean>(false);
     const [addressError, setAddressError] = useState<boolean>(false);
     const [regionIdError, setRegionIdError] = useState<boolean>(false);
+    const [workIdError, setWorkIdError] = useState<boolean>(false); // ✅ New state for work combo validation
     const nameInputRef = useRef<HTMLInputElement>(null);
 
     const [regionOptions, setRegionOptions] = useState<FlattenedRegionType[]>([]);
     const [regionMap, setRegionMap] = useState<Map<number, string>>(new Map());
-
-    // const [regionsListNested, setRegionsListNested] = useState<RegionType[]>([]);
     const [regionTree, setRegionTree] = useState<RegionNode[]>([]);
     const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
-
+    // ✅ این خط را به ابتدای کامپوننت اضافه کنید
+    const [displayedWorkhouses, setDisplayedWorkhouses] = useState<WorkhouseType[]>([]);
     const { isTooltipGloballyEnabled } = useTooltip();
-
-
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
@@ -245,6 +267,10 @@ const ListWorkhouses = () => {
 
     const hasDeletePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    }, [allowedOperations]);
+
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
 
     const fetchWorkInfo = useCallback(async () => {
@@ -271,21 +297,83 @@ const ListWorkhouses = () => {
         }
     }, [workId, navigate]);
 
+    // ✅ Updated fetchWorkhouses to be a generic function
+    const fetchWorkhouses = useCallback(async (workIdParam?: string) => {
+        setLoadingData(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            navigate("/");
+            setLoadingData(false);
+            return;
+        }
+        try {
+            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+            if (response.data.httpStatusCode === 200) {
+                const allWorkhouses = response.data.data as WorkhouseType[];
+                const filteredWorkhouses = workIdParam
+                    ? allWorkhouses.filter(item => item.work && Number(item.work.id) === Number(workIdParam))
+                    : allWorkhouses;
+                const workhousesWithStatus = filteredWorkhouses.map((item) => ({
+                    ...item,
+                    status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
+                }));
+                setWorkhousesList(workhousesWithStatus);
+            } else {
+                showAlert(response.data.message || 'Şantiyeler yüklenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert('Şantiyeler yüklenirken bir hata oluştu.', 'error');
+        } finally {
+            setLoadingData(false);
+        }
+    }, [navigate]);
+
+    // ✅ New function to get list of all works for the combo box
+    const getWorksList = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        try {
+            const result = await axios.get(server.baseurl + server.initialoperations + "get-works", {
+                headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+            });
+            if (result.data.httpStatusCode === 200) {
+                const rawData = result.data.data;
+                const formattedData: WorkType[] = rawData.map((item: any) => ({
+                    id: item.id,
+                    title: item.title,
+                    startDate: item.startDate,
+                    endDate: item.endDate,
+                    tenderId: item.tender ? Number(item.tender.id) : 0,
+                    tenderTitle: item.tender ? item.tender.title : 'N/A',
+                    createAt: item.createAt,
+                    recordStatus: item.recordStatus,
+                    status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
+                }));
+                setWorksList(formattedData);
+            } else {
+                showAlert(result.data.message || 'İş listesi alınırken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert('İş listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        }
+    }, [navigate]);
+
     const fetchRegions = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
             return;
         }
-
         try {
-            const response = await axios.request<{ httpStatusCode: number; data: RegionType[]; message?: string }>({
-                baseURL: server.baseurl + server.baseinfo + "get-regions",
-                method: "get",
+            const response = await axios.get(server.baseurl + server.baseinfo + "get-regions", {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             if (response.data.httpStatusCode === 200) {
-                // setRegionsListNested(response.data.data);
                 const regionTreeData = buildRegionTree(response.data.data);
                 setRegionTree(regionTreeData);
                 const flattened = flattenRegions(response.data.data);
@@ -303,49 +391,17 @@ const ListWorkhouses = () => {
         }
     }, [navigate]);
 
-    const fetchWorkhouses = useCallback(async () => {
-        if (!workId) return;
-        setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            navigate("/");
-            setLoadingData(false);
-            return;
-        }
-        try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-            if (response.data.httpStatusCode === 200) {
-                const allWorkhouses = response.data.data as WorkhouseType[];
-                const filteredWorkhouses = allWorkhouses.filter(item => item.work && Number(item.work.id) === Number(workId));
-                const workhousesWithStatus = filteredWorkhouses.map((item) => ({
-                    ...item,
-                    status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
-                }));
-                setWorkhousesList(workhousesWithStatus);
-            } else {
-                showAlert(response.data.message || 'İşler yüklenirken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            showAlert('İşler yüklenirken bir hata oluştu.', 'error');
-        } finally {
-            setLoadingData(false);
-        }
-    }, [workId, navigate]);
-
+    // ✅ Main useEffect to handle both modes
     useEffect(() => {
+        fetchRegions();
         if (workId) {
             fetchWorkInfo();
-            fetchRegions();
-        }
-    }, [workId, fetchWorkInfo, fetchRegions]);
-
-    useEffect(() => {
-        if (workId) {
+            fetchWorkhouses(workId);
+        } else {
             fetchWorkhouses();
+            getWorksList();
         }
-    }, [workId, fetchWorkhouses]);
+    }, [workId, fetchRegions, fetchWorkInfo, fetchWorkhouses, getWorksList]);
 
     useEffect(() => {
         const filteredBySearchAndStatus = workhousesList.filter(wh => {
@@ -398,14 +454,14 @@ const ListWorkhouses = () => {
             setCode(selectedRowForMenu.code);
             setAddress(selectedRowForMenu.address);
             setEditingId(Number(selectedRowForMenu.id));
-
-            // ✅ به جای شیء کامل، فقط id را به state می‌دهیم
             if (selectedRowForMenu.region) {
                 setSelectedRegionId(selectedRowForMenu.region.id);
             } else {
                 setSelectedRegionId(null);
             }
-
+            if (!workId && selectedRowForMenu.work) {
+                setSelectedWorkId(selectedRowForMenu.work.id);
+            }
             setNameError(false);
             setCodeError(false);
             setAddressError(false);
@@ -437,19 +493,21 @@ const ListWorkhouses = () => {
         setOpenDeleteModal(false);
         setWorkhouseIdToDelete(null);
         setWorkhouseNameToDelete('');
-        fetchWorkhouses();
+        fetchWorkhouses(workId);
     };
 
     const resetFormAndState = () => {
         setName('');
         setCode('');
         setAddress('');
-        setSelectedRegionId(null); // ✅ state جدید
+        setSelectedRegionId(null);
+        setSelectedWorkId(null); // ✅ Reset workId state as well
         setEditingId(null);
         setNameError(false);
         setCodeError(false);
         setAddressError(false);
         setRegionIdError(false);
+        setWorkIdError(false);
     };
 
     const validateForm = (): boolean => {
@@ -472,12 +530,17 @@ const ListWorkhouses = () => {
         } else {
             setAddressError(false);
         }
-        // ✅ از state جدید برای بررسی استفاده می‌کنیم
         if (!selectedRegionId) {
             setRegionIdError(true);
             isValid = false;
         } else {
             setRegionIdError(false);
+        }
+        if (!workId && !selectedWorkId) { // ✅ New validation for the work combo
+            setWorkIdError(true);
+            isValid = false;
+        } else {
+            setWorkIdError(false);
         }
         if (!isValid) {
             showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
@@ -486,7 +549,7 @@ const ListWorkhouses = () => {
     };
 
     const insertWorkhouse = async () => {
-        if (!validateForm() || !workId) return;
+        if (!validateForm()) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -496,11 +559,11 @@ const ListWorkhouses = () => {
         }
         try {
             const payload = {
-                workId: Number(workId),
+                workId: workId ? Number(workId) : Number(selectedWorkId),
                 name,
                 code,
                 address,
-                regionId: Number(selectedRegionId) // ✅ از state جدید استفاده می‌کنیم
+                regionId: Number(selectedRegionId)
             };
             const response = await axios.post(server.baseurl + server.initialoperations + "create-workhouse",
                 payload, {
@@ -513,7 +576,7 @@ const ListWorkhouses = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni şantiye başarıyla eklendi!', 'success');
                 resetFormAndState();
-                fetchWorkhouses();
+                fetchWorkhouses(workId);
             } else {
                 showAlert(response.data.message || 'Şantiye eklenirken bir hata oluştu.', 'error');
             }
@@ -525,7 +588,7 @@ const ListWorkhouses = () => {
     };
 
     const editWorkhouse = async () => {
-        if (!validateForm() || !editingId || !workId) return;
+        if (!validateForm() || !editingId) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -536,11 +599,11 @@ const ListWorkhouses = () => {
         try {
             const payload = {
                 id: Number(editingId),
-                workId: Number(workId),
+                workId: workId ? Number(workId) : Number(selectedWorkId),
                 name,
                 code,
                 address,
-                regionId: Number(selectedRegionId) // ✅ از state جدید استفاده می‌کنیم
+                regionId: Number(selectedRegionId)
             };
             const response = await axios.put(server.baseurl + server.initialoperations + "update-workhouse", payload, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" }
@@ -548,7 +611,7 @@ const ListWorkhouses = () => {
             if (response.data.httpStatusCode === 200) {
                 showAlert('Şantiye başarıyla güncellendi!', 'success');
                 resetFormAndState();
-                fetchWorkhouses();
+                fetchWorkhouses(workId);
             } else {
                 showAlert(response.data.message || 'Şantiye güncellenirken bir hata oluştu.', 'error');
             }
@@ -581,27 +644,20 @@ const ListWorkhouses = () => {
         setPage(0);
     };
 
-
     const paginatedWorkhouses = useMemo(() => {
         const sortedData = stableSort(displayedWorkhouses, getComparator(order, orderBy));
         return sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [displayedWorkhouses, page, rowsPerPage, order, orderBy]);
 
-    // ✅ توابع جدید برای مدیریت Select درختی
-    // const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
-    // const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
-
     const renderRegionTree = (nodes: RegionNode[], depth: number = 0) => {
         return nodes.map(node => {
             const isExpanded = expandedNodes.has(node.id);
             const hasChildren = node.children && node.children.length > 0;
-
             const handleSelectClick = (e: React.MouseEvent) => {
                 e.stopPropagation();
                 setSelectedRegionId(node.id);
                 setIsRegionSelectOpen(false);
             };
-
             const handleToggleCollapse = (e: React.MouseEvent) => {
                 e.stopPropagation();
                 setExpandedNodes(prev => {
@@ -614,7 +670,6 @@ const ListWorkhouses = () => {
                     return newSet;
                 });
             };
-
             return (
                 <React.Fragment key={node.id}>
                     <MenuItem
@@ -660,16 +715,314 @@ const ListWorkhouses = () => {
         handleCloseMenu();
     };
 
+
+    const exportSingleWorkhouseWithDetailsPdf = async (workhouseId: number, workhouseName: string) => {
+        showAlert(`Şantiye '${workhouseName}' detayları indiriliyor...`, 'info');
+
+        const doc = new jsPDF();
+        const docAny = doc as any;
+        const workhouseData = workhousesList.find(w => w.id === workhouseId);
+
+        if (!workhouseData) {
+            showAlert('Şantiye bilgisi bulunamadı.', 'error');
+            return;
+        }
+
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        docAny.setFont('NotoSans');
+
+        const pageWidth = docAny.internal.pageSize.getWidth();
+        const pageHeight = docAny.internal.pageSize.getHeight();
+
+        const header = () => {
+            docAny.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            docAny.setFontSize(18);
+            docAny.text(`Şantiye Detayları: ${workhouseName}`, pageWidth - 15, 20, { align: 'right' });
+            docAny.setFontSize(12);
+            docAny.text(`Kodu: ${workhouseData.code || '-'}`, pageWidth - 15, 27, { align: 'right' });
+            docAny.text(`Bölge: ${regionMap.get(workhouseData.region?.id) || '-'}`, pageWidth - 15, 34, { align: 'right' });
+            docAny.text(`Oluşturulma Tarihi: ${formatDateDisplay(workhouseData.createAt)}`, pageWidth - 15, 41, { align: 'right' });
+            if (workhouseData.work) {
+                docAny.text(`İş: ${workhouseData.work.title}`, pageWidth - 15, 48, { align: 'right' });
+            }
+        };
+
+        const footer = () => {
+            docAny.setFontSize(10);
+            docAny.setTextColor(0);
+            docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const pageCount = docAny.internal.getNumberOfPages();
+            docAny.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Kimlik doğrulama hatası.', 'error');
+            return;
+        }
+
+        try {
+            const detailsResponse = await axios.get(
+                `${server.baseurl + server.initialoperations}get-workhouse-details-by-workhouse-id/${workhouseId}`,
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+
+            if (detailsResponse.data.httpStatusCode === 200 && detailsResponse.data.data.length > 0) {
+                const details = detailsResponse.data.data;
+                const detailColumns = ["Sahibi", "Fiyat", "Başlangıç Tarihi", "Bitiş Tarihi", "Açıklama", "Abonelikler"];
+                const detailRows = details.map((detail: any) => [
+                    detail.owner || '-',
+                    detail.price || '-',
+                    formatDateDisplay(detail.rentStartDate),
+                    formatDateDisplay(detail.rentEndDate),
+                    detail.description || '-',
+                    // ✅ منطق جدید برای فرمت‌دهی Abonelikler
+                    detail.subscription?.map((sub: any) => `${sub.title}: ${sub.no} (${sub.owner})`).join(', ') || '-'
+                ]);
+
+                autoTable(docAny, {
+                    startY: 60,
+                    head: [detailColumns],
+                    body: detailRows,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    // ✅ تنظیم عرض ستون‌ها
+                    columnStyles: {
+                        0: { cellWidth: 20 },      // Sahibi
+                        1: { cellWidth: 20 },      // Fiyat
+                        2: { cellWidth: 30 },      // Başlangıç Tarihi
+                        3: { cellWidth: 30 },      // Bitiş Tarihi
+                        4: { cellWidth: 40 },      // Açıklama
+                        5: { cellWidth: 'auto' }   // Abonelikler
+                    },
+                    didDrawPage: () => {
+                        header();
+                        footer();
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 55, bottom: 20, left: 10, right: 10 }
+                });
+
+                docAny.save(`${workhouseName}_Detaylari.pdf`);
+                showAlert('PDF başarıyla oluşturuldu.', 'success');
+            } else {
+                showAlert('Bu şantiye için detay bulunamadı.', 'warning');
+            }
+        } catch (error) {
+            showAlert('Detaylar yüklenirken bir hata oluştu.', 'error');
+        }
+    };
+
+    const exportAllWorkhousesWithDetailsPdf = async () => {
+        showAlert('Tüm şantiyelerin detayları indiriliyor...', 'info');
+        setLoadingData(true);
+
+        const doc = new jsPDF();
+        const docAny = doc as any;
+        const authToken = localStorage.getItem('authToken');
+
+        if (!authToken) {
+            showAlert('Kimlik doğrulama hatası.', 'error');
+            setLoadingData(false);
+            return;
+        }
+
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        docAny.setFont('NotoSans');
+
+        const pageWidth = docAny.internal.pageSize.getWidth();
+        const pageHeight = docAny.internal.pageSize.getHeight();
+
+        for (const [index, workhouse] of workhousesList.entries()) {
+            try {
+                const detailsResponse = await axios.get(
+                    `${server.baseurl + server.initialoperations}get-workhouse-details-by-workhouse-id/${workhouse.id}`,
+                    { headers: { "Authorization": `Bearer ${authToken}` } }
+                );
+
+                // ایجاد صفحه جدید برای هر کارگاه (به جز اولین کارگاه)
+                if (index > 0) {
+                    docAny.addPage();
+                }
+
+                const header = () => {
+                    docAny.addImage(Logo, 'PNG', 10, 10, 40, 25);
+                    docAny.setFontSize(18);
+                    docAny.text(`Şantiye Detayları: ${workhouse.name}`, pageWidth - 15, 20, { align: 'right' });
+                    docAny.setFontSize(12);
+                    docAny.text(`Kodu: ${workhouse.code || '-'}`, pageWidth - 15, 27, { align: 'right' });
+                    docAny.text(`Bölge: ${regionMap.get(workhouse.region?.id) || '-'}`, pageWidth - 15, 34, { align: 'right' });
+                    docAny.text(`Oluşturulma Tarihi: ${formatDateDisplay(workhouse.createAt)}`, pageWidth - 15, 41, { align: 'right' });
+                    if (workhouse.work) {
+                        docAny.text(`İş: ${workhouse.work.title}`, pageWidth - 15, 48, { align: 'right' });
+                    }
+                };
+
+                const footer = () => {
+                    docAny.setFontSize(10);
+                    docAny.setTextColor(0);
+                    docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+                    const pageCount = docAny.internal.getNumberOfPages();
+                    docAny.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                };
+
+                if (detailsResponse.data.httpStatusCode === 200 && detailsResponse.data.data.length > 0) {
+                    const details = detailsResponse.data.data;
+                    const detailColumns = ["Sahibi", "Fiyat", "Başlangıç Tarihi", "Bitiş Tarihi", "Açıklama", "Abonelikler"];
+                    const detailRows = details.map((detail: any) => [
+                        detail.owner || '-',
+                        detail.price || '-',
+                        formatDateDisplay(detail.rentStartDate),
+                        formatDateDisplay(detail.rentEndDate),
+                        detail.description || '-',
+                        // ✅ منطق جدید برای فرمت‌دهی Abonelikler
+                        detail.subscription?.map((sub: any) => `${sub.title}: ${sub.no} (${sub.owner})`).join(', ') || '-'
+                    ]);
+
+                    autoTable(docAny, {
+                        startY: 60,
+                        head: [detailColumns],
+                        body: detailRows,
+                        theme: 'grid',
+                        styles: {
+                            font: 'NotoSans',
+                            fontSize: 10,
+                            cellPadding: 2,
+                            overflow: 'linebreak'
+                        },
+                        headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                        // ✅ تنظیم دقیق عرض ستون‌ها
+                        columnStyles: {
+                            0: { cellWidth: 20 }, // Sahibi
+                            1: { cellWidth: 25 }, // Fiyat
+                            2: { cellWidth: 30 }, // Başlangıç Tarihi
+                            3: { cellWidth: 30 }, // Bitiş Tarihi
+                            4: { cellWidth: 40 }, // Açıklama
+                            5: { cellWidth: 'auto' } // Abonelikler
+                        },
+                        didDrawPage: () => {
+                            header();
+                            footer();
+                        },
+                        showHead: 'everyPage',
+                        margin: { top: 55, bottom: 20, left: 10, right: 10 }
+                    });
+                } else {
+                    header();
+                    docAny.text('Bu şantiye için detay bulunamadı.', 15, 60);
+                    footer();
+                }
+            } catch (error) {
+                console.error(`Error fetching details for workhouse ${workhouse.id}:`, error);
+                docAny.addPage();
+                docAny.text(`Şantiye '${workhouse.name}' detayları yüklenirken bir hata oluştu.`, 15, 20);
+            }
+        }
+
+        docAny.save('Tum_Santiyeler_Detaylari.pdf');
+        showAlert('PDF başarıyla oluşturuldu.', 'success');
+        setLoadingData(false);
+    };
+
+    const exportAllWorkhousesPdf = () => {
+        showAlert('Tüm şantiyeler indiriliyor...', 'info');
+
+        const doc = new jsPDF();
+        const docAny = doc as any;
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        docAny.setFont('NotoSans');
+
+        const pageWidth = docAny.internal.pageSize.getWidth();
+        const pageHeight = docAny.internal.pageSize.getHeight();
+
+        const header = () => {
+            docAny.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            docAny.setFontSize(18);
+            // ✅ موقعیت عنوان به درستی تنظیم شد
+            docAny.text("Tüm Şantiyeler Raporu", pageWidth - 10, 20, { align: 'right' });
+        };
+
+        const footer = () => {
+            docAny.setFontSize(10);
+            docAny.setTextColor(0);
+            docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const pageCount = docAny.internal.getNumberOfPages();
+            docAny.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        const columns = [
+            "İsim", "Kod", "Adres", "Bölge",
+            ...(!workId ? ["İş"] : []),
+            "Oluşturulma Tarihi"
+        ];
+
+        const rows = workhousesList.map(row => [
+            row.name,
+            row.code,
+            row.address,
+            regionMap.get(row.region?.id) || 'Bilinmiyor',
+            ...(!workId ? [row.work?.title || '-'] : []),
+            formatDateDisplay(row.createAt)
+        ]);
+
+        try {
+            autoTable(docAny, {
+                startY: 40,
+                head: [columns],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak',
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                // ✅ تنظیم دستی عرض ستون‌ها برای جلوگیری از فشردگی
+                columnStyles: {
+                    0: { cellWidth: 30 }, // İsim
+                    1: { cellWidth: 15 }, // Kod
+                    2: { cellWidth: 40 }, // Adres
+                    3: { cellWidth: 35 }, // Bölge
+                    ...(!workId ? { 4: { cellWidth: 35 } } : {}), // İş
+                    [columns.length - 1]: { cellWidth: 35 } // Oluşturulma Tarihi
+                },
+                didDrawPage: (_data: any) => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 35, bottom: 20, left: 10, right: 10 } // ✅ تنظیم حاشیه‌ها
+            });
+            docAny.save('Tum_Santiyeler.pdf');
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
+        } catch (error) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-                {workInfo && (
+                {(workId && workInfo) && ( // ✅ Check for workId to decide what to show
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
                         <Stack direction="row" spacing={1} flexWrap="wrap">
                             <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />
                             <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />
                         </Stack>
-
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
                             <Button variant="outlined" color="error" onClick={() => navigate(-1)}
                                 endIcon={<IconArrowRight size={20} />}>
@@ -682,13 +1035,48 @@ const ListWorkhouses = () => {
                 {(hasCreatePermission || hasEditPermission) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
+
+                        {hasDownloadPermission && (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                                <Button variant="outlined" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesPdf}>
+                                    Tümünü İndir (PDF)
+                                </Button>
+                                <Button variant="contained" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesWithDetailsPdf}>
+                                    Tümünü İndir Detaylı (PDF)
+                                </Button>
+                            </Box>
+                        )}
                         <Grid container spacing={2}>
-                            <Grid item xs={12} sm={4}>
+                            {!workId && (
+                                <Grid item xs={12} sm={3}>
+                                    <CustomFormLabel htmlFor="work-selection" required>İş Seçimi</CustomFormLabel>
+                                    <Autocomplete
+                                        id="work-selection"
+                                        options={worksList}
+                                        getOptionLabel={(option) => option.title}
+                                        value={worksList.find(w => w.id === selectedWorkId) || null}
+                                        onChange={(_event, newValue) => {
+                                            setSelectedWorkId(newValue ? newValue.id : null);
+                                            if (workIdError && newValue) setWorkIdError(false);
+                                        }}
+                                        size="small"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="İş Seçin"
+                                                error={workIdError}
+                                                helperText={workIdError ? "Bu alan zorunludur!" : ""}
+                                            />
+                                        )}
+                                        sx={{ width: '100%' }}
+                                    />
+                                </Grid>
+                            )}
+                            <Grid item xs={12} sm={workId == undefined ? 3 : 4}>
                                 <CustomFormLabel htmlFor="workhouse-name" required>İsim</CustomFormLabel>
                                 <CustomTextField
                                     id="workhouse-name"
                                     placeholder="Şantiye Adı"
-
                                     sx={{ width: '100%' }}
                                     size="small"
                                     value={name}
@@ -701,12 +1089,11 @@ const ListWorkhouses = () => {
                                     helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={4}>
+                            <Grid item xs={12} sm={workId == undefined ? 3 : 4}>
                                 <CustomFormLabel htmlFor="workhouse-code" required>Kod</CustomFormLabel>
                                 <CustomTextField
                                     id="workhouse-code"
                                     placeholder="Şantiye Kodu"
-
                                     sx={{ width: '100%' }}
                                     size="small"
                                     value={code}
@@ -718,7 +1105,7 @@ const ListWorkhouses = () => {
                                     helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={4}>
+                            <Grid item xs={12} sm={workId == undefined ? 3 : 4}>
                                 <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
                                 <FormControl
                                     sx={{ width: '100%' }}
@@ -727,14 +1114,14 @@ const ListWorkhouses = () => {
                                     <Select
                                         labelId="select-region-label"
                                         id="select-region"
-                                        value={selectedRegionId || ''} // ✅ از state جدید استفاده می‌کنیم
+                                        value={selectedRegionId || ''}
                                         label="Bölge Seçin"
                                         open={isRegionSelectOpen}
                                         onOpen={handleOpenRegionSelect}
                                         onClose={handleCloseRegionSelect}
                                         onChange={(event) => {
                                             const selectedId = event.target.value as number;
-                                            setSelectedRegionId(selectedId); // ✅ state جدید
+                                            setSelectedRegionId(selectedId);
                                             if (regionIdError && selectedId) setRegionIdError(false);
                                         }}
                                         renderValue={renderSelectedRegion}
@@ -768,13 +1155,14 @@ const ListWorkhouses = () => {
                                     helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
                                 />
                             </Grid>
+
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null ? (
                                         <>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili şantiyeyi güncelleyin" : ""}>
                                                 <Button variant="contained" color="info" onClick={editWorkhouse} disabled={loadingButton}>
-                                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                                    {loadingButton ? <><IconHelmet fontSize={20} /> Bekleniyor...</> : 'Düzenle'}
                                                 </Button>
                                             </CustomTooltip>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni şantiye moduna dön" : ""}>
@@ -782,12 +1170,11 @@ const ListWorkhouses = () => {
                                             </CustomTooltip>
                                         </>
                                     ) : (
-
                                         <>
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir şantiye ekle" : ""}>
                                                     <Button variant="contained" color="success" onClick={insertWorkhouse} disabled={loadingButton}>
-                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
+                                                        {loadingButton ? <><IconHelmet fontSize={20} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
                                                     </Button>
                                                 </CustomTooltip>
 
@@ -845,6 +1232,12 @@ const ListWorkhouses = () => {
                         <Table aria-label="workhouse table">
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
+
+                                    {!workId && (
+                                        <TableCell>
+                                            <Typography variant="h6">İş</Typography>
+                                        </TableCell>
+                                    )}
                                     <TableCell>
                                         <TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} style={{ color: "#171c23" }}><Typography variant="h6">İsim</Typography></TableSortLabel>
                                     </TableCell>
@@ -860,9 +1253,6 @@ const ListWorkhouses = () => {
                                     <TableCell>
                                         <TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} style={{ color: "#171c23" }}><Typography variant="h6">Oluşturulma Tarihi</Typography></TableSortLabel>
                                     </TableCell>
-                                    {/* <TableCell>
-                                        <TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel>
-                                    </TableCell> */}
                                     <TableCell></TableCell>
                                 </TableRow>
                             </TableHead>
@@ -870,20 +1260,14 @@ const ListWorkhouses = () => {
                                 {paginatedWorkhouses.length > 0 ? (
                                     paginatedWorkhouses.map((row) => (
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            {!workId && (
+                                                <TableCell><Typography variant="h6">{row.work?.title || '-'}</Typography></TableCell>
+                                            )}
                                             <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{row.address}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
-                                            {/* <TableCell>
-                                                <Chip
-                                                    label={row.recordStatus === 0 ? 'Aktif' : 'Pasif'}
-                                                    sx={{
-                                                        backgroundColor: row.recordStatus === 0 ? (theme) => theme.palette.success.light : (theme) => theme.palette.error.light,
-                                                        color: row.recordStatus === 0 ? (theme) => theme.palette.success.main : (theme) => theme.palette.error.main,
-                                                    }}
-                                                />
-                                            </TableCell> */}
                                             <TableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                                                     <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={openMenu ? 'true' : undefined} onClick={(event) => handleClickMenu(event, row)}>
@@ -893,11 +1277,10 @@ const ListWorkhouses = () => {
                                                 <Menu
                                                     id="basic-menu"
                                                     anchorEl={anchorEl}
-                                                    open={openMenu}
+                                                    open={openMenu && selectedRowForMenu?.id === row.id}
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detayları kaydet" : ""}>
                                                             <MenuItem onClick={handleNavigateToDetails}>
@@ -924,6 +1307,20 @@ const ListWorkhouses = () => {
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
+
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detaylı bilgilerini PDF formatında indirin" : ""}>
+
+                                                            <MenuItem onClick={() => {
+                                                                if (selectedRowForMenu) {
+                                                                    exportSingleWorkhouseWithDetailsPdf(selectedRowForMenu.id, selectedRowForMenu.name);
+                                                                }
+                                                            }}>
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon> Detaylı PDF İndir
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
@@ -959,7 +1356,7 @@ const ListWorkhouses = () => {
                 workhouseIdToDelete={workhouseIdToDelete}
                 workhouseNameToDelete={workhouseNameToDelete}
                 showAlert={showAlert}
-                onDeleteSuccess={fetchWorkhouses}
+                onDeleteSuccess={() => fetchWorkhouses(workId)}
             />
         </>
     );

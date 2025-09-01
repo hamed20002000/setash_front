@@ -1,11 +1,11 @@
 // InvoiceItemsTable.tsx
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
     TextField, Box, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions,
-    Grid, Button, Chip, Stack,
+    Grid, Button, Chip, Stack
 } from '@mui/material';
-import { IconPlus, IconTrash, IconEdit, IconEye } from '@tabler/icons-react';
+import { IconTrash, IconEye, IconEdit, IconCheck, IconRotate2, IconReload } from '@tabler/icons-react';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import axios from 'axios';
@@ -76,7 +76,7 @@ interface InvoiceItemsTableProps {
     onAddItem: (newItem: InvoiceItem) => void;
     onRemoveItem: (id: number) => void;
     onUpdateItem: (updatedItem: InvoiceItem) => void;
-    providersList: ProviderType[]; // New prop
+    providersList: ProviderType[];
 }
 
 const stripHtml = (htmlString: string) => {
@@ -85,28 +85,13 @@ const stripHtml = (htmlString: string) => {
     return doc.body.textContent || "";
 };
 
-interface InvoiceItemFormState {
-    item: string;
-    quantity: number;
-    price: number;
-    discountPercent: number;
-    discountAmount: number;
-    description: string;
-    unit?: UnitType;
-    orderDetailId?: string | null;
-    provider: ProviderType | null; // Added
-}
-
-const initialFormState: InvoiceItemFormState = {
-    item: '',
-    quantity: 0,
-    price: 0,
-    discountPercent: 0,
-    discountAmount: 0,
-    description: '',
-    unit: undefined,
-    orderDetailId: null,
-    provider: null
+const cleanAndConvertNumber = (value: string | number | undefined | null): number => {
+    if (value === null || value === undefined) {
+        return 0;
+    }
+    const cleanedString = String(value).replace(/[^\d.-]/g, '');
+    const numericValue = parseFloat(cleanedString);
+    return isNaN(numericValue) ? 0 : numericValue;
 };
 
 const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
@@ -119,13 +104,14 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 }) => {
     const [openModal, setOpenModal] = useState(false);
     const [modalContent, setModalContent] = useState('');
-    const [newItemForm, setNewItemForm] = useState(initialFormState);
-    const [editingItem, setEditingItem] = useState<InvoiceItem | null>(null);
-
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
     const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null);
-    const [orderDetailItems, setOrderDetailItems] = useState<ItemType[]>([]);
     const [openOrderDetailsModal, setOpenOrderDetailsModal] = useState(false);
+
+    // Changed to an array to handle multiple deleted items
+    const [deletedItems, setDeletedItems] = useState<InvoiceItem[]>([]);
+
+    const [editingItems, setEditingItems] = useState<Record<number, Partial<InvoiceItem>>>({});
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -148,86 +134,81 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         getListOrders();
     }, []);
 
-    const handleFormChange = (field: keyof InvoiceItemFormState, value: any) => {
-        setNewItemForm(prevForm => {
-            let updatedValue = value;
-            if (['quantity', 'price', 'discountPercent', 'discountAmount'].includes(field)) {
-                updatedValue = value === '' ? 0 : Number(value);
+    // const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
+    //     setEditingItems(prev => ({
+    //         ...prev,
+    //         [id]: {
+    //             ...prev[id],
+    //             [field]: value
+    //         }
+    //     }));
+    // };
+    const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
+        setEditingItems(prev => {
+            const updatedItem = {
+                ...prev[id],
+                [field]: value
+            };
+
+            // Fix: If provider is changed, update the 'firm' status as well.
+            if (field === 'providerId') {
+                const selectedProvider = providersList.find(p => p.id === value);
+                if (selectedProvider) {
+                    updatedItem.firm = selectedProvider.firm === '1';
+                } else {
+                    updatedItem.firm = false; // Reset if no provider is selected
+                }
             }
-            const updatedForm = { ...prevForm, [field]: updatedValue };
-            if (field === 'item') {
-                const sourceList = orderDetailItems;
-                const selectedItem = sourceList.find(i => i.id === value);
-                updatedForm.unit = selectedItem?.unit;
-            }
-            return updatedForm;
+
+            return {
+                ...prev,
+                [id]: updatedItem
+            };
         });
     };
 
-    const handleEditClick = (item: InvoiceItem) => {
-        setEditingItem(item);
-        const selectedProvider = providersList.find(p => p.id === item.providerId) || null;
-
-        const cleanAndConvertNumber = (value: string | number | undefined): number => {
-            if (typeof value === 'string') {
-                const cleanedString = value.replace(/[^\d.-]/g, '');
-                const numberValue = parseFloat(cleanedString);
-                return isNaN(numberValue) ? 0 : numberValue;
+    const handleStartEdit = (item: InvoiceItem) => {
+        setEditingItems(prev => ({
+            ...prev,
+            [item.id]: {
+                ...item,
+                providerId: item.providerId || undefined,
             }
-            return value ?? 0;
-        };
+        }));
+    };
 
-        setNewItemForm({
-            item: item.item,
-            quantity: cleanAndConvertNumber(item.quantity),
-            price: cleanAndConvertNumber(item.price),
-            discountPercent: cleanAndConvertNumber(item.discountPercent),
-            discountAmount: cleanAndConvertNumber(item.discountAmount),
-            description: item.description,
-            unit: item.unit,
-            orderDetailId: item.orderDetailId,
-            provider: selectedProvider,
-        });
-
-        const associatedOrder = ordersList.find(order =>
-            order.orderDetails.some(detail => detail.id === item.orderDetailId)
-        );
-        setSelectedOrder(associatedOrder || null);
-        if (associatedOrder) {
-            const itemsFromOrder = associatedOrder.orderDetails.map(d => d.item);
-            setOrderDetailItems(itemsFromOrder);
-        } else {
-            setOrderDetailItems([]);
+    const handleSaveEdit = (item: InvoiceItem) => {
+        const editedItem = editingItems[item.id];
+        if (editedItem) {
+            onUpdateItem({
+                ...item,
+                ...editedItem as InvoiceItem,
+            });
+            setEditingItems(prev => {
+                const newEditingItems = { ...prev };
+                delete newEditingItems[item.id];
+                return newEditingItems;
+            });
         }
     };
-    const resetForm = () => {
-        setEditingItem(null);
-        setNewItemForm(initialFormState);
-        setSelectedOrder(null);
-        setOrderDetailItems([]);
-    };
-    const handleAddUpdateItem = () => {
-        const itemToAdd: InvoiceItem = {
-            id: editingItem ? editingItem.id : Date.now(),
-            item: newItemForm.item,
-            quantity: Number(newItemForm.quantity),
-            price: Number(newItemForm.price),
-            discountPercent: Number(newItemForm.discountPercent),
-            discountAmount: Number(newItemForm.discountAmount),
-            description: newItemForm.description,
-            unit: newItemForm.unit,
-            orderDetailId: newItemForm.orderDetailId,
-            providerId: newItemForm.provider?.id,
-            firm: newItemForm.provider?.firm === '1',
-        };
 
-        if (editingItem) {
-            onUpdateItem(itemToAdd);
-        } else {
-            onAddItem(itemToAdd);
-        }
-        resetForm();
+    const isSaveEnabled = (item: InvoiceItem) => {
+        const currentItem = editingItems[item.id] || item;
+        const quantity = cleanAndConvertNumber(currentItem.quantity);
+        const price = cleanAndConvertNumber(currentItem.price);
+        return !!currentItem.providerId && quantity > 0 && price > 0;
     };
+
+    const handleRemoveItemWithUndo = (itemToRemove: InvoiceItem) => {
+        setDeletedItems(prev => [...prev, itemToRemove]);
+        onRemoveItem(itemToRemove.id);
+    };
+
+    const handleUndoDelete = (itemToRestore: InvoiceItem) => {
+        onAddItem(itemToRestore);
+        setDeletedItems(prev => prev.filter(item => item.id !== itemToRestore.id));
+    };
+
     const handleOpenModal = (content: string) => {
         setModalContent(stripHtml(content));
         setOpenModal(true);
@@ -240,45 +221,28 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 
     const handleOrderChange = (_event: any, newValue: OrderType | null) => {
         setSelectedOrder(newValue);
-        setOrderDetailItems([]);
-        setNewItemForm(prevForm => ({
-            ...initialFormState,
-            provider: prevForm.provider
-        }));
-
         if (newValue) {
-            const itemsFromOrder = newValue.orderDetails.map(d => d.item);
-            setOrderDetailItems(itemsFromOrder);
+            const newEditingItems: Record<number, Partial<InvoiceItem>> = {};
+            newValue.orderDetails.forEach(detail => {
+                const uniqueId = Date.now() + Math.random();
+                const itemToAdd: InvoiceItem = {
+                    id: uniqueId,
+                    item: detail.item.id,
+                    quantity: cleanAndConvertNumber(detail.quantity),
+                    price: cleanAndConvertNumber(detail.price),
+                    discountPercent: 0,
+                    discountAmount: 0,
+                    description: detail.description,
+                    unit: detail.item.unit,
+                    orderDetailId: detail.id,
+                    providerId: undefined, // Changed from null to undefined
+                    firm: false,
+                };
+                onAddItem(itemToAdd);
+                newEditingItems[uniqueId] = { ...itemToAdd, providerId: undefined };
+            });
+            setEditingItems(newEditingItems);
         }
-    };
-
-    const handleOrderDetailItemChange = (_event: any, newValue: ItemType | null) => {
-        if (newValue && selectedOrder) {
-            const orderDetail = selectedOrder.orderDetails.find(d => d.item.id === newValue.id);
-            if (orderDetail) {
-                setNewItemForm(prevForm => ({
-                    ...prevForm,
-                    item: newValue.id,
-                    quantity: Number(orderDetail.quantity),
-                    price: Number(orderDetail.price ? orderDetail.price.replace(/[^\d.-]/g, '') : 0),
-                    description: orderDetail.description,
-                    unit: newValue.unit,
-                    orderDetailId: orderDetail.id, // Set the orderDetailId here
-                }));
-            }
-        } else {
-            setNewItemForm(prevForm => ({
-                ...initialFormState,
-                provider: prevForm.provider
-            }));
-        }
-    };
-
-    const handleProviderChange = (_event: any, newValue: ProviderType | null) => {
-        setNewItemForm(prev => ({
-            ...prev,
-            provider: newValue
-        }));
     };
 
     const handleOpenOrderDetailsModal = () => {
@@ -288,7 +252,12 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     const handleCloseOrderDetailsModal = () => {
         setOpenOrderDetailsModal(false);
     };
-
+    const handleResetOrderSelection = () => {
+        setSelectedOrder(null);
+        setEditingItems({});
+        setDeletedItems([]);
+        items.forEach(item => onRemoveItem(item.id));
+    };
     const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
         if (priceInput === null || priceInput === undefined) {
             return '₺0.00';
@@ -307,44 +276,14 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         return formattedPrice.replace('$', '₺');
     };
 
-    const availableItems = useMemo(() => {
-        if (selectedOrder) {
-            const addedItemIds = new Set(items.map(i => i.item));
-            return orderDetailItems.filter(item => !addedItemIds.has(item.id) || item.id === newItemForm.item);
-        }
-        return []; // Return empty array if no order is selected
-    }, [orderDetailItems, items, newItemForm.item, selectedOrder]);
-
-    const isFormValid = !!selectedOrder && !!newItemForm.item && newItemForm.quantity > 0 && newItemForm.price > 0 && !!newItemForm.provider;
+    const isInvoiceItemsEmpty = items.length === 0;
 
     return (
-        <Paper elevation={3} sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>{editingItem ? "Ürünü Düzenle" : "Yeni Ürün Ekle"}</Typography>
+        <Paper elevation={3} sx={{ p: 2, mt: 3 }} >
+            <Typography variant="h6" gutterBottom>Fatura Ürünleri</Typography>
             <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="provider-autocomplete-item" required>Tedarikçi</CustomFormLabel>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Autocomplete<ProviderType>
-                            id="provider-autocomplete-item"
-                            options={providersList}
-                            getOptionLabel={(option) => option.name}
-                            value={newItemForm.provider}
-                            onChange={handleProviderChange}
-                            sx={{ flexGrow: 1 }}
-                            renderInput={(params) => <TextField {...params} label="Tedarikçi Seçin" variant="outlined" size="small" />}
-                        />
-                        {newItemForm.provider && (
-                            <Chip
-                                label={newItemForm.provider.firm === '1' ? "Şirket İçi" : "Şirket Dışı"}
-                                color={newItemForm.provider.firm === '1' ? "primary" : "secondary"}
-                                size="small"
-                            />
-                        )}
-                    </Stack>
-                </Grid>
-
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="order-autocomplete" required>
+                <Grid item xs={12}>
+                    <CustomFormLabel htmlFor="order-autocomplete">
                         Sipariş Seçin
                     </CustomFormLabel>
                     <Stack direction="row" alignItems="center" spacing={2}>
@@ -356,194 +295,242 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                             onChange={handleOrderChange}
                             sx={{ flexGrow: 1 }}
                             renderInput={(params) => <TextField {...params} label="Sipariş" variant="outlined" size="small" />}
+                            disabled={!isInvoiceItemsEmpty}
                         />
                         {selectedOrder && (
-                            <Button
-                                variant="outlined"
-                                onClick={handleOpenOrderDetailsModal}
-                            >
-                                Sipariş Detayları
-                            </Button>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Button variant="outlined" onClick={handleOpenOrderDetailsModal}>Sipariş Detayları</Button>
+                                <CustomTooltip title="Siparişi değiştir">
+                                    <IconButton color="primary" onClick={handleResetOrderSelection}>
+                                        <IconRotate2 size={20} />
+                                    </IconButton>
+                                </CustomTooltip>
+                            </Stack>
                         )}
                     </Stack>
-                </Grid>
 
-                <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="item-autocomplete" required>
-                        Ürün Seçin
-                    </CustomFormLabel>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Autocomplete<ItemType>
-                            id="item-autocomplete"
-                            options={availableItems}
-                            getOptionLabel={(option) => option.name}
-                            value={availableItems.find(i => i.id === newItemForm.item) || null}
-                            onChange={handleOrderDetailItemChange}
-                            sx={{ flexGrow: 1 }}
-                            renderInput={(params) => <TextField {...params} label="Ürün Seçin" variant="outlined" size="small" />}
-                            disabled={!selectedOrder}
-                        />
-                        {newItemForm.unit?.title && (
-                            <Chip label={newItemForm.unit.title} color="secondary" variant="outlined" />
-                        )}
-                    </Stack>
-                </Grid>
-
-                <Grid item xs={12} sm={3}>
-                    <CustomFormLabel htmlFor="Miktar" required>
-                        Miktar
-                    </CustomFormLabel>
-                    <TextField
-                        label="Miktar" type="number" size="small" fullWidth
-                        value={newItemForm.quantity !== 0 ? newItemForm.quantity : ''}
-                        onChange={(e) => handleFormChange('quantity', e.target.value)}
-                        InputProps={{ inputProps: { min: 0 } }}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                    <CustomFormLabel htmlFor="Fiyat" required>
-                        Fiyat
-                    </CustomFormLabel>
-                    <TextField
-                        label="Fiyat" type="number" size="small" fullWidth
-                        value={newItemForm.price !== 0 ? newItemForm.price : ''}
-                        onChange={(e) => handleFormChange('price', e.target.value)}
-                        InputProps={{ inputProps: { min: 0 } }}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                    <CustomFormLabel htmlFor="İndirim (Yüzdesel %)">
-                        İndirim (Yüzdesel %)
-                    </CustomFormLabel>
-                    <TextField
-                        label="İndirim (Yüzdesel %)" type="number" size="small" fullWidth
-                        value={newItemForm.discountPercent !== 0 ? newItemForm.discountPercent : ''}
-                        onChange={(e) => handleFormChange('discountPercent', e.target.value)}
-                        InputProps={{ inputProps: { min: 0 } }}
-                    />
-                </Grid>
-                <Grid item xs={12} sm={3}>
-                    <CustomFormLabel htmlFor="İndirim (Miktar)">
-                        İndirim (Miktar)
-                    </CustomFormLabel>
-                    <TextField
-                        label="İndirim (Miktar)" type="number" size="small" fullWidth
-                        value={newItemForm.discountAmount !== 0 ? newItemForm.discountAmount : ''}
-                        onChange={(e) => handleFormChange('discountAmount', e.target.value)}
-                        InputProps={{ inputProps: { min: 0 } }}
-                    />
-                </Grid>
-                <Grid item xs={12}>
-                    <CustomFormLabel htmlFor="Açıklama">
-                        Açıklama
-                    </CustomFormLabel>
-                    <TextField
-                        label="Açıklama" size="small" fullWidth multiline rows={1}
-                        value={newItemForm.description || ''}
-                        onChange={(e) => handleFormChange('description', e.target.value)}
-                    />
                 </Grid>
             </Grid>
-            <Box textAlign="right" sx={{ mb: 2 }}>
-                {editingItem ? (
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        <Button
-                            variant="contained" color="info" onClick={handleAddUpdateItem}
-                            disabled={!isFormValid}
-                        >
-                            Düzenle
-                        </Button>
-                        <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
-                    </Stack>
-                ) : (
-                    <Button
-                        variant="contained" startIcon={<IconPlus />} onClick={handleAddUpdateItem}
-                        disabled={!isFormValid}
+
+            {/* Undo Delete Section */}
+            {/* {deletedItems.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                    <Alert
+                        severity="warning"
+                        sx={{ backgroundColor: '#ff9800', color: 'white' }}
                     >
-                        Ürün Ekle
-                    </Button>
-                )}
-            </Box>
+                        <Typography variant="h6">Silinen Ürünler</Typography>
+                        {deletedItems.map((item) => {
+                            const provider = providersList.find(p => p.id === item.providerId);
+                            const itemInfo = itemsList.find(i => i.id === item.item);
+                            return (
+                                <Box key={item.id} sx={{ my: 1, p: 1, backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Box>
+                                        <Typography variant="body1">{itemInfo?.name}</Typography>
+                                        <Typography variant="caption">{provider?.name || 'Tedarikçi Bilinmiyor'}</Typography>
+                                    </Box>
+                                    <Button
+                                        color="inherit"
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={() => handleUndoDelete(item)}
+                                    >
+                                        Geri Al
+                                    </Button>
+                                </Box>
+                            );
+                        })}
+                    </Alert>
+                </Box>
+            )} */}
+            {deletedItems.length > 0 && (
+                <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
+                    <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler:</Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+
+                        {deletedItems.map((item) => {
+                            const provider = providersList.find(p => p.id === item.providerId);
+                            const itemInfo = itemsList.find(i => i.id === item.item);
+                            return (
+                                <Chip
+                                    key={item.id}
+                                    label={`${itemInfo?.name} (${provider?.name || 'Tedarikçi Bilinmiyor'})`}
+                                    onDelete={() => handleUndoDelete(item)}
+                                    deleteIcon={<IconReload />}
+                                    color="error"
+                                    variant="outlined"
+                                    sx={{ mb: 1 }}
+                                />
+                            );
+                        })}
+                    </Stack>
+                </Box>
+            )}
 
             <Typography variant="h6" gutterBottom>Eklenen Ürünler</Typography>
             <TableContainer sx={{ maxHeight: 600, overflowY: 'auto' }}>
                 <Table stickyHeader aria-label="invoice items table">
                     <TableHead>
                         <TableRow>
-                            <TableCell sx={{ width: '25%' }}>Ürün</TableCell>
-                            <TableCell sx={{ width: '15%' }}>Tedarikçi</TableCell>
-                            <TableCell sx={{ width: '15%' }}>Firm</TableCell>
-                            <TableCell sx={{ width: '15%' }}>Miktar</TableCell>
-                            <TableCell sx={{ width: '15%' }}>Fiyat</TableCell>
-                            <TableCell sx={{ width: '15%' }}>İndirim %</TableCell>
-                            <TableCell sx={{ width: '15%' }}>İndirim Miktarı</TableCell>
+                            <TableCell sx={{ width: '25%' }}>Ürün & Birim</TableCell>
+                            <TableCell sx={{ width: '10%' }}>Miktar & Fiyat</TableCell>
+                            <TableCell sx={{ width: '20%' }}>Tedarikçi & Firm</TableCell>
+                            <TableCell sx={{ width: '15%' }}>İndirimler</TableCell>
                             <TableCell sx={{ width: '20%' }}>Açıklama</TableCell>
-                            <TableCell sx={{ width: '15%' }} align="right">İşlemler</TableCell>
+                            <TableCell sx={{ width: '10%' }} align="right">İşlemler</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {items.length > 0 ? (
                             items.map((item) => {
-                                const provider = providersList.find(p => p.id === item.providerId);
+                                const isEditing = editingItems[item.id] !== undefined;
+                                const currentItem = isEditing ? editingItems[item.id] : item;
+                                const provider = providersList.find(p => p.id === currentItem?.providerId);
+                                const product = itemsList.find(i => i.id === item.item);
+
+                                const quantity = cleanAndConvertNumber(currentItem?.quantity);
+                                const price = cleanAndConvertNumber(currentItem?.price);
+                                const providerId = currentItem?.providerId;
+
                                 return (
                                     <TableRow key={item.id}>
                                         <TableCell>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                                <Typography>{itemsList.find(i => i.id === item.item)?.name}</Typography>
-                                                {item.unit?.title && (
-                                                    <Chip label={item.unit.title} color="secondary" variant="outlined" />
-                                                )}
-                                            </Box>
-                                        </TableCell>
-                                        <TableCell><Typography>{provider?.name || '-'}</Typography></TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={item.firm ? "Şirket İçi" : "Şirket Dışı"}
-                                                color={item.firm ? "primary" : "secondary"}
-                                                size="small"
-                                            />
+                                            <Typography variant="subtitle1" fontWeight="bold">{product?.name || '-'}</Typography>
+                                            <Typography variant="body2" color="textSecondary">{product?.unit?.title || '-'}</Typography>
                                         </TableCell>
                                         <TableCell>
-                                            <Typography>{Number(item.quantity).toFixed(2)}</Typography>
+                                            {isEditing ? (
+                                                <Stack direction="column" spacing={1}>
+                                                    <TextField
+                                                        label="Miktar" type="number" size="small"
+                                                        value={quantity}
+                                                        onChange={(e) => handleItemChange(item.id, 'quantity', e.target.value)}
+                                                        error={!quantity || quantity <= 0}
+                                                        helperText={(!quantity || quantity <= 0) && 'Bu alan zorunludur.'}
+                                                    />
+                                                    <TextField
+                                                        label="Fiyat" type="number" size="small"
+                                                        value={price}
+                                                        onChange={(e) => handleItemChange(item.id, 'price', e.target.value)}
+                                                        error={!price || price <= 0}
+                                                        helperText={(!price || price <= 0) && 'Bu alan zorunludur.'}
+                                                    />
+                                                </Stack>
+                                            ) : (
+                                                <>
+                                                    <Typography variant="subtitle1" fontWeight="bold">{Number(item.quantity).toFixed(2)}</Typography>
+                                                    <Typography variant="body2" color="textSecondary">{cleanAndFormatPrice(item.price)}</Typography>
+                                                </>
+                                            )}
                                         </TableCell>
                                         <TableCell>
-                                            <Typography>{cleanAndFormatPrice(item.price)}</Typography>
+                                            {isEditing ? (
+                                                <Stack direction="column" spacing={1}>
+                                                    <Autocomplete<ProviderType>
+                                                        options={providersList}
+                                                        getOptionLabel={(option) => option.name}
+                                                        value={provider || null} // Use the found provider object here
+                                                        onChange={(_event, newValue) => {
+                                                            // Call handleItemChange with the new provider's ID
+                                                            const newProviderId = newValue ? newValue.id : undefined;
+                                                            handleItemChange(item.id, 'providerId', newProviderId);
+                                                        }}
+                                                        size="small"
+                                                        renderInput={(params) => <TextField {...params} label="Tedarikçi" error={!providerId} helperText={!providerId && 'Bu alan zorunludur.'} />}
+                                                    />
+                                                    {provider && (
+                                                        <Chip
+                                                            label={provider.firm === '1' ? "Şirket İçi" : "Şirket Dışı"}
+                                                            color={provider.firm === '1' ? "primary" : "secondary"}
+                                                            size="small"
+                                                        />
+                                                    )}
+                                                </Stack>
+                                            ) : (
+                                                <>
+                                                    <Typography variant="subtitle1" noWrap>{provider?.name || '-'}</Typography>
+                                                    <Chip
+                                                        label={item.firm ? "Şirket İçi" : "Şirket Dışı"}
+                                                        color={item.firm ? "primary" : "secondary"}
+                                                        size="small"
+                                                    />
+                                                </>
+                                            )}
                                         </TableCell>
                                         <TableCell>
-                                            <Typography>{Number(item.discountPercent).toFixed(2)}</Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography>{Number(item.discountAmount).toFixed(2)}</Typography>
+                                            {isEditing ? (
+                                                <Stack direction="column" spacing={1}>
+                                                    <TextField
+                                                        label="İndirim %" type="number" size="small"
+                                                        value={currentItem?.discountPercent || 0}
+                                                        onChange={(e) => handleItemChange(item.id, 'discountPercent', e.target.value)}
+                                                    />
+                                                    <TextField
+                                                        label="İndirim Miktar" type="number" size="small"
+                                                        value={currentItem?.discountAmount || 0}
+                                                        onChange={(e) => handleItemChange(item.id, 'discountAmount', e.target.value)}
+                                                    />
+                                                </Stack>
+                                            ) : (
+                                                <>
+                                                    <Typography variant="subtitle1" noWrap>{Number(item.discountPercent).toFixed(2)}%</Typography>
+                                                    <Typography variant="body2" color="textSecondary">{cleanAndFormatPrice(item.discountAmount)}</Typography>
+                                                </>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography>{stripHtml(item.description)}</Typography>
-                                                {stripHtml(item.description).length > 50 && (
-                                                    <IconButton size="small" onClick={() => handleOpenModal(item.description || '')}><IconEye size={18} /></IconButton>
+                                                {isEditing ? (
+                                                    <TextField
+                                                        label="Açıklama" size="small" fullWidth multiline rows={1}
+                                                        value={currentItem?.description || ''}
+                                                        onChange={(e) => handleItemChange(item.id, 'description', e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <Typography noWrap>{stripHtml(item.description)}</Typography>
+                                                )}
+                                                {stripHtml(item.description).length > 20 && !isEditing && (
+                                                    <IconButton size="small" onClick={() => handleOpenModal(item.description || '')}>
+                                                        <IconEye size={18} />
+                                                    </IconButton>
                                                 )}
                                             </Box>
                                         </TableCell>
                                         <TableCell align="right">
-                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü düzenle" : ""}>
-                                                <IconButton color="primary" onClick={() => handleEditClick(item)}>
-                                                    <IconEdit size={20} />
-                                                </IconButton>
-                                            </CustomTooltip>
-                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü sil" : ""}>
-                                                <IconButton color="error" onClick={() => onRemoveItem(item.id)}>
-                                                    <IconTrash size={20} />
-                                                </IconButton>
-                                            </CustomTooltip>
+                                            {isEditing ? (
+                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Değişiklikleri kaydet" : ""}>
+                                                    <span>
+                                                        <IconButton
+                                                            color="success"
+                                                            onClick={() => handleSaveEdit(item)}
+                                                            disabled={!isSaveEnabled(item)}
+                                                        >
+                                                            <IconCheck size={20} />
+                                                        </IconButton>
+                                                    </span>
+                                                </CustomTooltip>
+                                            ) : (
+                                                <>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü düzenle" : ""}>
+                                                        <IconButton color="primary" onClick={() => handleStartEdit(item)}>
+                                                            <IconEdit size={20} />
+                                                        </IconButton>
+                                                    </CustomTooltip>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ürünü sil" : ""}>
+                                                        <IconButton color="error" onClick={() => handleRemoveItemWithUndo(item)}>
+                                                            <IconTrash size={20} />
+                                                        </IconButton>
+                                                    </CustomTooltip>
+                                                </>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 );
                             })
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={9} align="center">
-                                    <Typography variant="subtitle1" color="textSecondary">
-                                        Hiç ürün eklenmedi.
-                                    </Typography>
+                                <TableCell colSpan={6} align="center">
+                                    <Typography variant="subtitle1" color="textSecondary">Hiç ürün eklenmedi.</Typography>
                                 </TableCell>
                             </TableRow>
                         )}

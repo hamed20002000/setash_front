@@ -112,3 +112,13 @@ export interface MapEdge {
     formulaTitle?: string;
     items?: AddedItem[];
 }
+
+
+export interface ProductTypesType {
+    id: string; // یا number، بستگی به API دارد
+    name: string;
+    recordStatus: number;
+    createAt: string;
+    type: number;
+    status: string;
+}

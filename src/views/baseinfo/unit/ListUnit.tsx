@@ -546,7 +546,7 @@ const ListUnit = () => {
     doc.setFont('NotoSans');
 
     const header = () => {
-      doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+      doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
       doc.setFontSize(18);
       doc.text('Tüm Ölçü Birimleri Raporu', pageWidth - 15, 30, { align: 'right' });
       doc.setFontSize(12);
@@ -558,6 +558,9 @@ const ListUnit = () => {
       doc.setTextColor(0);
       doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
       doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+      const docAny = doc as any;
+      const pageCount = docAny.internal.getNumberOfPages();
+      doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
 
     const rows = unitsList.map(unit => [
@@ -713,7 +716,7 @@ const ListUnit = () => {
                 startIcon={<IconFileDownload />}
               // You can add fullWidth if you want it to be responsive
               >
-                Tüm Ürünleri İndir
+                Tüm Ölçüleri İndir (PDF)
               </Button>
             </Grid>
           )}

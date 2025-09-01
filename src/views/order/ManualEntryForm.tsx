@@ -213,7 +213,7 @@ const ManualEntryForm = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -227,6 +227,9 @@ const ManualEntryForm = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         const rows = orderData.orderDetails.map(detail => [

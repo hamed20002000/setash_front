@@ -778,7 +778,7 @@ const ListRegion = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text('Tüm Bölgeler Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -790,6 +790,9 @@ const ListRegion = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
@@ -950,7 +953,7 @@ const ListRegion = () => {
                                 startIcon={<IconFileDownload />}
                             // You can add fullWidth if you want it to be responsive
                             >
-                                Tüm Ürünleri İndir
+                                Tüm Bölgeleri İndir (PDF)
                             </Button>
                         </Grid>
                     )}

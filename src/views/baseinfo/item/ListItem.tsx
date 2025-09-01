@@ -27,7 +27,7 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
   IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
-  IconPrinter,
+  IconFileDownload,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -1146,7 +1146,7 @@ const ListItemComponent = () => {
         // این قلاب به صورت خودکار در هر صفحه جدید فراخوانی می‌شود
         didDrawPage: (_data) => {
           // هدر
-          doc.addImage(Logo, 'PNG', 10, 10, 25, 25);
+          doc.addImage(Logo, 'PNG', 10, 10, 50, 25);
           doc.setFontSize(18);
           doc.text('Tüm Ürünler Raporu', pageWidth - 15, 30, { align: 'right' });
           doc.setFontSize(12);
@@ -1157,6 +1157,9 @@ const ListItemComponent = () => {
           doc.setTextColor(0);
           doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
           doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+          const docAny = doc as any;
+          const pageCount = docAny.internal.getNumberOfPages();
+          doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         },
         // تنظیمات اضافی برای تکرار هدر جدول در صفحات جدید
         showHead: 'everyPage',
@@ -1470,15 +1473,17 @@ const ListItemComponent = () => {
         )}
       </div>
       <BlankCard>
+
         <>
           {hasDownloadPermission && (
             <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
               <Button
-                variant="outlined"
-                startIcon={<IconPrinter />}
+                variant="contained"
+                color="secondary"
                 onClick={handlePrintAllItems}
+                startIcon={<IconFileDownload />}
               >
-                Tümünü Yazdır
+                Tüm Ürünleri İndir (PDF)
               </Button>
             </Grid>
           )}

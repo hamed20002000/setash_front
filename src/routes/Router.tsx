@@ -106,16 +106,10 @@
 
 
 
-
-// src/Router.tsx
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
-import React, { lazy } from 'react';
+import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 import Loadable from '../layouts/full/shared/loadable/Loadable';
 
-// ✅ وارد کردن PermissionGuard
 import PermissionGuard from 'src/context/PermissionGuard';
 
 
@@ -139,6 +133,7 @@ const ListProductTypes = Loadable(lazy(() => import('../views/baseinfo/productty
 const ListTransmission = Loadable(lazy(() => import('../views/works/transmission/ListTransmission')));
 const ListRegion = Loadable(lazy(() => import('../views/baseinfo/region/ListRegion')));
 const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListWarehouses')));
+const ListWarehousesDistpach = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListWarehousesDistpach')));
 const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
 const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/ListDrivers')));
 const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
@@ -158,21 +153,23 @@ const Error = Loadable(lazy(() => import('../views/authentication/Error')));
 const Maintenance = Loadable(lazy(() => import('../views/authentication/Maintenance')));
 const ResetPassword = Loadable(lazy(() => import('../views/authentication/auth1/ResetPassword')));
 
-// Landingpage
 const Landingpage = Loadable(lazy(() => import('../views/pages/landingpage/Landingpage')));
 
 
 const Router = [
   {
     path: '/',
+
+    // element: (
+    //   <PermissionGuard requiredOperationName="Görüntülemek">
+    //     <FullLayout />
+    //   </PermissionGuard>
+    // ),
     element: (
-      <PermissionGuard requiredOperationName="Görüntülemek">
-        <FullLayout />
-      </PermissionGuard>
+      <FullLayout />
     ),
     children: [
       { path: '/', element: <Navigate to="/auth/login" /> },
-      // ✅ استفاده از PermissionGuard برای هر مسیر که نیاز به دسترسی دارد
       {
         path: '/dashboards/dashboard',
         exact: true,
@@ -263,6 +260,14 @@ const Router = [
         )
       },
       {
+        path: '/network/list-network',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListNetworks />
+          </PermissionGuard>
+        )
+      },
+      {
         path: '/network/:networkId/details',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
@@ -272,6 +277,14 @@ const Router = [
       },
       {
         path: '/workhouse/list-workhouse/:workId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListWorkHouse />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/workhouse/list-workhouse/',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListWorkHouse />
@@ -315,6 +328,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListWarehouses />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/warehouse/list-warehouse-dispatch/:warehouseId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListWarehousesDistpach />
           </PermissionGuard>
         )
       },

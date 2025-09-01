@@ -10,11 +10,12 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     Menu, MenuItem, IconButton, ListItemIcon,
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+    FormControl, Select,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconSearch, IconDots, IconEdit, IconTrash, IconPlus, IconArrowRight } from '@tabler/icons-react';
+import { IconSearch, IconDots, IconEdit, IconTrash, IconPlus, IconArrowRight, IconFileDownload } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import axios from 'axios';
@@ -28,7 +29,13 @@ import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
+import { SelectChangeEvent } from '@mui/material/Select';
 
+
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -43,11 +50,26 @@ const formatDateDisplay = (dateString: string | null): string => {
 
 interface NetworkType {
     id: string;
-    name: string;
+    title: string;
     description: string;
     createAt: string;
     status: string;
     recordStatus?: number;
+    work?: {
+        id: number;
+        title: string;
+    };
+}
+
+interface WorkType {
+    id: number;
+    title: string;
+}
+
+interface ApiResponse<T> {
+    data: T;
+    httpStatusCode: number;
+    message: string;
 }
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
@@ -83,9 +105,21 @@ const ListNetwork = () => {
         description: '',
         workId: workId ? parseInt(workId) : 0,
     });
+
+    // 👇 State های جدید برای مدیریت حالت دوم
+    const [selectedWorkIdForForm, setSelectedWorkIdForForm] = useState<number | null>(null);
+    const [works, setWorks] = useState<WorkType[]>([]);
+    const [allNetworks, setAllNetworks] = useState<NetworkType[]>([]);
+
+    // 👇 State های فیلتر
+    const [filterWorkId, setFilterWorkId] = useState<number | null>(null);
+
     const [workTitleForDisplay, setWorkTitleForDisplay] = useState('');
     const [tenderTitleForDisplay, setTenderTitleForDisplay] = useState('');
+
+    // 👇 این State برای نمایش در جدول استفاده می‌شود
     const [networks, setNetworks] = useState<NetworkType[]>([]);
+
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -99,7 +133,7 @@ const ListNetwork = () => {
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<NetworkType | null>(null);
     const openMenu = Boolean(anchorEl);
     const [editingId, setEditingId] = useState<string | null>(null);
-    const [originalTitle, setOriginalTitle] = useState<string>('');
+    // const [originalTitle, setOriginalTitle] = useState<string>('');
     const [titleError, setTitleError] = useState<boolean>(false);
     const [descriptionError, setDescriptionError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
@@ -124,11 +158,44 @@ const ListNetwork = () => {
     }, [allowedOperations]);
 
 
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    }, [allowedOperations]);
+
+    // 👇 از useEffect برای اعمال فیلتر استفاده کنید
+    useEffect(() => {
+        let filtered = allNetworks;
+
+        // فیلتر بر اساس Work ID (در حالت دوم)
+        if (filterWorkId) {
+            filtered = filtered.filter(network => network.work && network.work.id === filterWorkId);
+        }
+
+        // فیلتر بر اساس جستجو و وضعیت
+        filtered = filtered.filter(network => {
+            const matchesSearch = network.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (network.work && network.work.title && network.work.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (network.description && network.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+            const matchesStatus =
+                statusFilter === 'all' ||
+                (statusFilter === 'active' && network.recordStatus === 0) ||
+                (statusFilter === 'inactive' && network.recordStatus === 1);
+
+            return matchesSearch && matchesStatus;
+        });
+
+        setNetworks(filtered);
+    }, [allNetworks, filterWorkId, searchTerm, statusFilter]);
 
     useEffect(() => {
         if (workId) {
-            fetchWorkDetails(parseInt(workId));
-            fetchNetworksByWorkId();
+            const parsedWorkId = parseInt(workId);
+            setSelectedWorkIdForForm(parsedWorkId);
+            fetchWorkDetails(parsedWorkId);
+            fetchNetworksByWorkId(parsedWorkId);
+        } else {
+            fetchAllNetworksAndWorks();
         }
         if (tenderId) {
             fetchTenderDetails(parseInt(tenderId));
@@ -167,6 +234,53 @@ const ListNetwork = () => {
         }
     };
 
+    const fetchAllNetworksAndWorks = async () => {
+        setLoadingData(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            navigate("/");
+            setLoadingData(false);
+            return;
+        }
+        try {
+            const [networksResponse, worksResponse] = await Promise.all([
+                axios.get<ApiResponse<NetworkType[]>>(server.baseurl + server.initialoperations + `get-networks`, {
+                    headers: { "Authorization": `Bearer ${authToken}` }
+                }),
+                axios.get<ApiResponse<WorkType[]>>(server.baseurl + server.initialoperations + `get-works`, {
+                    headers: { "Authorization": `Bearer ${authToken}` }
+                })
+            ]);
+
+            if (networksResponse.data.httpStatusCode === 200 && worksResponse.data.httpStatusCode === 200) {
+                const allNetworksData = networksResponse.data.data;
+                const worksData = worksResponse.data.data;
+
+                const formattedNetworks = allNetworksData.map((item: any) => ({
+                    id: item.id,
+                    title: item.title,
+                    description: item.description,
+                    createAt: item.createAt,
+                    // تعیین مقدار status بر اساس recordStatus
+                    status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
+                    recordStatus: item.recordStatus,
+                    work: item.work
+                }));
+
+                setAllNetworks(formattedNetworks);
+                setNetworks(formattedNetworks); // نمایش همه شبکه‌ها در ابتدا
+                setWorks(worksData);
+
+            } else {
+                showAlert('Veri yüklenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert(e.response?.data?.message || 'Veri yüklenirken bir hata oluştu.', 'error');
+        } finally {
+            setLoadingData(false);
+        }
+    };
+
     const fetchTenderDetails = async (id: number) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -190,7 +304,8 @@ const ListNetwork = () => {
             showAlert(e.response?.data?.message || 'İhale detayları yüklenirken bir hata oluştu.', 'error');
         }
     };
-    const fetchNetworksByWorkId = async () => {
+
+    const fetchNetworksByWorkId = async (id: number) => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -208,14 +323,15 @@ const ListNetwork = () => {
             });
             if (response.data.httpStatusCode === 200) {
                 const rawData = response.data.data;
-                const filteredData = rawData.filter((item: any) => item.work && parseInt(item.work.id) === parseInt(workId!));
+                const filteredData = rawData.filter((item: any) => item.work && parseInt(item.work.id) === id);
                 const formattedData: NetworkType[] = filteredData.map((item: any) => ({
                     id: item.id,
-                    name: item.title,
+                    title: item.title,
                     description: item.description,
                     createAt: item.createAt,
                     status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
                     recordStatus: item.recordStatus,
+                    work: item.work
                 }));
                 setNetworks(formattedData);
             } else {
@@ -233,6 +349,7 @@ const ListNetwork = () => {
             setLoadingData(false);
         }
     };
+
     const handleNetworkNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setNewNetworkData(prev => ({
             ...prev,
@@ -266,25 +383,33 @@ const ListNetwork = () => {
             setTitleError(false);
         }
 
+        if (!workId && selectedWorkIdForForm === null) {
+            setFormErrors("Lütfen bir iş seçin!");
+            isValid = false;
+        }
+
         if (!isValid) {
             showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
         }
         return isValid;
     };
+
     const resetFormAndState = () => {
         setNewNetworkData({
             title: '',
             description: '',
-            workId: workId ? parseInt(workId) : 0,
+            workId: workId ? parseInt(workId) : (selectedWorkIdForForm ? selectedWorkIdForForm : 0),
         });
+        setSelectedWorkIdForForm(null);
         setEditingId(null);
-        setOriginalTitle('');
+        // setOriginalTitle('');
         setTitleError(false);
         setDescriptionError(false);
         setFormErrors(null);
     };
+
     const insertNetwork = async () => {
-        if (!validateForm()) {
+        if (!validateForm() || (workId === undefined && selectedWorkIdForForm === null)) {
             return;
         }
         setLoadingButton(true);
@@ -299,7 +424,7 @@ const ListNetwork = () => {
             const payload = {
                 title: newNetworkData.title,
                 description: newNetworkData.description,
-                workId: newNetworkData.workId,
+                workId: workId ? Number(workId) : Number(selectedWorkIdForForm),
             };
             const response = await axios.post(
                 server.baseurl + server.initialoperations + "create-network",
@@ -316,7 +441,11 @@ const ListNetwork = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni Şebeke başarıyla eklendi!', 'success');
                 resetFormAndState();
-                fetchNetworksByWorkId();
+                if (workId) {
+                    fetchNetworksByWorkId(parseInt(workId));
+                } else {
+                    fetchAllNetworksAndWorks();
+                }
             } else {
                 showAlert(response.data.message || 'Yeni Şebeke eklenirken bir hata oluştu.', 'error');
             }
@@ -332,17 +461,17 @@ const ListNetwork = () => {
             setLoadingButton(false);
         }
     };
+
     const editNetwork = async () => {
         if (editingId === null) return;
-
-        if (!validateForm()) {
+        if (!validateForm() || (workId === undefined && selectedWorkIdForForm === null)) {
             return;
         }
-        if (newNetworkData.title === originalTitle) {
-            showAlert('Şebeke bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
-            resetFormAndState();
-            return;
-        }
+        // if (newNetworkData.title === originalTitle) {
+        //     showAlert('Şebeke bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
+        //     resetFormAndState();
+        //     return;
+        // }
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -350,12 +479,13 @@ const ListNetwork = () => {
             navigate("/");
             setLoadingButton(false);
             return;
-        }
+        } debugger
         try {
             const payload = {
                 id: Number(editingId),
                 title: newNetworkData.title,
                 description: newNetworkData.description,
+                workId: workId ? Number(workId) : Number(selectedWorkIdForForm),
             };
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-network",
@@ -371,7 +501,11 @@ const ListNetwork = () => {
             if (response.data.httpStatusCode === 200) {
                 showAlert('Şebeke başarıyla güncellendi!', 'success');
                 resetFormAndState();
-                fetchNetworksByWorkId();
+                if (workId) {
+                    fetchNetworksByWorkId(parseInt(workId));
+                } else {
+                    fetchAllNetworksAndWorks();
+                }
             } else {
                 showAlert(response.data.message || 'Şebeke güncellenirken bir hata oluştu.', 'error');
             }
@@ -380,6 +514,9 @@ const ListNetwork = () => {
                 localStorage.removeItem('authToken');
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            }
+            else if (e.response?.status === 500) {
+                showAlert('Bu Şebeke düzenlenemez, çünkü kullanılmıştır.', 'error');
             } else {
                 showAlert(e.response?.data?.message || 'Şebeke güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
@@ -387,6 +524,14 @@ const ListNetwork = () => {
             setLoadingButton(false);
         }
     };
+
+    // 👇 تابع جدید برای مدیریت فیلتر با ComboBox (بدون تأثیر بر State فرم ثبت)
+    const handleWorkFilterChange = (event: SelectChangeEvent<number>) => {
+        const newWorkId = event.target.value as number;
+        setFilterWorkId(newWorkId || null);
+        setPage(0); // بازنشانی صفحه‌بندی
+    };
+
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: NetworkType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -395,6 +540,7 @@ const ListNetwork = () => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
     };
+
     const sendRecordStatusUpdate = async (id: string, statusValue: number) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -417,7 +563,11 @@ const ListNetwork = () => {
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : statusValue === 1 ? 'Pasif' : 'Silindi';
                 showAlert(`Şebeke başarıyla ${statusText} olarak ayarlandı!`, 'success');
-                fetchNetworksByWorkId();
+                if (workId) {
+                    fetchNetworksByWorkId(parseInt(workId));
+                } else {
+                    fetchAllNetworksAndWorks();
+                }
             } else {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
@@ -433,6 +583,7 @@ const ListNetwork = () => {
             handleCloseMenu();
         }
     };
+
     const handleSetActive = () => {
         if (selectedRowForMenu) {
             sendRecordStatusUpdate(selectedRowForMenu.id, 0);
@@ -445,13 +596,17 @@ const ListNetwork = () => {
     };
     const handleEditClick = () => {
         if (selectedRowForMenu) {
+            // 👇 این خط را اضافه کنید
+            setSelectedWorkIdForForm(selectedRowForMenu.work?.id || null);
+
             setNewNetworkData({
-                title: selectedRowForMenu.name,
+                title: selectedRowForMenu.title,
                 description: selectedRowForMenu.description,
-                workId: workId ? parseInt(workId) : 0,
+                // از selectedRowForMenu.work?.id استفاده کنید
+                workId: selectedRowForMenu.work?.id || 0,
             });
             setEditingId(selectedRowForMenu.id);
-            setOriginalTitle(selectedRowForMenu.name);
+            // setOriginalTitle(selectedRowForMenu.title);
             setTitleError(false);
             setDescriptionError(false);
             setFormErrors(null);
@@ -465,7 +620,7 @@ const ListNetwork = () => {
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
             setNetworkIdToDelete(selectedRowForMenu.id);
-            setNetworkTitleToDelete(selectedRowForMenu.name);
+            setNetworkTitleToDelete(selectedRowForMenu.title);
             setOpenDeleteModal(true);
         }
         handleCloseMenu();
@@ -474,7 +629,11 @@ const ListNetwork = () => {
         setOpenDeleteModal(false);
         setNetworkIdToDelete(null);
         setNetworkTitleToDelete('');
-        fetchNetworksByWorkId();
+        if (workId) {
+            fetchNetworksByWorkId(parseInt(workId));
+        } else {
+            fetchAllNetworksAndWorks();
+        }
     };
     const handleViewNetworkDetails = (networkId: string) => {
         navigate(`/network/${networkId}/details`);
@@ -514,27 +673,123 @@ const ListNetwork = () => {
     const handleDefineTransmission = () => {
         if (selectedRowForMenu) {
             const networkId = selectedRowForMenu.id;
-            // workId و tenderId را از stateهای موجود در ListNetwork دریافت می‌کنیم
-            const currentWorkId = workId || ''; // اطمینان از وجود workId
-            const currentTenderId = tenderId || ''; // اطمینان از وجود tenderId
-
-            // ✅ ساخت URL با networkId در path و workId, tenderId به عنوان query parameters
-            navigate(`/transmission/list-transmission/${networkId}?workId=${currentWorkId}&tenderId=${currentTenderId}`);
+            const currentWorkId = workId || selectedRowForMenu.work?.id;
+            const currentTenderId = tenderId || '';
+            if (currentWorkId) {
+                navigate(`/transmission/list-transmission/${networkId}?workId=${currentWorkId}&tenderId=${currentTenderId}`);
+            } else {
+                showAlert('Bu şebeke için tanımlı bir iş bulunamadı.', 'warning');
+            }
         }
-        handleCloseMenu(); // منو را ببندید
+        handleCloseMenu();
+    };
+    const stripHtmlTags = (html: string): string => {
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        return div.textContent || div.innerText || '';
+    };
+    const handleDownloadNetworksPDF = () => {
+        if (!filteredNetworks || filteredNetworks.length === 0) {
+            showAlert('PDF oluşturulacak şebeke bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // 💡 فونت را اضافه کنید
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Şebekeler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+            if (workId) {
+                doc.text(`İş: ${workTitleForDisplay}`, pageWidth - 15, 47, { align: 'right' });
+            }
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        // آماده کردن داده‌ها برای جدول PDF
+        const head = ['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
+        const rows = filteredNetworks.map(network => [
+            network.title,
+            stripHtmlTags(network.description),
+            formatDateDisplay(network.createAt),
+            network.status
+        ]);
+
+        // اگر workId در URL نبود، ستون "Bağlı İş" را به PDF اضافه کنید
+        if (workId === undefined) {
+            head.splice(1, 0, 'Bağlı İş'); // اضافه کردن ستون "Bağlı İş" در جایگاه مناسب
+            rows.forEach((row, index) => {
+                const workTitle = filteredNetworks[index].work?.title || 'Bilinmiyor';
+                row.splice(1, 0, workTitle);
+            });
+        }
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [head],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 8,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Şebekeler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
     };
 
     const filteredNetworks = networks.filter(network => {
-        const matchesSearch = network.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            network.description.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = network.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (network.work && network.work.title && network.work.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (network.description && network.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
         const matchesStatus =
             statusFilter === 'all' ||
             (statusFilter === 'active' && network.recordStatus === 0) ||
             (statusFilter === 'inactive' && network.recordStatus === 1);
 
-        return matchesSearch && matchesStatus;
+        // این قسمت با State های جدید ترکیب می شود
+        const matchesWorkFilter = filterWorkId === null || (network.work && network.work.id === filterWorkId);
+
+        return matchesSearch && matchesStatus && matchesWorkFilter;
     });
+
     const paginatedNetworks = filteredNetworks.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
     if (loadingData) {
         return (
             <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
@@ -545,37 +800,85 @@ const ListNetwork = () => {
     }
     return (
         <div>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mt={2} mb={2}>
+            {workId && (
+                <Box display="flex" justifyContent="space-between" alignItems="center" mt={2} mb={2}>
 
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Chip
-                        label={`İhale: ${tenderTitleForDisplay}`}
-                        color="primary"
-                        variant="filled"
-                        size="small"
-                    />
-                    <Chip
-                        label={`içindeki İş: ${workTitleForDisplay}`}
-                        color="success"
-                        variant="filled"
-                        size="small"
-                    />
-                </Stack>
+                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                        {tenderId && (
+                            <Chip
+                                label={`İhale: ${tenderTitleForDisplay}`}
+                                color="primary"
+                                variant="filled"
+                                size="small"
+                            />
+                        )}
+                        {workTitleForDisplay && (
+                            <Chip
+                                label={`içindeki İş: ${workTitleForDisplay}`}
+                                color="success"
+                                variant="filled"
+                                size="small"
+                            />
+                        )}
+                    </Stack>
 
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                    <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                        endIcon={<IconArrowRight size={20} />}>
-                        Geri Dön
-                    </Button>
-                </CustomTooltip>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                            endIcon={<IconArrowRight size={20} />}>
+                            Geri Dön
+                        </Button>
+                    </CustomTooltip>
+                </Box>
+            )}
+
+            <Box sx={{ p: 2, mt: 4 }}>
+                <Grid container spacing={2} alignItems="center" mb={2}>
+                    <Grid item xs={12} md={9}>
+                        <Typography variant="h5">Mevcut Şebeke</Typography>
+                    </Grid>
+                    {hasDownloadPermission && (
+                        <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={handleDownloadNetworksPDF}
+                                fullWidth
+                                startIcon={<IconFileDownload size={20} />}
+                            >
+                                Tüm Şebeke İndir (PDF)
+                            </Button>
+                        </Grid>
+                    )}
+                </Grid>
             </Box>
-
             {(hasCreatePermission || hasEditPermission) && (
-                <Box component="div" sx={{ p: 2, border: "1px solid", borderColor: "divider", borderRadius: "8px", mb: 2 }}>
-                    {/* <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Yeni Şebeke Kaydı'}</Typography> */}
+                <Box component="div" sx={{
+                    p: 2, border: "1px solid", borderColor: "divider",
+                    borderRadius: "8px", mb: 2
+                }}>
                     <form>
                         <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6}>
+                            {workId === undefined && (
+                                <Grid item xs={12} sm={6}>
+                                    <CustomFormLabel htmlFor="work-select" required>İş Seçin:</CustomFormLabel>
+                                    <FormControl fullWidth size="small">
+                                        <Select
+                                            id="work-select"
+                                            value={selectedWorkIdForForm || ''}
+                                            onChange={(e) => setSelectedWorkIdForForm(e.target.value as number)} // 👈 استفاده از تابع جدید
+                                            displayEmpty
+                                        >
+                                            {works.map((work) => (
+                                                <MenuItem key={work.id} value={work.id}>
+                                                    {work.title}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Grid>
+                            )}
+
+                            <Grid item xs={12} sm={workId === undefined ? 6 : 12}>
                                 <CustomFormLabel htmlFor="network-name" required>Şebeke Adı:</CustomFormLabel>
                                 <CustomTextField
                                     id="network-name"
@@ -646,7 +949,7 @@ const ListNetwork = () => {
                                                         variant="contained"
                                                         color="primary"
                                                         onClick={insertNetwork}
-                                                        disabled={loadingButton}
+                                                        disabled={loadingButton || (workId === undefined && selectedWorkIdForForm === null)} // 👈 استفاده از State جدید
                                                     >
                                                         {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
                                                     </Button>
@@ -670,12 +973,33 @@ const ListNetwork = () => {
                         </Stack>
                     )}
                 </Box>
-
             )}
             <Box sx={{ p: 2, mt: 4 }}>
                 <Typography variant="h5" mb={2}>Mevcut Şebeke</Typography>
                 <Grid container spacing={2} alignItems="center" mb={2}>
-                    <Grid item xs={12} md={6}>
+                    {workId === undefined && (
+                        <Grid item xs={12} md={3}>
+                            <CustomFormLabel htmlFor="work-filter">İş Filtrele:</CustomFormLabel>
+                            <FormControl fullWidth size="small">
+                                <Select
+                                    id="work-filter"
+                                    value={filterWorkId || ''} // 👈 استفاده از State جدید فیلتر
+                                    onChange={handleWorkFilterChange} // 👈 استفاده از تابع جدید
+                                    displayEmpty
+                                >
+                                    <MenuItem value="">
+                                        Tümü
+                                    </MenuItem>
+                                    {works.map((work) => (
+                                        <MenuItem key={work.id} value={work.id}>
+                                            {work.title}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Grid>
+                    )}
+                    <Grid item xs={12} md={workId === undefined ? 6 : 12}>
                         <TextField
                             label="Şebeke Ara"
                             variant="outlined"
@@ -691,7 +1015,7 @@ const ListNetwork = () => {
                             }}
                         />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} md={workId === undefined ? 3 : 12}>
                         <ToggleButtonGroup
                             value={statusFilter}
                             exclusive
@@ -717,6 +1041,9 @@ const ListNetwork = () => {
                         <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 <TableCell><Typography variant="h6">Şebeke Adı</Typography></TableCell>
+                                {workId === undefined && (
+                                    <TableCell><Typography variant="h6">Bağlı İş</Typography></TableCell>
+                                )}
                                 <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Kayıt Tarihi</Typography></TableCell>
                                 <TableCell><Typography variant="h6">Durum</Typography></TableCell>
@@ -728,7 +1055,10 @@ const ListNetwork = () => {
                             {paginatedNetworks.length > 0 ? (
                                 paginatedNetworks.map((row) => (
                                     <TableRow key={row.id}>
-                                        <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
+                                        <TableCell><Typography variant="h6">{row.title}</Typography></TableCell>
+                                        {workId === undefined && (
+                                            <TableCell><Typography variant="h6">{row.work?.title}</Typography></TableCell>
+                                        )}
                                         <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                             <Box sx={{
                                                 maxHeight: '5em',
@@ -742,9 +1072,6 @@ const ListNetwork = () => {
                                             </Box>
                                             {row.description && row.description.length > 50 && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-
-
-
                                                     <Button variant="text" size="small" onClick={() => {
                                                         handleOpenDescriptionModal(row.description)
                                                     }}>
@@ -864,7 +1191,7 @@ const ListNetwork = () => {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} align="center">
+                                    <TableCell colSpan={workId === undefined ? 7 : 6} align="center">
                                         <Typography variant="subtitle1" color="textSecondary">
                                             Bu iş için hiç Şebeke bulunamadı.
                                         </Typography>
@@ -892,7 +1219,13 @@ const ListNetwork = () => {
                 networkIdToDelete={networkIdToDelete}
                 networkTitleToDelete={networkTitleToDelete}
                 showAlert={showAlert}
-                onDeleteSuccess={() => fetchNetworksByWorkId()}
+                onDeleteSuccess={() => {
+                    if (workId) {
+                        fetchNetworksByWorkId(parseInt(workId));
+                    } else {
+                        fetchAllNetworksAndWorks();
+                    }
+                }}
             />
             <Dialog
                 open={openDescriptionModal}

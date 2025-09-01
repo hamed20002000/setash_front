@@ -143,7 +143,7 @@ const ListReceipts = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(logoImg, 'PNG', 25, 25, 25, 25);
+            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text('Fiş Detayları', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -157,6 +157,9 @@ const ListReceipts = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         const rows = receipt.receiptDetails.map(item => [

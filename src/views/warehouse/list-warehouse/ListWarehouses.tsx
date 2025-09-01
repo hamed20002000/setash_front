@@ -15,7 +15,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconFileDownload } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconFileDownload, IconBoxSeam, IconPackage } from '@tabler/icons-react';
 import DeleteWarehouse from './DeleteWarehouse';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -27,9 +27,10 @@ import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
+import ViewWarehouseBalanceModal from './ViewWarehouseBalanceModal'
 import { useAuth } from 'src/context/AuthContext';
 
-const formatDateDisplay = (dateString: string | null): string => {
+export const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
         const date = new Date(dateString);
@@ -217,8 +218,15 @@ const ListWarehouses = () => {
     const [selectedAddress, setSelectedAddress] = useState('');
 
     const { isTooltipGloballyEnabled } = useTooltip();
+    const [openBalanceModal, setOpenBalanceModal] = useState(false);
+    const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
+    const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
+
+
 
     const { allowedOperations } = useAuth();
+
+
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
     }, [allowedOperations]);
@@ -272,7 +280,6 @@ const ListWarehouses = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
-            setLoadingData(false);
             return;
         }
         try {
@@ -444,8 +451,7 @@ const ListWarehouses = () => {
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
-            setLoadingButton(false);
+            navigate("/");
             return;
         }
         try {
@@ -483,8 +489,7 @@ const ListWarehouses = () => {
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
-            setLoadingButton(false);
+            navigate("/");
             return;
         }
         try {
@@ -667,7 +672,6 @@ const ListWarehouses = () => {
         }
     };
 
-    // New PDF download handler
     const handleDownloadAllWarehousesPDF = async () => {
         if (!WarehousesList || WarehousesList.length === 0) {
             showAlert('PDF oluşturulacak depo bulunamadı.', 'warning');
@@ -683,7 +687,8 @@ const ListWarehouses = () => {
         doc.setFont('NotoSans');
 
         const header = () => {
-            doc.addImage(Logo, 'PNG', 25, 25, 25, 25);
+
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
             doc.text('Tüm Depolar Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
@@ -695,6 +700,9 @@ const ListWarehouses = () => {
             doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
             doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
         };
 
         const rows = WarehousesList.map(wh => [
@@ -744,6 +752,94 @@ const ListWarehouses = () => {
         }
     };
 
+    const handleDownloadBalancePDF = async (_warehouseId: number, warehouseName: string, balanceData: any[]) => {
+        if (!balanceData || balanceData.length === 0) {
+            showAlert('PDF oluşturulacak envanter bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // افزودن فونت برای پشتیبانی از کاراکترهای ترکی
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text(`${warehouseName} Envanter Raporu`, pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
+        };
+
+        // داده‌های جدول را از موجودی انبار خاص ایجاد کنید
+        const rows = balanceData.map(item => [
+            item.name,
+            item.balance,
+            item.code == null ? '-' : item.code
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [['Ürün Adı', 'Miktar', 'Kod']],
+                body: rows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save(`${warehouseName}_Envanter_Raporu.pdf`);
+            showAlert('Envanter PDF dosyası başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
+
+
+    const handleViewBalanceClick = () => {
+        debugger
+        if (selectedRowForMenu) {
+            setSelectedWarehouseId(selectedRowForMenu.id);
+            setSelectedWarehouseName(selectedRowForMenu.name);
+            setOpenBalanceModal(true);
+        }
+        handleCloseMenu();
+    };
+    const handleDispatchClick = () => {
+        if (selectedRowForMenu) {
+            const warehouseId = selectedRowForMenu.id;
+            navigate(`/warehouse/list-warehouse-dispatch/${warehouseId}`);
+        }
+        handleCloseMenu(); // منو را ببندید
+    };
+
+
+    const handleCloseBalanceModal = () => {
+        setOpenBalanceModal(false);
+        setSelectedWarehouseId(null);
+        setSelectedWarehouseName('');
+    };
     return (
         <>
 
@@ -994,12 +1090,34 @@ const ListWarehouses = () => {
                                                     </IconButton>
                                                 </CustomTooltip>
                                                 <Menu
-                                                    id="basic-menu"
+                                                    id={`basic-menu-${row.id}`} // استفاده از id منحصر به فرد
                                                     anchorEl={anchorEl}
-                                                    open={openMenu}
+                                                    // شرط باز شدن منو رو به درستی چک کنید
+                                                    open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                     onClose={handleCloseMenu}
-                                                    MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
+                                                    MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
+                                                    {/* آیتم قدیمی برای هدایت به صفحه Sevk Et */}
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo Sevk İşlemi" : ""}>
+                                                            <MenuItem onClick={handleDispatchClick}>
+                                                                <ListItemIcon>
+                                                                    <IconBoxSeam width={18} />
+                                                                </ListItemIcon>
+                                                                Sevk Et
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+
+                                                    {/* آیتم جدید برای نمایش موجودی */}
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo envanterini görüntüle" : ""}>
+                                                        <MenuItem onClick={handleViewBalanceClick}>
+                                                            <ListItemIcon>
+                                                                <IconPackage width={18} />
+                                                            </ListItemIcon>
+                                                            Envanteri Görüntüle
+                                                        </MenuItem>
+                                                    </CustomTooltip>
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu Depoyu pasif yap" : ""}>
@@ -1095,6 +1213,14 @@ const ListWarehouses = () => {
                 WarehouseNameToDelete={WarehouseNameToDelete}
                 showAlert={showAlert}
                 onDeleteSuccess={fetchWarehouses}
+            />
+
+            <ViewWarehouseBalanceModal
+                open={openBalanceModal}
+                onClose={handleCloseBalanceModal}
+                warehouseId={selectedWarehouseId}
+                warehouseName={selectedWarehouseName}
+                onDownloadPDF={handleDownloadBalancePDF}
             />
         </>
     );

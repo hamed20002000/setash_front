@@ -8,7 +8,7 @@ import {
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconExchange } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconExchange, IconFile, IconFileSpreadsheet } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -22,6 +22,12 @@ import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import OrderItemsTable from './OrderItemsTable';
 import DeleteOrderModal from './DeleteOrderModal';
 import { useAuth } from 'src/context/AuthContext';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
+import * as XLSX from 'xlsx';
+// import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
 
 // Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
@@ -37,6 +43,7 @@ interface OrderItem {
     unit?: UnitType;
     isRegistered?: boolean;
     price: number;
+    statusColor?: 'green' | 'red';
 }
 interface OrderType { id: number; network: { id: string; title: string; }; docDate: string; status: number; orderDetails: OrderDetailType[]; }
 interface OrderDetailType {
@@ -46,7 +53,6 @@ interface OrderDetailType {
     description: string;
     price: number
 }
-
 interface WarehouseType { id: string; name: string; code: number; recordStatus: number; createAt: string; }
 interface TenderType { id: string; title: string; recordStatus: number; createAt: string; }
 
@@ -102,7 +108,7 @@ const CompareComponent = () => {
     // States from previous form
     const [network, setNetwork] = useState('');
     const [docDate, setDocDate] = useState<Date | null>(new Date());
-    const [orderItems, setOrderItems] = useState<OrderItem[]>([{ id: Date.now(), item: '', quantity: 0, description: '', price: 0, isEditing: true }]);
+    const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
     const [networks, setNetworks] = useState<Network[]>([]);
     const [selectedWork, setSelectedWork] = useState<Work | null>(null);
@@ -120,6 +126,11 @@ const CompareComponent = () => {
     const [tendersList, setTendersList] = useState<TenderType[]>([]);
     const [warehouseError, setWarehouseError] = useState(false);
     const [tenderError, setTenderError] = useState(false);
+    // const [warehouseItems, setWarehouseItems] = useState<any[]>([]);
+    const [tenderItems, setTenderItems] = useState<any[]>([]);
+    const [comparisonResults, setComparisonResults] = useState<OrderItem[]>([]);
+    const [openComparisonModal, setOpenComparisonModal] = useState(false);
+    const [isComparing, setIsComparing] = useState(false); // ✅ Added state for loading indicator
 
     // Table States
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
@@ -139,6 +150,7 @@ const CompareComponent = () => {
     const [orderTitleToDelete, setOrderTitleToDelete] = useState<string>('');
     const [editingId, setEditingId] = useState<number | null>(null);
 
+    // const { isTooltipGloballyEnabled } = useTooltip();
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
     const [description, setDescription] = useState('');
@@ -158,9 +170,9 @@ const CompareComponent = () => {
         return allowedOperations.some(op => op.systemOperationName === 'Silmek');
     }, [allowedOperations]);
 
-    // const hasDownloadPermission = useMemo(() => {
-    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    // }, [allowedOperations]);
+    const hasDownloadPermission = useMemo(() => {
+        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    }, [allowedOperations]);
 
     const hasStatusPermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
@@ -178,43 +190,31 @@ const CompareComponent = () => {
     };
 
     const handleItemChange = (id: number, field: string, value: any) => {
-        // پیدا کردن آیتم در حال تغییر
         const itemToUpdate = orderItems.find(item => item.id === id);
         if (!itemToUpdate) return;
-
-        // ایجاد یک کپی از آیتم برای به‌روزرسانی
         const updatedItem = { ...itemToUpdate };
-
-        // اگر فیلد item تغییر کرد (یعنی محصول از کامبو باکس انتخاب شد)
         if (field === 'item') {
             const selectedItem = itemsList.find(i => i.id === value);
             updatedItem.item = value;
             updatedItem.unit = selectedItem?.unit;
             updatedItem.isRegistered = !!selectedItem;
-            // ✅ مقدار Miktar را به 0 یا مقدار فعلی تنظیم کنید، آن را دست‌نخورده نگه دارید.
-            //updatedItem.quantity = 0;
-        }
-        // اگر فیلد quantity تغییر کرد
-        else if (field === 'quantity') {
+        } else if (field === 'quantity') {
             const numericValue = parseFloat(value);
             updatedItem.quantity = isNaN(numericValue) ? 0 : numericValue;
-        }
-        // اگر فیلد دیگری تغییر کرد
-        else {
+        } else if (field === 'price') {
+            const numericValue = parseFloat(value);
+            updatedItem.price = isNaN(numericValue) ? 0 : numericValue;
+        } else {
             (updatedItem as any)[field] = value;
         }
-
-        // به‌روزرسانی نهایی آرایه وضعیت (state)
         const updatedOrderItems = orderItems.map(item =>
             item.id === id ? updatedItem : item
         );
         setOrderItems(updatedOrderItems);
     };
 
-    const selectedItemIds = orderItems
-        .filter(item => !item.isEditing)
-        .map(item => item.item);
-    const availableItemsList = itemsList.filter(item => !selectedItemIds.includes(item.id));
+    const selectedItemIds = useMemo(() => orderItems.filter(item => !item.isEditing).map(item => item.item), [orderItems]);
+    const availableItemsList = useMemo(() => itemsList.filter(item => !selectedItemIds.includes(item.id)), [itemsList, selectedItemIds]);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -228,7 +228,6 @@ const CompareComponent = () => {
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
 
-    // Fetches Networks (Şebeke) - Used as a top-level form field
     const getNetworks = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -246,7 +245,6 @@ const CompareComponent = () => {
         }
     };
 
-    // Fetches Items - Used for the Autocomplete in OrderItemsTable
     const getListItem = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -264,11 +262,9 @@ const CompareComponent = () => {
         }
     };
 
-    // Fetches Warehouses (Depo) - Provided by user
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
-        debugger
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-warehouses", {
                 headers: { "Authorization": `Bearer ${authToken}` }
@@ -285,7 +281,6 @@ const CompareComponent = () => {
         }
     }, [navigate]);
 
-    // Fetches Tenders (İhale) - Provided by user
     const fetchTenders = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -319,6 +314,71 @@ const CompareComponent = () => {
         } finally { setLoadingData(false); }
     };
 
+    const fetchTenderItems = async (tenderId: string) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Oturumunuzun süresi doldu veya yetkiniz yok.', 'error');
+            return [];
+        }
+        try {
+            const response = await axios.get(`${server.baseurl + server.initialoperations}get-tender-by-id/${tenderId}`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (response.data.httpStatusCode === 200 && response.data.data) {
+                const allTenderDetails = response.data.data.tenderCategories.flatMap((category: any) => category.tenderDetails);
+
+                // ✅ اضافه کردن منطق گروه‌بندی و جمع مقادیر
+                const tenderItemsMap = new Map<string, any>();
+                allTenderDetails.forEach((detail: any) => {
+                    const itemId = String(detail.item.id);
+                    if (tenderItemsMap.has(itemId)) {
+                        // اگر آیتم قبلاً وجود داشت، مقدار جدید را به مقدار فعلی اضافه کن
+                        const existingItem = tenderItemsMap.get(itemId);
+                        existingItem.quantity += Number(detail.ourProcuredItemQuantities);
+                    } else {
+                        // اگر آیتم جدید بود، آن را به Map اضافه کن
+                        tenderItemsMap.set(itemId, {
+                            id: detail.id,
+                            itemId: itemId,
+                            name: detail.item.name,
+                            quantity: Number(detail.ourProcuredItemQuantities),
+                            unit: detail.item.unit,
+                        });
+                    }
+                });
+
+                const parsedItems = Array.from(tenderItemsMap.values());
+                return parsedItems;
+            } else {
+                showAlert('İhale ürünleri yüklenirken bir hata oluştu.', 'error');
+                return [];
+            }
+        } catch (e: any) {
+            showAlert('İhale ürünleri yüklenirken bir hata oluştu.', 'error');
+            return [];
+        }
+    };
+
+    const fetchWarehouseItems = async (warehouseId: string) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Oturumunuzun süresi doldu veya yetkiniz yok.', 'error'); return []; }
+        try {
+            const response = await axios.get(`${server.baseurl + server.warehouse}get-warehouse-all-items-balance/${warehouseId}`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (response.data.httpStatusCode === 200 && response.data.data) {
+                return response.data.data;
+            } else {
+                showAlert('Depo ürünleri yüklenirken bir hata oluştu.', 'error');
+                return [];
+            }
+        } catch (e: any) {
+            showAlert('Depo ürünleri yüklenirken bir hata oluştu.', 'error');
+            return [];
+        }
+    };
+
+    // کد فعلی شما
     useEffect(() => {
         getNetworks();
         getListItem();
@@ -326,6 +386,29 @@ const CompareComponent = () => {
         fetchTenders();
         getListOrders();
     }, [fetchWarehouses, fetchTenders]);
+
+    // ✅ کد پیشنهادی: وابستگی‌های غیرضروری را حذف کنید و مطمئن شوید که خطاها باعث توقف اجرای برنامه نمی‌شوند.
+    useEffect(() => {
+        // فراخوانی توابع اصلی بارگیری داده‌ها
+        const loadInitialData = async () => {
+            await getNetworks();
+            await getListItem();
+            await fetchWarehouses();
+            await fetchTenders();
+            await getListOrders();
+        };
+
+        loadInitialData();
+    }, []); // ✅ وابستگی‌ها را خالی بگذارید تا فقط یک بار اجرا شود.
+
+    // ✅ Reset function for comparison states
+    const resetComparisonStates = () => {
+        // setWarehouseItems([]);
+        setTenderItems([]);
+        setComparisonResults([]);
+        setOpenComparisonModal(false);
+    };
+
 
     const handleCompare = async () => {
         if (!warehouse) setWarehouseError(true); else setWarehouseError(false);
@@ -336,42 +419,85 @@ const CompareComponent = () => {
             return;
         }
 
-        setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
+        setIsComparing(true);
+        // ✅ Sequential API calls with await
+        const tenderData = await fetchTenderItems(tender.id);
+        const warehouseData = await fetchWarehouseItems(warehouse.id);
+        setIsComparing(false);
 
-        try {
-            const response = await axios.get(`${server.baseurl}/api/comparison?warehouseId=${warehouse.id}&tenderId=${tender.id}`, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
+        if (!tenderData || !warehouseData) return;
 
-            if (response.data.httpStatusCode === 200) {
-                const itemsForComparison = response.data.data.map((detail: OrderDetailType) => {
-                    const fullItem = itemsList.find(item => item.id === detail.item.id);
-                    return {
-                        id: detail.id,
-                        item: fullItem ? fullItem.id : '',
-                        quantity: detail.quantity,
-                        description: detail.description,
-                        isEditing: true,
-                        unit: fullItem ? fullItem.unit : undefined,
-                        isRegistered: true,
-                    };
-                });
-                setOrderItems(itemsForComparison);
-                showAlert('Karşılaştırma başarılı şekilde yüklendi!', 'success');
-            } else {
-                showAlert(response.data.message || 'Karşılaştırma verileri yüklenirken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem('authToken'); navigate("/"); showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error'); }
-            else { showAlert('Karşılaştırma verileri sunucudan alınamadı.', 'error'); }
-        } finally {
-            setLoadingData(false);
-        }
+        setTenderItems(tenderData);
+        // setWarehouseItems(warehouseData);
+
+        const results: OrderItem[] = tenderData.map((tenderItem: any) => {
+            const matchingWarehouseItem = warehouseData.find((whItem: any) => whItem.itemId === tenderItem.itemId);
+            const itemFromList = itemsList.find(i => String(i.id) === tenderItem.itemId);
+
+            return {
+                id: Date.now() + Math.random(),
+                item: itemFromList ? itemFromList.id : tenderItem.itemId,
+                quantity: matchingWarehouseItem?.balance || 0,
+                description: '',
+                isEditing: false,
+                isRegistered: !!itemFromList,
+                unit: itemFromList?.unit || tenderItem.unit, // Use unit from item list or tender
+                price: 0,
+                statusColor: matchingWarehouseItem?.balance > 0 ? 'green' : 'red' // ✅ Check if balance is greater than 0
+            };
+        });
+
+        setComparisonResults(results);
+        setOpenComparisonModal(true);
     };
 
-    // The rest of the functions from ManualEntryForm remain the same
+
+    // const handleApplyComparison = () => {
+    //     setOrderItems(comparisonResults.map(item => ({
+    //         ...item,
+    //         isEditing: true 
+    //     })));
+    //     resetComparisonStates(); 
+    //     showAlert('Ürünler başarıyla sipariş listesine eklendi. Lütfen fiyat ve miktarı kontrol edin.', 'success');
+    // };
+
+
+    const handleApplyComparison = () => {
+        // 1. Filter and calculate the needed quantity from comparisonResults
+        const neededItems = comparisonResults
+            .map(item => {
+                const tenderItem = tenderItems.find(ti => ti.itemId === item.item);
+                const tenderQuantity = tenderItem ? tenderItem.quantity : 0;
+
+                const warehouseBalance = item.quantity; // This is the balance from the warehouse
+
+                const neededQuantity = tenderQuantity - warehouseBalance;
+
+                // 2. Only return the item if there is a deficit
+                if (neededQuantity > 0) {
+                    return {
+                        ...item,
+                        quantity: neededQuantity, // Set quantity to the calculated needed amount
+                        isEditing: true // Ensure it's editable
+                    };
+                }
+                return null; // Return null if there is no deficit
+            })
+            .filter(item => item !== null) as OrderItem[]; // 3. Remove null items
+
+        if (neededItems.length === 0) {
+            showAlert('Seçilen ürünlerden herhangi birinde eksik miktar bulunamadı.', 'info');
+            resetComparisonStates();
+            return;
+        }
+
+        // 4. Set the main order items with the filtered list
+        setOrderItems(neededItems);
+        resetComparisonStates();
+        showAlert('İhtiyaç duyulan ürünler sipariş listesine başarıyla eklendi. Lütfen fiyat ve miktarı kontrol edin.', 'success');
+    };
+
+
     const handleAddItem = () => {
         setOrderItems(prevItems => [...prevItems, { id: Date.now(), item: '', quantity: 0, description: '', price: 0, isEditing: true }]);
     };
@@ -379,7 +505,6 @@ const CompareComponent = () => {
     const handleToggleEdit = (id: number) => { setOrderItems(prevItems => prevItems.map(item => ({ ...item, isEditing: item.id === id ? !item.isEditing : item.isEditing }))); };
     const validateForm = (): boolean => {
         let isValid = true;
-        // if (!network) { setNetworkError(true); isValid = false; } else { setNetworkError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
         const hasEmptyItem = orderItems.some(item => !item.item || item.quantity <= 0);
         if (orderItems.length === 0 || hasEmptyItem) { setOrderItemsError(true); isValid = false; } else { setOrderItemsError(false); }
@@ -387,13 +512,11 @@ const CompareComponent = () => {
         return isValid;
     };
     const resetForm = () => {
-        setNetwork(''); setDocDate(new Date()); setOrderItems([{ id: Date.now(), item: '', quantity: 0, description: '', price: 0, isEditing: true }]);
+        setNetwork(''); setDocDate(new Date()); setOrderItems([]);
         setSelectedWork(null); setEditingId(null); setNetworkError(false); setDocDateError(false); setOrderItemsError(false);
         setWarehouse(null); setTender(null); setWarehouseError(false); setTenderError(false);
     };
-
     const handleSaveOrder = async () => {
-        debugger
         if (!validateForm()) return;
         const orderData = {
             docDate: docDate?.toISOString(),
@@ -401,7 +524,7 @@ const CompareComponent = () => {
             status: 0,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
-                quantity: parseFloat(String(item.quantity)),
+                quantity: parseFloat(String((item.quantity))),
                 price: (item.price).toFixed(2),
                 description: item.description
             }))
@@ -409,8 +532,7 @@ const CompareComponent = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         try {
-            const response = await axios.post(
-                server.baseurl + server.initialoperations + "create-order", orderData,
+            const response = await axios.post(server.baseurl + server.initialoperations + "create-order", orderData,
                 { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 201) {
@@ -455,32 +577,42 @@ const CompareComponent = () => {
         }
     };
 
-
     const handleEditClick = (row: OrderType) => {
         setEditingId(row.id);
-        const selectedNetwork = networks.find(net => net.title === row.network.title);
-        if (selectedNetwork) {
-            setNetwork(selectedNetwork.id);
-            setSelectedWork(selectedNetwork.work);
+        if (row.network) {
+            const selectedNetwork = networks.find(net => net.title === row.network.title);
+            if (selectedNetwork) {
+                setNetwork(selectedNetwork.id);
+                setSelectedWork(selectedNetwork.work);
+            }
+        } else {
+            // ✅ در صورتی که network وجود ندارد، وضعیت‌ها را به حالت پیش‌فرض برگردانید یا مطابق نیاز مدیریت کنید
+            setNetwork('');
+            setSelectedWork(null);
         }
+
         setDocDate(new Date(row.docDate));
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
+            const priceValue = detail.price !== null && !isNaN(Number(detail.price)) ? Number(detail.price) : 0;
+
             return {
+
                 id: detail.id,
                 item: fullItem ? fullItem.id : '',
                 quantity: detail.quantity,
                 description: detail.description,
-                price: detail.price,
-                isEditing: false, // ✅ حتماً این را روی true تنظیم کنید تا ویرایش شود
+                price: priceValue,
+                isEditing: false,
                 unit: fullItem ? fullItem.unit : undefined,
-                isRegistered: true, // ✅ این را هم برای نمایش صحیح در جدول تنظیم کنید
+                isRegistered: true,
             };
         });
         setOrderItems(itemsToEdit);
         handleCloseMenu();
         clearAlert();
     };
+
     const handleStatusFilterChange = (_event: React.MouseEvent<HTMLElement>, newFilter: 'all' | 'pending' | 'approved' | 'rejected' | null) => {
         if (newFilter !== null) { setStatusFilter(newFilter); setPage(0); }
     };
@@ -499,10 +631,6 @@ const CompareComponent = () => {
     const handleCloseModal = () => { setOpenModal(false); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: OrderType) => { setAnchorEl(event.currentTarget); setSelectedOrderForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedOrderForMenu(null); };
-    // const handleAction = async (action: 'approve' | 'reject' | 'edit' | 'delete') => {
-    //     alert(`Sipariş #${selectedOrderForMenu?.id} için "${action}" işlemi yapıldı.`);
-    //     handleCloseMenu();
-    // };
     const handleClickOpenDeleteModal = (id: number, title: string) => { setOrderIdToDelete(id); setOrderTitleToDelete(title); setOpenDeleteModal(true); handleCloseMenu(); };
     const handleClickCloseDeleteModal = () => { setOpenDeleteModal(false); setOrderIdToDelete(null); setOrderTitleToDelete(''); };
     const stripHtml = (htmlString: string): string => {
@@ -513,7 +641,6 @@ const CompareComponent = () => {
 
     const handleClickOpenStatusModal = (id: number, action: 'approve' | 'reject') => {
         setStatusToUpdate(action === 'approve' ? 1 : 2);
-        // setSelectedOrderForMenu(ordersList.find(o => o.id === id) || null); 
         setIdRow(id)
         setDescription('');
         setOpenStatusModal(true);
@@ -526,7 +653,6 @@ const CompareComponent = () => {
         setDescription('');
         setStatusError(false);
     };
-
     const handleUpdateStatus = async () => {
         if (!description.trim()) {
             setStatusError(true);
@@ -539,7 +665,6 @@ const CompareComponent = () => {
             navigate("/");
             return;
         }
-        debugger
         try {
             const payload = {
                 id: Number(idRow),
@@ -555,7 +680,7 @@ const CompareComponent = () => {
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Sipariş durumu başarıyla güncellendi!', 'success');
-                getListOrders(); // Sipariş listesini güncelle
+                getListOrders();
             } else {
                 showAlert(response.data.message || 'Sipariş durumu güncellenirken bir hata oluştu.', 'error');
             }
@@ -570,14 +695,95 @@ const CompareComponent = () => {
             }
         } finally {
             handleCloseStatusModal();
-
             getListOrders();
         }
     };
+    const exportToExcel = (orderData: OrderType) => {
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet([]);
+        XLSX.utils.sheet_add_aoa(worksheet, [['Şebeke', orderData.network.title]], { origin: 'A1' });
+        XLSX.utils.sheet_add_aoa(worksheet, [['Tarih', formatDateDisplay(orderData.docDate)]], { origin: 'C1' });
+        const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
+        XLSX.utils.sheet_add_aoa(worksheet, [tableHeaders], { origin: 'A3' });
+        const tableData = orderData.orderDetails.map(detail => [
+            detail.item.name,
+            detail.item.unit.title,
+            detail.quantity,
+            stripHtml(detail.description),
+            ''
+        ]);
+        XLSX.utils.sheet_add_aoa(worksheet, tableData, { origin: 'A4' });
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Sipariş Detayları');
+        XLSX.writeFile(workbook, `Sipariş_${orderData.id}_Detayları.xlsx`);
+    };
 
-
+    const exportToPdf = (orderData: OrderType) => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 50, 25);
+            doc.setFontSize(18);
+            doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Sipariş No: ${orderData.id}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Şebeke: ${orderData.network.title || '-'}`, pageWidth - 15, 47, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, pageWidth - 15, 54, { align: 'right' });
+        };
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+        const rows = orderData.orderDetails.map(detail => [
+            detail.item.name || '-',
+            Number(detail.quantity).toFixed(2) || '-',
+            detail.item.unit.title || '-',
+            stripHtml(detail.description) || '-',
+            cleanAndFormatPrice(detail.price),
+        ]);
+        try {
+            autoTable(doc, {
+                startY: 70,
+                head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 50 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 20 },
+                    3: { cellWidth: 50 },
+                    4: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+            doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
     const filteredOrders = ordersList.filter(order => {
-        // ابتدا بررسی کنید که network وجود داشته باشد.
         const networkTitle = order.network ? order.network.title : '';
         const matchesSearch = networkTitle.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -622,7 +828,6 @@ const CompareComponent = () => {
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h6" mb={2}>Depo/İhale Karşılaştırması</Typography>
 
-                    {/* Şebeke ve Tarih */}
                     <Grid container spacing={2}>
                         <Grid item xs={12} md={8}>
                             <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} >
@@ -665,17 +870,15 @@ const CompareComponent = () => {
                         </Grid>
                     </Grid>
 
-                    {/* Depo ve İhale */}
                     <Grid container spacing={2} alignItems="center" sx={{ mt: 2 }}>
-
                         <Grid item xs={12} md={5}>
                             <Autocomplete<WarehouseType>
                                 id="warehouse-autocomplete"
                                 options={warehousesList}
                                 getOptionLabel={(option) => option.name}
-                                value={warehouse} // مقدار state جدید
+                                value={warehouse}
                                 onChange={(_event, newValue) => {
-                                    setWarehouse(newValue); // ذخیره کل شیء در state
+                                    setWarehouse(newValue);
                                     if (warehouseError && newValue) setWarehouseError(false);
                                 }}
                                 renderInput={(params) => (
@@ -683,7 +886,6 @@ const CompareComponent = () => {
                                         {...params}
                                         label="Depo Seçin"
                                         variant="outlined"
-
                                         sx={{ width: '100%' }}
                                         size="small"
                                         error={warehouseError}
@@ -697,9 +899,9 @@ const CompareComponent = () => {
                                 id="tender-autocomplete"
                                 options={tendersList}
                                 getOptionLabel={(option) => option.title}
-                                value={tender} // مقدار state جدید
+                                value={tender}
                                 onChange={(_event, newValue) => {
-                                    setTender(newValue); // ذخیره کل شیء در state
+                                    setTender(newValue);
                                     if (tenderError && newValue) setTenderError(false);
                                 }}
                                 renderInput={(params) => (
@@ -707,7 +909,6 @@ const CompareComponent = () => {
                                         {...params}
                                         label="İhale Seçin"
                                         variant="outlined"
-
                                         sx={{ width: '100%' }}
                                         size="small"
                                         error={tenderError}
@@ -724,8 +925,9 @@ const CompareComponent = () => {
                                     startIcon={<IconExchange />}
                                     onClick={handleCompare}
                                     fullWidth
+                                    disabled={isComparing}
                                 >
-                                    Karşılaştır
+                                    {isComparing ? <CircularProgress size={24} color="inherit" /> : 'Karşılaştır'}
                                 </Button>
                             </Box>
                         </Grid>
@@ -747,20 +949,17 @@ const CompareComponent = () => {
                                 <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
                             </Stack>
                         ) : (
-
                             <>
                                 {hasCreatePermission && (
                                     <Button variant="contained" color="primary" onClick={handleSaveOrder}>
                                         Siparişi Kaydet</Button>
-
                                 )}
                             </>
                         )}
                     </Box>
                 </Paper>
-
             )}
-            {/* Orders Table */}
+
             <Box sx={{ p: 2 }}>
                 <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
                 <Grid container spacing={2} alignItems="center">
@@ -840,43 +1039,53 @@ const CompareComponent = () => {
                                                 {hasStatusPermission && selectedOrderForMenu?.status === 0 && (
                                                     <>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                            Onayla
+                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon> Onayla
                                                         </MenuItem>
                                                         <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                            <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                            Reddet
+                                                            <ListItemIcon><IconX size={18} /></ListItemIcon> Reddet
                                                         </MenuItem>
                                                     </>
                                                 )}
-
-                                                {/* If status is 1, show "Reddet" (Reject) */}
                                                 {hasStatusPermission && selectedOrderForMenu?.status === 1 && (
                                                     <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                        <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                        Reddet
+                                                        <ListItemIcon><IconX size={18} /></ListItemIcon> Reddet
                                                     </MenuItem>
                                                 )}
-
-                                                {/* If status is 2, show "Onayla" (Approve) */}
                                                 {hasStatusPermission && selectedOrderForMenu?.status === 2 && (
                                                     <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                        <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                        Onayla
+                                                        <ListItemIcon><IconCheck size={18} /></ListItemIcon> Onayla
                                                     </MenuItem>
                                                 )}
-
                                                 {hasEditPermission && (
                                                     <MenuItem onClick={() => handleEditClick(row)}>
-                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle</MenuItem>
-
+                                                        <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
+                                                    </MenuItem>
                                                 )}
                                                 {hasDeletePermission && (
                                                     <MenuItem onClick={() =>
                                                         handleClickOpenDeleteModal(row.id, row.network.title)}>
-                                                        <ListItemIcon><IconTrash size={18} />
-                                                        </ListItemIcon> Silmek</MenuItem>
-
+                                                        <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
+                                                    </MenuItem>
+                                                )}
+                                                {hasDownloadPermission && (
+                                                    <>
+                                                        <MenuItem onClick={() => {
+                                                            if (selectedOrderForMenu) {
+                                                                exportToExcel(selectedOrderForMenu);
+                                                                handleCloseMenu();
+                                                            }
+                                                        }}>
+                                                            <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
+                                                        </MenuItem>
+                                                        <MenuItem onClick={() => {
+                                                            if (selectedOrderForMenu) {
+                                                                exportToPdf(selectedOrderForMenu);
+                                                                handleCloseMenu();
+                                                            }
+                                                        }}>
+                                                            <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
+                                                        </MenuItem>
+                                                    </>
                                                 )}
                                             </Menu>
                                         </TableCell>
@@ -923,6 +1132,47 @@ const CompareComponent = () => {
                     </TableContainer>
                 </DialogContent>
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={openComparisonModal} onClose={resetComparisonStates} maxWidth="lg" fullWidth>
+                <DialogTitle>Karşılaştırma Sonuçları</DialogTitle>
+                <DialogContent>
+                    <TableContainer component={Paper}>
+                        <Table>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>Ürün Adı</TableCell>
+                                    <TableCell>İhale Miktarı</TableCell>
+                                    <TableCell>Depo Miktarı</TableCell>
+                                    <TableCell>Durum</TableCell>
+                                    <TableCell>Birim</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {comparisonResults.map((result) => (
+                                    <TableRow key={result.id} sx={{ backgroundColor: result.statusColor === 'red' ? '#ffebee' : 'transparent' }}>
+                                        <TableCell>{itemsList.find(i => i.id === result.item)?.name}</TableCell>
+                                        <TableCell>{tenderItems.find(ti => ti.itemId === result.item)?.quantity || 0}</TableCell>
+                                        <TableCell>{result.quantity}</TableCell>
+                                        <TableCell>
+                                            <Chip
+                                                label={result.statusColor === 'green' ? 'Mevcut' : 'Mevcut Değil'}
+                                                color={result.statusColor === 'green' ? 'success' : 'error'}
+                                            />
+                                        </TableCell>
+                                        <TableCell>{result.unit?.title || '-'}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleApplyComparison} color="primary">
+                        Siparişe Ekle ve Düzenle
+                    </Button>
+                    <Button onClick={resetComparisonStates}>İptal</Button>
+                </DialogActions>
             </Dialog>
 
             <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
