@@ -72,6 +72,11 @@ interface DispatchType {
         id: string;
         name: string;
     };
+    driverVehicle?: { // نام فیلد را به driverVehicle تغییر دهید.
+        id: string;
+        name: string;
+        plaque: string;
+    };
     warehouseDispatchDetails: DispatchDetailType[];
 }
 
@@ -428,10 +433,10 @@ const ListWarehouseDispatch = () => {
         return isValid;
     };
 
+
     const resetFormAndState = () => {
         setDocDate(new Date());
         setSelectedDriverId(null);
-        setSelectedVehicleId(null)
         setSelectedWorkhouseId(null);
         setDispatchDetails([]);
         setEditingId(null);
@@ -439,7 +444,11 @@ const ListWarehouseDispatch = () => {
         setDriverIdError(false);
         setWorkhouseIdError(false);
         setDispatchDetailsError(false);
+
+        setSelectedVehicleId(null);
+        setSelectedVehicleName(null);
     };
+    // ...
 
     // === API Actions ===
     const insertDispatch = async () => {
@@ -519,7 +528,10 @@ const ListWarehouseDispatch = () => {
             setEditingCode(selectedRowForMenu.code);
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
             setSelectedWorkhouseId(Number(selectedRowForMenu.workhouse?.id));
-
+            if (selectedRowForMenu.driverVehicle) {
+                setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
+                setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
+            }
             const formattedDetails: FormDispatchDetail[] = (selectedRowForMenu.warehouseDispatchDetails || []).map(d => ({
                 itemId: Number(d.item?.id),
                 quantity: d.quantity,
@@ -540,6 +552,11 @@ const ListWarehouseDispatch = () => {
             setOpenDeleteModal(true);
         }
         handleCloseMenu();
+    };
+    const handleCloseDeleteModal = () => {
+        setOpenDeleteModal(false); // 👍 مودال را می‌بندد.
+        setDispatchIdToDelete(null); // مقدار را ریست می‌کند.
+        setDispatchCodeToDelete(''); // مقدار را ریست می‌کند.
     };
 
     const handleAddDispatchDetail = () => {
@@ -643,6 +660,8 @@ const ListWarehouseDispatch = () => {
             yPos += 7;
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
             yPos += 7;
+            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos); // اضافه کردن این خط
+            yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
             yPos += 15;
 
@@ -681,7 +700,84 @@ const ListWarehouseDispatch = () => {
         doc.save('Sevk_Belgeleri_Detayli_Rapor.pdf');
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
+    const handleDownloadSingleDispatchPDF = (dispatch: DispatchType) => {
+        if (!dispatch) {
+            showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
+            return;
+        }
 
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        let yPos = 50; // Starting position
+
+        // Add font for Turkish characters
+        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Sevk Belgesi Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        // Print headers for the first page
+        header();
+        footer();
+
+        doc.setFontSize(14);
+        doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
+        yPos += 7;
+        doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
+        yPos += 7;
+        doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, 15, yPos);
+        yPos += 7;
+        doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
+        yPos += 7;
+        doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos); // اضافه کردن اطلاعات ماشین
+        yPos += 7;
+        doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
+        yPos += 15;
+
+        const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
+            d.item?.name || '-',
+            d.quantity,
+            d.item?.unit?.title || '-',
+            d.description || '-'
+        ]);
+
+        autoTable(doc, {
+            startY: yPos,
+            head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
+            body: detailsRows,
+            theme: 'grid',
+            styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+            pageBreak: 'auto',
+            didDrawPage: () => {
+                header();
+                footer();
+            },
+            showHead: 'everyPage',
+            margin: { top: 50, bottom: 20 }
+        });
+
+        doc.save(`Sevk_Belgesi_${dispatch.code}.pdf`);
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
     const selectedItemIds = useMemo(() => dispatchDetails.map(d => d.itemId).filter(id => id !== null), [dispatchDetails]);
 
     // === UI ===
@@ -935,6 +1031,7 @@ const ListWarehouseDispatch = () => {
                                         <TableCell><Typography variant="h6">Kod</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Depo</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Şoför</Typography></TableCell>
+                                        <TableCell><Typography variant="h6">Araç</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Şantiye</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Belge Tarihi</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Durum</Typography></TableCell>
@@ -949,6 +1046,7 @@ const ListWarehouseDispatch = () => {
                                                 <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{row.warehouse?.name || '-'}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></TableCell>
+                                                <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell> {/* اضافه کردن این خط */}
                                                 <TableCell><Typography variant="h6">{row.workhouse?.name || '-'}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
                                                 <TableCell>
@@ -973,9 +1071,23 @@ const ListWarehouseDispatch = () => {
                                                         setSelectedRowForMenu(row);
                                                         setAnchorEl(e.currentTarget);
                                                     }}><IconDots width={18} /></IconButton>
-                                                    <Menu anchorEl={anchorEl} open={openMenu && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
+                                                    <Menu anchorEl={anchorEl}
+                                                        open={openMenu && selectedRowForMenu?.id === row.id}
+                                                        onClose={handleCloseMenu}>
+                                                        {hasDownloadPermission && (
+                                                            <MenuItem
+                                                                onClick={() => {
+                                                                    handleDownloadSingleDispatchPDF(selectedRowForMenu!);
+                                                                    handleCloseMenu(); // مهم: بعد از کلیک منو را ببندید.
+                                                                }}
+                                                            >
+                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                                PDF'yi İndir
+                                                            </MenuItem>
+                                                        )}
                                                         {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}
-                                                        {hasDeletePermission && <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
+                                                        {hasDeletePermission &&
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
                                                     </Menu>
                                                 </TableCell>
                                             </TableRow>
@@ -1076,7 +1188,7 @@ const ListWarehouseDispatch = () => {
 
             <DeleteDispatch
                 openModal={openDeleteModal}
-                onClose={handleCloseMenu}
+                onClose={handleCloseDeleteModal}
                 dispatchIdToDelete={dispatchIdToDelete}
                 dispatchCodeToDelete={dispatchCodeToDelete}
                 onDeleteSuccess={() => fetchInitialData()}
