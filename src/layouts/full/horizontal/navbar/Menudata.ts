@@ -193,7 +193,7 @@ import {
   IconPlus,
   IconGlobe,
   IconMap, IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
-  IconBuildingFactory, IconFileInvoice, IconNetwork, IconHelmet
+  IconBuildingFactory, IconFileInvoice, IconNetwork, IconHelmet, IconBuildingStore
 } from '@tabler/icons-react';
 
 import server from '../../../../assets/address.json';
@@ -261,7 +261,8 @@ const IconComponents: { [key: string]: React.ElementType } = {
   'IconBuildingFactory': IconBuildingFactory,
   'IconFileInvoice': IconFileInvoice,
   'IconNetwork': IconNetwork,
-  'IconHelmet': IconHelmet
+  'IconHelmet': IconHelmet,
+  'IconBuildingStore': IconBuildingStore
 };
 
 const getIconComponent = (iconIdentifier: string | undefined): React.ElementType => {

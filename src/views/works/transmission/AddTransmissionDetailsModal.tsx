@@ -58,18 +58,27 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
         }
     }, [fromNode, toNode]);
 
+    // const availableItems = useMemo(() => {
+    //     const addedItemIds = new Set(addedItems.map(item => item.id));
+    //     return itemsList.filter(item => !addedItemIds.has(item.id)).map(item => ({
+    //         id: item.id,
+    //         name: item.name,
+    //         unit: item.unit,
+    //         weight: item.weight,
+    //         // productTypeId: '', 
+    //         // label: '', 
+    //         // parent: null, 
+    //     }));
+    // }, [itemsList, addedItems]);
+
     const availableItems = useMemo(() => {
         const addedItemIds = new Set(addedItems.map(item => item.id));
         return itemsList.filter(item => !addedItemIds.has(item.id)).map(item => ({
             id: item.id,
             name: item.name,
-            // اگر ویژگی‌های دیگری در SelectOption دارید، اینجا اضافه کنید
             unit: item.unit,
             weight: item.weight,
-            productTypeId: '', // یک مقدار پیش‌فرض
-            label: '', // یک مقدار پیش‌فرض
-            parent: null, // یک مقدار پیش‌فرض
-        }));
+        } as SelectOption)); // اینجا نوع را به SelectOption تغییر دهید
     }, [itemsList, addedItems]);
 
     const handleAddItem = useCallback(() => {
@@ -157,7 +166,8 @@ const AddTransmissionDetailsModal: React.FC<AddTransmissionDetailsModalProps> = 
                                 isOptionEqualToValue={(option, value) => option.id === value.id}
                                 value={selectedItem}
                                 onChange={(_e, newValue) => setSelectedItem(newValue)}
-                                renderInput={(params) => <TextField {...params} label="Öğe Seçin" variant="outlined" size="small" />}
+                                renderInput={(params) => <TextField {...params}
+                                    label="Öğe Seçin" variant="outlined" size="small" />}
                                 sx={{ flexGrow: 1 }}
                             />
                             {selectedItem && selectedItem.unit && ( // ✅ اضافه کردن شرط وجود selectedItem.unit

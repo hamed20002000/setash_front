@@ -28,38 +28,21 @@ import DeleteAllConfirmationModal from './DeleteAllConfirmationModal';
 import RegisterNewNodesModal from './RegisterNewNodesModal';
 import { keyframes } from '@mui/system';
 
-import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType } from './types';
+import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType, ProductTypesType } from './types';
 import { useAuth } from 'src/context/AuthContext';
 
 type SortableTransmissionKeys = keyof Pick<TransmissionRow, 'fromProductType' | 'toProductType' | 'distance' | 'miktarTipi' | 'formulaTitle' | 'createAt' | 'recordStatus'>;
 
-const descendingComparator = <T, Key extends keyof T>(
-    a: T,
-    b: T,
-    orderBy: Key,
-): number => {
+// ... (توابع کمکی descendingComparator, getComparator, stableSort)
+const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
-
-    if (valB === undefined || valB === null) {
-        return valA === undefined || valA === null ? 0 : -1;
-    }
-    if (valA === undefined || valA === null) {
-        return 1;
-    }
-
-    if (typeof valB === 'string' && typeof valA === 'string') {
-        return valB.localeCompare(valA);
-    }
-    if (typeof valB === 'number' && typeof valA === 'number') {
-        return valB - valA;
-    }
-    if (String(valB) < String(valA)) {
-        return -1;
-    }
-    if (String(valB) > String(valA)) {
-        return 1;
-    }
+    if (valB === undefined || valB === null) return valA === undefined || valA === null ? 0 : -1;
+    if (valA === undefined || valA === null) return 1;
+    if (typeof valB === 'string' && typeof valA === 'string') return valB.localeCompare(valA);
+    if (typeof valB === 'number' && typeof valA === 'number') return valB - valA;
+    if (String(valB) < String(valA)) return -1;
+    if (String(valB) > String(valA)) return 1;
     return 0;
 };
 const blinkAnimation = keyframes`
@@ -67,15 +50,9 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-const getComparator = (
-    order: 'asc' | 'desc',
-    orderBy: SortableTransmissionKeys,
-): (a: TransmissionRow, b: TransmissionRow) => number => {
-    return order === 'desc'
-        ? (a, b) => descendingComparator(a, b, orderBy)
-        : (a, b) => -descendingComparator(a, b, orderBy);
+const getComparator = (order: 'asc' | 'desc', orderBy: SortableTransmissionKeys): (a: TransmissionRow, b: TransmissionRow) => number => {
+    return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
 };
-
 const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
     stabilizedThis.sort((a, b) => {
@@ -85,7 +62,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-
 
 const ListTransmission = () => {
     const navigate = useNavigate();
@@ -110,7 +86,7 @@ const ListTransmission = () => {
     const [miktarTipi, setMiktarTipi] = useState<'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG'>('Yeni YG');
     const [formulaTitle, setFormulaTitle] = useState<string>('');
 
-    const [allProductTypes, setAllProductTypes] = useState<any[]>([]);
+    const [allProductTypes, setAllProductTypes] = useState<ProductTypesType[]>([]);
     const [channelRowsData, setChannelRowsData] = useState<any[]>([]);
     const [transmissionList, setTransmissionList] = useState<TransmissionRow[]>([]);
     const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -172,9 +148,10 @@ const ListTransmission = () => {
     }, [allowedOperations]);
 
 
-    const clearAlert = () => {
+    const clearAlert = useCallback(() => {
         setAlertMessage(null);
-    };
+    }, []);
+
     useEffect(() => {
         let timer: NodeJS.Timeout;
         if (alertMessage) {
@@ -185,7 +162,7 @@ const ListTransmission = () => {
         return () => {
             clearTimeout(timer);
         };
-    }, [alertMessage]);
+    }, [alertMessage, clearAlert]);
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -327,9 +304,14 @@ const ListTransmission = () => {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             if (response.data.httpStatusCode === 200) {
-                const formattedData = response.data.data.map((item: any) => ({
+                const formattedData: ProductTypesType[] = response.data.data.map((item: any) => ({
                     id: String(item.id),
                     name: item.name,
+                    type: item.type,
+                    parentProductType: item.parentProductType,
+                    recordStatus: item.recordStatus,
+                    createAt: item.createAt,
+                    networkTrAd: item.networkTrAd,
                 }));
                 setAllProductTypes(formattedData);
             } else {
@@ -543,7 +525,7 @@ const ListTransmission = () => {
                         toProductType: toNodeName,
                     };
                 });
-
+                debugger
                 setTransmissionList(processedData);
                 setHasUnsavedChanges(false);
                 if (processedData.length > 0) {
@@ -599,6 +581,46 @@ const ListTransmission = () => {
         }
     }, [navigate, showAlert, combinedProductTypeOptions]);
 
+
+    // const allUsedNodeIds = useMemo(() => {
+    //     const ids = new Set<string>();
+    //     transmissionList.forEach(row => {
+    //         if (row.fromProductTypeId) {
+    //             ids.add(row.fromProductTypeId);
+    //         }
+    //         if (row.toProductTypeId) {
+    //             ids.add(row.toProductTypeId);
+    //         }
+    //     });
+    //     return ids;
+    // }, [transmissionList]);
+
+    const availableTrafoOptionsForMap = useMemo(() => {
+        // گزینه‌های ترافو را بر اساس منطق fromProductType فیلتر کنید
+        const registeredTrafos = new Set(
+            transmissionList.flatMap(row => [row.fromProductTypeId, row.toProductTypeId])
+        );
+
+        return trafoOptions.filter(option => !registeredTrafos.has(option.id));
+    }, [trafoOptions, transmissionList]);
+
+    const availableProductTypeOptionsForMap = useMemo(() => {
+        const allOptions = combinedProductTypeOptions;
+        const usedNodes = transmissionList.map(row => row.toProductTypeId);
+
+        // از همان منطق فیلتر کردن toProductTypeOptions استفاده کنید
+        return allOptions.filter(option => {
+            // فیلتر کردن گره‌هایی که قبلاً به عنوان مقصد استفاده شده‌اند
+            if (usedNodes.includes(option.id)) return false;
+
+            // اگر می‌خواهید فقط مواردی با parent نمایش داده شوند، این خط را نگه دارید
+            if (option.parent === null) return false;
+
+            return true;
+        });
+
+    }, [combinedProductTypeOptions, transmissionList]);
+
     const fetchDataForModal = useCallback(async (networkId: string) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -635,9 +657,14 @@ const ListTransmission = () => {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             if (response.data.httpStatusCode === 200) {
-                const formattedData = response.data.data.map((item: any) => ({
+                const formattedData: ProductTypesType[] = response.data.data.map((item: any) => ({
                     id: String(item.id),
                     name: item.name,
+                    type: item.type,
+                    parentProductType: item.parentProductType,
+                    recordStatus: item.recordStatus,
+                    createAt: item.createAt,
+                    networkTrAd: item.networkTrAd,
                 }));
                 setAllProductTypes(formattedData);
             }
@@ -645,6 +672,31 @@ const ListTransmission = () => {
             console.error("Error fetching product types:", e);
         }
     }, [navigate, showAlert]);
+
+    const handleRegisterNewTrafo = useCallback(async (name: string, type: number) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Oturumunuzun süresi doldu.', 'error'); navigate("/"); return; }
+        try {
+            const payload = {
+                productTypeName: name,
+                productType: type,
+                parentProductTypeId: null,
+            };
+            const response = await axios.post(server.baseurl + server.initialoperations + "create-product-type", payload, {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+            if (response.data.httpStatusCode === 200) {
+                showAlert('TRAFO başarıyla kaydedildi!', 'success');
+                await fetchProductTypes();
+            } else {
+                showAlert(response.data.message || 'TRAFO kaydedilirken bir hata oluştu.', 'error');
+                throw new Error(response.data.message || 'TRAFO kaydedilirken bir hata oluştu.');
+            }
+        } catch (e: any) {
+            showAlert(e.response?.data?.message || 'Sunucu hatası.', 'error');
+            throw e;
+        }
+    }, [showAlert, navigate, fetchProductTypes]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -671,6 +723,7 @@ const ListTransmission = () => {
             } catch (error) {
                 console.error("Initial data fetch failed:", error);
                 showAlert('Başlangıç verileri yüklenirken bir hata oluştu.', 'error');
+                setLoadingFormOptions(false);
                 setDisplayTitlesLoaded(true);
             } finally {
                 setLoadingFormOptions(false);
@@ -766,6 +819,7 @@ const ListTransmission = () => {
             label: "",
             parent: null,
         });
+        setMiktarTipi(itemToEdit.miktarTipi as any);
         setItemQuantity(String(itemToEdit.quantity));
         setAddedItems(prev => prev.filter(item => item.id !== itemToEdit.id));
     }, [itemsList]);
@@ -874,21 +928,27 @@ const ListTransmission = () => {
             'Yeni AG': 1,
             'DMM YG': 2,
             'DMM AG': 3,
+            'TR-Connection': 4
         };
 
         const payload = listToUpdate.map(row => ({
+            id: row.id.includes('edge') ? 0 : row.id, // ID-lerin yonetimi
             distance: row.distance,
             formulaTitle: row.formulaTitle,
-            fromProductTypeId: parseInt(row.fromProductTypeId!),
-            toProductTypeId: parseInt(row.toProductTypeId!),
+            fromProductTypeId: parseInt(String(row.fromProductTypeId)),
+            toProductTypeId: parseInt(String(row.toProductTypeId)),
             productStatus: miktarTipiToStatus[row.miktarTipi],
             transmissionRowItmes: row.items?.map(item => ({
                 value: Number(item.quantity),
                 itemId: parseInt(item.id)
-            })) || []
+            })) || [],
+            fromProductTypeX: row.fromProductTypeX,
+            fromProductTypeY: row.fromProductTypeY,
+            toProductTypeX: row.toProductTypeX,
+            toProductTypeY: row.toProductTypeY,
         }));
         try {
-            await axios.put(server.baseurl + server.initialoperations + "update-TransmissionRow",
+            await axios.post(server.baseurl + server.initialoperations + "create-transmission-row-batch",
                 { networkId: Number(networkId), createTransmissionRows: payload },
                 {
                     headers: { "Authorization": `Bearer ${authToken}` }
@@ -930,40 +990,55 @@ const ListTransmission = () => {
             setOpenDeleteAllModal(false);
             setIsInitialEntry(true);
             setHasUnsavedChanges(false);
+            resetFormFields();
 
         } catch (e: any) {
             showAlert(e.response?.data?.message || 'Kayıtlar silinirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
-    }, [networkId, showAlert]);
+    }, [networkId, showAlert, resetFormFields]);
 
-    const handleRequestSort = (property: SortableTransmissionKeys) => {
+    const handleRequestSort = useCallback((property: SortableTransmissionKeys) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
-    };
+    }, [order, orderBy]);
 
-    const handleChangePage = (_event: unknown, newPage: number) => {
+    const handleChangePage = useCallback((_event: unknown, newPage: number) => {
         setPage(newPage);
-    };
+    }, []);
 
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         setRowsPerPage(parseInt(event.target.value, 10));
         setPage(0);
-    };
+    }, []);
 
-    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TransmissionRow) => {
+    const handleClickMenu = useCallback((event: React.MouseEvent<HTMLButtonElement>, row: TransmissionRow) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
-    };
+    }, []);
 
-    const handleCloseMenu = () => {
+    const handleCloseMenu = useCallback(() => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
-    };
+    }, []);
 
-    const handleEditClick = (row: TransmissionRow) => {
+    // const handleEditClick = useCallback((row: TransmissionRow) => {
+    //     setEditingRowId(row.id);
+    //     setIsInitialEntry(false);
+    //     const fromOption = combinedProductTypeOptions.find(opt => opt.id === row.fromProductTypeId) || null;
+    //     const toOption = combinedProductTypeOptions.find(opt => opt.id === row.toProductTypeId) || null;
+
+    //     setFromProductType(fromOption);
+    //     setToProductType(toOption);
+    //     setDistance(String(row.distance));
+    //     setMiktarTipi(row.miktarTipi);
+    //     setFormulaTitle(row.formulaTitle);
+    //     setAddedItems(row.items || []);
+    // }, [combinedProductTypeOptions]);
+
+    const handleEditClick = useCallback((row: TransmissionRow) => {
         setEditingRowId(row.id);
         setIsInitialEntry(false);
         const fromOption = combinedProductTypeOptions.find(opt => opt.id === row.fromProductTypeId) || null;
@@ -972,17 +1047,17 @@ const ListTransmission = () => {
         setFromProductType(fromOption);
         setToProductType(toOption);
         setDistance(String(row.distance));
-        if (row.miktarTipi !== 'TR-Connection') {
-            setMiktarTipi(row.miktarTipi);
-        } else {
-            setMiktarTipi('Yeni YG');
-        }
         setFormulaTitle(row.formulaTitle);
         setAddedItems(row.items || []);
 
-        const itemsInRow = row.items?.map(item => item.id) || [];
-        setAvailableItems(prev => prev.filter(item => !itemsInRow.includes(item.id)));
-    };
+        // **راه حل برای خطای TypeScript**
+        // بررسی می‌کنیم که آیا مقدار row.miktarTipi در لیست مقادیر مجاز ما هست یا نه
+        const validMiktarTypes = ['Yeni YG', 'Yeni AG', 'DMM YG', 'DMM AG'];
+        const newMiktarTipi = validMiktarTypes.includes(row.miktarTipi as string) ? row.miktarTipi : 'Yeni YG';
+        setMiktarTipi(newMiktarTipi as any);
+
+    }, [combinedProductTypeOptions]);
+
 
     const handleUpdateRowInTransmissionList = useCallback(() => {
         if (!editingRowId || !fromProductType || !toProductType || !distance || addedItems.length === 0) {
@@ -1022,12 +1097,12 @@ const ListTransmission = () => {
         setOpenDeleteModal(true);
     }, [transmissionList]);
 
-    const handleCloseDeleteModal = () => {
+    const handleCloseDeleteModal = useCallback(() => {
         setOpenDeleteModal(false);
         setTransmissionIdToDelete(null);
-    };
+    }, []);
 
-    const handleDeleteSuccess = useCallback(() => {
+    const handleDeleteSuccess = useCallback(async () => {
         if (!transmissionIdToDelete) {
             setOpenDeleteModal(false);
             return;
@@ -1035,25 +1110,19 @@ const ListTransmission = () => {
 
         const rowToDelete = transmissionList.find(r => r.id === transmissionIdToDelete);
         const dependentRows = transmissionList.filter(r => rowToDelete && r.fromProductTypeId === rowToDelete.toProductTypeId);
-
         const idsToDelete = new Set([transmissionIdToDelete, ...dependentRows.map(r => r.id)]);
-
         const newTransmissionList = transmissionList.filter(row => !idsToDelete.has(row.id));
 
-        if (newTransmissionList.length === 0) {
-            setHasUnsavedChanges(true);
-            setOpenDeleteModal(false);
-            handleConfirmDeleteAll();
-            showAlert('Kayıtlar silindi. Tamamen temizlendi.', 'success');
-        } else {
-            setHasUnsavedChanges(true);
-            setTransmissionList(newTransmissionList);
-            showAlert('Kayıt yerel olarak silindi. Değişiklikleri sunucuya kaydetmek için "Kaydet" düğmesine basın.', 'info');
-            handleBatchUpdate(newTransmissionList);
-            setOpenDeleteModal(false);
-        }
+        setTransmissionList(newTransmissionList);
+        setHasUnsavedChanges(true);
+        setOpenDeleteModal(false);
 
-    }, [transmissionIdToDelete, transmissionList, showAlert, handleBatchUpdate, handleConfirmDeleteAll]);
+        await handleBatchUpdate(newTransmissionList);
+        showAlert('Kayıt(lar) başarıyla silindi ve sunucuya kaydedildi!', 'success');
+        fetchTransmissionList(networkId!);
+
+    }, [transmissionIdToDelete, transmissionList, showAlert, handleBatchUpdate, networkId, fetchTransmissionList]);
+
 
     const handleSaveMapChanges = useCallback(async (updatedTransmissions: TransmissionRow[], newlyCreatedNodes: MapNode[]) => {
         if (newlyCreatedNodes.length > 0) {
@@ -1063,7 +1132,7 @@ const ListTransmission = () => {
         } else {
             setTransmissionList(updatedTransmissions);
             await handleBatchUpdate(updatedTransmissions);
-            showAlert('Başarıyla güncellenip kaydedildi!', 'success');
+            showAlert('Harita değişiklikleri başarıyla kaydedildi!', 'success');
         }
     }, [handleBatchUpdate, showAlert]);
 
@@ -1808,6 +1877,10 @@ const ListTransmission = () => {
                 onUpdateTransmissions={() => { }}
                 itemsList={itemsList}
                 showAlert={showAlert}
+                onRegisterNewTrafo={handleRegisterNewTrafo}
+                productTypesList={allProductTypes}
+                availableTrafoOptionsForMap={availableTrafoOptionsForMap}
+                availableProductTypeOptionsForMap={availableProductTypeOptionsForMap}
             />
 
             <DeleteTransmissionModal

@@ -17,7 +17,7 @@ import {
     DialogActions
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus, IconArrowRight, IconEye } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus, IconArrowRight, IconEye, IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
@@ -29,7 +29,7 @@ import { useAuth } from 'src/context/AuthContext';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import jsPDF from 'jspdf';
-import { autoTable } from 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import DeleteDispatch from "./DeleteDispatch";
@@ -58,7 +58,8 @@ interface DispatchType {
     docDate: string;
     createAt: string;
     recordStatus: number;
-    status: string;
+    status: number;
+    statusDescription: string | null;
     warehouse?: {
         id: string;
         name: string;
@@ -72,12 +73,14 @@ interface DispatchType {
         id: string;
         name: string;
     };
-    driverVehicle?: { // نام فیلد را به driverVehicle تغییر دهید.
+    driverVehicle?: {
         id: string;
         name: string;
         plaque: string;
     };
     warehouseDispatchDetails: DispatchDetailType[];
+    statusText?: string;
+    statusColor?: 'success' | 'error' | 'warning' | 'info';
 }
 
 interface NewDispatchData {
@@ -110,17 +113,6 @@ interface WorkhouseType {
     recordStatus?: number;
 }
 
-interface ItemType {
-    id: number;
-    name: string;
-    abbreviation: string;
-    unit?: {
-        title: string;
-    };
-    recordStatus?: number;
-}
-
-// === NEW TYPE FOR ITEM WITH BALANCE ===
 interface ItemWithBalanceType {
     itemId: string;
     name: string;
@@ -131,7 +123,6 @@ interface ItemWithBalanceType {
     };
 }
 
-// === NEW TYPE FOR FORM DETAILS ===
 interface FormDispatchDetail {
     itemId: number | null;
     quantity: number | string;
@@ -197,6 +188,10 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
+const BlinkingButtondownload = styled(Button)(() => ({
+    animation: `${blinkAnimation} 1s linear infinite`,
+}));
+
 // === Main Component ===
 const ListWarehouseDispatch = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
@@ -206,11 +201,9 @@ const ListWarehouseDispatch = () => {
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
-    const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null); // اضافه کردن این خط
+    const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
-    // Using the new FormDispatchDetail type
     const [dispatchDetails, setDispatchDetails] = useState<FormDispatchDetail[]>([]);
-
     const [dispatchList, setDispatchList] = useState<DispatchType[]>([]);
     const [displayedDispatches, setDisplayedDispatches] = useState<DispatchType[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -239,9 +232,6 @@ const ListWarehouseDispatch = () => {
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [workhouses, setWorkhouses] = useState<WorkhouseType[]>([]);
-    // const [items, setItems] = useState<ItemType[]>([]);
-
-    // === NEW STATE FOR ITEM BALANCES ===
     const [itemsWithBalance, setItemsWithBalance] = useState<ItemWithBalanceType[]>([]);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -257,6 +247,18 @@ const ListWarehouseDispatch = () => {
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
     const [detailsToShow, setDetailsToShow] = useState<DispatchDetailType[]>([]);
 
+    const [isFilterActive, setIsFilterActive] = useState(false);
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+
+    // === New State for Status Update Modal ===
+    const [openStatusUpdateModal, setOpenStatusUpdateModal] = useState(false);
+    const [updateModalData, setUpdateModalData] = useState<{ id: string | null; status: number; description: string }>({ id: null, status: 0, description: '' });
+
+    // === New State for Status Description Modal (Read-only) ===
+    const [openStatusDescriptionModal, setOpenStatusDescriptionModal] = useState(false);
+    const [readOnlyDescription, setReadOnlyDescription] = useState<string>('');
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
@@ -264,6 +266,7 @@ const ListWarehouseDispatch = () => {
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
+
 
     // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -301,10 +304,10 @@ const ListWarehouseDispatch = () => {
                     setOpenVehicleModal(true);
                     setTempSelectedVehicle(activeVehicles[0].id);
                 } else if (activeVehicles.length === 1) {
-                    setSelectedVehicleId(activeVehicles[0].id); // تغییر از setSelectedVehicle به setSelectedVehicleId
+                    setSelectedVehicleId(activeVehicles[0].id);
                     setSelectedVehicleName(`${activeVehicles[0].name} (${activeVehicles[0].plaque})`);
                 } else {
-                    setSelectedVehicleId(null); // تغییر از setSelectedVehicle به setSelectedVehicleId
+                    setSelectedVehicleId(null);
                     setSelectedVehicleName(null);
                 }
             } else {
@@ -335,20 +338,16 @@ const ListWarehouseDispatch = () => {
         }
 
         try {
-            // === MODIFIED: ADDED API CALL FOR ITEM BALANCES ===
-            const [driversRes, workhousesRes, _itemsRes, dispatchesRes, itemsBalanceRes] = await Promise.all([
+            const [driversRes, workhousesRes, dispatchesRes, itemsBalanceRes] = await Promise.all([
                 axios.get<ApiResponse<DriverType[]>>(server.baseurl + server.warehouse + "get-drivers", { headers: { "Authorization": `Bearer ${authToken}` } }),
                 axios.get<ApiResponse<WorkhouseType[]>>(server.baseurl + server.initialoperations + "get-workhouse", { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<ApiResponse<ItemType[]>>(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } }),
                 axios.get<ApiResponse<DispatchType[]>>(server.baseurl + server.warehouse + `get-warehouse-dispatches/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
                 axios.get<ApiResponse<ItemWithBalanceType[]>>(server.baseurl + server.warehouse + `get-warehouse-all-items-balance/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
             ]);
 
             setDrivers(driversRes.data?.data?.filter(d => d.recordStatus === 0).map(d => ({ ...d, id: Number(d.id) })) || []);
             setWorkhouses(workhousesRes.data?.data?.filter(w => w.recordStatus === 0).map(w => ({ ...w, id: Number(w.id) })) || []);
-            // setItems(itemsRes.data?.data?.filter(i => i.recordStatus === 0).map(i => ({ ...i, id: Number(i.id) })) || []);
 
-            // === NEW: SET ITEM BALANCES ===
             if (itemsBalanceRes.data?.httpStatusCode === 200) {
                 setItemsWithBalance(itemsBalanceRes.data.data);
             } else {
@@ -357,10 +356,31 @@ const ListWarehouseDispatch = () => {
 
             if (dispatchesRes.data?.httpStatusCode === 200) {
                 const allDispatches = dispatchesRes.data.data;
-                const formattedDispatches = allDispatches.map(d => ({
-                    ...d,
-                    status: d.recordStatus === 0 ? 'Aktif' : 'Pasif'
-                }));
+                const formattedDispatches = allDispatches.map(d => {
+                    let statusText = 'Bilinmiyor';
+                    let statusColor: 'success' | 'error' | 'warning' | 'info' = 'info';
+
+                    switch (d.status) {
+                        case 0:
+                            statusText = 'Beklemede';
+                            statusColor = 'warning';
+                            break;
+                        case 1:
+                            statusText = 'Onaylandı';
+                            statusColor = 'success';
+                            break;
+                        case 2:
+                            statusText = 'Reddedildi';
+                            statusColor = 'error';
+                            break;
+                    }
+
+                    return {
+                        ...d,
+                        statusText: statusText,
+                        statusColor: statusColor
+                    };
+                });
                 setDispatchList(formattedDispatches);
             } else {
                 showAlert(dispatchesRes.data?.message || 'Sevk belgeleri yüklenirken bir hata oluştu.', 'error');
@@ -377,37 +397,46 @@ const ListWarehouseDispatch = () => {
     }, [fetchInitialData]);
 
     useEffect(() => {
-        const filteredBySearchAndStatus = dispatchList.filter(d => {
+        let filteredDispatches = dispatchList.filter(d => {
             const matchesSearch = d.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (d.driver?.name && d.driver.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (d.driver?.family && d.driver.family.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (d.warehouse?.name && d.warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
             const matchesStatus = statusFilter === 'all' ||
-                (statusFilter === 'active' && d.recordStatus === 0) ||
-                (statusFilter === 'inactive' && d.recordStatus === 1);
+                (statusFilter === 'active' && d.status === 1) ||
+                (statusFilter === 'inactive' && d.status === 2);
 
-            return matchesSearch && matchesStatus;
+            const docDate = new Date(d.docDate);
+            const startCheck = !startDate || docDate >= startDate;
+            const endCheck = !endDate || docDate <= endDate;
+
+            return matchesSearch && matchesStatus && startCheck && endCheck;
         });
-        setDisplayedDispatches(filteredBySearchAndStatus);
+
+        setDisplayedDispatches(filteredDispatches);
         setPage(0);
-    }, [dispatchList, searchTerm, statusFilter]);
+    }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
+
     useEffect(() => {
         const isValid = !!selectedDriverId && !!selectedWorkhouseId &&
             !!docDate && dispatchDetails.length > 0 &&
-            // تبدیل d.quantity به عدد قبل از مقایسه
             dispatchDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
         setIsFormValid(isValid);
     }, [selectedDriverId, selectedWorkhouseId, docDate, dispatchDetails]);
 
     useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+    }, [searchTerm, statusFilter, startDate, endDate]);
+
+    useEffect(() => {
         let blinkInterval: NodeJS.Timeout | null = null;
         if (isFormValid && !loadingButton) {
-            blinkInterval = setInterval(() => {
-                // setIsButtonBlinking(prev => !prev);
-            }, 500);
+            blinkInterval = setInterval(() => { }, 500);
         } else {
-            // setIsButtonBlinking(false);
             if (blinkInterval) {
                 clearInterval(blinkInterval);
             }
@@ -433,7 +462,6 @@ const ListWarehouseDispatch = () => {
         return isValid;
     };
 
-
     const resetFormAndState = () => {
         setDocDate(new Date());
         setSelectedDriverId(null);
@@ -444,11 +472,9 @@ const ListWarehouseDispatch = () => {
         setDriverIdError(false);
         setWorkhouseIdError(false);
         setDispatchDetailsError(false);
-
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
     };
-    // ...
 
     // === API Actions ===
     const insertDispatch = async () => {
@@ -461,7 +487,7 @@ const ListWarehouseDispatch = () => {
                 docDate: docDate?.toISOString() || new Date().toISOString(),
                 warehouseId: Number(warehouseId),
                 driverId: Number(selectedDriverId),
-                driverVehicleId: Number(selectedVehicleId), // اضافه کردن این خط
+                driverVehicleId: Number(selectedVehicleId),
                 workhouseId: Number(selectedWorkhouseId),
                 dispatchDetails: dispatchDetails.map(d => ({ itemId: Number(d.itemId), quantity: Number(d.quantity), description: d.description }))
             };
@@ -515,6 +541,50 @@ const ListWarehouseDispatch = () => {
         }
     };
 
+    const updateDispatchStatus = async () => {
+        setLoadingButton(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { navigate("/"); return; }
+        try {
+            const payload = {
+                id: Number(updateModalData.id),
+                status: updateModalData.status,
+                description: updateModalData.description
+            };
+            const url = `${server.baseurl}${server.warehouse}update-warehouse-dispatch-status`;
+            const response = await axios.put(url, payload, { headers: { "Authorization": `Bearer ${authToken}` } });
+            if (response.data.httpStatusCode === 200) {
+                showAlert('Sevk belgesi durumu başarıyla güncellendi.', 'success');
+                fetchInitialData();
+                setOpenStatusUpdateModal(false);
+            } else {
+                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+        } finally {
+            setLoadingButton(false);
+        }
+    };
+
+    const handleOpenStatusUpdateModal = (status: number) => {
+        if (selectedRowForMenu) {
+            setUpdateModalData({
+                id: selectedRowForMenu.id,
+                status: status,
+                description: selectedRowForMenu.statusDescription || ''
+            });
+            setOpenStatusUpdateModal(true);
+            handleCloseMenu();
+        }
+    };
+
+    // === New handler to open the read-only description modal ===
+    const handleOpenReadOnlyDescriptionModal = (description: string) => {
+        setReadOnlyDescription(description);
+        setOpenStatusDescriptionModal(true);
+    };
+
     const handleCloseMenu = () => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
@@ -541,6 +611,7 @@ const ListWarehouseDispatch = () => {
             handleCloseMenu();
         }
     };
+
     const handleCancelEdit = () => {
         resetFormAndState();
     };
@@ -553,10 +624,11 @@ const ListWarehouseDispatch = () => {
         }
         handleCloseMenu();
     };
+
     const handleCloseDeleteModal = () => {
-        setOpenDeleteModal(false); // 👍 مودال را می‌بندد.
-        setDispatchIdToDelete(null); // مقدار را ریست می‌کند.
-        setDispatchCodeToDelete(''); // مقدار را ریست می‌کند.
+        setOpenDeleteModal(false);
+        setDispatchIdToDelete(null);
+        setDispatchCodeToDelete('');
     };
 
     const handleAddDispatchDetail = () => {
@@ -573,7 +645,6 @@ const ListWarehouseDispatch = () => {
         setDispatchDetails(prev => prev.filter((_, i) => i !== index));
     };
 
-    // === MODIFIED: QUANTITY VALIDATION ADDED ===
     const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
         setDispatchDetails(prev => {
             const newDetails = [...prev];
@@ -586,10 +657,10 @@ const ListWarehouseDispatch = () => {
 
                 if (numValue < 0) {
                     showAlert('Miktar negatif olamaz!', 'warning');
-                    updatedDetail.quantity = 0; // Set to 0 to prevent negative input
+                    updatedDetail.quantity = 0;
                 } else if (numValue > maxBalance) {
                     showAlert(`Girdiğiniz miktar stoktan fazla! Maksimum: ${maxBalance}`, 'warning');
-                    updatedDetail.quantity = maxBalance; // Set to max balance to prevent over-allocation
+                    updatedDetail.quantity = maxBalance;
                 } else {
                     updatedDetail.quantity = value;
                 }
@@ -612,6 +683,11 @@ const ListWarehouseDispatch = () => {
         }
     };
 
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
+    };
+
     const handleDownloadAllDispatchesPDF = () => {
         if (!dispatchList || dispatchList.length === 0) {
             showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
@@ -621,7 +697,7 @@ const ListWarehouseDispatch = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        let yPos = 50; // Başlangıç pozisyonu
+        let yPos = 50;
 
         (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -646,7 +722,7 @@ const ListWarehouseDispatch = () => {
         };
 
         dispatchList.forEach((dispatch) => {
-            if (yPos + 50 > doc.internal.pageSize.getHeight()) {
+            if (yPos + 60 > doc.internal.pageSize.getHeight()) {
                 doc.addPage();
                 yPos = 50;
             }
@@ -660,10 +736,17 @@ const ListWarehouseDispatch = () => {
             yPos += 7;
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
             yPos += 7;
-            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos); // اضافه کردن این خط
+            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
             yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-            yPos += 15;
+            yPos += 7;
+            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
+            yPos += 7;
+            if (dispatch.statusDescription) {
+                doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
+                yPos += 7;
+            }
+            yPos += 10;
 
             const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
                 d.item?.name || '-',
@@ -679,14 +762,12 @@ const ListWarehouseDispatch = () => {
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
                 headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-
                 pageBreak: 'auto',
                 didDrawCell: (data: any) => {
                     if (data.cell.section === 'body') {
                         yPos = (data.cell.y + data.cell.height);
                     }
                 },
-
                 didDrawPage: () => {
                     header();
                     footer();
@@ -700,6 +781,102 @@ const ListWarehouseDispatch = () => {
         doc.save('Sevk_Belgeleri_Detayli_Rapor.pdf');
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
+
+    const handleDownloadFilteredAllPDF = () => {
+        if (!displayedDispatches || displayedDispatches.length === 0) {
+            showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        let yPos = 50;
+
+        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('Noto-Sans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Sevk Belgeleri Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        displayedDispatches.forEach((dispatch) => {
+            if (yPos + 60 > doc.internal.pageSize.getHeight()) {
+                doc.addPage();
+                yPos = 50;
+            }
+
+            doc.setFontSize(14);
+            doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
+            yPos += 7;
+            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
+            yPos += 7;
+            if (dispatch.statusDescription) {
+                doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
+                yPos += 7;
+            }
+            yPos += 10;
+
+            const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
+                d.item?.name || '-',
+                d.quantity,
+                d.item?.unit?.title || '-',
+                d.description || '-'
+            ]);
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
+                body: detailsRows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                pageBreak: 'auto',
+                didDrawCell: (data: any) => {
+                    if (data.cell.section === 'body') {
+                        yPos = (data.cell.y + data.cell.height);
+                    }
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+            yPos += 15;
+        });
+
+        doc.save('Sevk_Belgeleri_Detayli_Rapor.pdf');
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
     const handleDownloadSingleDispatchPDF = (dispatch: DispatchType) => {
         if (!dispatch) {
             showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
@@ -709,9 +886,8 @@ const ListWarehouseDispatch = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        let yPos = 50; // Starting position
+        let yPos = 50;
 
-        // Add font for Turkish characters
         (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
@@ -734,7 +910,6 @@ const ListWarehouseDispatch = () => {
             doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
-        // Print headers for the first page
         header();
         footer();
 
@@ -747,10 +922,17 @@ const ListWarehouseDispatch = () => {
         yPos += 7;
         doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
         yPos += 7;
-        doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos); // اضافه کردن اطلاعات ماشین
+        doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
         yPos += 7;
         doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-        yPos += 15;
+        yPos += 7;
+        doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
+        yPos += 7;
+        if (dispatch.statusDescription) {
+            doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
+            yPos += 7;
+        }
+        yPos += 10;
 
         const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
             d.item?.name || '-',
@@ -911,7 +1093,6 @@ const ListWarehouseDispatch = () => {
                             </Stack>
                             <Grid container spacing={2}>
                                 {dispatchDetails.map((detail, index) => {
-                                    // === MODIFIED: USE itemsWithBalance HERE ===
                                     const availableItems = itemsWithBalance.filter(item =>
                                         !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
                                     );
@@ -992,9 +1173,26 @@ const ListWarehouseDispatch = () => {
                 )}
                 {/* Tablo */}
                 <BlankCard>
+                    <Grid item xs={12} mt={2} mr={2}>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            {isFilterActive && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Sevk indirin" : ""}>
+                                    <BlinkingButtondownload
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleDownloadFilteredAllPDF}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi Tüm Sürücüleri İndir
+                                    </BlinkingButtondownload>
+                                </CustomTooltip>
+                            )}
+                        </Stack>
+                    </Grid>
                     <Box sx={{ p: 2 }}>
                         <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={8}>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <TextField
                                     label="Sevk Belgesi Ara"
                                     variant="outlined"
@@ -1004,7 +1202,30 @@ const ListWarehouseDispatch = () => {
                                     InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+                            <Grid item xs={12} sm={6} md={6}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <DatePicker
+                                            label="Başlangıç Tarihi"
+                                            value={startDate}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setStartDate(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <DatePicker
+                                            label="Bitiş Tarihi"
+                                            value={endDate}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setEndDate(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                            <IconX size={20} />
+                                        </IconButton>
+                                    </Stack>
+                                </LocalizationProvider>
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <ToggleButtonGroup
                                     value={statusFilter}
                                     exclusive
@@ -1046,11 +1267,20 @@ const ListWarehouseDispatch = () => {
                                                 <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{row.warehouse?.name || '-'}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell> {/* اضافه کردن این خط */}
+                                                <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{row.workhouse?.name || '-'}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
                                                 <TableCell>
-                                                    <Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} />
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Chip label={row.statusText} color={row.statusColor} />
+                                                        {row.statusDescription && (
+                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Açıklamasını Görüntüle" : ""}>
+                                                                <IconButton onClick={() => handleOpenReadOnlyDescriptionModal(row.statusDescription!)}>
+                                                                    <IconInfoCircle size={18} />
+                                                                </IconButton>
+                                                            </CustomTooltip>
+                                                        )}
+                                                    </Stack>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
@@ -1075,12 +1305,10 @@ const ListWarehouseDispatch = () => {
                                                         open={openMenu && selectedRowForMenu?.id === row.id}
                                                         onClose={handleCloseMenu}>
                                                         {hasDownloadPermission && (
-                                                            <MenuItem
-                                                                onClick={() => {
-                                                                    handleDownloadSingleDispatchPDF(selectedRowForMenu!);
-                                                                    handleCloseMenu(); // مهم: بعد از کلیک منو را ببندید.
-                                                                }}
-                                                            >
+                                                            <MenuItem onClick={() => {
+                                                                handleDownloadSingleDispatchPDF(selectedRowForMenu!);
+                                                                handleCloseMenu();
+                                                            }}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
                                                                 PDF'yi İndir
                                                             </MenuItem>
@@ -1088,12 +1316,33 @@ const ListWarehouseDispatch = () => {
                                                         {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}
                                                         {hasDeletePermission &&
                                                             <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
+                                                        {/* Yeni MenuItem ها برای وضعیت */}
+                                                        {selectedRowForMenu?.status === 0 && (
+                                                            <>
+                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
+                                                                    <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
+                                                                </MenuItem>
+                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
+                                                                    <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
+                                                                </MenuItem>
+                                                            </>
+                                                        )}
+                                                        {selectedRowForMenu?.status === 1 && (
+                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
+                                                                <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
+                                                            </MenuItem>
+                                                        )}
+                                                        {selectedRowForMenu?.status === 2 && (
+                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
+                                                                <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
+                                                            </MenuItem>
+                                                        )}
                                                     </Menu>
                                                 </TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={7} align="center"><Typography>Hiç sevk belgesi bulunamadı.</Typography></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={9} align="center"><Typography>Hiç sevk belgesi bulunamadı.</Typography></TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -1136,7 +1385,7 @@ const ListWarehouseDispatch = () => {
                     <Button onClick={() => {
                         const selected = vehiclesList.find(v => v.id === tempSelectedVehicle);
                         if (selected) {
-                            setSelectedVehicleId(selected.id); // تغییر از setSelectedVehicle به setSelectedVehicleId
+                            setSelectedVehicleId(selected.id);
                             setSelectedVehicleName(`${selected.name} (${selected.plaque})`);
                         }
                         setOpenVehicleModal(false);
@@ -1183,6 +1432,42 @@ const ListWarehouseDispatch = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+            {/* Modal برای به‌روزرسانی وضعیت (قبلی) */}
+            <Dialog open={openStatusUpdateModal} onClose={() => setOpenStatusUpdateModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    {updateModalData.status === 1 ? 'Sevk Belgesini Onayla' : 'Sevk Belgesini Reddet'}
+                </DialogTitle>
+                <DialogContent>
+                    <CustomFormLabel>Açıklama</CustomFormLabel>
+                    <CustomTextField
+                        fullWidth
+                        multiline
+                        rows={4}
+                        value={updateModalData.description}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUpdateModalData({ ...updateModalData, description: e.target.value })}
+                        placeholder="Durum için bir açıklama girin..."
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenStatusUpdateModal(false)} color="secondary">
+                        İptal Et
+                    </Button>
+                    <Button onClick={updateDispatchStatus} color="primary" variant="contained" disabled={loadingButton}>
+                        {loadingButton ? <CircularProgress size={24} /> : 'Kaydet'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Modal جدید برای نمایش توضیحات وضعیت (Read-only) */}
+            <Dialog open={openStatusDescriptionModal} onClose={() => setOpenStatusDescriptionModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Durum Açıklaması</DialogTitle>
+                <DialogContent>
+                    <Typography>{readOnlyDescription || 'Açıklama bulunamadı.'}</Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenStatusDescriptionModal(false)} color="secondary">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

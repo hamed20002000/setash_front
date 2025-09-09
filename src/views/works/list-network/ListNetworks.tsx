@@ -976,10 +976,10 @@ const ListNetwork = () => {
             )}
             <Box sx={{ p: 2, mt: 4 }}>
                 <Typography variant="h5" mb={2}>Mevcut Şebeke</Typography>
+                <CustomFormLabel htmlFor="work-filter">İş Filtrele:</CustomFormLabel>
                 <Grid container spacing={2} alignItems="center" mb={2}>
                     {workId === undefined && (
                         <Grid item xs={12} md={3}>
-                            <CustomFormLabel htmlFor="work-filter">İş Filtrele:</CustomFormLabel>
                             <FormControl fullWidth size="small">
                                 <Select
                                     id="work-filter"

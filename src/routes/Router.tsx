@@ -139,6 +139,9 @@ const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/L
 const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
 const ListInvoices = Loadable(lazy(() => import('../views/warehouse/list-invoice/ListInvoices')));
 const ListReceipt = Loadable(lazy(() => import('../views/warehouse/list-receipt/ListReceipt')));
+const ListStores = Loadable(lazy(() => import('../views/works/store/ListStores')));
+const ListStoreReceipts = Loadable(lazy(() => import('../views/works/StoreReceipt/ListStoreReceipt')));
+
 
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
@@ -376,6 +379,30 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListReceipt />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-stores/:workhouseId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStores />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-stores/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStores />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-store-receipt/:storeId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreReceipts />
           </PermissionGuard>
         )
       },

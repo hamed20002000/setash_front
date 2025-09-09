@@ -1,12 +1,13 @@
+// src/views/project/transmissions/types.ts
 import * as d3 from 'd3-force';
 
 export interface MapNode extends d3.SimulationNodeDatum {
     id: string;
     name: string;
-    x: number | undefined; // ✅ x و y می‌توانند undefined باشند
-    y: number | undefined; // ✅ از این جهت که در ابتدا مقداری ندارند
-    fx?: number | null;     // ✅ خصوصیت fx و fy را اضافه کنید
-    fy?: number | null;     // ✅ اینها برای fix کردن موقعیت گره در D3 استفاده می‌شوند
+    x: number | undefined;
+    y: number | undefined;
+    fx?: number | null;
+    fy?: number | null;
     isHub?: boolean;
     isNew?: boolean;
     channelRowId?: string;
@@ -16,7 +17,6 @@ export interface SelectOption {
     id: string;
     name: string;
     weight?: number | null;
-    // ✅ Change this line to be more specific
     unit?: {
         id: string;
         title: string;
@@ -26,6 +26,7 @@ export interface SelectOption {
     productTypeId?: string;
     label?: string;
     parent?: { id: string; label: string } | null;
+    type?: number;
 }
 
 export interface AddedItem {
@@ -41,8 +42,10 @@ export interface AddedItem {
         createAt: string;
     };
 }
+
 export type ValidMiktarTipi = 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG';
 export type FullMiktarTipi = ValidMiktarTipi | 'TR-Connection';
+
 export interface TransmissionRow {
     id: string;
     fromProductType: string;
@@ -63,9 +66,7 @@ export interface TransmissionRow {
     items?: AddedItem[];
 }
 
-
 export type MiktarTipi = 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG' | 'TR-Connection';
-
 
 export interface D3MapLink extends d3.SimulationLinkDatum<MapNode> {
     id: string;
@@ -114,11 +115,17 @@ export interface MapEdge {
 }
 
 
+// Corrected ProductTypesType interface
 export interface ProductTypesType {
-    id: string; // یا number، بستگی به API دارد
+    id: string;
     name: string;
     recordStatus: number;
     createAt: string;
     type: number;
-    status: string;
+    status?: string;
+    // The missing property is added here
+    parentProductType?: {
+        id: string;
+        name: string;
+    } | null;
 }

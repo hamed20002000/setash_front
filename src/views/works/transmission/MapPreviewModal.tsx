@@ -2,24 +2,24 @@ import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Button, Typography, Box, Stack, IconButton,
-    ToggleButtonGroup, ToggleButton as MuiToggleButton, Tooltip,
+    ToggleButtonGroup, ToggleButton as MuiToggleButton, Tooltip
 } from '@mui/material';
 import { useTheme, styled, Theme } from '@mui/material/styles';
 import {
     IconX, IconSelect, IconHandGrab, IconPlus, IconMinus, IconTrash,
-    IconLine,
-    IconRotate2, IconPencil
+    IconLine, IconRotate2, IconPencil, IconMapPin,
 } from '@tabler/icons-react';
 import * as d3 from 'd3-force';
 import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import AddTransmissionDetailsModal from './AddTransmissionDetailsModal';
+import SelectTrafoModal from './SelectTrafoModal';
+import SelectProductTypeModal from './SelectProductTypeModal';
 
-import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType, MiktarTipi, D3MapLink, MapEdge } from './types';
+import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType, MiktarTipi, D3MapLink, MapEdge, ProductTypesType } from './types';
 
 
-
-type ToolType = 'select' | 'pan' | 'addNode' | 'addEdge' | 'delete' | 'zoomIn' | 'zoomOut' | 'rotate-drag' | 'edit';
+type ToolType = 'select' | 'pan' | 'addNode' | 'addEdge' | 'delete' | 'zoomIn' | 'zoomOut' | 'rotate-drag' | 'edit' | 'addTrafo';
 
 const StyledToolButton = styled(MuiToggleButton)(({ theme }) => ({
     '&.Mui-selected': {
@@ -64,6 +64,11 @@ interface MapPreviewModalProps {
     allProductTypes: SelectOption[];
     itemsList: ItemType[];
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
+    onRegisterNewTrafo: (name: string, type: number) => Promise<void>;
+    productTypesList: ProductTypesType[];
+
+    availableTrafoOptionsForMap: SelectOption[];
+    availableProductTypeOptionsForMap: SelectOption[];
 }
 
 const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
@@ -75,7 +80,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     onSaveMapChanges,
     allProductTypes,
     itemsList,
-    showAlert
+    showAlert,
+    onRegisterNewTrafo,
+    productTypesList,
+    availableTrafoOptionsForMap,
+    availableProductTypeOptionsForMap,
 }) => {
     const theme = useTheme();
     const textColor = getContrastingTextColor(theme);
@@ -107,6 +116,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
     const [tempTransmissionData, setTempTransmissionData] = useState<{ fromNode: MapNode; toNode: MapNode; } | null>(null);
+    const [isTrafoModalOpen, setIsTrafoModalOpen] = useState(false);
+    const [isProductTypeModalOpen, setIsProductTypeModalOpen] = useState(false);
 
     const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
         const nodesMap = new Map<string, MapNode>();
@@ -114,7 +125,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         const allProductTypeNames = new Set(allProductTypes.map(p => p.name));
         const allFromProductTypes = new Set(currentTransmissions.map(t => t.fromProductType));
         const allToProductTypes = new Set(currentTransmissions.map(t => t.toProductType));
-        let hubNodeId = '';
+        // let hubNodeId = '';
+        let hubNodeId: string | undefined = undefined;
         const possibleHubs = Array.from(allFromProductTypes).filter(nodeId => !allToProductTypes.has(nodeId));
         if (possibleHubs.length > 0) {
             hubNodeId = possibleHubs[0];
@@ -123,7 +135,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         currentTransmissions.forEach(t => {
             if (!nodesMap.has(t.fromProductType)) {
                 nodesMap.set(t.fromProductType, {
-                    id: t.fromProductType,
+                    id: t.fromProductTypeId!,
                     name: t.fromProductType,
                     x: t.fromProductTypeX,
                     y: t.fromProductTypeY,
@@ -134,7 +146,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             }
             if (!nodesMap.has(t.toProductType)) {
                 nodesMap.set(t.toProductType, {
-                    id: t.toProductType,
+                    id: t.toProductTypeId!,
                     name: t.toProductType,
                     x: t.toProductTypeX,
                     y: t.toProductTypeY,
@@ -244,10 +256,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             setEditValue('');
             setOpenDetailsModal(false);
             setTempTransmissionData(null);
+            setIsTrafoModalOpen(false);
+            setIsProductTypeModalOpen(false);
             return;
         }
 
-        setActiveTool('select'); // ✅ تنظیم ابزار انتخاب در زمان باز شدن مدال
+        setActiveTool('select');
 
         if (transmissions.length > 0) {
             const { nodes, links } = convertTransmissionsToMapData(transmissions);
@@ -342,6 +356,105 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         showAlert('Yeni iletim haritaya eklendi.', 'success');
     }, [mapEdges, showAlert]);
 
+    // تابع اصلی برای مدیریت انتخاب/ایجاد گره جدید یا جایگزینی گره موجود
+    const handleSelectProductType = useCallback((productType: SelectOption) => {
+        const productTypeInApi = productTypesList.find(p => p.id === productType.id);
+
+        if (editingNodeId) {
+            // منطق جایگزینی گره
+            const editedNode = mapNodes.find(n => n.id === editingNodeId);
+            if (!editedNode) return;
+
+            const isDuplicateInMapNodes = mapNodes.some(node =>
+                node.id !== editedNode.id && node.name.toLowerCase() === productType.name.toLowerCase()
+            );
+
+            if (isDuplicateInMapNodes) {
+                showAlert('Bu isimde bir düğüm zaten var.', 'warning');
+                return;
+            }
+
+            const updatedNodes = mapNodes.map(node =>
+                node.id === editedNode.id ? {
+                    ...node,
+                    id: productType.id,
+                    name: productType.name,
+                    isNew: !productTypeInApi, // اگر در API نبود، جدید محسوب می‌شود
+                } : node
+            );
+
+            const updatedEdges = mapEdges.map(edge => {
+                if (edge.fromNodeId === editedNode.id) {
+                    return { ...edge, fromNodeId: productType.id };
+                }
+                if (edge.toNodeId === editedNode.id) {
+                    return { ...edge, toNodeId: productType.id };
+                }
+                return edge;
+            });
+
+            setMapNodes(updatedNodes);
+            setMapEdges(updatedEdges);
+        } else {
+            // منطق ایجاد گره جدید
+            const isProductTypeAlreadyInMap = mapNodes.some(node => String(node.id) === productType.id);
+            if (isProductTypeAlreadyInMap) {
+                showAlert('Bu ürün tipi zaten haritada mevcut.', 'warning');
+                setIsProductTypeModalOpen(false);
+                return;
+            }
+
+            const newNode: MapNode = {
+                id: productTypeInApi ? productType.id : `new-node-${Date.now()}`,
+                name: productType.name,
+                isHub: false,
+                isNew: !productTypeInApi,
+                x: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+                y: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+                fx: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+                fy: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+            };
+
+            const buffer = 150;
+            let newX, newY;
+            let foundPosition = false;
+            let attempts = 0;
+
+            while (!foundPosition && attempts < 50) {
+                const potentialX = (viewBox.x + viewBox.width / 2) + (Math.random() - 0.5) * (viewBox.width / 2);
+                const potentialY = (viewBox.y + viewBox.height / 2) + (Math.random() - 0.5) * (viewBox.height / 2);
+
+                const isFarEnough = mapNodes.every(node => {
+                    const dx = potentialX - (node.x || 0);
+                    const dy = potentialY - (node.y || 0);
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    return distance > buffer;
+                });
+
+                if (isFarEnough) {
+                    newX = potentialX;
+                    newY = potentialY;
+                    foundPosition = true;
+                }
+                attempts++;
+            }
+
+            if (foundPosition) {
+                newNode.x = newX;
+                newNode.y = newY;
+                showAlert('Yeni ürün tipi haritaya eklendi. Konumunu değiştirmek için sürükleyebilirsiniz.', 'success');
+            } else {
+                newNode.x = viewBox.x + viewBox.width / 2;
+                newNode.y = viewBox.y + viewBox.height / 2;
+                showAlert('Uygun konum bulunamadı, ürün tipi merkeze eklendi.', 'info');
+            }
+            setMapNodes(prevNodes => [...prevNodes, newNode]);
+        }
+        setIsProductTypeModalOpen(false);
+        setEditingNodeId(null);
+    }, [editingNodeId, mapNodes, mapEdges, productTypesList, showAlert, viewBox]);
+
+
     const handleNodeClick = useCallback((node: MapNode, event: React.MouseEvent<SVGCircleElement>) => {
         event.stopPropagation();
         if (activeTool === 'select') {
@@ -350,10 +463,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         } else if (activeTool === 'edit') {
             if (!node.isHub) {
                 setEditingNodeId(node.id);
-                setEditValue(node.name);
-                setEditingEdgeId(null);
-                setSelectedNodeIds(new Set([node.id]));
-                setSelectedEdgeIds(new Set());
+                setIsProductTypeModalOpen(true);
             }
         } else if (activeTool === 'delete') {
             if (!node.isHub) {
@@ -365,42 +475,28 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     }, [activeTool, mapNodes, mapEdges]);
 
-    const handleNodeNameChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-        setEditValue(event.target.value);
-    }, []);
-
-    const handleNodeNameSave = useCallback(() => {
-        if (editingNodeId) {
-            const isDuplicate = allProductTypes.some(p => p.name === editValue);
-            const existingNode = mapNodes.find(n => n.name === editValue && n.id !== editingNodeId);
-            const isNew = !isDuplicate && !existingNode;
-            setMapNodes(prevNodes => {
-                const updatedNodes = prevNodes.map(node =>
-                    node.id === editingNodeId ? { ...node, name: editValue, isNew: isNew } : node
-                );
-                return updatedNodes;
-            });
-            setEditingNodeId(null);
-            setEditValue('');
-        }
-    }, [editingNodeId, editValue, allProductTypes, mapNodes]);
-
-    const handleNodeNameBlur = useCallback(() => {
-        if (editingNodeId) {
-            handleNodeNameSave();
-        }
-    }, [editingNodeId, handleNodeNameSave]);
-
-    const handleNodeNameKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    const handleTextClick = useCallback((id: string, type: 'node' | 'edge', value: string, event: React.MouseEvent<SVGTextElement>) => {
         event.stopPropagation();
-        if (event.key === 'Enter') {
-            handleNodeNameSave();
+        if (activeTool === 'edit') {
+            if (type === 'node') {
+                const node = mapNodes.find(n => n.id === id);
+                if (node && !node.isHub) {
+                    setEditingNodeId(id);
+                    setIsProductTypeModalOpen(true);
+                    setEditingEdgeId(null);
+                    setSelectedNodeIds(new Set([id]));
+                    setSelectedEdgeIds(new Set());
+                }
+            } else if (type === 'edge') {
+                setEditingEdgeId(id);
+                setEditValue(value);
+                setEditingNodeId(null);
+                setSelectedEdgeIds(new Set([id]));
+                setSelectedNodeIds(new Set());
+            }
         }
-        if (event.key === 'Escape') {
-            setEditingNodeId(null);
-            setEditValue('');
-        }
-    }, [handleNodeNameSave]);
+    }, [activeTool, mapNodes]);
+
 
     const handleEdgeClick = useCallback((edge: MapEdge, event: React.MouseEvent<SVGLineElement>) => {
         event.stopPropagation();
@@ -419,28 +515,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             setSelectedEdgeIds(new Set());
         }
     }, [activeTool, mapEdges]);
-
-    const handleTextClick = useCallback((id: string, type: 'node' | 'edge', value: string, event: React.MouseEvent<SVGTextElement>) => {
-        event.stopPropagation();
-        if (activeTool === 'edit') {
-            if (type === 'node') {
-                const node = mapNodes.find(n => n.id === id);
-                if (node && !node.isHub) {
-                    setEditingNodeId(id);
-                    setEditValue(value);
-                    setEditingEdgeId(null);
-                    setSelectedNodeIds(new Set([id]));
-                    setSelectedEdgeIds(new Set());
-                }
-            } else if (type === 'edge') {
-                setEditingEdgeId(id);
-                setEditValue(value);
-                setEditingNodeId(null);
-                setSelectedEdgeIds(new Set([id]));
-                setSelectedNodeIds(new Set());
-            }
-        }
-    }, [activeTool, mapNodes]);
 
     const handleEdgeDistanceChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         const value = event.target.value;
@@ -479,21 +553,83 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     }, [handleEdgeDistanceSave]);
 
+    const handleSelectNewTrafo = useCallback((trafo: SelectOption) => {
+        const isTrafoAlreadyInMap = mapNodes.some(node => String(node.id) === trafo.id);
+        if (isTrafoAlreadyInMap) {
+            showAlert('Bu TRAFO zaten haritada mevcut.', 'warning');
+            setIsTrafoModalOpen(false);
+            return;
+        }
+
+        // const newTrafoNode: MapNode = {
+        //     id: trafo.id,
+        //     name: trafo.name,
+        //     isHub: true,
+        //     isNew: false,
+        // };
+        const newTrafoNode: MapNode = {
+            id: trafo.id,
+            name: trafo.name,
+            isHub: true,
+            isNew: false,
+            x: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+            y: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+            fx: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+            fy: undefined, // مقدار اولیه را به undefined یا null تنظیم کنید.
+        };
+
+        const buffer = 150;
+        let newX, newY;
+        let foundPosition = false;
+        let attempts = 0;
+
+        while (!foundPosition && attempts < 50) {
+            const potentialX = (viewBox.x + viewBox.width / 2) + (Math.random() - 0.5) * (viewBox.width / 2);
+            const potentialY = (viewBox.y + viewBox.height / 2) + (Math.random() - 0.5) * (viewBox.height / 2);
+
+            const isFarEnough = mapNodes.every(node => {
+                const dx = potentialX - (node.x || 0);
+                const dy = potentialY - (node.y || 0);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                return distance > buffer;
+            });
+
+            if (isFarEnough) {
+                newX = potentialX;
+                newY = potentialY;
+                foundPosition = true;
+            }
+            attempts++;
+        }
+
+        if (foundPosition) {
+            newTrafoNode.x = newX;
+            newTrafoNode.y = newY;
+            showAlert('Yeni TRAFO haritaya eklendi. Konumunu değiştirmek için sürükleyebilirsiniz.', 'success');
+        } else {
+            newTrafoNode.x = viewBox.x + viewBox.width / 2;
+            newTrafoNode.y = viewBox.y + viewBox.height / 2;
+            showAlert('Uygun konum bulunamadı, TRAFO merkeze eklendi.', 'info');
+        }
+
+        setMapNodes(prevNodes => [...prevNodes, newTrafoNode]);
+        setIsTrafoModalOpen(false);
+    }, [mapNodes, showAlert, viewBox]);
+
+
     const handleMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
+
         if ((editingNodeId || editingEdgeId) && inputRef.current && !inputRef.current.contains(event.target as Node)) {
-            if (editingNodeId) handleNodeNameSave();
             if (editingEdgeId) handleEdgeDistanceSave();
             setEditingNodeId(null);
             setEditingEdgeId(null);
             setEditValue('');
             return;
         }
-        if ((editingNodeId || editingEdgeId) && inputRef.current && inputRef.current.contains(event.target as Node)) {
-            return;
-        }
 
-        const { x: svgX, y: svgY } = getSvgCoordinates(event.clientX, event.clientY);
+        // const { x: svgX, y: svgY } = getSvgCoordinates(event.clientX, event.clientY);
+
         if (activeTool === 'pan') {
             setIsPanning(true);
             setPanStartMousePos({ x: event.clientX, y: event.clientY });
@@ -511,17 +647,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 setSelectedEdgeIds(new Set());
             }
         } else if (activeTool === 'addNode') {
-            const newNode: MapNode = {
-                id: `node-${Date.now()}`,
-                name: `Yeni Ürün ${mapNodes.filter(n => !n.isHub).length + 1}`,
-                x: svgX,
-                y: svgY,
-                isNew: true,
-            };
-            setMapNodes(prev => [...prev, newNode]);
-            setEditingNodeId(newNode.id);
-            setEditValue(newNode.name);
-            setEditingEdgeId(null);
+            setIsProductTypeModalOpen(true);
         } else if (activeTool === 'addEdge') {
             if (event.target instanceof Element && (event.target.tagName === 'circle' || event.target.tagName === 'path')) {
                 const nodeId = event.target.id;
@@ -532,6 +658,22 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     } else if (drawingEdgeStartNode.id === node.id) {
                         setDrawingEdgeStartNode(null);
                     } else {
+                        if (drawingEdgeStartNode.isHub && node.isHub) {
+                            showAlert('Bir TRAFO başka bir TRAFOya bağlanamaz.', 'warning');
+                            setDrawingEdgeStartNode(null);
+                            return;
+                        }
+
+                        const edgeExists = mapEdges.some(e =>
+                            (e.fromNodeId === drawingEdgeStartNode.id && e.toNodeId === node.id) ||
+                            (e.fromNodeId === node.id && e.toNodeId === drawingEdgeStartNode.id)
+                        );
+                        if (edgeExists) {
+                            showAlert('Bu bağlantı zaten mevcut.', 'warning');
+                            setDrawingEdgeStartNode(null);
+                            return;
+                        }
+
                         setTempTransmissionData({ fromNode: drawingEdgeStartNode, toNode: node });
                         setOpenDetailsModal(true);
                         setDrawingEdgeStartNode(null);
@@ -542,6 +684,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             setIsRotating(true);
             setRotateStartMousePos({ x: event.clientX, y: event.clientY });
             setRotateStartAngle(rotationAngle);
+        } else if (activeTool === 'addTrafo') {
+            setIsTrafoModalOpen(true);
         } else if (activeTool === 'edit' || activeTool === 'delete') {
             if (!(event.target instanceof Element && (event.target.tagName === 'circle' || event.target.tagName === 'line' || event.target.tagName === 'text' || event.target.tagName === 'input' || event.target.tagName === 'foreignObject' || event.target.tagName === 'path'))) {
                 setEditingNodeId(null);
@@ -551,7 +695,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 setSelectedEdgeIds(new Set());
             }
         }
-    }, [activeTool, mapNodes, mapEdges, drawingEdgeStartNode, getSvgCoordinates, editingNodeId, editingEdgeId, getCenterOfViewBox, rotationAngle, getAngle, inputRef, handleNodeNameSave, handleEdgeDistanceSave]);
+    }, [activeTool, mapNodes, drawingEdgeStartNode, getSvgCoordinates, editingNodeId, editingEdgeId, handleEdgeDistanceSave, rotationAngle, mapEdges, showAlert]);
+
 
     const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
         if (isPanning) {
@@ -637,46 +782,52 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     }, [viewBox, getSvgCoordinates]);
 
     const handleSaveChanges = useCallback(() => {
-        debugger
-        const productTypeNameToIdMap = new Map(allProductTypes.map(p => [p.name, p.id]));
-        const existingProductTypeNames = new Set(allProductTypes.map(p => p.name.toLowerCase()));
+        // const existingProductTypeNames = new Set(allProductTypes.map(p => p.name.toLowerCase()));
 
-        const newlyCreatedNodes = mapNodes
-            .filter(node => !existingProductTypeNames.has(node.name.toLowerCase()));
+        // گره‌هایی که در نقشه وجود دارند اما در لیست اصلی (allProductTypes) نیستند
+        const newlyCreatedNodes = mapNodes.filter(node => node.isNew);
 
-        const updatedTransmissions: TransmissionRow[] = mapEdges
-            .map(edge => {
-                const fromNode = mapNodes.find(node => node.id === edge.fromNodeId);
-                const toNode = mapNodes.find(node => node.id === edge.toNodeId);
-                const originalTransmission = transmissions.find(t => t.id === edge.id);
-                const fromProductTypeId = originalTransmission?.fromProductTypeId || productTypeNameToIdMap.get(fromNode?.name || '') || '';
-                const toProductTypeId = originalTransmission?.toProductTypeId || productTypeNameToIdMap.get(toNode?.name || '') || '';
-                const originalMiktarTipi = originalTransmission?.miktarTipi || edge.miktarTipi;
-                const originalItems = originalTransmission?.items || edge.items || [];
-                const originalFormulaTitle = originalTransmission?.formulaTitle || edge.formulaTitle || '';
+        const updatedTransmissions: TransmissionRow[] = mapEdges.map(edge => {
+            const fromNode = mapNodes.find(node => node.id === edge.fromNodeId);
+            const toNode = mapNodes.find(node => node.id === edge.toNodeId);
+            const originalTransmission = transmissions.find(t => t.id === edge.id);
 
-                return {
-                    id: edge.id,
-                    fromProductType: fromNode?.name || '',
-                    toProductType: toNode?.name || '',
-                    distance: edge.distance,
-                    miktarTipi: originalMiktarTipi,
-                    network: originalTransmission?.network || networkTitle,
-                    formulaTitle: originalFormulaTitle,
-                    networkId: originalTransmission?.networkId || networkId,
-                    fromProductTypeId: fromProductTypeId,
-                    toProductTypeId: toProductTypeId,
-                    fromProductTypeX: fromNode?.x,
-                    toProductTypeX: toNode?.x,
-                    fromProductTypeY: fromNode?.y,
-                    toProductTypeY: toNode?.y,
-                    items: originalItems,
-                };
-            });
+            // پیدا کردن id گره‌ها
+            const fromProductTypeId = fromNode?.id || originalTransmission?.fromProductTypeId;
+            const toProductTypeId = toNode?.id || originalTransmission?.toProductTypeId;
+
+            const fromProductTypeX = fromNode?.x || originalTransmission?.fromProductTypeX;
+            const fromProductTypeY = fromNode?.y || originalTransmission?.fromProductTypeY;
+            const toProductTypeX = toNode?.x || originalTransmission?.toProductTypeX;
+            const toProductTypeY = toNode?.y || originalTransmission?.toProductTypeY;
+
+            const originalMiktarTipi = originalTransmission?.miktarTipi || edge.miktarTipi;
+            const originalItems = originalTransmission?.items || edge.items || [];
+            const originalFormulaTitle = originalTransmission?.formulaTitle || edge.formulaTitle || '';
+
+            return {
+                id: edge.id,
+                fromProductType: fromNode?.name || '',
+                toProductType: toNode?.name || '',
+                distance: edge.distance,
+                miktarTipi: originalMiktarTipi,
+                network: originalTransmission?.network || networkTitle,
+                formulaTitle: originalFormulaTitle,
+                networkId: originalTransmission?.networkId || networkId,
+                fromProductTypeId: fromProductTypeId!,
+                toProductTypeId: toProductTypeId!,
+                fromProductTypeX: fromProductTypeX,
+                toProductTypeY: fromProductTypeY,
+                toProductTypeX: toProductTypeX,
+                fromProductTypeY: toProductTypeY,
+                items: originalItems,
+            };
+        });
 
         onSaveMapChanges(updatedTransmissions, newlyCreatedNodes);
         onClose();
     }, [mapEdges, mapNodes, networkTitle, networkId, onSaveMapChanges, onClose, transmissions, allProductTypes]);
+
 
     const handleDownload = useCallback((format: 'png' | 'pdf') => {
         if (svgContainerRef.current) {
@@ -706,42 +857,45 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const { x: rotateOriginX, y: rotateOriginY } = getCenterOfViewBox();
 
     const renderHubNode = () => {
-        const hubNode = mapNodes.find(n => n.isHub);
-        if (!hubNode) return null;
+        const hubNodes = mapNodes.filter(n => n.isHub);
         return (
-            <g
-                key={hubNode.id}
-                onClick={(e) => handleNodeClick(hubNode, e as React.MouseEvent<SVGCircleElement>)}
-                style={{ cursor: 'pointer' }}
-            >
-                <circle
-                    id={hubNode.id}
-                    cx={hubNode.x || 0}
-                    cy={hubNode.y || 0}
-                    r={25 / scale}
-                    fill="transparent"
-                    stroke="transparent"
-                    strokeWidth={1 / scale}
-                />
-                <path
-                    d={`M ${hubNode.x || 0} ${(hubNode.y || 0) - 20 / scale} L ${(hubNode.x || 0) - 20 / scale} ${(hubNode.y || 0) + 20 / scale} L ${(hubNode.x || 0) + 20 / scale} ${(hubNode.y || 0) + 20 / scale} Z`}
-                    fill={theme.palette.primary.main}
-                    stroke={selectedNodeIds.has(hubNode.id) ? theme.palette.primary.dark : theme.palette.text.primary}
-                    strokeWidth={selectedNodeIds.has(hubNode.id) ? 3 / scale : 1 / scale}
-                    style={{ pointerEvents: 'none' }}
-                />
-                <text
-                    x={hubNode.x || 0}
-                    y={(hubNode.y || 0) + (8 / scale)}
-                    fontSize={`${10 / scale}px`}
-                    fill="white"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    style={{ pointerEvents: 'none' }}
-                >
-                    {hubNode.name}
-                </text>
-            </g>
+            <>
+                {hubNodes.map(hubNode => (
+                    <g
+                        key={hubNode.id}
+                        onClick={(e) => handleNodeClick(hubNode, e as React.MouseEvent<SVGCircleElement>)}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        <circle
+                            id={hubNode.id}
+                            cx={hubNode.x || 0}
+                            cy={hubNode.y || 0}
+                            r={25 / scale}
+                            fill="transparent"
+                            stroke="transparent"
+                            strokeWidth={1 / scale}
+                        />
+                        <path
+                            d={`M ${hubNode.x || 0} ${(hubNode.y || 0) - 20 / scale} L ${(hubNode.x || 0) - 20 / scale} ${(hubNode.y || 0) + 20 / scale} L ${(hubNode.x || 0) + 20 / scale} ${(hubNode.y || 0) + 20 / scale} Z`}
+                            fill={theme.palette.primary.main}
+                            stroke={selectedNodeIds.has(hubNode.id) ? theme.palette.primary.dark : theme.palette.text.primary}
+                            strokeWidth={selectedNodeIds.has(hubNode.id) ? 3 / scale : 1 / scale}
+                            style={{ pointerEvents: 'none' }}
+                        />
+                        <text
+                            x={hubNode.x || 0}
+                            y={(hubNode.y || 0) + (8 / scale)}
+                            fontSize={`${10 / scale}px`}
+                            fill="white"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            style={{ pointerEvents: 'none' }}
+                        >
+                            {hubNode.name}
+                        </text>
+                    </g>
+                ))}
+            </>
         );
     };
 
@@ -781,6 +935,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                         setIsRotating(false);
                                         setSelectedNodeIds(new Set());
                                         setSelectedEdgeIds(new Set());
+                                        if (newTool === 'addTrafo') {
+                                            setIsTrafoModalOpen(true);
+                                        } else if (newTool === 'addNode') {
+                                            setIsProductTypeModalOpen(true);
+                                        }
                                     }
                                 }}
                             >
@@ -807,6 +966,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 <Tooltip placement="right" title="Bağlantı Ekle (İki düğüm arasına hat çek)">
                                     <StyledToolButton value="addEdge" aria-label="add edge">
                                         <IconLine size={20} />
+                                    </StyledToolButton>
+                                </Tooltip>
+                                <Tooltip placement="right" title="TRAFO Ekle">
+                                    <StyledToolButton value="addTrafo" aria-label="add trafo">
+                                        <IconMapPin size={20} />
                                     </StyledToolButton>
                                 </Tooltip>
                                 <Tooltip placement="right" title="Sil">
@@ -845,7 +1009,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 flexGrow: 1,
                                 border: '1px solid #ccc',
                                 overflow: 'auto',
-                                cursor: isPanning ? 'grabbing' : (activeTool === 'addNode' ? 'crosshair' : (activeTool === 'select' ? 'default' : (activeTool === 'rotate-drag' ? 'grab' : (activeTool === 'edit' ? 'text' : (activeTool === 'delete' ? 'not-allowed' : (activeTool === 'addEdge' ? 'crosshair' : 'auto')))))),
+                                cursor: isPanning ? 'grabbing' : (activeTool === 'addNode' || activeTool === 'addTrafo' ? 'crosshair' : (activeTool === 'select' ? 'default' : (activeTool === 'rotate-drag' ? 'grab' : (activeTool === 'edit' ? 'text' : (activeTool === 'delete' ? 'not-allowed' : (activeTool === 'addEdge' ? 'crosshair' : 'auto')))))),
                                 position: 'relative',
                                 borderRadius: 0
                             }}
@@ -963,53 +1127,21 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                 style={{ cursor: activeTool === 'select' || activeTool === 'edit' || activeTool === 'delete' ? 'pointer' : (activeTool === 'addEdge' ? 'crosshair' : 'auto') }}
                                                 onClick={(e) => handleNodeClick(node, e as React.MouseEvent<SVGCircleElement>)}
                                             />
-                                            {editingNodeId === node.id ? (
-                                                <foreignObject
-                                                    x={(node.x || 0) - 50 / scale}
-                                                    y={(node.y || 0) + (12 / scale)}
-                                                    width={100 / scale}
-                                                    height={25 / scale}
-                                                >
-                                                    <input
-                                                        ref={inputRef}
-                                                        type="text"
-                                                        value={editValue}
-                                                        onChange={handleNodeNameChange}
-                                                        onBlur={handleNodeNameBlur}
-                                                        onKeyDown={handleNodeNameKeyDown}
-                                                        onMouseDown={(e) => e.stopPropagation()}
-                                                        onClick={(e) => e.stopPropagation()}
-                                                        onFocus={(e) => e.target.select()}
-                                                        autoFocus
-                                                        style={{
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            boxSizing: 'border-box',
-                                                            textAlign: 'center',
-                                                            fontSize: `${10 / scale}px`,
-                                                            background: theme.palette.background.paper,
-                                                            color: textColor,
-                                                            border: `0.5px solid ${theme.palette.primary.main}`,
-                                                            borderRadius: '0px',
-                                                            padding: '2px'
-                                                        }}
-                                                    />
-                                                </foreignObject>
-                                            ) : (
-                                                <text
-                                                    x={node.x || 0}
-                                                    y={(node.y || 0) - (15 / scale)}
-                                                    fontSize={`${10 / scale}px`}
-                                                    fill={textColor}
-                                                    textAnchor="middle"
-                                                    style={{
-                                                        textShadow: `1px 1px 2px ${theme.palette.background.default}`,
-                                                        pointerEvents: 'none',
-                                                    }}
-                                                >
-                                                    {node.name}
-                                                </text>
-                                            )}
+                                            <text
+                                                x={node.x || 0}
+                                                y={(node.y || 0) - (15 / scale)}
+                                                fontSize={`${10 / scale}px`}
+                                                fill={textColor}
+                                                textAnchor="middle"
+                                                style={{
+                                                    textShadow: `1px 1px 2px ${theme.palette.background.default}`,
+                                                    pointerEvents: 'auto',
+                                                    cursor: activeTool === 'edit' ? 'text' : 'auto'
+                                                }}
+                                                onClick={(e) => handleTextClick(node.id, 'node', node.name, e as React.MouseEvent<SVGTextElement>)}
+                                            >
+                                                {node.name}
+                                            </text>
                                         </g>
                                     ))}
                                     {drawingEdgeStartNode && activeTool === 'addEdge' && panStartMousePos && (
@@ -1096,7 +1228,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             {tempTransmissionData && (
                 <AddTransmissionDetailsModal
                     open={openDetailsModal}
-                    onClose={() => setOpenDetailsModal(false)}
+                    onClose={() => { setOpenDetailsModal(false); setDrawingEdgeStartNode(null); }}
                     onSave={handleSaveTransmissionDetails}
                     fromNode={tempTransmissionData.fromNode}
                     toNode={tempTransmissionData.toNode}
@@ -1104,6 +1236,30 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     showAlert={showAlert}
                 />
             )}
+
+            <SelectTrafoModal
+                open={isTrafoModalOpen}
+                onClose={() => setIsTrafoModalOpen(false)}
+                onSelectTrafo={handleSelectNewTrafo}
+                onRegisterNewTrafo={onRegisterNewTrafo}
+                // existingTrafosInMap={mapNodes}
+                showAlert={showAlert}
+                // loadingButton={false}
+                // productTypesList={productTypesList}
+                availableTrafoOptions={availableTrafoOptionsForMap}
+            />
+
+            <SelectProductTypeModal
+                open={isProductTypeModalOpen}
+                onClose={() => { setIsProductTypeModalOpen(false); setEditingNodeId(null); }}
+                onSelectProductType={handleSelectProductType}
+                onRegisterNewProductType={onRegisterNewTrafo}
+                // existingNodesInMap={mapNodes}
+                showAlert={showAlert}
+                // productTypesList={productTypesList}
+                availableProductTypeOptions={availableProductTypeOptionsForMap}
+            // editingNodeId={editingNodeId}
+            />
         </Dialog>
     );
 };

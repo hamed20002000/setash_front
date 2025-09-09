@@ -13,7 +13,7 @@ import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import { styled, keyframes } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconFileInvoice, IconCheck, IconX, IconPencil, IconInfoCircle } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconFileInvoice, IconCheck, IconX, IconPencil, IconInfoCircle, IconFileDownload } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -29,6 +29,9 @@ import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import { useAuth } from 'src/context/AuthContext';
+
+
+
 
 // Type Definitions
 interface ProviderType {
@@ -159,6 +162,9 @@ const blinkAnimation = keyframes`
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
 
+const BlinkingButton = styled(Button)(({ }) => ({
+    animation: `${blinkAnimation} 1s linear infinite`,
+}));
 // Table Style and Functions
 type SortableInvoiceKeys = 'invoiceNo' | 'provider.name' | 'driver.name' | 'docDate' | 'status' | 'totalAmount';
 
@@ -261,6 +267,12 @@ const ListInvoices = () => {
 
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
     const [warehouse, setWarehouse] = useState<number | null>(null);
+
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+
+
+    const [isFilterActive, setIsFilterActive] = useState(false);
 
     const [openStatusHistoryModal, setOpenStatusHistoryModal] = useState(false);
     const [statusHistoryData, setStatusHistoryData] = useState<any[]>([]);
@@ -415,6 +427,14 @@ const ListInvoices = () => {
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
+
+
+    useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+    }, [searchTerm, statusFilter, startDate, endDate]);
 
     const fetchVehicles = useCallback(async (driverId: string) => {
         setLoadingData(true);
@@ -975,7 +995,14 @@ const ListInvoices = () => {
             (statusFilter === 'pending' && invoice.status === 0) ||
             (statusFilter === 'approved' && invoice.status === 1) ||
             (statusFilter === 'rejected' && invoice.status === 2);
-        return matchesSearch && matchesStatus;
+
+        // 🚀 اضافه شدن فیلتر تاریخ بر اساس createAt
+        const createDate = new Date(invoice.docDate);
+        const matchesDate =
+            (!startDate || createDate >= startDate) &&
+            (!endDate || createDate <= endDate);
+
+        return matchesSearch && matchesStatus && matchesDate;
     });
 
     const sortedAndFilteredInvoices = stableSort(filteredInvoices, getComparator(order, orderBy));
@@ -988,7 +1015,210 @@ const ListInvoices = () => {
         return isMainFormComplete && hasValidItems;
     }, [driver, docDate, warehouse, invoiceItems, selectedVehicle]);
 
+    const handleDownloadAllFilteredInvoicesPDF = () => {
+        if (!sortedAndFilteredInvoices || sortedAndFilteredInvoices.length === 0) {
+            showAlert('PDF oluşturulacak fatura bulunamadı.', 'warning');
+            return;
+        }
+        showAlert('Filtrelenmiş faturalar indiriliyor...', 'info');
 
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const logoImg = new Image();
+        logoImg.src = Logo;
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Fatura Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        let yPos = 60;
+
+        sortedAndFilteredInvoices.forEach((invoice, index) => {
+            if (index > 0) {
+                doc.addPage();
+                yPos = 60;
+            }
+            header();
+
+            // اطلاعات کلی فاکتور
+            doc.setFontSize(14);
+            doc.text(`Fatura No: ${invoice.invoiceNo || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Sürücü: ${invoice.driver?.name || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, 15, yPos);
+            yPos += 15;
+
+            // ایجاد سطرها از جزئیات فاکتور
+            const rows = invoice.invoiceDetails.map(detail => [
+                detail.provider?.name || invoice.provider?.name || '-',
+                detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                detail.item?.name || '-',
+                Number(detail.quantity).toFixed(2),
+                detail.item?.unit?.title || '-',
+                cleanAndFormatPrice(detail.price),
+                Number(detail.discountPercent).toFixed(2),
+                cleanAndFormatPrice(detail.discountAmount),
+                detail.description || '-',
+            ]);
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
+                body: rows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+        });
+
+        doc.save('Filtrelenmis_Faturalar_Raporu.pdf');
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
+    const exportAllPdf = () => {
+        // Check if there are any invoices to download
+        if (invoicesList.length === 0) {
+            showAlert('PDF oluşturulacak fatura bulunamadı.', 'warning');
+            return;
+        }
+
+        // Show a loading message
+        showAlert('Tüm faturalar indiriliyor...', 'info');
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const logoImg = new Image();
+        logoImg.src = Logo;
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        // Helper function to create a page header for each invoice
+        const createHeader = (doc: jsPDF, invoice: InvoiceType) => {
+            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Fatura Detayları', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            const hasOrder = invoice.invoiceDetails.some(detail => detail.orderDetail);
+            const supplyType = hasOrder ? 'Siparişli Fatura' : 'Siparişsiz Fatura';
+            doc.text(`Fatura No: ${invoice.invoiceNo || '-'}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Tedarik Tipi: ${supplyType}`, pageWidth - 15, 47, { align: 'right' });
+            doc.text(`Sürücü: ${invoice.driver?.name || '-'}`, pageWidth - 15, 54, { align: 'right' });
+            doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, pageWidth - 15, 61, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, pageWidth - 15, 68, { align: 'right' });
+        };
+
+        // Helper function to create a page footer
+        const createFooter = (doc: jsPDF) => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        try {
+            // Loop through each invoice in the invoicesList
+            invoicesList.forEach((invoice, index) => {
+                // Add a new page for all invoices except the first one
+                if (index > 0) {
+                    doc.addPage();
+                }
+
+                // Create the table rows from the current invoice's details
+                const rows = invoice.invoiceDetails.map(detail => [
+                    detail.provider?.name || invoice.provider?.name || '-',
+                    detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                    detail.item?.name || '-',
+                    Number(detail.quantity).toFixed(2) || '-',
+                    detail.item?.unit?.title || '-',
+                    cleanAndFormatPrice(detail.price),
+                    Number(detail.discountPercent).toFixed(2),
+                    cleanAndFormatPrice(detail.discountAmount),
+                    detail.description || '-',
+                ]);
+
+                // Add the table to the current page
+                autoTable(doc, {
+                    startY: 80,
+                    head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
+                    body: rows,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    columnStyles: {
+                        0: { cellWidth: 25 },
+                        1: { cellWidth: 20 },
+                        2: { cellWidth: 30 },
+                        3: { cellWidth: 15 },
+                        4: { cellWidth: 15 },
+                        5: { cellWidth: 20 },
+                        6: { cellWidth: 20 },
+                        7: { cellWidth: 25 },
+                        8: { cellWidth: 'auto' },
+                    },
+                    didDrawPage: () => {
+                        createHeader(doc, invoice);
+                        createFooter(doc);
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 50, bottom: 20 }
+                });
+            });
+
+            // Save the single PDF file containing all invoices
+            doc.save(`Tum_Faturalar.pdf`);
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error("PDF oluşturulurken bir hata oluştu: ", error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
+    };
     return (
         <Box>
 
@@ -1092,16 +1322,70 @@ const ListInvoices = () => {
                         </Box>
                     </Paper>
 
+
+                    <Grid item xs={12}>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            {isFilterActive && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fatura indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleDownloadAllFilteredInvoicesPDF}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi İndir
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tümünü Fatura indirin" : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={exportAllPdf}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Tümünü İndir (PDF)
+                                </Button>
+                            </CustomTooltip>
+                        </Stack>
+                    </Grid>
                     <Box sx={{ p: 2 }}>
                         <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
                         <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={8}>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <TextField
                                     label="Fatura Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
                                     InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                                 />
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+
+                            <Grid item xs={12} sm={6} md={6}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <DatePicker
+                                            label="Başlangıç Tarihi"
+                                            value={startDate}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setStartDate(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <DatePicker
+                                            label="Bitiş Tarihi"
+                                            value={endDate}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setEndDate(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                            <IconX size={20} />
+                                        </IconButton>
+                                    </Stack>
+                                </LocalizationProvider>
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <ToggleButtonGroup
                                     value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
                                 >

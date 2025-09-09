@@ -2,20 +2,26 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    Typography, Menu, MenuItem as MuiMenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, FormControl, InputLabel, Select, ListItemText,
-    Chip, Dialog, DialogTitle, DialogContent, DialogActions
+    Chip, Dialog, DialogTitle, DialogContent, DialogActions,
+    List
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import { styled } from '@mui/material/styles';
+import { styled, keyframes } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconFileDownload, IconBoxSeam, IconPackage } from '@tabler/icons-react';
+import {
+    IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
+    IconFileDownload, IconBoxSeam, IconPackage,
+    IconX
+} from '@tabler/icons-react';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import DeleteWarehouse from './DeleteWarehouse';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -29,6 +35,7 @@ import Logo from 'src/assets/images/logos/logo.png';
 
 import ViewWarehouseBalanceModal from './ViewWarehouseBalanceModal'
 import { useAuth } from 'src/context/AuthContext';
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 
 export const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -40,6 +47,16 @@ export const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)(({ }) => ({
+    animation: `${blinkAnimation} 1s linear infinite`,
+}));
 
 interface WarehouseType {
     id: number;
@@ -168,7 +185,98 @@ const buildRegionTree = (regions: RegionType[] | undefined, depth: number = 0): 
     return tree;
 };
 
+// ✅ New component for rendering the tree menu items
+interface RegionTreeSelectMenuItemProps {
+    node: RegionNode;
+    onSelect: (regionId: number) => void;
+    selectedId: number | null;
+    onCloseParentSelect: () => void;
+    searchQuery: string;
+}
 
+const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ node, onSelect, selectedId, onCloseParentSelect, searchQuery }) => {
+    const isSelected = selectedId === node.id;
+    const hasChildren = node.children && node.children.length > 0;
+    // ✅ Logic to keep nodes open during search
+    const isOpen = searchQuery !== '' || (node.children && node.children.length > 0);
+
+    const handleItemClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onSelect(node.id);
+        onCloseParentSelect();
+    };
+
+    return (
+        <React.Fragment>
+            <MuiMenuItem
+                value={node.id}
+                onClick={handleItemClick}
+                sx={{
+                    paddingLeft: `${node.depth * 16 + (hasChildren ? 0 : 20)}px`,
+                    backgroundColor: isSelected ? 'rgba(0, 0, 0, 0.08)' : 'transparent',
+                    '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                    },
+                    '&.MuiMenuItem-root': {
+                        paddingTop: '6px',
+                        paddingBottom: '6px',
+                    },
+                }}
+            >
+                <Stack direction="row" alignItems="center" width="100%">
+                    {hasChildren ? (
+                        <IconButton
+                            onClick={(e) => e.stopPropagation()}
+                            size="small"
+                            sx={{ mr: 1, p: 0.5, visibility: searchQuery !== '' ? 'hidden' : 'visible' }}
+                        >
+                            {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                        </IconButton>
+                    ) : (
+                        <Box sx={{ width: 16 + 8 + 4 }} />
+                    )}
+                    <ListItemText primary={node.name} />
+                </Stack>
+            </MuiMenuItem>
+            {isOpen && hasChildren && (
+                <List component="div" disablePadding>
+                    {node.children.map((childNode) => (
+                        <RegionTreeSelectMenuItem
+                            key={childNode.id}
+                            node={childNode}
+                            onSelect={onSelect}
+                            selectedId={selectedId}
+                            onCloseParentSelect={onCloseParentSelect}
+                            searchQuery={searchQuery}
+                        />
+                    ))}
+                </List>
+            )}
+        </React.Fragment>
+    );
+};
+
+const filterRegionTree = (nodes: RegionNode[], query: string): RegionNode[] => {
+    if (!query) return nodes;
+    const lowerCaseQuery = query.toLowerCase();
+
+    return nodes
+        .map(node => {
+            const matches = node.name.toLowerCase().includes(lowerCaseQuery);
+
+            const filteredChildren = filterRegionTree(node.children, query);
+            const hasMatchingChildren = filteredChildren.length > 0;
+
+            if (matches || hasMatchingChildren) {
+                return {
+                    ...node,
+                    children: hasMatchingChildren ? filteredChildren : []
+                };
+            }
+            return null;
+        })
+        .filter(Boolean) as RegionNode[];
+};
 const ListWarehouses = () => {
     const navigate = useNavigate();
 
@@ -212,8 +320,9 @@ const ListWarehouses = () => {
 
     const [regionTree, setRegionTree] = useState<RegionNode[]>([]);
     const [isRegionSelectOpen, setIsRegionSelectOpen] = useState(false);
-    const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
+    const [regionSearchQuery, setRegionSearchQuery] = useState('');
 
+    const [expandedNodes, setExpandedNodes] = useState<Set<number>>(new Set());
     const [openAddressModal, setOpenAddressModal] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState('');
 
@@ -221,8 +330,10 @@ const ListWarehouses = () => {
     const [openBalanceModal, setOpenBalanceModal] = useState(false);
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
     const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
+    const [isFilterActive, setIsFilterActive] = useState(false);
 
-
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
 
     const { allowedOperations } = useAuth();
 
@@ -242,6 +353,12 @@ const ListWarehouses = () => {
     const hasDownloadPermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
+
+
+    // ✅ Add this line inside the ListWarehouses component
+    const filteredRegionTree = useMemo(() => {
+        return filterRegionTree(regionTree, regionSearchQuery);
+    }, [regionTree, regionSearchQuery]);
 
 
     const fetchRegions = useCallback(async () => {
@@ -308,7 +425,12 @@ const ListWarehouses = () => {
         fetchWarehouses();
     }, [fetchRegions, fetchWarehouses]);
 
-
+    useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+    }, [searchTerm, statusFilter, startDate, endDate]);
 
     useEffect(() => {
         const filteredBySearchAndStatus = WarehousesList.filter(wh => {
@@ -581,17 +703,28 @@ const ListWarehouses = () => {
         setPage(0);
     };
 
-    const filteredWarehousesList = WarehousesList.filter(wh => {
-        const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus =
-            statusFilter === 'all' ||
-            (statusFilter === 'active' && wh.recordStatus === 0) ||
-            (statusFilter === 'inactive' && wh.recordStatus === 1);
-        return matchesSearch && matchesStatus;
-    });
-    const sortedAndFilteredWarehousesList = stableSort(filteredWarehousesList, getComparator(order, orderBy));
-    const paginatedWarehouses = sortedAndFilteredWarehousesList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const paginatedWarehouses = useMemo(() => {
+        const filteredByAllCriteria = WarehousesList.filter(wh => {
+            // فیلتر بر اساس کلمه جستجو و وضعیت
+            const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus =
+                statusFilter === 'all' ||
+                (statusFilter === 'active' && wh.recordStatus === 0) ||
+                (statusFilter === 'inactive' && wh.recordStatus === 1);
 
+            // جدید: فیلتر بر اساس محدوده تاریخ ایجاد (createAt)
+            const warehouseCreateDate = new Date(wh.createAt);
+            const isWithinDateRange =
+                (!startDate || warehouseCreateDate >= startDate) &&
+                (!endDate || warehouseCreateDate <= endDate);
+
+            // ترکیب همه فیلترها
+            return matchesSearch && matchesStatus && isWithinDateRange;
+        });
+
+        const sortedData = stableSort(filteredByAllCriteria, getComparator(order, orderBy));
+        return sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    }, [WarehousesList, searchTerm, statusFilter, startDate, endDate, order, orderBy, page, rowsPerPage]);
 
     const renderRegionTree = (nodes: RegionNode[], depth: number = 0) => {
         return nodes.map(node => {
@@ -619,7 +752,7 @@ const ListWarehouses = () => {
 
             return (
                 <React.Fragment key={node.id}>
-                    <MenuItem
+                    <MuiMenuItem
                         value={node.id}
                         onClick={handleSelectClick}
                         sx={{
@@ -646,7 +779,7 @@ const ListWarehouses = () => {
                                 )}
 
                         </Stack>
-                    </MenuItem>
+                    </MuiMenuItem>
                     {isExpanded && hasChildren && renderRegionTree(node.children, depth + 1)}
                 </React.Fragment>
             );
@@ -681,7 +814,6 @@ const ListWarehouses = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
 
-        // افزودن فونت برای پشتیبانی از کاراکترهای ترکی
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
@@ -719,7 +851,7 @@ const ListWarehouses = () => {
                 startY: 50,
                 head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
                 body: rows,
-                theme: 'grid', // تغییر تم به 'grid' برای اضافه کردن border
+                theme: 'grid',
                 styles: {
                     font: 'NotoSans',
                     fontStyle: 'normal',
@@ -752,6 +884,112 @@ const ListWarehouses = () => {
         }
     };
 
+
+    const handleDownloadFilteredPDF = async () => {
+        const filteredAndSortedWarehouses = WarehousesList.filter(wh => {
+            const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesStatus =
+                statusFilter === 'all' ||
+                (statusFilter === 'active' && wh.recordStatus === 0) ||
+                (statusFilter === 'inactive' && wh.recordStatus === 1);
+            const warehouseCreateDate = new Date(wh.createAt);
+            const isWithinDateRange =
+                (!startDate || warehouseCreateDate >= startDate) &&
+                (!endDate || warehouseCreateDate <= endDate);
+            return matchesSearch && matchesStatus && isWithinDateRange;
+        });
+
+        if (!filteredAndSortedWarehouses || filteredAndSortedWarehouses.length === 0) {
+            showAlert('PDF oluşturulacak filtrelenmiş depo bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Filtrelenmiş Depolar Raporu', pageWidth - 15, 30, { align: 'right' });
+            // doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : '-')} - ${formatDateDisplay(endDate ? endDate.toISOString() : '-')}`, pageWidth - 15, 50, { align: 'right' });
+            doc.setFontSize(12);
+
+            let filterInfo = '';
+            if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+            if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+            if (startDate || endDate) {
+                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+            }
+            if (filterInfo) {
+                doc.text(filterInfo, pageWidth - 15, 40, { align: 'right' });
+            }
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        const rows = filteredAndSortedWarehouses.map(wh => [
+            wh.name || '-',
+            wh.code || '-',
+            wh.address || '-',
+            wh.region?.name || '-',
+            formatDateDisplay(wh.createAt),
+            wh.status,
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 40 },
+                    3: { cellWidth: 35 },
+                    4: { cellWidth: 25 },
+                    5: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Filtrelenmis_Depolar_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
+
     const handleDownloadBalancePDF = async (_warehouseId: number, warehouseName: string, balanceData: any[]) => {
         if (!balanceData || balanceData.length === 0) {
             showAlert('PDF oluşturulacak envanter bulunamadı.', 'warning');
@@ -761,7 +999,6 @@ const ListWarehouses = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
 
-        // افزودن فونت برای پشتیبانی از کاراکترهای ترکی
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
@@ -784,7 +1021,6 @@ const ListWarehouses = () => {
             doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
         };
 
-        // داده‌های جدول را از موجودی انبار خاص ایجاد کنید
         const rows = balanceData.map(item => [
             item.name,
             item.balance,
@@ -818,7 +1054,6 @@ const ListWarehouses = () => {
 
 
     const handleViewBalanceClick = () => {
-        debugger
         if (selectedRowForMenu) {
             setSelectedWarehouseId(selectedRowForMenu.id);
             setSelectedWarehouseName(selectedRowForMenu.name);
@@ -831,7 +1066,7 @@ const ListWarehouses = () => {
             const warehouseId = selectedRowForMenu.id;
             navigate(`/warehouse/list-warehouse-dispatch/${warehouseId}`);
         }
-        handleCloseMenu(); // منو را ببندید
+        handleCloseMenu();
     };
 
 
@@ -839,6 +1074,10 @@ const ListWarehouses = () => {
         setOpenBalanceModal(false);
         setSelectedWarehouseId(null);
         setSelectedWarehouseName('');
+    };
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
     };
     return (
         <>
@@ -916,16 +1155,44 @@ const ListWarehouses = () => {
                                             if (regionIdError && selectedId) setRegionIdError(false);
                                         }}
                                         renderValue={renderSelectedRegion}
-                                        MenuProps={{ sx: { maxHeight: 400 } }}
+                                        MenuProps={{
+                                            sx: { maxHeight: 400 },
+                                            PaperProps: {
+                                                sx: { p: 1 }
+                                            },
+                                        }}
                                     >
+                                        <TextField
+                                            autoFocus
+                                            fullWidth
+                                            size="small"
+                                            placeholder="Bölge Ara..."
+                                            value={regionSearchQuery}
+                                            onChange={(e) => setRegionSearchQuery(e.target.value)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onKeyDown={(e) => e.stopPropagation()}
+                                            sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
+                                            InputProps={{
+                                                startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>),
+                                            }}
+                                        />
                                         {loadingData ? (
-                                            <MenuItem disabled>
+                                            <MuiMenuItem disabled>
                                                 <CircularProgress size={20} /> Yükleniyor...
-                                            </MenuItem>
-                                        ) : regionTree.length > 0 ? (
-                                            renderRegionTree(regionTree)
+                                            </MuiMenuItem>
+                                        ) : filteredRegionTree.length > 0 ? (
+                                            filteredRegionTree.map(node => (
+                                                <RegionTreeSelectMenuItem
+                                                    key={node.id}
+                                                    node={node}
+                                                    onSelect={(id) => { setSelectedRegionId(id); handleCloseRegionSelect(); }}
+                                                    selectedId={selectedRegionId}
+                                                    onCloseParentSelect={handleCloseRegionSelect}
+                                                    searchQuery={regionSearchQuery}
+                                                />
+                                            ))
                                         ) : (
-                                            <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+                                            <MuiMenuItem disabled>Hiç bölge bulunamadı.</MuiMenuItem>
                                         )}
                                     </Select>
                                     {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
@@ -946,6 +1213,7 @@ const ListWarehouses = () => {
                                     helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
                                 />
                             </Grid>
+
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null ? (
@@ -960,7 +1228,6 @@ const ListWarehouses = () => {
                                             </CustomTooltip>
                                         </>
                                     ) : (
-
                                         <>
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir depo ekle" : ""}>
@@ -977,7 +1244,6 @@ const ListWarehouses = () => {
                         </Grid>
                     </Paper>
                 </Box>
-
             )}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
@@ -985,9 +1251,28 @@ const ListWarehouses = () => {
                 </Stack>
             )}
             <BlankCard>
+
+                <Grid item xs={12}>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        {isFilterActive && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle depoları indirin" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadFilteredPDF}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Filtrelenmişi İndir
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+
+                    </Stack>
+                </Grid>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={8}>
+                        <Grid item xs={12} sm={6} md={3}>
                             <TextField
                                 label="Depo Ara"
                                 variant="outlined"
@@ -997,7 +1282,31 @@ const ListWarehouses = () => {
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
+
+                        <Grid item xs={12} sm={6} md={6}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
+                                    </IconButton>
+                                </Stack>
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
                             <ToggleButtonGroup
                                 value={statusFilter}
                                 exclusive
@@ -1090,71 +1399,81 @@ const ListWarehouses = () => {
                                                     </IconButton>
                                                 </CustomTooltip>
                                                 <Menu
-                                                    id={`basic-menu-${row.id}`} // استفاده از id منحصر به فرد
+                                                    id={`basic-menu-${row.id}`}
                                                     anchorEl={anchorEl}
-                                                    // شرط باز شدن منو رو به درستی چک کنید
                                                     open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
-                                                    {/* آیتم قدیمی برای هدایت به صفحه Sevk Et */}
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo Sevk İşlemi" : ""}>
-                                                            <MenuItem onClick={handleDispatchClick}>
+                                                            <MuiMenuItem onClick={handleDispatchClick}>
                                                                 <ListItemIcon>
                                                                     <IconBoxSeam width={18} />
                                                                 </ListItemIcon>
                                                                 Sevk Et
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-
-                                                    {/* آیتم جدید برای نمایش موجودی */}
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo envanterini görüntüle" : ""}>
-                                                        <MenuItem onClick={handleViewBalanceClick}>
-                                                            <ListItemIcon>
-                                                                <IconPackage width={18} />
-                                                            </ListItemIcon>
-                                                            Envanteri Görüntüle
-                                                        </MenuItem>
-                                                    </CustomTooltip>
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo envanterini görüntüle" : ""}>
+                                                            <MuiMenuItem onClick={handleViewBalanceClick}>
+                                                                <ListItemIcon>
+                                                                    <IconPackage width={18} />
+                                                                </ListItemIcon>
+                                                                Envanteri Görüntüle
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu Depoyu pasif yap" : ""}>
-                                                            <MenuItem onClick={handleSetInactive}>
+                                                            <MuiMenuItem onClick={handleSetInactive}>
                                                                 <ListItemIcon>
                                                                     <DoNotDisturbOnRoundedIcon width={18} />
                                                                 </ListItemIcon>
                                                                 Pasif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     ) : (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu Depoyu aktif yap" : ""}>
-                                                            <MenuItem onClick={handleSetActive}>
+                                                            <MuiMenuItem onClick={handleSetActive}>
                                                                 <ListItemIcon>
                                                                     <DoneRoundedIcon width={18} />
                                                                 </ListItemIcon>
                                                                 Aktif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Depoyu düzenle" : ""}>
-                                                            <MenuItem onClick={handleEditClick}>
+                                                            <MuiMenuItem onClick={handleEditClick}>
                                                                 <ListItemIcon><IconEdit width={18} /></ListItemIcon>
                                                                 Düzenlemek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Depoyu sil" : ""}>
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                                 <ListItemIcon><IconTrash width={18} /></ListItemIcon>
                                                                 Silmek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
+                                                    {/* {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detaylı bilgilerini PDF formatında indirin" : ""}>
+                                                            <MuiMenuItem onClick={() => {
+                                                                if (selectedRowForMenu) {
+                                                                    // exportSingleWorkhouseWithDetailsPdf(selectedRowForMenu.id, selectedRowForMenu.name);
+                                                                }
+                                                            }}>
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon> Detaylı PDF İndir
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )} */}
+
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

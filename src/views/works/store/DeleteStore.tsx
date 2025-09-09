@@ -1,4 +1,3 @@
-// src/views/workhouse/DeleteWorkhouse.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,24 +12,24 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 // --- Props interface ---
 type Props = {
     openModal: boolean;
-    workhouseIdToDelete: number | null;
-    workhouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
+    storeIdToDelete: number | null;
+    storeNameToDelete: string; // برای نمایش نام فروشگاه در پیام تایید
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteStore = ({ openModal, storeIdToDelete, storeNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Workhouse In Use modal
-    const [openWorkhouseInUseModal, setOpenWorkhouseInUseModal] = useState<boolean>(false);
+    // State for Store In Use modal
+    const [openStoreInUseModal, setOpenStoreInUseModal] = useState<boolean>(false);
 
-    const handleDeleteWorkhouse = async () => {
-        if (workhouseIdToDelete === null) {
-            showAlert('Silinecek şantiye seçilmedi.', 'warning');
+    const handleDeleteStore = async () => {
+        if (storeIdToDelete === null) {
+            showAlert('Silinecek mağaza seçilmedi.', 'warning');
             onClose();
             return;
         }
@@ -45,7 +44,7 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-workhouse/${workhouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
+                `${server.baseurl}${server.initialoperations}delete-store/${storeIdToDelete}`, // ✅ آدرس API برای حذف فروشگاه
                 {
                     headers: {
                         "Accept": "application/json",
@@ -55,25 +54,25 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Şantiye başarıyla silindi!', 'success');
+                showAlert('Mağaza başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Şantiye silinirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Mağaza silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting workhouse:", e);
+            console.error("Error deleting store:", e);
 
             if (e.response && e.response.status === 500) {
                 onClose();
-                setOpenWorkhouseInUseModal(true); // ✅ تغییر نام modal
+                setOpenStoreInUseModal(true); // ✅ تغییر نام modal
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Şantiye silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Mağaza silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
                 onClose();
             }
@@ -82,24 +81,23 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
         }
     };
 
-    const handleCloseWorkhouseInUseModal = () => {
-        setOpenWorkhouseInUseModal(false);
+    const handleCloseStoreInUseModal = () => {
+        setOpenStoreInUseModal(false);
     };
 
     return (
         <>
-            {/* Main Delete Confirmation Modal */}
             <Dialog
                 open={openModal}
                 onClose={onClose}
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu şantiyeyi silmek istediğinizden emin misiniz?"}
+                    {"Bu mağazayı silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        {workhouseNameToDelete} adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
+                        {storeNameToDelete} adlı mağazayı silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -108,11 +106,11 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen şantiyeyi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen mağazayı sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteWorkhouse}
+                            onClick={handleDeleteStore}
                             autoFocus
                             disabled={loading}
                         >
@@ -128,23 +126,22 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Workhouse In Use */}
             <Dialog
-                open={openWorkhouseInUseModal}
-                onClose={handleCloseWorkhouseInUseModal}
-                aria-labelledby="workhouse-in-use-dialog-title"
-                aria-describedby="workhouse-in-use-dialog-description"
+                open={openStoreInUseModal}
+                onClose={handleCloseStoreInUseModal}
+                aria-labelledby="store-in-use-dialog-title"
+                aria-describedby="store-in-use-dialog-description"
             >
-                <DialogTitle id="workhouse-in-use-dialog-title">
-                    {"Hata: Şantiye Silinemez!"}
+                <DialogTitle id="store-in-use-dialog-title">
+                    {"Hata: Mağaza Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="workhouse-in-use-dialog-description">
-                        Bu şantiye şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="store-in-use-dialog-description">
+                        Bu mağaza şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseWorkhouseInUseModal} autoFocus>
+                    <Button onClick={handleCloseStoreInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
@@ -153,4 +150,4 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
     );
 };
 
-export default DeleteWorkhouse;
+export default DeleteStore;

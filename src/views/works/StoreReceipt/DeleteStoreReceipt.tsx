@@ -1,4 +1,3 @@
-// src/views/workhouse/DeleteWorkhouse.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,27 +9,27 @@ import server from '../../../assets/address.json'; // مسیر فایل address.
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- Props interface ---
+// --- Props interface for Receipts ---
 type Props = {
     openModal: boolean;
-    workhouseIdToDelete: number | null;
-    workhouseNameToDelete: string; // برای نمایش نام کارگاه در پیام تایید
+    receiptIdToDelete: string | null;
+    receiptCodeToDelete: string | null;
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // State for Workhouse In Use modal
-    const [openWorkhouseInUseModal, setOpenWorkhouseInUseModal] = useState<boolean>(false);
+    // State for Receipt In Use modal
+    const [openReceiptInUseModal, setOpenReceiptInUseModal] = useState<boolean>(false);
 
-    const handleDeleteWorkhouse = async () => {
-        if (workhouseIdToDelete === null) {
-            showAlert('Silinecek şantiye seçilmedi.', 'warning');
+    const handleDeleteReceipt = async () => {
+        if (receiptIdToDelete === null) {
+            showAlert('Silinecek fiş seçilmedi.', 'warning');
             onClose();
             return;
         }
@@ -38,14 +37,13 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
-            // navigate("/"); // ممکن است بخواهید به صفحه ورود هدایت کنید
             return;
         }
 
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.initialoperations}delete-workhouse/${workhouseIdToDelete}`, // ✅ آدرس API برای حذف کارگاه
+                `${server.baseurl}${server.warehouse}delete-store-receipt/${receiptIdToDelete}`, // ✅ آدرس API برای حذف رسید
                 {
                     headers: {
                         "Accept": "application/json",
@@ -55,25 +53,25 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Şantiye başarıyla silindi!', 'success');
+                showAlert('Fiş başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Şantiye silinirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Fiş silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting workhouse:", e);
+            console.error("Error deleting receipt:", e);
 
             if (e.response && e.response.status === 500) {
                 onClose();
-                setOpenWorkhouseInUseModal(true); // ✅ تغییر نام modal
+                setOpenReceiptInUseModal(true);
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Şantiye silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
                 onClose();
             }
@@ -82,8 +80,8 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
         }
     };
 
-    const handleCloseWorkhouseInUseModal = () => {
-        setOpenWorkhouseInUseModal(false);
+    const handleCloseReceiptInUseModal = () => {
+        setOpenReceiptInUseModal(false);
     };
 
     return (
@@ -95,11 +93,11 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu şantiyeyi silmek istediğinizden emin misiniz?"}
+                    {"Bu fişi silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        {workhouseNameToDelete} adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
+                        <span style={{ fontWeight: "bold" }}>{receiptCodeToDelete}</span> adlı fişi silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -108,11 +106,11 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen şantiyeyi sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen fişi sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"
-                            onClick={handleDeleteWorkhouse}
+                            onClick={handleDeleteReceipt}
                             autoFocus
                             disabled={loading}
                         >
@@ -128,23 +126,23 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                 </DialogActions>
             </Dialog>
 
-            {/* Dialog for Workhouse In Use */}
+            {/* Dialog for Receipt In Use */}
             <Dialog
-                open={openWorkhouseInUseModal}
-                onClose={handleCloseWorkhouseInUseModal}
-                aria-labelledby="workhouse-in-use-dialog-title"
-                aria-describedby="workhouse-in-use-dialog-description"
+                open={openReceiptInUseModal}
+                onClose={handleCloseReceiptInUseModal}
+                aria-labelledby="in-use-dialog-title"
+                aria-describedby="in-use-dialog-description"
             >
-                <DialogTitle id="workhouse-in-use-dialog-title">
-                    {"Hata: Şantiye Silinemez!"}
+                <DialogTitle id="in-use-dialog-title">
+                    {"Hata: Fiş Silinemez!"}
                 </DialogTitle>
                 <DialogContent>
-                    <DialogContentText id="workhouse-in-use-dialog-description">
-                        Bu şantiye şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
+                    <DialogContentText id="in-use-dialog-description">
+                        Bu fiş şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseWorkhouseInUseModal} autoFocus>
+                    <Button onClick={handleCloseReceiptInUseModal} autoFocus>
                         Tamam
                     </Button>
                 </DialogActions>
@@ -153,4 +151,4 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
     );
 };
 
-export default DeleteWorkhouse;
+export default DeleteStoreReceipt;

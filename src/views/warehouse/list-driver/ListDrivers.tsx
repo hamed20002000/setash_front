@@ -10,11 +10,11 @@ import {
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import { styled, useTheme } from '@mui/material/styles';
+import { keyframes, styled, useTheme } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus, IconFileDownload, IconFileText } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus, IconFileDownload, IconFileText, IconX } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -43,6 +43,16 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)(({ }) => ({
+    animation: `${blinkAnimation} 1s linear infinite`,
+}));
 
 interface VehicleData {
     id: number;
@@ -162,6 +172,11 @@ const ListDrivers = () => {
     const [selectedDriver, setSelectedDriver] = useState<internal | null>(null);
 
 
+    const [isFilterActive, setIsFilterActive] = useState(false);
+
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -228,6 +243,14 @@ const ListDrivers = () => {
     useEffect(() => {
         fetchDrivers();
     }, [fetchDrivers]);
+
+
+    useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+    }, [searchTerm, statusFilter, startDate, endDate]);
 
     const resetFormAndState = () => {
         setFirstName('');
@@ -459,14 +482,22 @@ const ListDrivers = () => {
 
     const filteredDrivers = useMemo(() => {
         return driversList.filter(d => {
+            // فیلتر بر اساس جستجو و وضعیت
             const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.family.toLowerCase().includes(searchTerm.toLowerCase()) || d.identityNo.includes(searchTerm);
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'active' && d.recordStatus === 0) ||
                 (statusFilter === 'inactive' && d.recordStatus === 1);
-            return matchesSearch && matchesStatus;
+
+            // ** اضافه کردن فیلتر بر اساس تاریخ تولد **
+            const birthdate = new Date(d.birthdate);
+            const matchesDate =
+                (!startDate || birthdate >= startDate) &&
+                (!endDate || birthdate <= endDate);
+
+            return matchesSearch && matchesStatus && matchesDate;
         });
-    }, [driversList, searchTerm, statusFilter]);
+    }, [driversList, searchTerm, statusFilter, startDate, endDate]);
 
     const sortedAndFilteredDrivers = useMemo(() => {
         return stableSort(filteredDrivers, getComparator(order, orderBy));
@@ -547,6 +578,88 @@ const ListDrivers = () => {
             });
 
             doc.save('Tüm_Sürücüler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+
+
+    const handleDownloadFilteredAllDriversPDF = async () => {
+        // از filteredDrivers که از قبل بر اساس فیلترهای UI محاسبه شده، استفاده کنید.
+        if (!filteredDrivers || filteredDrivers.length === 0) {
+            showAlert('PDF oluşturulacak sürücü bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // افزودن فونت NotoSans برای پشتیبانی از حروف ترکی
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Tüm Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12); doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
+        };
+
+        // ایجاد سطرها از داده‌های فیلتر شده
+        const rows = filteredDrivers.map(driver => [
+            `${driver.name} ${driver.family}`,
+            formatDateDisplay(driver.birthdate),
+            driver.fatherName,
+            driver.identityNo,
+            driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+            driver.recordStatus === 0 ? 'Aktif' : 'Pasif',
+        ]);
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 35 },
+                    1: { cellWidth: 25 },
+                    2: { cellWidth: 30 },
+                    3: { cellWidth: 25 },
+                    4: { cellWidth: 20 },
+                    5: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Filtrelenmiş_Sürücüler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
             console.error('PDF oluşturulurken hata:', error);
@@ -664,6 +777,138 @@ const ListDrivers = () => {
             showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
         }
     };
+
+    const handleDownloadFilteredWithCarsPDF = async () => {
+        showAlert('Araçlı sürücü bilgileri alınıyor, lütfen bekleyin...', 'info');
+
+        try {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                return;
+            }
+
+            // قدم اول: گرفتن تمام رانندگان به همراه خودروهایشان
+            const response = await axios.get(
+                `${server.baseurl}${server.warehouse}get-drivers-with-vehicle`, {
+                headers: { "Authorization": `Bearer ${authToken}` },
+            }
+            );
+
+            if (response.data.httpStatusCode !== 200 || !response.data.data) {
+                showAlert(response.data.message || 'Araçlı sürücü verileri alınamadı.', 'error');
+                return;
+            }
+
+            const allDriversWithCars = response.data.data;
+
+            // قدم دوم: اعمال فیلترها بر روی داده‌های دریافتی از سرور
+            const filteredDriversWithCars = allDriversWithCars.filter((driver: DriverWithVehicles) => {
+                // فیلتر بر اساس تاریخ
+                const matchesDate =
+                    (!startDate || new Date(driver.birthdate) >= startDate) &&
+                    (!endDate || new Date(driver.birthdate) <= endDate);
+
+                // فیلتر بر اساس جستجو و وضعیت
+                const matchesSearch =
+                    driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    driver.family.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    driver.identityNo.includes(searchTerm);
+
+                const matchesStatus =
+                    statusFilter === 'all' ||
+                    (statusFilter === 'active' && driver.recordStatus === 0) ||
+                    (statusFilter === 'inactive' && driver.recordStatus === 1);
+
+                return matchesDate && matchesSearch && matchesStatus;
+            });
+
+            if (filteredDriversWithCars.length === 0) {
+                showAlert('Filtrelenmiş kriterlere uygun araçlı sürücü bulunamadı.', 'warning');
+                return;
+            }
+
+            // بقیه کد PDF سازی با استفاده از filteredDriversWithCars
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+
+            const header = () => {
+                doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+                doc.setFontSize(18);
+                doc.text('Araçlı Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+                doc.setFontSize(12);
+                doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
+                doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+            };
+            const footer = () => {
+                doc.setFontSize(10);
+                doc.setTextColor(0);
+                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+                const docAny = doc as any;
+                const pageCount = docAny.internal.getNumberOfPages();
+                doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+            };
+
+            const tableBody: (string[] | { content: string; colSpan: number; styles: object }[])[] = [];
+
+            filteredDriversWithCars.forEach((driver: DriverWithVehicles) => {
+                tableBody.push([
+                    {
+                        content: `Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`,
+                        colSpan: 4,
+                        styles: {
+                            fontStyle: 'bold',
+                            fillColor: [230, 230, 230],
+                            halign: 'center'
+                        }
+                    }
+                ]);
+                const vehicleRows = driver.driverVehicles.map(car => [
+                    car.name || '-',
+                    String(car.model) || '-',
+                    car.plaque || '-',
+                    car.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                ]);
+                tableBody.push(...vehicleRows);
+                if (driver !== filteredDriversWithCars[filteredDriversWithCars.length - 1]) {
+                    tableBody.push([{ content: '', colSpan: 4, styles: { fillColor: [255, 255, 255], minCellHeight: 5 } }]);
+                }
+            });
+
+            autoTable(doc, {
+                startY: 50,
+                head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
+                body: tableBody,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Filtrelenmiş_Araçlı_Sürücüler_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
     const handleDownloadDriverDetailsPDF = async (driver: internal) => {
         if (!driver) {
             showAlert('Sürücü verisi bulunamadı.', 'warning');
@@ -763,6 +1008,12 @@ const ListDrivers = () => {
             console.error("Detay PDF oluşturulurken hata:", e);
             showAlert('Detay PDF oluşturulurken bir hata oluştu.', 'error');
         }
+    };
+
+
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
     };
 
     return (
@@ -916,10 +1167,45 @@ const ListDrivers = () => {
                 </Paper>
             </Box>
 
+
             <BlankCard>
+
+
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        {isFilterActive && (
+                            <>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Araçlı Sürücüleri indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleDownloadFilteredWithCarsPDF}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi Araçlı Sürücüleri İndir
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Tüm Sürücüleri indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleDownloadFilteredAllDriversPDF}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi Tüm Sürücüleri İndir
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            </>
+                        )}
+
+                    </Stack>
+                </Grid>
+
                 <Box sx={{ p: isSmallScreen ? 2 : 3 }}>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12} md={3}>
                             <TextField
                                 label="Sürücü Ara"
                                 variant="outlined"
@@ -930,7 +1216,32 @@ const ListDrivers = () => {
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
-                        <Grid item xs={12} md={6}>
+
+
+                        <Grid item xs={12} sm={6} md={6}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
+                                    </IconButton>
+                                </Stack>
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
                             <ToggleButtonGroup
                                 value={statusFilter}
                                 exclusive

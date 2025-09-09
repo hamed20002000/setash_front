@@ -7,8 +7,8 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconExchange, IconFile, IconFileSpreadsheet } from '@tabler/icons-react';
+import { keyframes, styled } from '@mui/material/styles';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconExchange, IconFile, IconFileSpreadsheet, IconFileDownload } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
@@ -27,7 +27,18 @@ import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import * as XLSX from 'xlsx';
-// import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
+import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)(({ }) => ({
+    animation: `${blinkAnimation} 1s linear infinite`,
+}));
+
 
 // Type Definitions
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
@@ -57,7 +68,8 @@ interface WarehouseType { id: string; name: string; code: number; recordStatus: 
 interface TenderType { id: string; title: string; recordStatus: number; createAt: string; }
 
 // Table Style and Functions
-type SortableOrderKeys = 'network.title' | 'docDate' | 'status';
+// type SortableOrderKeys = 'network.title' | 'docDate' | 'status';
+type SortableOrderKeys = 'network.title' | 'docDate' | 'status' | 'createAt';
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -138,7 +150,7 @@ const CompareComponent = () => {
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-    const [orderBy, setOrderBy] = useState<SortableOrderKeys>('docDate');
+    const [orderBy, setOrderBy] = useState<SortableOrderKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedOrderForMenu, setSelectedOrderForMenu] = useState<OrderType | null>(null);
@@ -150,12 +162,18 @@ const CompareComponent = () => {
     const [orderTitleToDelete, setOrderTitleToDelete] = useState<string>('');
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    // const { isTooltipGloballyEnabled } = useTooltip();
+    const { isTooltipGloballyEnabled } = useTooltip();
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
     const [description, setDescription] = useState('');
     const [statusError, setStatusError] = useState(false);
     const [idRow, setIdRow] = useState(0);
+
+
+    const [isFilterActive, setIsFilterActive] = useState(false);
+
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
@@ -399,7 +417,15 @@ const CompareComponent = () => {
         };
 
         loadInitialData();
-    }, []); // ✅ وابستگی‌ها را خالی بگذارید تا فقط یک بار اجرا شود.
+    }, []);
+
+
+    useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+    }, [searchTerm, statusFilter, startDate, endDate]);
 
     // ✅ Reset function for comparison states
     const resetComparisonStates = () => {
@@ -701,7 +727,10 @@ const CompareComponent = () => {
     const exportToExcel = (orderData: OrderType) => {
         const workbook = XLSX.utils.book_new();
         const worksheet = XLSX.utils.json_to_sheet([]);
-        XLSX.utils.sheet_add_aoa(worksheet, [['Şebeke', orderData.network.title]], { origin: 'A1' });
+        const networkTitle = orderData.network ? orderData.network.title : '-';
+        XLSX.utils.sheet_add_aoa(worksheet, [['Şebeke', networkTitle]], { origin: 'A1' });
+
+        // XLSX.utils.sheet_add_aoa(worksheet, [['Şebeke', orderData.network.title]], { origin: 'A1' });
         XLSX.utils.sheet_add_aoa(worksheet, [['Tarih', formatDateDisplay(orderData.docDate)]], { origin: 'C1' });
         const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
         XLSX.utils.sheet_add_aoa(worksheet, [tableHeaders], { origin: 'A3' });
@@ -730,7 +759,10 @@ const CompareComponent = () => {
             doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
             doc.text(`Sipariş No: ${orderData.id}`, pageWidth - 15, 40, { align: 'right' });
-            doc.text(`Şebeke: ${orderData.network.title || '-'}`, pageWidth - 15, 47, { align: 'right' });
+            // doc.text(`Şebeke: ${orderData.network.title || '-'}`, pageWidth - 15, 47, { align: 'right' });
+            const networkTitle = orderData.network ? orderData.network.title : '-';
+            doc.text(`Şebeke: ${networkTitle}`, pageWidth - 15, 47, { align: 'right' });
+
             doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, pageWidth - 15, 54, { align: 'right' });
         };
         const footer = () => {
@@ -783,7 +815,199 @@ const CompareComponent = () => {
             showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
         }
     };
+
+    const exportAllPdf = () => {
+        // از آرایه اصلی ordersList استفاده کنید، نه آرایه فیلترشده
+        if (ordersList.length === 0) {
+            showAlert('PDF oluşturulacak sipariş bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // افزودن فونت برای پشتیبانی از کاراکترهای ترکی
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        // تابع کمکی برای ایجاد هدر (سربرگ)
+        const createHeader = (doc: jsPDF, orderData: OrderType) => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            const networkTitle = orderData.network ? orderData.network.title : '-';
+            doc.text(`Şebeke: ${networkTitle}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, pageWidth - 15, 47, { align: 'right' });
+            doc.text(`Sipariş No: ${orderData.id}`, pageWidth - 15, 54, { align: 'right' });
+        };
+
+        // تابع کمکی برای ایجاد فوتر (پاورقی)
+        const createFooter = (doc: jsPDF) => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        try {
+            // حلقه بر روی هر سفارش در لیست اصلی
+            ordersList.forEach((order, index) => {
+                // اگر اولین صفحه نیست، یک صفحه جدید اضافه کنید
+                if (index > 0) {
+                    doc.addPage();
+                }
+
+                // آماده‌سازی داده‌های جدول برای این سفارش
+                const rows = order.orderDetails.map(detail => [
+                    detail.item.name || '-',
+                    Number(detail.quantity).toFixed(2) || '-',
+                    detail.item.unit.title || '-',
+                    stripHtml(detail.description) || '-',
+                    cleanAndFormatPrice(detail.price),
+                ]);
+
+                // ساخت جدول
+                autoTable(doc, {
+                    startY: 60, // مکان شروع جدول
+                    head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
+                    body: rows,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    columnStyles: {
+                        0: { cellWidth: 50 },
+                        1: { cellWidth: 20 },
+                        2: { cellWidth: 20 },
+                        3: { cellWidth: 50 },
+                        4: { cellWidth: 'auto' },
+                    },
+                    didDrawPage: () => {
+                        createHeader(doc, order);
+                        createFooter(doc);
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 50, bottom: 20 }
+                });
+            });
+
+            doc.save(`Tum_Siparislerin_Detaylari.pdf`);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
+
+    const exportAllFilteredToPdf = () => {
+        if (filteredOrders.length === 0) {
+            showAlert('PDF oluşturulacak filtrelenmiş sipariş bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // تنظیم فونت
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        // تابع کمکی برای ایجاد هدر
+        const createHeader = (orderData: any) => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text(`Sipariş Detayları`, pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            const networkTitle = orderData.network ? orderData.network.title : '-';
+            doc.text(`Şebeke: ${networkTitle}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, pageWidth - 15, 47, { align: 'right' });
+            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : '-')} - ${formatDateDisplay(endDate ? endDate.toISOString() : '-')}`, pageWidth - 15, 54, { align: 'right' });
+            doc.text(`Sipariş No: ${orderData.id}`, pageWidth - 15, 61, { align: 'right' });
+        };
+
+        // تابع کمکی برای ایجاد فوتر
+        const createFooter = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        try {
+            // حلقه بر روی هر سفارش فیلترشده
+            filteredOrders.forEach((order, index) => {
+                // اگر اولین صفحه نیست، یک صفحه جدید اضافه کنید
+                if (index > 0) {
+                    doc.addPage();
+                }
+
+                // آماده‌سازی داده‌های جدول برای این سفارش
+                const rows = order.orderDetails.map(detail => [
+                    detail.item.name || '-',
+                    Number(detail.quantity).toFixed(2) || '-',
+                    detail.item.unit.title || '-',
+                    stripHtml(detail.description) || '-',
+                    cleanAndFormatPrice(detail.price),
+                ]);
+
+                // ساخت جدول
+                autoTable(doc, {
+                    startY: 70,
+                    head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
+                    body: rows,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    columnStyles: {
+                        0: { cellWidth: 50 },
+                        1: { cellWidth: 20 },
+                        2: { cellWidth: 20 },
+                        3: { cellWidth: 50 },
+                        4: { cellWidth: 'auto' },
+                    },
+                    didDrawPage: () => {
+                        createHeader(order);
+                        createFooter();
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 60, bottom: 20 }
+                });
+            });
+
+            doc.save(`Filtrelenmis_Siparis_Detaylari.pdf`);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
+
+        } catch (error) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error, 'error');
+        }
+    };
+
     const filteredOrders = ordersList.filter(order => {
+        // ابتدا بررسی کنید که network وجود داشته باشد.
         const networkTitle = order.network ? order.network.title : '';
         const matchesSearch = networkTitle.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -793,8 +1017,14 @@ const CompareComponent = () => {
             (statusFilter === 'approved' && order.status === 1) ||
             (statusFilter === 'rejected' && order.status === 2);
 
-        return matchesSearch && matchesStatus;
+        const docDate = new Date(order.docDate);
+        const isWithinDateRange =
+            (!startDate || docDate >= startDate) &&
+            (!endDate || docDate <= endDate);
+
+        return matchesSearch && matchesStatus && isWithinDateRange;
     });
+
 
     const sortedAndFilteredOrders = stableSort(filteredOrders, getComparator(order, orderBy));
     const paginatedOrders = sortedAndFilteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -815,6 +1045,10 @@ const CompareComponent = () => {
             maximumFractionDigits: 2
         });
         return formattedPrice.replace('$', '₺');
+    };
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
     };
     return (
         <Box>
@@ -960,16 +1194,70 @@ const CompareComponent = () => {
                 </Paper>
             )}
 
+            <Grid item xs={12}>
+                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    {isFilterActive && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle depoları indirin" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={exportAllFilteredToPdf}
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData}
+                            >
+                                Filtrelenmişi İndir
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Satın Alma Sipariş indirin" : ""}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={exportAllPdf}
+                            startIcon={<IconFileDownload />}
+                            disabled={loadingData}
+                        >
+                            Tümünü İndir (PDF)
+                        </Button>
+                    </CustomTooltip>
+                </Stack>
+            </Grid>
             <Box sx={{ p: 2 }}>
                 <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
                 <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={6} md={8}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <TextField
                             label="Sipariş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
                             InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                         />
                     </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
+
+
+                    <Grid item xs={12} sm={6} md={6}>
+                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <DatePicker
+                                    label="Başlangıç Tarihi"
+                                    value={startDate}
+                                    inputFormat="dd/MM/yyyy"
+                                    onChange={(newValue) => setStartDate(newValue)}
+                                    renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                />
+                                <DatePicker
+                                    label="Bitiş Tarihi"
+                                    value={endDate}
+                                    inputFormat="dd/MM/yyyy"
+                                    onChange={(newValue) => setEndDate(newValue)}
+                                    renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                />
+                                <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                    <IconX size={20} />
+                                </IconButton>
+                            </Stack>
+                        </LocalizationProvider>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={3}>
                         <ToggleButtonGroup
                             value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
                         >

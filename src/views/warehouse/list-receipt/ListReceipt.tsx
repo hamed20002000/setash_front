@@ -12,9 +12,10 @@ import {
 } from '@mui/material';
 import {
     //  styled,
-    keyframes
+    keyframes,
+    styled
 } from '@mui/material/styles';
-import { IconDots, IconEye, IconTrash, IconSearch, IconEdit, IconFileDownload } from '@tabler/icons-react';
+import { IconDots, IconEye, IconTrash, IconSearch, IconEdit, IconFileDownload, IconX } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -60,6 +61,11 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
+
+
+const BlinkingButton = styled(Button)(({ }) => ({
+    animation: `${blinkAnimation} 1s linear infinite`,
+}));
 
 const descendingComparator = <T, Key extends string>(a: T, b: T, orderBy: Key): number => {
     const getNestedValue = (obj: any, path: string): any => path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -115,11 +121,20 @@ const ListReceipts = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseType | null>(null);
+
+
+    const [isFilterActive, setIsFilterActive] = useState(false);
+
+    const [startDate, setStartDate] = useState<Date | null>(null);
+    const [endDate, setEndDate] = useState<Date | null>(null);
+
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
+
+
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -210,6 +225,207 @@ const ListReceipts = () => {
             showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
         }
     };
+
+    const handleDownloadAllPdf = async () => {
+        const dataToDownload = receiptsList; // استفاده از لیست کامل و فیلترنشده
+
+        if (!dataToDownload || dataToDownload.length === 0) {
+            showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const logoImg = new Image();
+        logoImg.src = logoSrc;
+
+        // ثبت فونت برای پشتیبانی از کاراکترهای ترکی
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = (_pageNumber: number) => {
+            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Tüm Fişlerin Detaylı Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        let yPos = 50;
+
+        dataToDownload.forEach((receipt, index) => {
+            // برای فیش دوم به بعد، صفحه جدید ایجاد کنید
+            if (index > 0) {
+                doc.addPage();
+                yPos = 50;
+            }
+
+            header(index + 1);
+
+            // اطلاعات کلی فیش
+            doc.setFontSize(14);
+            doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
+            yPos += 7;
+            doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
+            yPos += 15;
+
+            // اطلاعات جزئیات محصولات در جدول
+            const rows = receipt.receiptDetails.map(item => [
+                item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
+                item.provider?.name || '-',
+                item.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                item.item.name || '-',
+                item.quantity,
+                item.item.unit?.title || '-',
+                item.description,
+            ]);
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 25 }, 1: { cellWidth: 35 }, 2: { cellWidth: 20 },
+                    3: { cellWidth: 50 }, 4: { cellWidth: 15 }, 5: { cellWidth: 15 }, 6: { cellWidth: 'auto' },
+                },
+                didDrawPage: (data) => {
+                    header(data.pageNumber);
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+        });
+
+        doc.save('Tüm_Fişlerin_Detaylı_Raporu.pdf');
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
+    const handleDownloadAllReceiptsPdf = async () => {
+        if (!sortedAndFilteredReceipts || sortedAndFilteredReceipts.length === 0) {
+            showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const logoImg = new Image();
+        logoImg.src = logoSrc;
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Tüm Fişlerin Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        let yPos = 60;
+
+        sortedAndFilteredReceipts.forEach((receipt, index) => {
+            if (index > 0) {
+                doc.addPage();
+                yPos = 60;
+            }
+            header();
+
+            // اطلاعات کلی فیش
+            doc.setFontSize(14);
+            doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, yPos);
+            yPos += 7;
+
+            // 🚀 تغییر اصلی: استفاده از receipt.warehouse?.name به جای جستجو در warehousesList
+            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
+            yPos += 7;
+
+            doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
+            yPos += 15;
+
+            // اطلاعات جزئیات محصولات در جدول
+            const rows = receipt.receiptDetails.map(item => [
+                item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
+                item.provider?.name || '-',
+                item.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                item.item.name || '-',
+                item.quantity,
+                item.item.unit?.title || '-',
+                item.description,
+            ]);
+
+            autoTable(doc, {
+                startY: yPos,
+                head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
+                body: rows,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: 'normal',
+                    fontSize: 10,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                columnStyles: {
+                    0: { cellWidth: 25 }, 1: { cellWidth: 35 }, 2: { cellWidth: 20 },
+                    3: { cellWidth: 50 }, 4: { cellWidth: 15 }, 5: { cellWidth: 15 }, 6: { cellWidth: 'auto' },
+                },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            // ⚠️ این خطوط را برای جلوگیری از تداخل با autoTable در صفحات جدید حذف کنید
+            // const docAny = doc as any;
+            // yPos = docAny.previous.finalY + 10;
+            // footer();
+        });
+
+        doc.save('Tüm_Fişler_Raporu.pdf');
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -265,6 +481,14 @@ const ListReceipts = () => {
         getReceipts();
         fetchWarehouses();
     }, []);
+
+
+    useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        // const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasDateFilter);
+    }, [searchTerm, startDate, endDate]);
 
     const handleReceiptItemsUpdate = (items: ProcessedReceiptItem[]) => {
         setReceiptItems(items);
@@ -490,19 +714,28 @@ const ListReceipts = () => {
         return isMainFormComplete && hasValidItems;
     }, [docDate, warehouse, receiptItems]);
 
-    const filteredReceipts = receiptsList.filter(receipt => {
-        const matchesSearch = receipt.code.toLowerCase().includes(searchTerm.toLowerCase());
-        // const matchesStatus =
-        //     statusFilter === 'all' ||
-        //     (statusFilter === 'active' && receipt.recordStatus === 0) ||
-        //     (statusFilter === 'passive' && receipt.recordStatus === 1);
-        return matchesSearch
-        //  && matchesStatus;
-    });
+    const filteredReceipts = useMemo(() => {
+        return receiptsList.filter(receipt => {
+            // فیلتر بر اساس جستجوی متنی
+            const matchesSearch = receipt.code.toLowerCase().includes(searchTerm.toLowerCase());
+
+            // فیلتر بر اساس تاریخ
+            const docDate = new Date(receipt.docDate);
+            const matchesDate =
+                (!startDate || docDate >= startDate) &&
+                (!endDate || docDate <= endDate);
+
+            return matchesSearch && matchesDate;
+        });
+    }, [receiptsList, searchTerm, startDate, endDate]);
 
     const sortedAndFilteredReceipts = stableSort(filteredReceipts, getComparator(order, orderBy));
     const paginatedReceipts = sortedAndFilteredReceipts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
+    };
     return (
         <Box>
 
@@ -585,24 +818,73 @@ const ListReceipts = () => {
                         </Box>
                     </Paper>
 
+
+                    <Grid item xs={12} mt={2} mr={2}>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            {isFilterActive && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fiş indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleDownloadAllReceiptsPdf}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi İndir (PDF)
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+
+
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan Tümünü  Fiş İndir " : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllPdf}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Tümünü İndir (PDF)
+                                </Button>
+                            </CustomTooltip>
+
+                        </Stack>
+                    </Grid>
+
                     <Box sx={{ p: 2 }}>
                         <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fiş Listesi</Typography>
                         <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={8}>
+                            <Grid item xs={12} sm={6} md={3}>
                                 <TextField
                                     label="Fiş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
                                     InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                                 />
                             </Grid>
-                            {/* <Grid item xs={12} sm={6} md={4}>
-                                <ToggleButtonGroup
-                                    value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
-                                >
-                                    <StyledToggleButton value="all" aria-label="all receipts">Tümü</StyledToggleButton>
-                                    <StyledToggleButton value="active" aria-label="active receipts">Aktif</StyledToggleButton>
-                                    <StyledToggleButton value="passive" aria-label="passive receipts">Pasif</StyledToggleButton>
-                                </ToggleButtonGroup>
-                            </Grid> */}
+
+
+                            <Grid item xs={12} sm={6} md={6}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <DatePicker
+                                            label="Başlangıç Tarihi"
+                                            value={startDate}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setStartDate(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <DatePicker
+                                            label="Bitiş Tarihi"
+                                            value={endDate}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setEndDate(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                            <IconX size={20} />
+                                        </IconButton>
+                                    </Stack>
+                                </LocalizationProvider>
+                            </Grid>
                         </Grid>
                     </Box>
                 </>
@@ -635,7 +917,7 @@ const ListReceipts = () => {
                                 </TableSortLabel>
                             </TableCell>
                             <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
-                            <TableCell align="right"><Typography variant="h6">İşlemler</Typography></TableCell>
+                            <TableCell align="right"></TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
