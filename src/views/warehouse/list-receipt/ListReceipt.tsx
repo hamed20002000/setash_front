@@ -37,6 +37,7 @@ import {
     ProcessedReceiptItem,
     ReceiptType
 } from './types';
+import BlankCard from 'src/components/shared/BlankCard';
 
 
 // Table Style and Functions
@@ -818,174 +819,181 @@ const ListReceipts = () => {
                         </Box>
                     </Paper>
 
-
-                    <Grid item xs={12} mt={2} mr={2}>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            {isFilterActive && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fiş indirin" : ""}>
-                                    <BlinkingButton
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={handleDownloadAllReceiptsPdf}
-                                        startIcon={<IconFileDownload />}
-                                        disabled={loadingData}
-                                    >
-                                        Filtrelenmişi İndir (PDF)
-                                    </BlinkingButton>
-                                </CustomTooltip>
-                            )}
-
-
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan Tümünü  Fiş İndir " : ""}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllPdf}
-                                    startIcon={<IconFileDownload />}
-                                    disabled={loadingData}
-                                >
-                                    Tümünü İndir (PDF)
-                                </Button>
-                            </CustomTooltip>
-
-                        </Stack>
-                    </Grid>
-
-                    <Box sx={{ p: 2 }}>
-                        <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fiş Listesi</Typography>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={3}>
-                                <TextField
-                                    label="Fiş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
-                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                                />
-                            </Grid>
-
-
-                            <Grid item xs={12} sm={6} md={6}>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <DatePicker
-                                            label="Başlangıç Tarihi"
-                                            value={startDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setStartDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <DatePicker
-                                            label="Bitiş Tarihi"
-                                            value={endDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setEndDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
-                                            <IconX size={20} />
-                                        </IconButton>
-                                    </Stack>
-                                </LocalizationProvider>
-                            </Grid>
-                        </Grid>
-                    </Box>
                 </>
 
+
             )}
+
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                 </Stack>
             )}
-            <TableContainer component={Paper}>
-                <Table aria-label="receipt table">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>
-                                <TableSortLabel
-                                    active={orderBy === 'code'} direction={orderBy === 'code' ? order : 'asc'} onClick={() => handleRequestSort('code')}
+            <BlankCard>
+
+
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        {isFilterActive && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fiş indirin" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllReceiptsPdf}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
                                 >
-                                    <Typography variant="h6">Fiş Kodu</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'warehouseId'} direction={orderBy === 'warehouseId' ? order : 'asc'} onClick={() => handleRequestSort('warehouseId')}>
-                                    <Typography variant="h6">Depo</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
-                                    <Typography variant="h6">Tarih</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
-                            <TableCell align="right"></TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {loadingData ? (
-                            <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
-                        ) : (
-                            paginatedReceipts.length > 0 ? (
-                                paginatedReceipts.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell><Typography variant="h6">{row.code || '-'}</Typography></TableCell>
-                                        <TableCell>
-                                            <Typography variant="h6">
-                                                {row.warehouse?.name || '-'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                        <TableCell>
-                                            <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.receiptDetails)}>
-                                                Görünüm
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
-                                                aria-haspopup="true" aria-expanded={openMenu && selectedReceiptForMenu?.id === row.id ? 'true' : undefined}
-                                                onClick={(event) => handleClickMenu(event, row)}>
-                                                <IconDots size={20} />
-                                            </IconButton>
-                                            <Menu
-                                                id="basic-menu" anchorEl={anchorEl}
-                                                open={openMenu && selectedReceiptForMenu?.id === row.id}
-                                                onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
-                                            >
-                                                {hasDownloadPermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu PDF olarak indirin" : ""}>
-                                                        <MenuItem onClick={() => handleDownloadPdf(row)}>
-                                                            <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> PDF
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasEditPermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu düzenleyin" : ""}>
-                                                        <MenuItem onClick={() => handleEditClick(row)}>
-                                                            <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasDeletePermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu silin" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenDeleteModal(row.id)}>
-                                                            <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                            </Menu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow><TableCell colSpan={6} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç Fiş bulunamadı.</Typography></TableCell></TableRow>
-                            )
+                                    Filtrelenmişi Fişleri İndir (PDF)
+                                </BlinkingButton>
+                            </CustomTooltip>
                         )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredReceipts.length}
-                rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+
+
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan Tümünü  Fiş İndir " : ""}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleDownloadAllPdf}
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData}
+                            >
+                                Tümünü Fişleri İndir (PDF)
+                            </Button>
+                        </CustomTooltip>
+
+                    </Stack>
+                </Grid>
+
+                <Box sx={{ p: 2 }}>
+                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fiş Listesi</Typography>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={6} md={3}>
+                            <TextField
+                                label="Fiş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+
+
+                        <Grid item xs={12} sm={6} md={6}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
+                                    </IconButton>
+                                </Stack>
+                            </LocalizationProvider>
+                        </Grid>
+                    </Grid>
+                </Box>
+
+                <TableContainer component={Paper}>
+                    <Table aria-label="receipt table">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>
+                                    <TableSortLabel
+                                        active={orderBy === 'code'} direction={orderBy === 'code' ? order : 'asc'} onClick={() => handleRequestSort('code')}
+                                    >
+                                        <Typography variant="h6">Fiş Kodu</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'warehouseId'} direction={orderBy === 'warehouseId' ? order : 'asc'} onClick={() => handleRequestSort('warehouseId')}>
+                                        <Typography variant="h6">Depo</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
+                                        <Typography variant="h6">Tarih</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
+                                <TableCell align="right"></TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {loadingData ? (
+                                <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
+                            ) : (
+                                paginatedReceipts.length > 0 ? (
+                                    paginatedReceipts.map((row) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell><Typography variant="h6">{row.code || '-'}</Typography></TableCell>
+                                            <TableCell>
+                                                <Typography variant="h6">
+                                                    {row.warehouse?.name || '-'}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
+                                            <TableCell>
+                                                <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.receiptDetails)}>
+                                                    Görünüm
+                                                </Button>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                    aria-haspopup="true" aria-expanded={openMenu && selectedReceiptForMenu?.id === row.id ? 'true' : undefined}
+                                                    onClick={(event) => handleClickMenu(event, row)}>
+                                                    <IconDots size={20} />
+                                                </IconButton>
+                                                <Menu
+                                                    id="basic-menu" anchorEl={anchorEl}
+                                                    open={openMenu && selectedReceiptForMenu?.id === row.id}
+                                                    onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
+                                                >
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu PDF olarak indirin" : ""}>
+                                                            <MenuItem onClick={() => handleDownloadPdf(row)}>
+                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> PDF
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu düzenleyin" : ""}>
+                                                            <MenuItem onClick={() => handleEditClick(row)}>
+                                                                <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu silin" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenDeleteModal(row.id)}>
+                                                                <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={6} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç Fiş bulunamadı.</Typography></TableCell></TableRow>
+                                )
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+                <TablePagination
+                    rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredReceipts.length}
+                    rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
+                />
+
+            </BlankCard>
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
                 <DialogContent dividers>

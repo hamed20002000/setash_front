@@ -898,7 +898,7 @@ const ListStores = () => {
                 showHead: 'everyPage',
                 margin: { top: 50, bottom: 20 }
             });
-            doc.save('Tum_Magazalar_Raporu.pdf');
+            doc.save('Tum_Şantiye_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error: any) {
             console.error('PDF oluşturulurken hata:', error);
@@ -982,7 +982,7 @@ const ListStores = () => {
                 showHead: 'everyPage',
                 margin: { top: 50, bottom: 20 }
             });
-            doc.save('Filtrelenmis_Tum_Magazalar_Raporu.pdf');
+            doc.save('Filtrelenmis_Tum_Şantiye_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error: any) {
             console.error('PDF oluşturulurken hata:', error);
@@ -1012,7 +1012,7 @@ const ListStores = () => {
                 )}
                 {(hasCreatePermission || hasEditPermission) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h5" mb={2}>{editingId ? 'Mağazayı Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
+                        <Typography variant="h5" mb={2}>{editingId ? 'Şantiye Düzenle' : 'Şantiyenin Depo Kaydı'}</Typography>
 
                         <Grid container spacing={2}>
                             {!workhouseId && (
@@ -1167,7 +1167,7 @@ const ListStores = () => {
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Şantiye ekle" : ""}>
                                                     <Button variant="contained" color="success" onClick={insertStore} disabled={loadingButton}>
-                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Şantiye Ekle'}
+                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Şantiyenin Deposunu Ekle'}
                                                     </Button>
                                                 </CustomTooltip>
                                             )}
@@ -1186,39 +1186,39 @@ const ListStores = () => {
             </div>
 
 
-            <Grid item xs={12}>
-                <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
-                    {isFilterActive && (
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fatura indirin" : ""}>
-                            <BlinkingButton
+            <BlankCard>
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
+                        {isFilterActive && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Şantiye indirin" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadFilteredStoresPDF}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Filtrelenmişi Şantiye Detaylı İndir (PDF)
+                                </BlinkingButton>
+                            </CustomTooltip>
+
+                        )}
+                        {hasDownloadPermission && (
+                            <Button
                                 variant="contained"
                                 color="primary"
-                                onClick={handleDownloadFilteredStoresPDF}
+                                onClick={handleDownloadAllStoresPDF}
                                 startIcon={<IconFileDownload />}
-                                disabled={loadingData}
+                                disabled={loadingData || storesList.length === 0}
                             >
-                                Filtrelenmişi İndir (PDF)
-                            </BlinkingButton>
-                        </CustomTooltip>
-
-                    )}
-                    {hasDownloadPermission && (
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={handleDownloadAllStoresPDF}
-                            startIcon={<IconFileDownload />}
-                            disabled={loadingData || storesList.length === 0}
-                        >
-                            Tüm Mağazaları İndir (PDF)
-                        </Button>
-                    )}
-                </Stack>
-            </Grid>
-            <BlankCard>
+                                Tüm Şantiye Detaylı İndir (PDF)
+                            </Button>
+                        )}
+                    </Stack>
+                </Grid>
                 <Box sx={{ p: 2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                        <Typography variant="h5">Şantiye Listesi</Typography>
+                        <Typography variant="h5">Şantiye Detaylı  Listesi</Typography>
 
                     </Stack>
 
@@ -1275,7 +1275,7 @@ const ListStores = () => {
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress />
-                        <Typography variant="h6" sx={{ ml: 2 }}>Mağazalar yükleniyor...</Typography>
+                        <Typography variant="h6" sx={{ ml: 2 }}>Şantiye yükleniyor...</Typography>
                     </Box>
                 ) : (
                     <TableContainer>
@@ -1367,6 +1367,20 @@ const ListStores = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
+
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu mağazanın fişlerine git" : ""}>
+                                                        <MuiMenuItem onClick={() => {
+                                                            if (selectedRowForMenu) {
+                                                                navigate(`/store/list-store-receipt/${selectedRowForMenu.id}`);
+                                                                handleCloseMenu();
+                                                            }
+                                                        }}>
+                                                            <ListItemIcon>
+                                                                <IconReceipt width={18} />
+                                                            </ListItemIcon>
+                                                            Şantiye Fişleri
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu mağazayı pasif yap" : ""}>
@@ -1404,19 +1418,6 @@ const ListStores = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu mağazanın fişlerine git" : ""}>
-                                                        <MuiMenuItem onClick={() => {
-                                                            if (selectedRowForMenu) {
-                                                                navigate(`/store/list-store-receipt/${selectedRowForMenu.id}`);
-                                                                handleCloseMenu();
-                                                            }
-                                                        }}>
-                                                            <ListItemIcon>
-                                                                <IconReceipt width={18} />
-                                                            </ListItemIcon>
-                                                            Şantiye Fişleri
-                                                        </MuiMenuItem>
-                                                    </CustomTooltip>
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>

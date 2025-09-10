@@ -30,6 +30,7 @@ import * as XLSX from 'xlsx';
 
 
 import { useAuth } from 'src/context/AuthContext';
+import BlankCard from 'src/components/shared/BlankCard';
 
 
 const blinkAnimation = keyframes`
@@ -967,242 +968,244 @@ const ManualEntryForm = () => {
 
             )}
 
-            <Grid item xs={12}>
-                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    {isFilterActive && (
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Satın Alma indirin" : ""}>
-                            <BlinkingButton
+            <BlankCard>
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                        {isFilterActive && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Satın Alma indirin" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={exportAllFilteredToPdf}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Filtrelenmişi Satın Alma İndir
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Satın Alma Sipariş indirin" : ""}>
+                            <Button
                                 variant="contained"
                                 color="primary"
-                                onClick={exportAllFilteredToPdf}
+                                onClick={exportAllPdf}
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData}
                             >
-                                Filtrelenmişi İndir
-                            </BlinkingButton>
+                                Tümünü Satın Alma İndir (PDF)
+                            </Button>
                         </CustomTooltip>
-                    )}
-
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Satın Alma Sipariş indirin" : ""}>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={exportAllPdf}
-                            startIcon={<IconFileDownload />}
-                            disabled={loadingData}
-                        >
-                            Tümünü İndir (PDF)
-                        </Button>
-                    </CustomTooltip>
-                </Stack>
-            </Grid>
-            <Box sx={{ p: 2 }}>
-                <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
-                <Grid container spacing={2} alignItems="center">
-                    <Grid item xs={12} sm={6} md={3}>
-                        <TextField
-                            label="Sipariş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
-                            InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                        />
-                    </Grid>
-
-
-                    <Grid item xs={12} sm={6} md={6}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                <DatePicker
-                                    label="Başlangıç Tarihi"
-                                    value={startDate}
-                                    inputFormat="dd/MM/yyyy"
-                                    onChange={(newValue) => setStartDate(newValue)}
-                                    renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                />
-                                <DatePicker
-                                    label="Bitiş Tarihi"
-                                    value={endDate}
-                                    inputFormat="dd/MM/yyyy"
-                                    onChange={(newValue) => setEndDate(newValue)}
-                                    renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                />
-                                <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
-                                    <IconX size={20} />
-                                </IconButton>
-                            </Stack>
-                        </LocalizationProvider>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
-                        <ToggleButtonGroup
-                            value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
-                        >
-                            <StyledToggleButton value="all" aria-label="all orders">Tümü</StyledToggleButton>
-                            <StyledToggleButton value="pending" aria-label="pending orders">Beklemede</StyledToggleButton>
-                            <StyledToggleButton value="approved" aria-label="approved orders">Onaylandı</StyledToggleButton>
-                            <StyledToggleButton value="rejected" aria-label="rejected orders">Reddedildi</StyledToggleButton>
-                        </ToggleButtonGroup>
-                    </Grid>
+                    </Stack>
                 </Grid>
-            </Box>
+                <Box sx={{ p: 2 }}>
+                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={6} md={3}>
+                            <TextField
+                                label="Sipariş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
 
-            <TableContainer component={Paper}>
-                <Table aria-label="order table">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'network.title'} direction={orderBy === 'network.title' ? order : 'asc'} onClick={() => handleRequestSort('network.title')}>
-                                    <Typography variant="h6">Şebeke Adı</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
-                                    <Typography variant="h6">Tarih</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
-                                    <Typography variant="h6">Durum</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
-                            <TableCell align="right"><Typography variant="h6">İşlemler</Typography></TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {loadingData ? (
-                            <TableRow><TableCell colSpan={5} align="center"><CircularProgress /></TableCell></TableRow>
-                        ) : (
-                            paginatedOrders.length > 0 ? (
-                                paginatedOrders.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell><Typography variant="h6">{row.network ? row.network.title : "-"}</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                        <TableCell>
-                                            <Stack direction="row" alignItems="center" spacing={1}>
-                                                {row.status === 0 && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
-                                                {row.status === 1 && <CheckCircleOutlineIcon color="success" fontSize="small" />}
-                                                {row.status === 2 && <HighlightOffIcon color="error" fontSize="small" />}
-                                                <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}</Typography>
-                                            </Stack>
 
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.orderDetails)}>
-                                                Görünüm
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
-                                                aria-haspopup="true" aria-expanded={openMenu && selectedOrderForMenu?.id === row.id ? 'true' : undefined}
-                                                onClick={(event) => handleClickMenu(event, row)}>
-                                                <IconDots size={20} />
-                                            </IconButton>
-                                            <Menu
-                                                id="basic-menu"
-                                                anchorEl={anchorEl}
-                                                open={openMenu && selectedOrderForMenu?.id === row.id}
-                                                onClose={handleCloseMenu}
-                                                MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
-                                            >
+                        <Grid item xs={12} sm={6} md={5}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
+                                    </IconButton>
+                                </Stack>
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={4}>
+                            <ToggleButtonGroup
+                                value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
+                            >
+                                <StyledToggleButton value="all" aria-label="all orders">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="pending" aria-label="pending orders">Beklemede</StyledToggleButton>
+                                <StyledToggleButton value="approved" aria-label="approved orders">Onaylandı</StyledToggleButton>
+                                <StyledToggleButton value="rejected" aria-label="rejected orders">Reddedildi</StyledToggleButton>
+                            </ToggleButtonGroup>
+                        </Grid>
+                    </Grid>
+                </Box>
 
-                                                {hasStatusPermission && selectedOrderForMenu?.status === 0 && (
-                                                    <>
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
-                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                                <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                                Onayla
-                                                            </MenuItem>
-                                                        </CustomTooltip>
+                <TableContainer component={Paper}>
+                    <Table aria-label="order table">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'network.title'} direction={orderBy === 'network.title' ? order : 'asc'} onClick={() => handleRequestSort('network.title')}>
+                                        <Typography variant="h6">Şebeke Adı</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
+                                        <Typography variant="h6">Tarih</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
+                                        <Typography variant="h6">Durum</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
+                                <TableCell align="right"><Typography variant="h6">İşlemler</Typography></TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {loadingData ? (
+                                <TableRow><TableCell colSpan={5} align="center"><CircularProgress /></TableCell></TableRow>
+                            ) : (
+                                paginatedOrders.length > 0 ? (
+                                    paginatedOrders.map((row) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell><Typography variant="h6">{row.network ? row.network.title : "-"}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    {row.status === 0 && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
+                                                    {row.status === 1 && <CheckCircleOutlineIcon color="success" fontSize="small" />}
+                                                    {row.status === 2 && <HighlightOffIcon color="error" fontSize="small" />}
+                                                    <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}</Typography>
+                                                </Stack>
+
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.orderDetails)}>
+                                                    Görünüm
+                                                </Button>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                    aria-haspopup="true" aria-expanded={openMenu && selectedOrderForMenu?.id === row.id ? 'true' : undefined}
+                                                    onClick={(event) => handleClickMenu(event, row)}>
+                                                    <IconDots size={20} />
+                                                </IconButton>
+                                                <Menu
+                                                    id="basic-menu"
+                                                    anchorEl={anchorEl}
+                                                    open={openMenu && selectedOrderForMenu?.id === row.id}
+                                                    onClose={handleCloseMenu}
+                                                    MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
+                                                >
+
+                                                    {hasStatusPermission && selectedOrderForMenu?.status === 0 && (
+                                                        <>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
+                                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                                    <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                                    Onayla
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
+                                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                                    <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                                    Reddet
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+                                                        </>
+                                                    )}
+
+                                                    {/* Menü öğesi, sipariş durumu 1 için */}
+                                                    {hasStatusPermission && selectedOrderForMenu?.status === 1 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
                                                             <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                                 <ListItemIcon><IconX size={18} /></ListItemIcon>
                                                                 Reddet
                                                             </MenuItem>
                                                         </CustomTooltip>
-                                                    </>
-                                                )}
+                                                    )}
 
-                                                {/* Menü öğesi, sipariş durumu 1 için */}
-                                                {hasStatusPermission && selectedOrderForMenu?.status === 1 && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi reddedin" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                            <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                            Reddet
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-
-                                                {/* Menü öğesi, sipariş durumu 2 için */}
-                                                {hasStatusPermission && selectedOrderForMenu?.status === 2 && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                            Onayla
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
+                                                    {/* Menü öğesi, sipariş durumu 2 için */}
+                                                    {hasStatusPermission && selectedOrderForMenu?.status === 2 && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi onaylayın" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                                <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                                Onayla
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
 
 
-                                                {hasEditPermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
-                                                        <MenuItem onClick={() => handleEditClick(row)}>
-                                                            <ListItemIcon><IconEdit size={18} /></ListItemIcon>
-                                                            Düzenle
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-
-
-                                                )}
-                                                {hasDeletePermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
-                                                            <ListItemIcon><IconTrash size={18} /></ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-
-                                                )}
-                                                {hasDownloadPermission && (
-                                                    <>
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
-                                                            <MenuItem onClick={() => {
-                                                                if (selectedOrderForMenu) {
-                                                                    exportToExcel(selectedOrderForMenu);
-                                                                    handleCloseMenu();
-                                                                }
-                                                            }}>
-                                                                <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
+                                                            <MenuItem onClick={() => handleEditClick(row)}>
+                                                                <ListItemIcon><IconEdit size={18} /></ListItemIcon>
+                                                                Düzenle
                                                             </MenuItem>
                                                         </CustomTooltip>
 
-                                                        {/* PDF İndir öğesi */}
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
-                                                            <MenuItem onClick={() => {
-                                                                if (selectedOrderForMenu) {
-                                                                    exportToPdf(selectedOrderForMenu);
-                                                                    handleCloseMenu();
-                                                                }
-                                                            }}>
-                                                                <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
+
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
+                                                                <ListItemIcon><IconTrash size={18} /></ListItemIcon>
+                                                                Silmek
                                                             </MenuItem>
                                                         </CustomTooltip>
 
-                                                    </>
-                                                )}
-                                            </Menu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow><TableCell colSpan={5} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç sipariş bulunamadı.</Typography></TableCell></TableRow>
-                            )
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredOrders.length}
-                rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
+                                                                <MenuItem onClick={() => {
+                                                                    if (selectedOrderForMenu) {
+                                                                        exportToExcel(selectedOrderForMenu);
+                                                                        handleCloseMenu();
+                                                                    }
+                                                                }}>
+                                                                    <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
+                                                                </MenuItem>
+                                                            </CustomTooltip>
 
+                                                            {/* PDF İndir öğesi */}
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
+                                                                <MenuItem onClick={() => {
+                                                                    if (selectedOrderForMenu) {
+                                                                        exportToPdf(selectedOrderForMenu);
+                                                                        handleCloseMenu();
+                                                                    }
+                                                                }}>
+                                                                    <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+
+                                                        </>
+                                                    )}
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={5} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç sipariş bulunamadı.</Typography></TableCell></TableRow>
+                                )
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+                <TablePagination
+                    rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredOrders.length}
+                    rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
+                />
+
+            </BlankCard>
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Ürün Detayları</DialogTitle>
                 <DialogContent dividers>

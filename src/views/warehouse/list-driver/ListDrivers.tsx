@@ -231,10 +231,10 @@ const ListDrivers = () => {
                 }));
                 setDriversList(driversWithStatus);
             } else {
-                showAlert(response.data.message || 'Sürücüler yüklenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Şoförler yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert('Sürücüler yüklenirken bir hata oluştu.', 'error');
+            showAlert('Şoförler yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -522,7 +522,7 @@ const ListDrivers = () => {
 
             doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
-            doc.text('Tüm Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.text('Tüm Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
             doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
         };
@@ -577,7 +577,7 @@ const ListDrivers = () => {
                 margin: { top: 50, bottom: 20 }
             });
 
-            doc.save('Tüm_Sürücüler_Raporu.pdf');
+            doc.save('Tüm_Şoförler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
             console.error('PDF oluşturulurken hata:', error);
@@ -604,7 +604,7 @@ const ListDrivers = () => {
         const header = () => {
             doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
-            doc.text('Tüm Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.text('Tüm Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12); doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
             doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
         };
@@ -659,7 +659,7 @@ const ListDrivers = () => {
                 margin: { top: 50, bottom: 20 }
             });
 
-            doc.save('Filtrelenmiş_Sürücüler_Raporu.pdf');
+            doc.save('Filtrelenmiş_Şoförler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
             console.error('PDF oluşturulurken hata:', error);
@@ -703,7 +703,7 @@ const ListDrivers = () => {
             const header = () => {
                 doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
                 doc.setFontSize(18);
-                doc.text('Araçlı Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+                doc.text('Araçlı Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
                 doc.setFontSize(12);
                 doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
             };
@@ -770,7 +770,7 @@ const ListDrivers = () => {
                 margin: { top: 50, bottom: 20 }
             });
 
-            doc.save('Araçlı_Sürücüler_Raporu.pdf');
+            doc.save('Araçlı_Şoförler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
             console.error('PDF oluşturulurken hata:', error);
@@ -840,7 +840,7 @@ const ListDrivers = () => {
             const header = () => {
                 doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
                 doc.setFontSize(18);
-                doc.text('Araçlı Sürücüler Raporu', pageWidth - 15, 30, { align: 'right' });
+                doc.text('Araçlı Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
                 doc.setFontSize(12);
                 doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
                 doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
@@ -902,7 +902,7 @@ const ListDrivers = () => {
                 margin: { top: 50, bottom: 20 }
             });
 
-            doc.save('Filtrelenmiş_Araçlı_Sürücüler_Raporu.pdf');
+            doc.save('Filtrelenmiş_Araçlı_Şoförler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
             console.error('PDF oluşturulurken hata:', error);
@@ -1022,30 +1022,8 @@ const ListDrivers = () => {
 
                 {(hasCreatePermission || hasEditPermission) && (
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                        <Typography variant="h5">Sürücüler</Typography>
+                        <Typography variant="h5">Şoförler</Typography>
 
-                        {hasDownloadPermission && (
-                            <Stack direction={isSmallScreen ? "column" : "row"} spacing={2} flexWrap="wrap" gap={1}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllDriversPDF}
-                                    startIcon={<IconFileDownload />}
-                                    fullWidth={isSmallScreen}
-                                >
-                                    Tüm Sürücüleri İndir (PDF)
-                                </Button>
-                                <Button
-                                    variant="contained"
-                                    color="secondary"
-                                    onClick={handleDownloadDriversWithCarsPDF}
-                                    startIcon={<IconFileDownload />}
-                                    fullWidth={isSmallScreen}
-                                >
-                                    Araçlı Sürücüleri İndir (PDF)
-                                </Button>
-                            </Stack>
-                        )}
                     </Stack>
 
                 )}
@@ -1172,10 +1150,10 @@ const ListDrivers = () => {
 
 
                 <Grid item xs={12} mt={2} mr={2}>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
                         {isFilterActive && (
                             <>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Araçlı Sürücüleri indirin" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Araçlı Şoförleri indirin" : ""}>
                                     <BlinkingButton
                                         variant="contained"
                                         color="primary"
@@ -1183,23 +1161,45 @@ const ListDrivers = () => {
                                         startIcon={<IconFileDownload />}
                                         disabled={loadingData}
                                     >
-                                        Filtrelenmişi Araçlı Sürücüleri İndir
+                                        Filtrelenmişi Araçlı Şoförleri İndir
                                     </BlinkingButton>
                                 </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Tüm Sürücüleri indirin" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Tüm Şoförleri indirin" : ""}>
                                     <BlinkingButton
-                                        variant="contained"
+                                        variant="outlined"
                                         color="primary"
                                         onClick={handleDownloadFilteredAllDriversPDF}
                                         startIcon={<IconFileDownload />}
                                         disabled={loadingData}
                                     >
-                                        Filtrelenmişi Tüm Sürücüleri İndir
+                                        Filtrelenmişi Tüm Şoförleri İndir
                                     </BlinkingButton>
                                 </CustomTooltip>
                             </>
                         )}
 
+                        {hasDownloadPermission && (
+                            <Stack direction={isSmallScreen ? "column" : "row"} spacing={2} flexWrap="wrap" gap={1}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllDriversPDF}
+                                    startIcon={<IconFileDownload />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Tüm Şoförleri İndir (PDF)
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    onClick={handleDownloadDriversWithCarsPDF}
+                                    startIcon={<IconFileDownload />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Araçlı Şoförleri İndir (PDF)
+                                </Button>
+                            </Stack>
+                        )}
                     </Stack>
                 </Grid>
 
@@ -1249,9 +1249,9 @@ const ListDrivers = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                <StyledToggleButton value="all" aria-label="Tüm Sürücüler">Tümü</StyledToggleButton>
-                                <StyledToggleButton value="active" aria-label="Aktif Sürücüler">Aktif</StyledToggleButton>
-                                <StyledToggleButton value="inactive" aria-label="Pasif Sürücüler">Pasif</StyledToggleButton>
+                                <StyledToggleButton value="all" aria-label="Tüm Şoförler">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="active" aria-label="Aktif Şoförler">Aktif</StyledToggleButton>
+                                <StyledToggleButton value="inactive" aria-label="Pasif Şoförler">Pasif</StyledToggleButton>
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
@@ -1259,7 +1259,7 @@ const ListDrivers = () => {
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress />
-                        <Typography variant="h6" sx={{ ml: 2 }}>Sürücüler yükleniyor...</Typography>
+                        <Typography variant="h6" sx={{ ml: 2 }}>Şoförler yükleniyor...</Typography>
                     </Box>
                 ) : (
                     <TableContainer>

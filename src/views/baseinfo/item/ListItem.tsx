@@ -1474,20 +1474,24 @@ const ListItemComponent = () => {
       </div>
       <BlankCard>
 
-        <>
-          {hasDownloadPermission && (
-            <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-              <Button
-                variant="contained"
-                color="secondary"
-                onClick={handlePrintAllItems}
-                startIcon={<IconFileDownload />}
-              >
-                Tüm Ürünleri İndir (PDF)
-              </Button>
-            </Grid>
-          )}
-        </>
+
+        <Grid item xs={12} mt={2} mr={2}>
+          <Stack direction="row" spacing={2} justifyContent="flex-end">
+            {hasDownloadPermission && (
+              <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handlePrintAllItems}
+                  startIcon={<IconFileDownload />}
+                >
+                  Tüm Ürünleri İndir (PDF)
+                </Button>
+              </Grid>
+            )}
+
+          </Stack>
+        </Grid>
         <Box sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={8}>

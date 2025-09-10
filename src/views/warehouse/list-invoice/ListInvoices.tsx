@@ -29,6 +29,7 @@ import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import { useAuth } from 'src/context/AuthContext';
+import BlankCard from 'src/components/shared/BlankCard';
 
 
 
@@ -1323,80 +1324,6 @@ const ListInvoices = () => {
                     </Paper>
 
 
-                    <Grid item xs={12}>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                            {isFilterActive && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fatura indirin" : ""}>
-                                    <BlinkingButton
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={handleDownloadAllFilteredInvoicesPDF}
-                                        startIcon={<IconFileDownload />}
-                                        disabled={loadingData}
-                                    >
-                                        Filtrelenmişi İndir
-                                    </BlinkingButton>
-                                </CustomTooltip>
-                            )}
-
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tümünü Fatura indirin" : ""}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={exportAllPdf}
-                                    startIcon={<IconFileDownload />}
-                                    disabled={loadingData}
-                                >
-                                    Tümünü İndir (PDF)
-                                </Button>
-                            </CustomTooltip>
-                        </Stack>
-                    </Grid>
-                    <Box sx={{ p: 2 }}>
-                        <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={3}>
-                                <TextField
-                                    label="Fatura Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
-                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                                />
-                            </Grid>
-
-                            <Grid item xs={12} sm={6} md={6}>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <DatePicker
-                                            label="Başlangıç Tarihi"
-                                            value={startDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setStartDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <DatePicker
-                                            label="Bitiş Tarihi"
-                                            value={endDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setEndDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
-                                            <IconX size={20} />
-                                        </IconButton>
-                                    </Stack>
-                                </LocalizationProvider>
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <ToggleButtonGroup
-                                    value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
-                                >
-                                    <StyledToggleButton value="all" aria-label="all invoices">Tümü</StyledToggleButton>
-                                    <StyledToggleButton value="pending" aria-label="pending invoices">Beklemede</StyledToggleButton>
-                                    <StyledToggleButton value="approved" aria-label="approved invoices">Onaylandı</StyledToggleButton>
-                                    <StyledToggleButton value="rejected" aria-label="rejected invoices">Reddedildi</StyledToggleButton>
-                                </ToggleButtonGroup>
-                            </Grid>
-                        </Grid>
-                    </Box>
 
                 </>
             )}
@@ -1405,169 +1332,246 @@ const ListInvoices = () => {
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                 </Stack>
             )}
-            <TableContainer component={Paper}>
-                <Table aria-label="invoice table">
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'invoiceNo'} direction={orderBy === 'invoiceNo' ? order : 'asc'} onClick={() => handleRequestSort('invoiceNo')}>
-                                    <Typography variant="h6">Fatura No</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'driver.name'} direction={orderBy === 'driver.name' ? order : 'asc'} onClick={() => handleRequestSort('driver.name')}>
-                                    <Typography variant="h6">Sürücü</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell>
-                                <Typography variant="h6">Depo</Typography>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
-                                    <Typography variant="h6">Tarihi</Typography>
-                                </TableSortLabel>
-                            </TableCell>
 
-                            <TableCell>
-                                <Typography variant="h6">Kayıt Tipi </Typography>
-                            </TableCell>
-                            <TableCell>
-                                <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
-                                    <Typography variant="h6">Durum</Typography>
-                                </TableSortLabel>
-                            </TableCell>
-                            <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
-                            <TableCell align="right"><Typography variant="h6">İşlemler</Typography></TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {loadingData ? (
-                            <TableRow><TableCell colSpan={8} align="center"><CircularProgress /></TableCell></TableRow>
-                        ) : (
-                            paginatedInvoices.length > 0 ? (
-                                paginatedInvoices.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell>
-                                            <Typography variant="h6">
-                                                {row.invoiceNo ? row.invoiceNo : '-'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell><Typography variant="h6">{row.driver?.name || '-'}</Typography></TableCell>
-                                        <TableCell>
-                                            <Typography variant="h6">
-                                                {row.warehouse?.name || '-'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                        <TableCell>
-                                            {row.invoiceDetails.some(detail => detail.orderDetail) ? (
-                                                <Chip label=" Siparişli" color="success" size="small" />
-                                            ) : (
-                                                <Chip label=" Siparişsiz" color="default" size="small" />
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Stack direction="row" alignItems="center" spacing={1}>
-                                                {row.status === 0 && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
-                                                {row.status === 1 && <CheckCircleOutlineIcon color="success" fontSize="small" />}
-                                                {row.status === 2 && <HighlightOffIcon color="error" fontSize="small" />}
-                                                <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}</Typography>
-                                                {row.invoiceHeaderStatusHistories && row.invoiceHeaderStatusHistories.length > 0 && (
-                                                    <CustomTooltip title="Durum geçmişini gör" placement="right">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenStatusHistoryModal(row)}
-                                                        >
-                                                            <IconInfoCircle size={18} />
-                                                        </IconButton>
-                                                    </CustomTooltip>
+            <BlankCard>
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        {isFilterActive && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fatura indirin" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllFilteredInvoicesPDF}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Filtrelenmişi Faturaleri İndir
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tümünü Fatura indirin" : ""}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={exportAllPdf}
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData}
+                            >
+                                Tümünü Faturaleri İndir (PDF)
+                            </Button>
+                        </CustomTooltip>
+                    </Stack>
+                </Grid>
+                <Box sx={{ p: 2 }}>
+                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={6} md={3}>
+                            <TextField
+                                label="Fatura Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6} md={5}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
+                                    </IconButton>
+                                </Stack>
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <ToggleButtonGroup
+                                value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
+                            >
+                                <StyledToggleButton value="all" aria-label="all invoices">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="pending" aria-label="pending invoices">Beklemede</StyledToggleButton>
+                                <StyledToggleButton value="approved" aria-label="approved invoices">Onaylandı</StyledToggleButton>
+                                <StyledToggleButton value="rejected" aria-label="rejected invoices">Reddedildi</StyledToggleButton>
+                            </ToggleButtonGroup>
+                        </Grid>
+                    </Grid>
+                </Box>
+                <TableContainer component={Paper}>
+                    <Table aria-label="invoice table">
+                        <TableHead>
+                            <TableRow>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'invoiceNo'} direction={orderBy === 'invoiceNo' ? order : 'asc'} onClick={() => handleRequestSort('invoiceNo')}>
+                                        <Typography variant="h6">Fatura No</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'driver.name'} direction={orderBy === 'driver.name' ? order : 'asc'} onClick={() => handleRequestSort('driver.name')}>
+                                        <Typography variant="h6">Sürücü</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell>
+                                    <Typography variant="h6">Depo</Typography>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
+                                        <Typography variant="h6">Tarihi</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+
+                                <TableCell>
+                                    <Typography variant="h6">Kayıt Tipi </Typography>
+                                </TableCell>
+                                <TableCell>
+                                    <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
+                                        <Typography variant="h6">Durum</Typography>
+                                    </TableSortLabel>
+                                </TableCell>
+                                <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
+                                <TableCell align="right"><Typography variant="h6">İşlemler</Typography></TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {loadingData ? (
+                                <TableRow><TableCell colSpan={8} align="center"><CircularProgress /></TableCell></TableRow>
+                            ) : (
+                                paginatedInvoices.length > 0 ? (
+                                    paginatedInvoices.map((row) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell>
+                                                <Typography variant="h6">
+                                                    {row.invoiceNo ? row.invoiceNo : '-'}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell><Typography variant="h6">{row.driver?.name || '-'}</Typography></TableCell>
+                                            <TableCell>
+                                                <Typography variant="h6">
+                                                    {row.warehouse?.name || '-'}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
+                                            <TableCell>
+                                                {row.invoiceDetails.some(detail => detail.orderDetail) ? (
+                                                    <Chip label=" Siparişli" color="success" size="small" />
+                                                ) : (
+                                                    <Chip label=" Siparişsiz" color="default" size="small" />
                                                 )}
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>
-                                                Görünüm
-                                            </Button>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
-                                                aria-haspopup="true" aria-expanded={openMenu && selectedInvoiceForMenu?.id === row.id ? 'true' : undefined}
-                                                onClick={(event) => handleClickMenu(event, row)}>
-                                                <IconDots size={20} />
-                                            </IconButton>
-                                            <Menu
-                                                id="basic-menu" anchorEl={anchorEl}
-                                                open={openMenu && selectedInvoiceForMenu?.id === row.id}
-                                                onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
-                                            >
-                                                {hasStatusPermission && selectedInvoiceForMenu?.status === 0 && (
-                                                    <>
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
-                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                                <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                                Onayla
-                                                            </MenuItem>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={1}>
+                                                    {row.status === 0 && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
+                                                    {row.status === 1 && <CheckCircleOutlineIcon color="success" fontSize="small" />}
+                                                    {row.status === 2 && <HighlightOffIcon color="error" fontSize="small" />}
+                                                    <Typography variant="h6">{row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}</Typography>
+                                                    {row.invoiceHeaderStatusHistories && row.invoiceHeaderStatusHistories.length > 0 && (
+                                                        <CustomTooltip title="Durum geçmişini gör" placement="right">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleOpenStatusHistoryModal(row)}
+                                                            >
+                                                                <IconInfoCircle size={18} />
+                                                            </IconButton>
                                                         </CustomTooltip>
+                                                    )}
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>
+                                                    Görünüm
+                                                </Button>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                    aria-haspopup="true" aria-expanded={openMenu && selectedInvoiceForMenu?.id === row.id ? 'true' : undefined}
+                                                    onClick={(event) => handleClickMenu(event, row)}>
+                                                    <IconDots size={20} />
+                                                </IconButton>
+                                                <Menu
+                                                    id="basic-menu" anchorEl={anchorEl}
+                                                    open={openMenu && selectedInvoiceForMenu?.id === row.id}
+                                                    onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
+                                                >
+                                                    {hasStatusPermission && selectedInvoiceForMenu?.status === 0 && (
+                                                        <>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
+                                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                                    <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                                    Onayla
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı reddedin" : ""}>
+                                                                <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
+                                                                    <ListItemIcon><IconX size={18} /></ListItemIcon>
+                                                                    Reddet
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+                                                        </>
+                                                    )}
+                                                    {hasStatusPermission && selectedInvoiceForMenu?.status === 1 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı reddedin" : ""}>
                                                             <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
                                                                 <ListItemIcon><IconX size={18} /></ListItemIcon>
                                                                 Reddet
                                                             </MenuItem>
                                                         </CustomTooltip>
-                                                    </>
-                                                )}
-                                                {hasStatusPermission && selectedInvoiceForMenu?.status === 1 && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı reddedin" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'reject')}>
-                                                            <ListItemIcon><IconX size={18} /></ListItemIcon>
-                                                            Reddet
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasStatusPermission && selectedInvoiceForMenu?.status === 2 && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
-                                                            <ListItemIcon><IconCheck size={18} /></ListItemIcon>
-                                                            Onayla
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasEditPermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı düzenleyin" : ""}>
-                                                        <MenuItem onClick={() => handleEditClick(row)}>
-                                                            <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasDeletePermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı silin" : ""}>
-                                                        <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.provider?.name || '-')}>
-                                                            <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasDownloadPermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı Yazdırın" : ""}>
-                                                        <MenuItem onClick={() => handlePrintInvoice(row)}>
-                                                            <ListItemIcon><IconFileInvoice size={18} /></ListItemIcon> Yazdır
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                            </Menu>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow><TableCell colSpan={8} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç fatura bulunamadı.</Typography></TableCell></TableRow>
-                            )
-                        )}
-                    </TableBody>
-                </Table>
-            </TableContainer>
-            <TablePagination
-                rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredInvoices.length}
-                rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
-            />
+                                                    )}
+                                                    {hasStatusPermission && selectedInvoiceForMenu?.status === 2 && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenStatusModal(row.id, 'approve')}>
+                                                                <ListItemIcon><IconCheck size={18} /></ListItemIcon>
+                                                                Onayla
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı düzenleyin" : ""}>
+                                                            <MenuItem onClick={() => handleEditClick(row)}>
+                                                                <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı silin" : ""}>
+                                                            <MenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.provider?.name || '-')}>
+                                                                <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı Yazdırın" : ""}>
+                                                            <MenuItem onClick={() => handlePrintInvoice(row)}>
+                                                                <ListItemIcon><IconFileInvoice size={18} /></ListItemIcon> Yazdır
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={8} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç fatura bulunamadı.</Typography></TableCell></TableRow>
+                                )
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+                <TablePagination
+                    rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredInvoices.length}
+                    rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
+                />
+            </BlankCard>
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fatura Detayları</DialogTitle>
                 <DialogContent dividers>

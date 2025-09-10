@@ -180,7 +180,8 @@ import {
   IconPackage, IconGavel, IconPlus, IconChecklist, IconRoute, IconUserCog,
   IconInfoCircle, IconClipboardList, IconProgressCheck, IconGlobe, IconMap,
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
-  IconBuildingFactory, IconFileInvoice, IconSitemap, IconHelmet, IconBuildingStore
+  IconBuildingFactory, IconFileInvoice, IconSitemap, IconHelmet, IconBuildingStore,
+  IconArrowsExchange
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
@@ -292,7 +293,7 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
   IconBuildingFactory, IconFileInvoice,
   IconSitemap: IconSitemap,
-  IconHelmet: IconHelmet, IconBuildingStore: IconBuildingStore
+  IconHelmet: IconHelmet, IconBuildingStore: IconBuildingStore, IconArrowsExchange
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;

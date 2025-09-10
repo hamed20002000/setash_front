@@ -36,6 +36,7 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
+import BlankCard from 'src/components/shared/BlankCard';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -836,19 +837,6 @@ const ListNetwork = () => {
                     <Grid item xs={12} md={9}>
                         <Typography variant="h5">Mevcut Şebeke</Typography>
                     </Grid>
-                    {hasDownloadPermission && (
-                        <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                            <Button
-                                variant="contained"
-                                color="secondary"
-                                onClick={handleDownloadNetworksPDF}
-                                fullWidth
-                                startIcon={<IconFileDownload size={20} />}
-                            >
-                                Tüm Şebeke İndir (PDF)
-                            </Button>
-                        </Grid>
-                    )}
                 </Grid>
             </Box>
             {(hasCreatePermission || hasEditPermission) && (
@@ -974,245 +962,266 @@ const ListNetwork = () => {
                     )}
                 </Box>
             )}
-            <Box sx={{ p: 2, mt: 4 }}>
-                <Typography variant="h5" mb={2}>Mevcut Şebeke</Typography>
-                <CustomFormLabel htmlFor="work-filter">İş Filtrele:</CustomFormLabel>
-                <Grid container spacing={2} alignItems="center" mb={2}>
-                    {workId === undefined && (
-                        <Grid item xs={12} md={3}>
-                            <FormControl fullWidth size="small">
-                                <Select
-                                    id="work-filter"
-                                    value={filterWorkId || ''} // 👈 استفاده از State جدید فیلتر
-                                    onChange={handleWorkFilterChange} // 👈 استفاده از تابع جدید
-                                    displayEmpty
-                                >
-                                    <MenuItem value="">
-                                        Tümü
-                                    </MenuItem>
-                                    {works.map((work) => (
-                                        <MenuItem key={work.id} value={work.id}>
-                                            {work.title}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                    )}
-                    <Grid item xs={12} md={workId === undefined ? 6 : 12}>
-                        <TextField
-                            label="Şebeke Ara"
-                            variant="outlined"
-                            fullWidth
-                            value={searchTerm}
-                            onChange={handleSearchChange}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <IconSearch size={20} />
-                                    </InputAdornment>
-                                ),
-                            }}
-                        />
-                    </Grid>
-                    <Grid item xs={12} md={workId === undefined ? 3 : 12}>
-                        <ToggleButtonGroup
-                            value={statusFilter}
-                            exclusive
-                            onChange={handleStatusFilterChange}
-                            aria-label="Durum filtresi"
-                            fullWidth
-                        >
-                            <StyledToggleButton value="all" aria-label="Tüm Şebeke">
-                                Tümü
-                            </StyledToggleButton>
-                            <StyledToggleButton value="active" aria-label="Aktif Şebeke">
-                                Aktif
-                            </StyledToggleButton>
-                            <StyledToggleButton value="inactive" aria-label="Pasif Şebeke">
-                                Pasif
-                            </StyledToggleButton>
-                        </ToggleButtonGroup>
-                    </Grid>
-                </Grid>
 
-                <TableContainer>
-                    <Table aria-label="Şebeke tablosu">
-                        <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
-                            <TableRow>
-                                <TableCell><Typography variant="h6">Şebeke Adı</Typography></TableCell>
-                                {workId === undefined && (
-                                    <TableCell><Typography variant="h6">Bağlı İş</Typography></TableCell>
-                                )}
-                                <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Kayıt Tarihi</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Durum</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Detaylar</Typography></TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {paginatedNetworks.length > 0 ? (
-                                paginatedNetworks.map((row) => (
-                                    <TableRow key={row.id}>
-                                        <TableCell><Typography variant="h6">{row.title}</Typography></TableCell>
-                                        {workId === undefined && (
-                                            <TableCell><Typography variant="h6">{row.work?.title}</Typography></TableCell>
-                                        )}
-                                        <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                            <Box sx={{
-                                                maxHeight: '5em',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 3,
-                                                WebkitBoxOrient: 'vertical',
-                                            }}>
-                                                <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                                            </Box>
-                                            {row.description && row.description.length > 50 && (
-                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                    <Button variant="text" size="small" onClick={() => {
-                                                        handleOpenDescriptionModal(row.description)
-                                                    }}>
-                                                        Devamını Oku
+            <BlankCard>
+
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                        {hasDownloadPermission && (
+                            <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadNetworksPDF}
+                                    fullWidth
+                                    startIcon={<IconFileDownload size={20} />}
+                                >
+                                    Tüm Şebeke İndir (PDF)
+                                </Button>
+                            </Grid>
+                        )}
+
+                    </Stack>
+                </Grid>
+                <Box sx={{ p: 2 }}>
+                    <CustomFormLabel htmlFor="work-filter">İş Filtrele:</CustomFormLabel>
+                    <Grid container spacing={2} alignItems="center" mb={2}>
+                        {workId === undefined && (
+                            <Grid item xs={12} md={3}>
+                                <FormControl fullWidth size="small">
+                                    <Select
+                                        id="work-filter"
+                                        value={filterWorkId || ''} // 👈 استفاده از State جدید فیلتر
+                                        onChange={handleWorkFilterChange} // 👈 استفاده از تابع جدید
+                                        displayEmpty
+                                    >
+                                        <MenuItem value="">
+                                            Tümü
+                                        </MenuItem>
+                                        {works.map((work) => (
+                                            <MenuItem key={work.id} value={work.id}>
+                                                {work.title}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            </Grid>
+                        )}
+                        <Grid item xs={12} md={workId === undefined ? 6 : 12}>
+                            <TextField
+                                label="Şebeke Ara"
+                                variant="outlined"
+                                fullWidth
+                                value={searchTerm}
+                                onChange={handleSearchChange}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <IconSearch size={20} />
+                                        </InputAdornment>
+                                    ),
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={workId === undefined ? 3 : 12}>
+                            <ToggleButtonGroup
+                                value={statusFilter}
+                                exclusive
+                                onChange={handleStatusFilterChange}
+                                aria-label="Durum filtresi"
+                                fullWidth
+                            >
+                                <StyledToggleButton value="all" aria-label="Tüm Şebeke">
+                                    Tümü
+                                </StyledToggleButton>
+                                <StyledToggleButton value="active" aria-label="Aktif Şebeke">
+                                    Aktif
+                                </StyledToggleButton>
+                                <StyledToggleButton value="inactive" aria-label="Pasif Şebeke">
+                                    Pasif
+                                </StyledToggleButton>
+                            </ToggleButtonGroup>
+                        </Grid>
+                    </Grid>
+
+                    <TableContainer>
+                        <Table aria-label="Şebeke tablosu">
+                            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                                <TableRow>
+                                    <TableCell><Typography variant="h6">Şebeke Adı</Typography></TableCell>
+                                    {workId === undefined && (
+                                        <TableCell><Typography variant="h6">Bağlı İş</Typography></TableCell>
+                                    )}
+                                    <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Kayıt Tarihi</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Durum</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Detaylar</Typography></TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {paginatedNetworks.length > 0 ? (
+                                    paginatedNetworks.map((row) => (
+                                        <TableRow key={row.id}>
+                                            <TableCell><Typography variant="h6">{row.title}</Typography></TableCell>
+                                            {workId === undefined && (
+                                                <TableCell><Typography variant="h6">{row.work?.title}</Typography></TableCell>
+                                            )}
+                                            <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                                <Box sx={{
+                                                    maxHeight: '5em',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 3,
+                                                    WebkitBoxOrient: 'vertical',
+                                                }}>
+                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
+                                                </Box>
+                                                {row.description && row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" size="small" onClick={() => {
+                                                            handleOpenDescriptionModal(row.description)
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </TableCell>
+                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={row.status}
+                                                    sx={{
+                                                        backgroundColor:
+                                                            row.recordStatus === 2
+                                                                ? (theme) => theme.palette.warning.light
+                                                                : row.recordStatus === 1
+                                                                    ? (theme) => theme.palette.error.light
+                                                                    : (theme) => theme.palette.success.light,
+                                                        color:
+                                                            row.recordStatus === 2
+                                                                ? (theme) => theme.palette.warning.main
+                                                                : row.recordStatus === 1
+                                                                    ? (theme) => theme.palette.error.main
+                                                                    : (theme) => theme.palette.success.main,
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke detaylarını görüntüle" : ""}>
+                                                    <Button
+                                                        variant="outlined"
+                                                        size="small"
+                                                        onClick={() => handleViewNetworkDetails(row.id)}
+                                                        startIcon={<IconSearch size={18} />}
+                                                    >
+                                                        Detayları Görüntüle
                                                     </Button>
                                                 </CustomTooltip>
-                                            )}
-                                        </TableCell>
-                                        <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                label={row.status}
-                                                sx={{
-                                                    backgroundColor:
-                                                        row.recordStatus === 2
-                                                            ? (theme) => theme.palette.warning.light
-                                                            : row.recordStatus === 1
-                                                                ? (theme) => theme.palette.error.light
-                                                                : (theme) => theme.palette.success.light,
-                                                    color:
-                                                        row.recordStatus === 2
-                                                            ? (theme) => theme.palette.warning.main
-                                                            : row.recordStatus === 1
-                                                                ? (theme) => theme.palette.error.main
-                                                                : (theme) => theme.palette.success.main,
-                                                }}
-                                            />
-                                        </TableCell>
-                                        <TableCell>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Şebeke detaylarını görüntüle" : ""}>
-                                                <Button
-                                                    variant="outlined"
-                                                    size="small"
-                                                    onClick={() => handleViewNetworkDetails(row.id)}
-                                                    startIcon={<IconSearch size={18} />}
+                                            </TableCell>
+                                            <TableCell>
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                                                    <IconButton
+                                                        id={`basic-button-${row.id}`}
+                                                        aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                        aria-haspopup="true"
+                                                        aria-expanded={openMenu ? 'true' : undefined}
+                                                        onClick={(event) => handleClickMenu(event, row)}
+                                                    >
+                                                        <IconDots width={18} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                                <Menu
+                                                    id="basic-menu"
+                                                    anchorEl={anchorEl}
+                                                    open={openMenu}
+                                                    onClose={handleCloseMenu}
+                                                    MenuListProps={{
+                                                        'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
+                                                    }}
                                                 >
-                                                    Detayları Görüntüle
-                                                </Button>
-                                            </CustomTooltip>
-                                        </TableCell>
-                                        <TableCell>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                <IconButton
-                                                    id={`basic-button-${row.id}`}
-                                                    aria-controls={openMenu ? 'basic-menu' : undefined}
-                                                    aria-haspopup="true"
-                                                    aria-expanded={openMenu ? 'true' : undefined}
-                                                    onClick={(event) => handleClickMenu(event, row)}
-                                                >
-                                                    <IconDots width={18} />
-                                                </IconButton>
-                                            </CustomTooltip>
-                                            <Menu
-                                                id="basic-menu"
-                                                anchorEl={anchorEl}
-                                                open={openMenu}
-                                                onClose={handleCloseMenu}
-                                                MenuListProps={{
-                                                    'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
-                                                }}
-                                            >
-                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
-                                                    <>
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ağ için İletken İcmali" : ""}>
-                                                            <MenuItem onClick={handleDefineTransmission}>
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
+                                                        <>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ağ için İletken İcmali" : ""}>
+                                                                <MenuItem onClick={handleDefineTransmission}>
+                                                                    <ListItemIcon>
+                                                                        <IconPlus width={18} />
+                                                                    </ListItemIcon>
+                                                                    İletken İcmali
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke pasif yap" : ""}>
+                                                                <MenuItem onClick={handleSetInactive}>
+                                                                    <ListItemIcon>
+                                                                        <DoNotDisturbOnRoundedIcon width={18} />
+                                                                    </ListItemIcon>
+                                                                    Pasif Yap
+                                                                </MenuItem>
+                                                            </CustomTooltip>
+                                                        </>
+                                                    ) : (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke aktif yap" : ""}>
+                                                            <MenuItem onClick={handleSetActive}>
                                                                 <ListItemIcon>
-                                                                    <IconPlus width={18} />
+                                                                    <DoneRoundedIcon width={18} />
                                                                 </ListItemIcon>
-                                                                İletken İcmali
+                                                                Aktif Yap
                                                             </MenuItem>
                                                         </CustomTooltip>
+                                                    )}
 
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke pasif yap" : ""}>
-                                                            <MenuItem onClick={handleSetInactive}>
+                                                    {hasEditPermission && (
+
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke düzenle" : ""}>
+                                                            <MenuItem onClick={handleEditClick}>
                                                                 <ListItemIcon>
-                                                                    <DoNotDisturbOnRoundedIcon width={18} />
+                                                                    <IconEdit width={18} />
                                                                 </ListItemIcon>
-                                                                Pasif Yap
+                                                                Düzenlemek
                                                             </MenuItem>
                                                         </CustomTooltip>
-                                                    </>
-                                                ) : (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke aktif yap" : ""}>
-                                                        <MenuItem onClick={handleSetActive}>
-                                                            <ListItemIcon>
-                                                                <DoneRoundedIcon width={18} />
-                                                            </ListItemIcon>
-                                                            Aktif Yap
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-
-                                                {hasEditPermission && (
-
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke düzenle" : ""}>
-                                                        <MenuItem onClick={handleEditClick}>
-                                                            <ListItemIcon>
-                                                                <IconEdit width={18} />
-                                                            </ListItemIcon>
-                                                            Düzenlemek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                                {hasDeletePermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke sil" : ""}>
-                                                        <MenuItem onClick={handleClickOpenDeleteModal}>
-                                                            <ListItemIcon>
-                                                                <IconTrash width={18} />
-                                                            </ListItemIcon>
-                                                            Silmek
-                                                        </MenuItem>
-                                                    </CustomTooltip>
-                                                )}
-                                            </Menu>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke sil" : ""}>
+                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon>
+                                                                    <IconTrash width={18} />
+                                                                </ListItemIcon>
+                                                                Silmek
+                                                            </MenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={workId === undefined ? 7 : 6} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Bu iş için hiç Şebeke bulunamadı.
+                                            </Typography>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={workId === undefined ? 7 : 6} align="center">
-                                        <Typography variant="subtitle1" color="textSecondary">
-                                            Bu iş için hiç Şebeke bulunamadı.
-                                        </Typography>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-                <TablePagination
-                    rowsPerPageOptions={[5, 10, 25]}
-                    component="div"
-                    count={filteredNetworks.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    labelRowsPerPage="Sayfa başına satır sayısı:"
-                    labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
-                />
-            </Box>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                    <TablePagination
+                        rowsPerPageOptions={[5, 10, 25]}
+                        component="div"
+                        count={filteredNetworks.length}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onPageChange={handleChangePage}
+                        onRowsPerPageChange={handleChangeRowsPerPage}
+                        labelRowsPerPage="Sayfa başına satır sayısı:"
+                        labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
+                    />
+                </Box>
+            </BlankCard>
             <DeleteNetwork
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}

@@ -1341,16 +1341,7 @@ const ListWorkhouses = () => {
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
 
-                        {hasDownloadPermission && (
-                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                                <Button variant="outlined" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesPdf}>
-                                    Tümünü İndir (PDF)
-                                </Button>
-                                <Button variant="contained" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesWithDetailsPdf}>
-                                    Tümünü İndir Detaylı (PDF)
-                                </Button>
-                            </Box>
-                        )}
+
                         <Grid container spacing={2}>
                             {!workId && (
                                 <Grid item xs={12} sm={3}>
@@ -1526,39 +1517,50 @@ const ListWorkhouses = () => {
 
                 )}
             </div>
-            <Grid item xs={12}>
-                <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
-                    {isFilterActive && (
-                        <>
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fatura indirin" : ""}>
-                                <BlinkingButton
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={exportFilteredAllWorkhousesPdf}
-                                    startIcon={<IconFileDownload />}
-                                    disabled={loadingData}
-                                >
-                                    Filtrelenmişi İndir (PDF)
-                                </BlinkingButton>
-                            </CustomTooltip>
-
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tümünü Fatura indirin" : ""}>
-                                <BlinkingButton
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={exportFilteredAllWorkhousesWithDetailsPdf}
-                                    startIcon={<IconFileDownload />}
-                                    disabled={loadingData}
-                                >
-                                    Filtrelenmişi İndir Detaylı (PDF)
-                                </BlinkingButton>
-                            </CustomTooltip>
-                        </>
-                    )}
-                </Stack>
-            </Grid>
 
             <BlankCard>
+
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
+                        {isFilterActive && (
+                            <>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Şantiyeleri indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={exportFilteredAllWorkhousesPdf}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi Şantiyeleri  İndir (PDF)
+                                    </BlinkingButton>
+                                </CustomTooltip>
+
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Şantiyeleri Detaylı indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="outlined"
+                                        color="primary"
+                                        onClick={exportFilteredAllWorkhousesWithDetailsPdf}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData}
+                                    >
+                                        Filtrelenmişi Şantiyeleri Detaylı İndir (PDF)
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            </>
+                        )}
+                        {hasDownloadPermission && (
+                            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                                <Button variant="outlined" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesPdf}>
+                                    Tümünü Şantiyeleri  İndir (PDF)
+                                </Button>
+                                <Button variant="contained" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesWithDetailsPdf}>
+                                    Tümünü Şantiyeleri Detaylı İndir(PDF)
+                                </Button>
+                            </Box>
+                        )}
+                    </Stack>
+                </Grid>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={3}>

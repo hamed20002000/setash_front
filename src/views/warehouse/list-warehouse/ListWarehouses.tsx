@@ -19,7 +19,8 @@ import CustomTextField from '../../../components/forms/theme-elements/CustomText
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
     IconFileDownload, IconBoxSeam, IconPackage,
-    IconX
+    IconX,
+    IconArrowsLeftRight
 } from '@tabler/icons-react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import DeleteWarehouse from './DeleteWarehouse';
@@ -1052,7 +1053,13 @@ const ListWarehouses = () => {
     };
 
 
-
+    const handleWarehouseTransferClick = () => {
+        if (selectedRowForMenu) {
+            const warehouseId = selectedRowForMenu.id;
+            navigate(`/warehousespatch/betweenwarehusedispatch/${warehouseId}`);
+        }
+        handleCloseMenu();
+    };
     const handleViewBalanceClick = () => {
         if (selectedRowForMenu) {
             setSelectedWarehouseId(selectedRowForMenu.id);
@@ -1087,17 +1094,7 @@ const ListWarehouses = () => {
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                         <Typography variant="h5">Depolar</Typography>
 
-                        {hasDownloadPermission && (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleDownloadAllWarehousesPDF}
-                                startIcon={<IconFileDownload />}
-                                disabled={loadingData || WarehousesList.length === 0}
-                            >
-                                Tüm Depoları İndir (PDF)
-                            </Button>
-                        )}
+
                     </Stack>
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Depoyu Düzenle' : 'Yeni Depo Kaydı'}</Typography>
@@ -1252,8 +1249,8 @@ const ListWarehouses = () => {
             )}
             <BlankCard>
 
-                <Grid item xs={12}>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
                         {isFilterActive && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle depoları indirin" : ""}>
                                 <BlinkingButton
@@ -1267,7 +1264,17 @@ const ListWarehouses = () => {
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
-
+                        {hasDownloadPermission && (
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleDownloadAllWarehousesPDF}
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData || WarehousesList.length === 0}
+                            >
+                                Tüm Depoları İndir (PDF)
+                            </Button>
+                        )}
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
@@ -1405,6 +1412,16 @@ const ListWarehouses = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depolar arası transfer başlat" : ""}>
+                                                            <MuiMenuItem onClick={handleWarehouseTransferClick}>
+                                                                <ListItemIcon>
+                                                                    <IconArrowsLeftRight width={18} />
+                                                                </ListItemIcon>
+                                                                Depolar Arası Transfer
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo Sevk İşlemi" : ""}>
                                                             <MuiMenuItem onClick={handleDispatchClick}>

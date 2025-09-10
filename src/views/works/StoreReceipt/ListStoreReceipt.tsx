@@ -528,7 +528,7 @@ const ListStoreReceipts = () => {
             yPos += 15;
         });
 
-        doc.save('Tum_Magaza_Fisleri.pdf');
+        doc.save('Tum_Şantiye_Fisleri.pdf');
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
 
@@ -688,17 +688,6 @@ const ListStoreReceipts = () => {
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                     <Typography variant="h5">Şantiye Fişleri</Typography>
                     <Grid spacing={2}>
-                        {hasDownloadPermission && (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleDownloadAllReceiptsPDF}
-                                startIcon={<IconFileDownload />}
-                                disabled={loadingData || receiptsList.length === 0}
-                            >
-                                Tüm Fişleri İndir (PDF)
-                            </Button>
-                        )}
                         <CustomTooltip style={{ marginLeft: "2px" }} title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
                             <Button variant="outlined" color="error" onClick={() => navigate(-1)} endIcon={<IconArrowRight size={20} />}>
                                 Geri Dön
@@ -880,6 +869,23 @@ const ListStoreReceipts = () => {
                 )}
                 {/* Table */}
                 <BlankCard>
+
+                    <Grid item xs={12} mt={2} mr={2}>
+                        <Stack direction="row" spacing={2} justifyContent="flex-end" mb={2} mr={2}>
+                            {hasDownloadPermission && (
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllReceiptsPDF}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData || receiptsList.length === 0}
+                                >
+                                    Tüm Şantiye Fişleri İndir (PDF)
+                                </Button>
+                            )}
+
+                        </Stack>
+                    </Grid>
                     <Box sx={{ p: 2 }}>
                         <Grid container spacing={2} alignItems="center">
                             <Grid item xs={12} sm={6} md={3}>
@@ -1009,7 +1015,7 @@ const ListStoreReceipts = () => {
                         labelRowsPerPage="Satır başına:"
                     />
                 </BlankCard>
-            </Box>
+            </Box >
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
                 <DialogContent>

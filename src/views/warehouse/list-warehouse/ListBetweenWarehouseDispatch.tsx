@@ -1,4 +1,4 @@
-// src/views/warehouses/ListWarehouseDispatch.tsx
+// src/views/warehouses/ListBetweenWarehouseDispatch.tsx
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -17,7 +17,10 @@ import {
     DialogActions
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus, IconArrowRight, IconEye, IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react';
+import {
+    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
+    IconArrowRight, IconEye, IconX, IconReload
+} from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
@@ -32,7 +35,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
-import DeleteDispatch from "./DeleteDispatch";
+import DeleteBetweenwarehouseDispatch from "./DeleteBetweenwarehouseDispatch";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
@@ -52,15 +55,40 @@ interface DispatchDetailType {
     };
 }
 
-interface DispatchType {
+interface WarehouseDispatchDetailsType {
+    id: string;
+    quantity: string;
+    description: string;
+    item: {
+        id: string;
+        name: string;
+        unit: {
+            title: string;
+        };
+    };
+}
+
+interface WarehouseDispatchByIdType {
+    id: string;
+    code: string;
+    docDate: string;
+    warehouseDispatchDetails: WarehouseDispatchDetailsType[];
+}
+
+
+interface BetweenWarehouseDispatchType {
     id: string;
     code: string;
     docDate: string;
     createAt: string;
     recordStatus: number;
-    status: number;
+    status: string;
     statusDescription: string | null;
     warehouse?: {
+        id: string;
+        name: string;
+    };
+    destinationWarehouse?: {
         id: string;
         name: string;
     };
@@ -68,10 +96,6 @@ interface DispatchType {
         id: string;
         name: string;
         family: string;
-    };
-    workhouse?: {
-        id: string;
-        name: string;
     };
     driverVehicle?: {
         id: string;
@@ -87,8 +111,8 @@ interface NewDispatchData {
     docDate: string;
     warehouseId: number;
     driverId: number;
-    workhouseId: number;
     driverVehicleId: number;
+    destinationWarehouseId: number;
     dispatchDetails: {
         itemId: number;
         quantity: number;
@@ -107,26 +131,27 @@ interface DriverType {
     family: string;
     recordStatus?: number;
 }
-interface WorkhouseType {
+interface WarehouseType {
     id: number;
     name: string;
     recordStatus?: number;
 }
 
-interface ItemWithBalanceType {
-    itemId: string;
+interface ItemType {
+    id: string;
     name: string;
-    code: string | null;
-    balance: string;
+    abbreviation: string;
     unit?: {
+        id: string;
         title: string;
     };
+    recordStatus?: number;
 }
-
 interface FormDispatchDetail {
     itemId: number | null;
     quantity: number | string;
     description: string;
+    item?: ItemType;
 }
 
 interface ApiResponse<T> {
@@ -164,7 +189,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-// === Styled Components ===
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -192,20 +216,21 @@ const BlinkingButtondownload = styled(Button)(() => ({
     animation: `${blinkAnimation} 1s linear infinite`,
 }));
 
-// === Main Component ===
-const ListWarehouseDispatch = () => {
+const ListBetweenWarehouseDispatch = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
     const navigate = useNavigate();
+    const authToken = localStorage.getItem('authToken');
 
     // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
-    const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
+    const [selectedDestinationWarehouseId, setSelectedDestinationWarehouseId] = useState<number | null>(null);
     const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
+    const [selectedDispatchId, setSelectedDispatchId] = useState<string | null>(null);
 
     const [dispatchDetails, setDispatchDetails] = useState<FormDispatchDetail[]>([]);
-    const [dispatchList, setDispatchList] = useState<DispatchType[]>([]);
-    const [displayedDispatches, setDisplayedDispatches] = useState<DispatchType[]>([]);
+    const [dispatchList, setDispatchList] = useState<BetweenWarehouseDispatchType[]>([]);
+    const [displayedDispatches, setDisplayedDispatches] = useState<BetweenWarehouseDispatchType[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
     const [isFormValid, setIsFormValid] = useState(false);
@@ -219,7 +244,7 @@ const ListWarehouseDispatch = () => {
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [selectedRowForMenu, setSelectedRowForMenu] = useState<DispatchType | null>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<BetweenWarehouseDispatchType | null>(null);
     const openMenu = Boolean(anchorEl);
 
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -227,12 +252,12 @@ const ListWarehouseDispatch = () => {
 
     const [docDateError, setDocDateError] = useState<boolean>(false);
     const [driverIdError, setDriverIdError] = useState<boolean>(false);
-    const [workhouseIdError, setWorkhouseIdError] = useState<boolean>(false);
+    const [destinationWarehouseIdError, setDestinationWarehouseIdError] = useState<boolean>(false);
     const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
-    const [workhouses, setWorkhouses] = useState<WorkhouseType[]>([]);
-    const [itemsWithBalance, setItemsWithBalance] = useState<ItemWithBalanceType[]>([]);
+    const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
+    const [dispatchesForCombo, setDispatchesForCombo] = useState<WarehouseDispatchByIdType[]>([]);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [dispatchIdToDelete, setDispatchIdToDelete] = useState<string | null>(null);
@@ -251,13 +276,7 @@ const ListWarehouseDispatch = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    // === New State for Status Update Modal ===
-    const [openStatusUpdateModal, setOpenStatusUpdateModal] = useState(false);
-    const [updateModalData, setUpdateModalData] = useState<{ id: string | null; status: number; description: string }>({ id: null, status: 0, description: '' });
-
-    // === New State for Status Description Modal (Read-only) ===
-    const [openStatusDescriptionModal, setOpenStatusDescriptionModal] = useState(false);
-    const [readOnlyDescription, setReadOnlyDescription] = useState<string>('');
+    const [removedDispatchDetails, setRemovedDispatchDetails] = useState<any[]>([]);
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -266,7 +285,6 @@ const ListWarehouseDispatch = () => {
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
 
     // === Form Handlers ===
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -277,8 +295,6 @@ const ListWarehouseDispatch = () => {
 
     const fetchVehicles = useCallback(async (driverId: string) => {
         setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
             setLoadingData(false);
@@ -325,12 +341,47 @@ const ListWarehouseDispatch = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [showAlert]);
+    }, [showAlert, authToken]);
 
-    // === API Calls ===
+
+    const fetchDispatchesForCombo = useCallback(async () => {
+        if (!authToken) { navigate("/"); return; }
+        try {
+            const response = await axios.get(server.baseurl + server.warehouse + `get-warehouse-dispatches/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } });
+            if (response.data.httpStatusCode === 200) {
+                setDispatchesForCombo(response.data.data.filter((d: any) => d.recordStatus === 0));
+            } else {
+                showAlert('Sevk belgeleri yüklenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert('Sevk belgeleri yüklenirken bir hata oluştu.', 'error');
+        }
+    }, [navigate, warehouseId, showAlert, authToken]);
+
+    const fetchDispatchDetails = useCallback(async (dispatchId: string) => {
+        if (!authToken) { navigate("/"); return; }
+        try {
+            const response = await axios.get(server.baseurl + server.warehouse + `get-warehouse-dispatch-by-id/${dispatchId}`, { headers: { "Authorization": `Bearer ${authToken}` } });
+            if (response.data.httpStatusCode === 200) {
+                const details = response.data.data.warehouseDispatchDetails.map((detail: any) => ({
+                    itemId: Number(detail.item.id),
+                    quantity: detail.quantity,
+                    description: detail.description,
+                    item: detail.item,
+                }));
+                setDispatchDetails(details);
+            } else {
+                showAlert('Sevk detayları yüklenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert('Sevk detayları yüklenirken bir hata oluştu.', 'error');
+        }
+    }, [navigate, showAlert, authToken]);
+
+
+    // API Calls
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
             setLoadingData(false);
@@ -338,92 +389,59 @@ const ListWarehouseDispatch = () => {
         }
 
         try {
-            const [driversRes, workhousesRes, dispatchesRes, itemsBalanceRes] = await Promise.all([
+            const [driversRes, warehousesRes, betweenDispatchesRes] = await Promise.all([
                 axios.get<ApiResponse<DriverType[]>>(server.baseurl + server.warehouse + "get-drivers", { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<ApiResponse<WorkhouseType[]>>(server.baseurl + server.initialoperations + "get-workhouse", { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<ApiResponse<DispatchType[]>>(server.baseurl + server.warehouse + `get-warehouse-dispatches/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<ApiResponse<ItemWithBalanceType[]>>(server.baseurl + server.warehouse + `get-warehouse-all-items-balance/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<WarehouseType[]>>(server.baseurl + server.initialoperations + "get-warehouses", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<BetweenWarehouseDispatchType[]>>(server.baseurl + server.warehouse + `get-between-warehouse-dispatches/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
+                fetchDispatchesForCombo(), // fetch dispatches for the combo box
             ]);
 
             setDrivers(driversRes.data?.data?.filter(d => d.recordStatus === 0).map(d => ({ ...d, id: Number(d.id) })) || []);
-            setWorkhouses(workhousesRes.data?.data?.filter(w => w.recordStatus === 0).map(w => ({ ...w, id: Number(w.id) })) || []);
+            setWarehouses(warehousesRes.data?.data?.filter(w => w.recordStatus === 0).map(w => ({ ...w, id: Number(w.id) })) || []);
 
-            if (itemsBalanceRes.data?.httpStatusCode === 200) {
-                setItemsWithBalance(itemsBalanceRes.data.data);
-            } else {
-                showAlert('Stok bilgileri yüklenirken bir hata oluştu.', 'error');
-            }
-
-            if (dispatchesRes.data?.httpStatusCode === 200) {
-                const allDispatches = dispatchesRes.data.data;
-                const formattedDispatches = allDispatches.map(d => {
-                    let statusText = 'Bilinmiyor';
-                    let statusColor: 'success' | 'error' | 'warning' | 'info' = 'info';
-
-                    switch (d.status) {
-                        case 0:
-                            statusText = 'Beklemede';
-                            statusColor = 'warning';
-                            break;
-                        case 1:
-                            statusText = 'Onaylandı';
-                            statusColor = 'success';
-                            break;
-                        case 2:
-                            statusText = 'Reddedildi';
-                            statusColor = 'error';
-                            break;
-                    }
-
-                    return {
-                        ...d,
-                        statusText: statusText,
-                        statusColor: statusColor
-                    };
-                });
+            if (betweenDispatchesRes.data?.httpStatusCode === 200) {
+                const allDispatches = betweenDispatchesRes.data.data;
+                const formattedDispatches = allDispatches.map(d => ({
+                    ...d,
+                    status: d.recordStatus === 0 ? 'Aktif' : 'Pasif'
+                }));
                 setDispatchList(formattedDispatches);
             } else {
-                showAlert(dispatchesRes.data?.message || 'Sevk belgeleri yüklenirken bir hata oluştu.', 'error');
+                showAlert(betweenDispatchesRes.data?.message || 'Sevk belgeleri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             showAlert('Gerekli veriler yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, warehouseId, showAlert]);
+    }, [navigate, warehouseId, showAlert, authToken, fetchDispatchesForCombo]);
 
     useEffect(() => {
         fetchInitialData();
     }, [fetchInitialData]);
 
     useEffect(() => {
-        let filteredDispatches = dispatchList.filter(d => {
+        const filteredBySearchAndStatus = dispatchList.filter(d => {
             const matchesSearch = d.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (d.driver?.name && d.driver.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (d.driver?.family && d.driver.family.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (d.warehouse?.name && d.warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                (d.destinationWarehouse?.name && d.destinationWarehouse.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
             const matchesStatus = statusFilter === 'all' ||
-                (statusFilter === 'active' && d.status === 1) ||
-                (statusFilter === 'inactive' && d.status === 2);
+                (statusFilter === 'active' && d.recordStatus === 0) ||
+                (statusFilter === 'inactive' && d.recordStatus === 1);
 
-            const docDate = new Date(d.docDate);
-            const startCheck = !startDate || docDate >= startDate;
-            const endCheck = !endDate || docDate <= endDate;
-
-            return matchesSearch && matchesStatus && startCheck && endCheck;
+            return matchesSearch && matchesStatus;
         });
-
-        setDisplayedDispatches(filteredDispatches);
+        setDisplayedDispatches(filteredBySearchAndStatus);
         setPage(0);
-    }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
+    }, [dispatchList, searchTerm, statusFilter]);
 
     useEffect(() => {
-        const isValid = !!selectedDriverId && !!selectedWorkhouseId &&
-            !!docDate && dispatchDetails.length > 0 &&
+        const isValid = !!selectedDriverId && !!selectedDestinationWarehouseId && !!docDate && dispatchDetails.length > 0 &&
             dispatchDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
         setIsFormValid(isValid);
-    }, [selectedDriverId, selectedWorkhouseId, docDate, dispatchDetails]);
+    }, [selectedDriverId, selectedDestinationWarehouseId, docDate, dispatchDetails]);
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
@@ -432,26 +450,10 @@ const ListWarehouseDispatch = () => {
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
     }, [searchTerm, statusFilter, startDate, endDate]);
 
-    useEffect(() => {
-        let blinkInterval: NodeJS.Timeout | null = null;
-        if (isFormValid && !loadingButton) {
-            blinkInterval = setInterval(() => { }, 500);
-        } else {
-            if (blinkInterval) {
-                clearInterval(blinkInterval);
-            }
-        }
-        return () => {
-            if (blinkInterval) {
-                clearInterval(blinkInterval);
-            }
-        };
-    }, [isFormValid, loadingButton]);
-
     const validateForm = (): boolean => {
         let isValid = true;
         if (!selectedDriverId) { setDriverIdError(true); isValid = false; } else { setDriverIdError(false); }
-        if (!selectedWorkhouseId) { setWorkhouseIdError(true); isValid = false; } else { setWorkhouseIdError(false); }
+        if (!selectedDestinationWarehouseId) { setDestinationWarehouseIdError(true); isValid = false; } else { setDestinationWarehouseIdError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
         if (dispatchDetails.length === 0 || dispatchDetails.some(d => !d.itemId || !d.quantity)) {
             setDispatchDetailsError(true); isValid = false;
@@ -465,33 +467,35 @@ const ListWarehouseDispatch = () => {
     const resetFormAndState = () => {
         setDocDate(new Date());
         setSelectedDriverId(null);
-        setSelectedWorkhouseId(null);
+        setSelectedDestinationWarehouseId(null);
         setDispatchDetails([]);
         setEditingId(null);
         setDocDateError(false);
         setDriverIdError(false);
-        setWorkhouseIdError(false);
+        setDestinationWarehouseIdError(false);
         setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
+        setSelectedDispatchId(null);
     };
 
     // === API Actions ===
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
+
+        const payload: NewDispatchData = {
+            docDate: docDate?.toISOString() || new Date().toISOString(),
+            warehouseId: Number(warehouseId),
+            driverId: Number(selectedDriverId),
+            driverVehicleId: Number(selectedVehicleId),
+            destinationWarehouseId: Number(selectedDestinationWarehouseId),
+            dispatchDetails: dispatchDetails.map(d => ({ itemId: Number(d.itemId), quantity: Number(d.quantity), description: d.description }))
+        };
+        debugger
         try {
-            const payload: NewDispatchData = {
-                docDate: docDate?.toISOString() || new Date().toISOString(),
-                warehouseId: Number(warehouseId),
-                driverId: Number(selectedDriverId),
-                driverVehicleId: Number(selectedVehicleId),
-                workhouseId: Number(selectedWorkhouseId),
-                dispatchDetails: dispatchDetails.map(d => ({ itemId: Number(d.itemId), quantity: Number(d.quantity), description: d.description }))
-            };
-            const response = await axios.post(server.baseurl + server.warehouse + "create-warehouse-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
+            const response = await axios.post(server.baseurl + server.warehouse + "create-between-warehouse-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni sevk belgesi başarıyla eklendi!', 'success');
                 resetFormAndState();
@@ -509,7 +513,6 @@ const ListWarehouseDispatch = () => {
     const editDispatch = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         const payload: EditDispatchData = {
             id: Number(editingId),
@@ -518,7 +521,7 @@ const ListWarehouseDispatch = () => {
             warehouseId: Number(warehouseId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
-            workhouseId: Number(selectedWorkhouseId),
+            destinationWarehouseId: Number(selectedDestinationWarehouseId),
             dispatchDetails: dispatchDetails.map(d => ({
                 itemId: Number(d.itemId),
                 quantity: Number(d.quantity),
@@ -526,7 +529,7 @@ const ListWarehouseDispatch = () => {
             }))
         };
         try {
-            const response = await axios.put(server.baseurl + server.warehouse + "update-warehouse-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
+            const response = await axios.put(server.baseurl + server.warehouse + "update-between-warehouse-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 200) {
                 showAlert('Sevk belgesi başarıyla güncellendi!', 'success');
                 resetFormAndState();
@@ -541,63 +544,18 @@ const ListWarehouseDispatch = () => {
         }
     };
 
-    const updateDispatchStatus = async () => {
-        setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); return; }
-        try {
-            const payload = {
-                id: Number(updateModalData.id),
-                status: updateModalData.status,
-                description: updateModalData.description
-            };
-            const url = `${server.baseurl}${server.warehouse}update-warehouse-dispatch-status`;
-            const response = await axios.put(url, payload, { headers: { "Authorization": `Bearer ${authToken}` } });
-            if (response.data.httpStatusCode === 200) {
-                showAlert('Sevk belgesi durumu başarıyla güncellendi.', 'success');
-                fetchInitialData();
-                setOpenStatusUpdateModal(false);
-            } else {
-                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu.', 'error');
-        } finally {
-            setLoadingButton(false);
-        }
-    };
-
-    const handleOpenStatusUpdateModal = (status: number) => {
-        if (selectedRowForMenu) {
-            setUpdateModalData({
-                id: selectedRowForMenu.id,
-                status: status,
-                description: selectedRowForMenu.statusDescription || ''
-            });
-            setOpenStatusUpdateModal(true);
-            handleCloseMenu();
-        }
-    };
-
-    // === New handler to open the read-only description modal ===
-    const handleOpenReadOnlyDescriptionModal = (description: string) => {
-        setReadOnlyDescription(description);
-        setOpenStatusDescriptionModal(true);
-    };
-
     const handleCloseMenu = () => {
         setAnchorEl(null);
         setSelectedRowForMenu(null);
     };
 
-    // === UI Handlers ===
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setEditingId(selectedRowForMenu.id);
             setDocDate(new Date(selectedRowForMenu.docDate));
             setEditingCode(selectedRowForMenu.code);
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
-            setSelectedWorkhouseId(Number(selectedRowForMenu.workhouse?.id));
+            setSelectedDestinationWarehouseId(Number(selectedRowForMenu.destinationWarehouse?.id));
             if (selectedRowForMenu.driverVehicle) {
                 setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
                 setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
@@ -611,7 +569,6 @@ const ListWarehouseDispatch = () => {
             handleCloseMenu();
         }
     };
-
     const handleCancelEdit = () => {
         resetFormAndState();
     };
@@ -631,20 +588,24 @@ const ListWarehouseDispatch = () => {
         setDispatchCodeToDelete('');
     };
 
-    const handleAddDispatchDetail = () => {
-        if (dispatchDetails.length > 0) {
-            const lastDetail = dispatchDetails[dispatchDetails.length - 1];
-            if (!lastDetail.itemId || !lastDetail.quantity) {
-                showAlert('Lütfen mevcut detayları önce doldurun.', 'warning');
-                return;
-            }
-        }
-        setDispatchDetails(prev => [...prev, { itemId: null, quantity: '', description: '' }]);
-    };
     const handleRemoveDispatchDetail = (index: number) => {
-        setDispatchDetails(prev => prev.filter((_, i) => i !== index));
+        setDispatchDetails(prev => {
+            const removedItem = prev[index];
+            if (removedItem) {
+                // اضافه کردن آیتم حذف شده به لیست موقت
+                setRemovedDispatchDetails(oldRemoved => [...oldRemoved, removedItem]);
+            }
+            return prev.filter((_, i) => i !== index);
+        });
     };
 
+    const handleRestoreDispatchDetail = (indexToRestore: number) => {
+        const itemToRestore = removedDispatchDetails[indexToRestore];
+        if (itemToRestore) {
+            setDispatchDetails(prev => [...prev, itemToRestore]);
+            setRemovedDispatchDetails(prev => prev.filter((_, i) => i !== indexToRestore));
+        }
+    };
     const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
         setDispatchDetails(prev => {
             const newDetails = [...prev];
@@ -652,15 +613,16 @@ const ListWarehouseDispatch = () => {
 
             if (field === 'quantity') {
                 const numValue = Number(value);
-                const selectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(updatedDetail.itemId));
-                const maxBalance = selectedItem ? Math.max(0, Number(selectedItem.balance)) : Infinity;
+                const selectedDispatchDetails = dispatchesForCombo.find(d => d.id === selectedDispatchId)?.warehouseDispatchDetails;
+                const selectedItemDetails = selectedDispatchDetails?.find(item => Number(item.item.id) === Number(updatedDetail.itemId));
+                const maxQuantity = selectedItemDetails ? Number(selectedItemDetails.quantity) : Infinity;
 
                 if (numValue < 0) {
                     showAlert('Miktar negatif olamaz!', 'warning');
                     updatedDetail.quantity = 0;
-                } else if (numValue > maxBalance) {
-                    showAlert(`Girdiğiniz miktar stoktan fazla! Maksimum: ${maxBalance}`, 'warning');
-                    updatedDetail.quantity = maxBalance;
+                } else if (numValue > maxQuantity) {
+                    showAlert(`Girdiğiniz miktar sevk miktarından fazla! Maksimum: ${maxQuantity}`, 'warning');
+                    updatedDetail.quantity = maxQuantity;
                 } else {
                     updatedDetail.quantity = value;
                 }
@@ -671,8 +633,7 @@ const ListWarehouseDispatch = () => {
             newDetails[index] = updatedDetail;
             return newDetails;
         });
-    }, [itemsWithBalance, showAlert]);
-
+    }, [dispatchesForCombo, selectedDispatchId, showAlert]);
 
     const handleEditVehicleSelection = () => {
         if (vehiclesList.length > 1) {
@@ -681,11 +642,6 @@ const ListWarehouseDispatch = () => {
         } else {
             showAlert('Bu şoförün tek bir aracı bulunmaktadır.', 'info');
         }
-    };
-
-    const handleClearDateFilters = () => {
-        setStartDate(null);
-        setEndDate(null);
     };
 
     const handleDownloadAllDispatchesPDF = () => {
@@ -699,14 +655,14 @@ const ListWarehouseDispatch = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
         let yPos = 50;
 
-        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
 
         const header = () => {
             doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
-            doc.text('Sevk Belgeleri Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.text('Depolar Arası Sevk Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
             doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
         };
@@ -722,7 +678,7 @@ const ListWarehouseDispatch = () => {
         };
 
         dispatchList.forEach((dispatch) => {
-            if (yPos + 60 > doc.internal.pageSize.getHeight()) {
+            if (yPos + 50 > doc.internal.pageSize.getHeight()) {
                 doc.addPage();
                 yPos = 50;
             }
@@ -730,23 +686,16 @@ const ListWarehouseDispatch = () => {
             doc.setFontSize(14);
             doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
             yPos += 7;
-            doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
+            doc.text(`Kaynak Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
             yPos += 7;
-            doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, 15, yPos);
+            doc.text(`Hedef Depo: ${dispatch.destinationWarehouse?.name || '-'}`, 15, yPos);
             yPos += 7;
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
             yPos += 7;
             doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
             yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-            yPos += 7;
-            if (dispatch.statusDescription) {
-                doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
-                yPos += 7;
-            }
-            yPos += 10;
+            yPos += 15;
 
             const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
                 d.item?.name || '-',
@@ -778,7 +727,7 @@ const ListWarehouseDispatch = () => {
             yPos += 15;
         });
 
-        doc.save('Sevk_Belgeleri_Detayli_Rapor.pdf');
+        doc.save('Depolar_Arasi_Transfer_Rapor.pdf');
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
 
@@ -793,14 +742,14 @@ const ListWarehouseDispatch = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
         let yPos = 50;
 
-        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('Noto-Sans');
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
 
         const header = () => {
             doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
-            doc.text('Sevk Belgeleri Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.text('Depolar Arası Sevk Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
             doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
             doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
@@ -817,7 +766,7 @@ const ListWarehouseDispatch = () => {
         };
 
         displayedDispatches.forEach((dispatch) => {
-            if (yPos + 60 > doc.internal.pageSize.getHeight()) {
+            if (yPos + 50 > doc.internal.pageSize.getHeight()) {
                 doc.addPage();
                 yPos = 50;
             }
@@ -825,23 +774,16 @@ const ListWarehouseDispatch = () => {
             doc.setFontSize(14);
             doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
             yPos += 7;
-            doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
+            doc.text(`Kaynak Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
             yPos += 7;
-            doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, 15, yPos);
+            doc.text(`Hedef Depo: ${dispatch.destinationWarehouse?.name || '-'}`, 15, yPos);
             yPos += 7;
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
             yPos += 7;
             doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
             yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-            yPos += 7;
-            if (dispatch.statusDescription) {
-                doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
-                yPos += 7;
-            }
-            yPos += 10;
+            yPos += 15;
 
             const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
                 d.item?.name || '-',
@@ -873,11 +815,11 @@ const ListWarehouseDispatch = () => {
             yPos += 15;
         });
 
-        doc.save('Sevk_Belgeleri_Detayli_Rapor.pdf');
+        doc.save('Depolar_Arasi_Transfer_Filtre_Rapor.pdf');
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
 
-    const handleDownloadSingleDispatchPDF = (dispatch: DispatchType) => {
+    const handleDownloadSingleDispatchPDF = (dispatch: BetweenWarehouseDispatchType) => {
         if (!dispatch) {
             showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
             return;
@@ -888,14 +830,14 @@ const ListWarehouseDispatch = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
         let yPos = 50;
 
-        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
 
         const header = () => {
             doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
             doc.setFontSize(18);
-            doc.text('Sevk Belgesi Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.text('Depolar Arası Sevk Raporu', pageWidth - 15, 30, { align: 'right' });
             doc.setFontSize(12);
             doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
         };
@@ -916,23 +858,16 @@ const ListWarehouseDispatch = () => {
         doc.setFontSize(14);
         doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
         yPos += 7;
-        doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
+        doc.text(`Kaynak Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
         yPos += 7;
-        doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, 15, yPos);
+        doc.text(`Hedef Depo: ${dispatch.destinationWarehouse?.name || '-'}`, 15, yPos);
         yPos += 7;
         doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
         yPos += 7;
         doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
         yPos += 7;
         doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-        yPos += 7;
-        doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-        yPos += 7;
-        if (dispatch.statusDescription) {
-            doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
-            yPos += 7;
-        }
-        yPos += 10;
+        yPos += 15;
 
         const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
             d.item?.name || '-',
@@ -960,27 +895,32 @@ const ListWarehouseDispatch = () => {
         doc.save(`Sevk_Belgesi_${dispatch.code}.pdf`);
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
-    const selectedItemIds = useMemo(() => dispatchDetails.map(d => d.itemId).filter(id => id !== null), [dispatchDetails]);
+    // const selectedItemIds = useMemo(() => dispatchDetails.map(d => d.itemId).filter(id => id !== null), [dispatchDetails]);
 
-    // === UI ===
+    const handleClearDateFilters = () => {
+        setStartDate(null);
+        setEndDate(null);
+    };
+
     return (
         <>
             <Box sx={{ p: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                    <Typography variant="h5">Sevk İşlemleri</Typography>
-                    <Grid spacing={2}>
-                        <CustomTooltip style={{ marginLeft: "2px" }} title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                    <Typography variant="h5">Depolar Arası Sevk İşlemleri</Typography>
+                    <Stack direction="row" spacing={1}>
+
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
                             <Button variant="outlined" color="error" onClick={() => navigate(-1)}
                                 endIcon={<IconArrowRight size={20} />}>
                                 Geri Dön
                             </Button>
                         </CustomTooltip>
-                    </Grid>
+                    </Stack>
                 </Stack>
-                {/* Form Kayıt/Düzenleme */}
+
                 {(hasCreatePermission || hasEditPermission) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h5" mb={2}>{editingId ? 'Sevk Belgesini Düzenle' : 'Yeni Sevk Belgesi'}</Typography>
+                        <Typography variant="h5" mb={2}>{editingId ? 'Depo Sevk Belgesini Düzenle' : 'Yeni Depo Sevk Belgesi'}</Typography>
                         <Grid container spacing={2}>
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Şoför</CustomFormLabel>
@@ -1014,10 +954,7 @@ const ListWarehouseDispatch = () => {
                                 />
                                 {selectedVehicleName && (
                                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
-                                        <Chip
-                                            label={`Seçilen Araç: ${selectedVehicleName}`}
-                                            color="info"
-                                        />
+                                        <Chip label={`Seçilen Araç: ${selectedVehicleName}`} color="info" />
                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Aracı değiştir" : ""}>
                                             <IconButton onClick={handleEditVehicleSelection} size="small">
                                                 <IconEdit size={18} />
@@ -1027,15 +964,15 @@ const ListWarehouseDispatch = () => {
                                 )}
                             </Grid>
                             <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Şantiye</CustomFormLabel>
+                                <CustomFormLabel required>Hedef Depo</CustomFormLabel>
                                 <Autocomplete
-                                    id="workhouse-select"
-                                    options={workhouses}
+                                    id="destination-warehouse-select"
+                                    options={warehouses.filter(w => Number(w.id) !== Number(warehouseId))}
                                     getOptionLabel={(option) => option.name}
-                                    value={workhouses.find(w => w.id === selectedWorkhouseId) || null}
+                                    value={warehouses.find(w => w.id === selectedDestinationWarehouseId) || null}
                                     onChange={(_, newValue) => {
-                                        setSelectedWorkhouseId(newValue ? newValue.id : null);
-                                        if (workhouseIdError && newValue) setWorkhouseIdError(false);
+                                        setSelectedDestinationWarehouseId(newValue ? newValue.id : null);
+                                        if (destinationWarehouseIdError && newValue) setDestinationWarehouseIdError(false);
                                     }}
                                     isOptionEqualToValue={(option, value) => option.id === value.id}
                                     renderInput={(params) => (
@@ -1043,9 +980,9 @@ const ListWarehouseDispatch = () => {
                                             {...params}
                                             fullWidth
                                             size="small"
-                                            placeholder="Şantiye Seçin"
-                                            error={workhouseIdError}
-                                            helperText={workhouseIdError ? "Şantiye seçimi zorunludur!" : ""}
+                                            placeholder="Hedef Depo Seçin"
+                                            error={destinationWarehouseIdError}
+                                            helperText={destinationWarehouseIdError ? "Hedef depo seçimi zorunludur!" : ""}
                                         />
                                     )}
                                 />
@@ -1073,42 +1010,77 @@ const ListWarehouseDispatch = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
+                            <Grid item xs={12}>
+                                <CustomFormLabel required>Sevk Belgesi</CustomFormLabel>
+                                <Autocomplete
+                                    id="dispatch-select"
+                                    options={dispatchesForCombo}
+                                    getOptionLabel={(option) => option.code}
+                                    value={dispatchesForCombo.find(d => d.id === selectedDispatchId) || null}
+                                    onChange={(_, newValue) => {
+                                        setSelectedDispatchId(newValue ? newValue.id : null);
+                                        if (newValue) {
+                                            fetchDispatchDetails(newValue.id);
+                                        } else {
+                                            setDispatchDetails([]);
+                                        }
+                                    }}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            fullWidth
+                                            size="small"
+                                            placeholder="Sevk Belgesi Seçin"
+                                        />
+                                    )}
+                                />
+                            </Grid>
                         </Grid>
-                        {/* Sevk Detayları */}
+                        {removedDispatchDetails.length > 0 && (
+                            <Box sx={{
+                                border: '1px dashed',
+                                borderColor: "error.main",
+                                p: 2,
+                                mb: 2,
+                                mt: 2,
+                                borderRadius: 1,
+                                backgroundColor: 'rgba(255, 0, 0, 0.05)'
+                            }}>
+                                <Typography variant="subtitle1" color="error" mb={1}>Silinen Ürünler</Typography>
+                                <Stack direction="row" spacing={1} flexWrap="wrap">
+                                    {removedDispatchDetails.map((detail, index) => (
+                                        <Chip
+                                            key={index}
+                                            label={`${detail?.item?.name || 'Undefined'} (${detail.quantity})`}
+                                            color="error"
+                                            onDelete={() => handleRestoreDispatchDetail(index)} // 👈 فراخوانی تابع جدید برای بازگرداندن
+                                            deleteIcon={<IconReload size={18} />}
+                                        />
+                                    ))}
+                                </Stack>
+                            </Box>
+                        )}
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
-                                <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddDispatchDetail}>Detay Ekle</Button>
+                                {/* <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddDispatchDetail}>Detay Ekle</Button> */}
                             </Stack>
                             <Grid container spacing={2}>
                                 {dispatchDetails.map((detail, index) => {
-                                    const availableItems = itemsWithBalance.filter(item =>
-                                        !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
-                                    );
-                                    const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
-                                    const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
-                                    const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
+                                    const selectedDispatchItem = dispatchesForCombo.find(d => d.id === selectedDispatchId)?.warehouseDispatchDetails.find(item => Number(item.item.id) === Number(detail.itemId));
+                                    const maxQuantity = selectedDispatchItem ? Number(selectedDispatchItem.quantity) : 0;
+                                    const displayBalance = selectedDispatchItem ? `(Sevk Miktarı: ${maxQuantity})` : '';
 
                                     return (
                                         <Grid item xs={12} key={index}>
                                             <Stack direction="row" spacing={2} alignItems="center">
-                                                <Autocomplete
-                                                    fullWidth
-                                                    size="small"
-                                                    options={availableItems}
-                                                    getOptionLabel={(option) => `${option.name} ${option.itemId ? displayBalance : ''}`}
-                                                    value={currentSelectedItem || null}
-                                                    onChange={(_, newValue) => {
-                                                        const newQuantity = newValue ? Math.max(0, Number(itemsWithBalance.find(i => i.itemId === newValue.itemId)?.balance || 0)) : '';
-                                                        handleDispatchDetailChange(index, 'itemId', newValue ? Number(newValue.itemId) : null);
-                                                        handleDispatchDetailChange(index, 'quantity', newQuantity);
-                                                    }}
-                                                    isOptionEqualToValue={(option, value) => option.itemId === value.itemId}
-                                                    renderInput={(params) => <TextField {...params} label="Malzeme Seçin" />}
-                                                />
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    {currentSelectedItem?.unit?.title && (
-                                                        <Chip label={currentSelectedItem.unit.title} color="secondary" variant="outlined" />
+                                                <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
+                                                    <Typography variant="body1" noWrap sx={{ flexGrow: 1 }}>
+                                                        {detail?.item?.name || 'Aradığınız şey bulunamadı.'}
+                                                    </Typography>
+                                                    {detail?.item?.unit?.title && (
+                                                        <Chip label={detail.item.unit.title} color="secondary" variant="outlined" sx={{ ml: 1 }} />
                                                     )}
                                                 </Box>
                                                 <CustomTextField
@@ -1117,6 +1089,9 @@ const ListWarehouseDispatch = () => {
                                                     value={detail.quantity}
                                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
                                                     fullWidth
+                                                    InputProps={{
+                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
+                                                    }}
                                                 />
                                                 <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
                                                 <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
@@ -1155,42 +1130,39 @@ const ListWarehouseDispatch = () => {
                         </Stack>
                     </Paper>
                 )}
+
                 {alertMessage && (
                     <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
                         <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
                     </Stack>
                 )}
-                {/* Tablo */}
                 <BlankCard>
-                    <Grid item xs={12} mt={2} mr={2}>
-                        <Stack direction="row" spacing={2} justifyContent="flex-end">
-                            {isFilterActive && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Sevk indirin" : ""}>
-                                    <BlinkingButtondownload
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={handleDownloadFilteredAllPDF}
-                                        startIcon={<IconFileDownload />}
-                                        disabled={loadingData}
-                                    >
-                                        Filtrelenmişi Tüm Sevkleri İndir
-                                    </BlinkingButtondownload>
-                                </CustomTooltip>
-                            )}
-
-                            {hasDownloadPermission && (
-                                <Button
+                    <Stack direction="row" spacing={2} justifyContent="flex-end" mt={2} mb={2} mr={2}>
+                        {isFilterActive && hasDownloadPermission && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle sevkleri indirin" : ""}>
+                                <BlinkingButtondownload
                                     variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllDispatchesPDF}
+                                    color="secondary"
+                                    onClick={handleDownloadFilteredAllPDF} // اینجا تابع فراخوانی می‌شود
                                     startIcon={<IconFileDownload />}
-                                    disabled={loadingData || dispatchList.length === 0}
+                                    disabled={loadingData || displayedDispatches.length === 0}
                                 >
-                                    Tüm Sevkleri İndir (PDF)
-                                </Button>
-                            )}
-                        </Stack>
-                    </Grid>
+                                    Filtrelenmişi Depolar Arası Sevk İndir (PDF)
+                                </BlinkingButtondownload>
+                            </CustomTooltip>
+                        )}
+                        {hasDownloadPermission && (
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleDownloadAllDispatchesPDF} // اینجا تابع فراخوانی می‌شود
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData || dispatchList.length === 0}
+                            >
+                                Tüm Depolar Arası Sevk İndir (PDF)
+                            </Button>
+                        )}
+                    </Stack>
                     <Box sx={{ p: 2 }}>
                         <Grid container spacing={2} alignItems="center">
                             <Grid item xs={12} sm={6} md={3}>
@@ -1243,7 +1215,7 @@ const ListWarehouseDispatch = () => {
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                             <CircularProgress />
-                            <Typography variant="h6" sx={{ ml: 2 }}>Sevk Belgeleri yükleniyor...</Typography>
+                            <Typography variant="h6" sx={{ ml: 2 }}>Depolar arası sevk belgeleri yükleniyor...</Typography>
                         </Box>
                     ) : (
                         <TableContainer>
@@ -1251,10 +1223,10 @@ const ListWarehouseDispatch = () => {
                                 <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
                                         <TableCell><Typography variant="h6">Kod</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Depo</Typography></TableCell>
+                                        <TableCell><Typography variant="h6">Kaynak Depo</Typography></TableCell>
+                                        <TableCell><Typography variant="h6">Hedef Depo</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Şoför</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Araç</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Şantiye</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Belge Tarihi</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Durum</Typography></TableCell>
                                         <TableCell><Typography variant="h6">Sevk Detayları</Typography></TableCell>
@@ -1267,21 +1239,12 @@ const ListWarehouseDispatch = () => {
                                             <TableRow key={row.id}>
                                                 <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{row.warehouse?.name || '-'}</Typography></TableCell>
+                                                <TableCell><Typography variant="h6">{row.destinationWarehouse?.name || '-'}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.workhouse?.name || '-'}</Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
                                                 <TableCell>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Chip label={row.statusText} color={row.statusColor} />
-                                                        {row.statusDescription && (
-                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Açıklamasını Görüntüle" : ""}>
-                                                                <IconButton onClick={() => handleOpenReadOnlyDescriptionModal(row.statusDescription!)}>
-                                                                    <IconInfoCircle size={18} />
-                                                                </IconButton>
-                                                            </CustomTooltip>
-                                                        )}
-                                                    </Stack>
+                                                    <Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} />
                                                 </TableCell>
                                                 <TableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
@@ -1317,27 +1280,6 @@ const ListWarehouseDispatch = () => {
                                                         {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}
                                                         {hasDeletePermission &&
                                                             <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
-                                                        {/* Yeni MenuItem ها برای وضعیت */}
-                                                        {selectedRowForMenu?.status === 0 && (
-                                                            <>
-                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
-                                                                    <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
-                                                                </MenuItem>
-                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
-                                                                    <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
-                                                                </MenuItem>
-                                                            </>
-                                                        )}
-                                                        {selectedRowForMenu?.status === 1 && (
-                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
-                                                                <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
-                                                            </MenuItem>
-                                                        )}
-                                                        {selectedRowForMenu?.status === 2 && (
-                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
-                                                                <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
-                                                            </MenuItem>
-                                                        )}
                                                     </Menu>
                                                 </TableCell>
                                             </TableRow>
@@ -1435,44 +1377,8 @@ const ListWarehouseDispatch = () => {
                     <Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button>
                 </DialogActions>
             </Dialog>
-            {/* Modal برای به‌روزرسانی وضعیت (قبلی) */}
-            <Dialog open={openStatusUpdateModal} onClose={() => setOpenStatusUpdateModal(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    {updateModalData.status === 1 ? 'Sevk Belgesini Onayla' : 'Sevk Belgesini Reddet'}
-                </DialogTitle>
-                <DialogContent>
-                    <CustomFormLabel>Açıklama</CustomFormLabel>
-                    <CustomTextField
-                        fullWidth
-                        multiline
-                        rows={4}
-                        value={updateModalData.description}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUpdateModalData({ ...updateModalData, description: e.target.value })}
-                        placeholder="Durum için bir açıklama girin..."
-                    />
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenStatusUpdateModal(false)} color="secondary">
-                        İptal Et
-                    </Button>
-                    <Button onClick={updateDispatchStatus} color="primary" variant="contained" disabled={loadingButton}>
-                        {loadingButton ? <CircularProgress size={24} /> : 'Kaydet'}
-                    </Button>
-                </DialogActions>
-            </Dialog>
 
-            {/* Modal جدید برای نمایش توضیحات وضعیت (Read-only) */}
-            <Dialog open={openStatusDescriptionModal} onClose={() => setOpenStatusDescriptionModal(false)} maxWidth="sm" fullWidth>
-                <DialogTitle>Durum Açıklaması</DialogTitle>
-                <DialogContent>
-                    <Typography>{readOnlyDescription || 'Açıklama bulunamadı.'}</Typography>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenStatusDescriptionModal(false)} color="secondary">Kapat</Button>
-                </DialogActions>
-            </Dialog>
-
-            <DeleteDispatch
+            <DeleteBetweenwarehouseDispatch
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
                 dispatchIdToDelete={dispatchIdToDelete}
@@ -1484,4 +1390,4 @@ const ListWarehouseDispatch = () => {
     );
 };
 
-export default ListWarehouseDispatch;
+export default ListBetweenWarehouseDispatch;
