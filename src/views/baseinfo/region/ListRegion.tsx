@@ -30,13 +30,13 @@ import {
     ToggleButton as MuiToggleButton,
     TableSortLabel,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight, IconFileDownload }
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight, IconFileDownload, IconX }
     from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -68,7 +68,15 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-// --- Updated Interface for API response and internal use ---
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
 interface ApiRegionType {
     id: string;
     name: string;
@@ -76,7 +84,7 @@ interface ApiRegionType {
     recordStatus: number;
     createAt: string;
     parentId: string | null;
-    regions?: ApiRegionType[]; // ✅ تغییر نام از categories به cities
+    regions?: ApiRegionType[];
 }
 
 interface RegionType {
@@ -84,7 +92,7 @@ interface RegionType {
     name: string;
     createAt: string;
     recordStatus: number;
-    status: string; // Derived from recordStatus
+    status: string;
     parentId: string | null;
     depth: number;
 }
@@ -95,7 +103,6 @@ interface BreadcrumbItem {
     depth: number;
 }
 
-// **ToggleButton سفارشی با استایل‌های شرطی**
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -119,8 +126,6 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
-// --- Helper functions for sorting, reused from previous components ---
-// Define a new type for the sortable keys
 type SortableRegionKeys = keyof Pick<RegionType, 'name' | 'createAt' | 'status' | 'depth'>;
 
 const descendingComparator = <T, Key extends keyof T>(
@@ -171,16 +176,13 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-// --- End of Helper functions for sorting ---
 
 
 const ListRegion = () => {
     const navigate = useNavigate();
 
     const [name, setName] = useState<string>('');
-    // داده‌های اصلی و کامل از API به صورت Nested
     const [rawApiRegions, setRawApiRegions] = useState<ApiRegionType[]>([]);
-    // دسته‌بندی‌هایی که در جدول فعلی نمایش داده می‌شوند (فقط زیرمجموعه‌های مستقیم والد فعلی)
     const [displayedRegions, setDisplayedRegions] = useState<RegionType[]>([]);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingParentId, setEditingParentId] = useState<string | null>(null);
@@ -205,9 +207,8 @@ const ListRegion = () => {
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // دسته‌بندی والد فعلی که زیرمجموعه‌های آن نمایش داده می‌شوند
+
     const [currentParentRegion, setCurrentParentRegion] = useState<RegionType | null>(null);
-    // مسیر Breadcrumb
     const [breadcrumbPath, setBreadcrumbPath] = useState<BreadcrumbItem[]>([
         { id: null, name: 'Tüm Bölgeler', depth: -1 },
     ]);
@@ -216,16 +217,17 @@ const ListRegion = () => {
 
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-    // ✅ Added: State for sorting
-    const [orderBy, setOrderBy] = useState<SortableRegionKeys>('createAt'); // Default sort column
-    const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
+    const [orderBy, setOrderBy] = useState<SortableRegionKeys>('createAt');
+    const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-    // ✅ Added: Ref for the region name input field
     const regionNameInputRef = useRef<HTMLInputElement>(null);
 
-    // **State جدید برای مدیریت خطای ورودی نام**
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
+
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
@@ -244,25 +246,22 @@ const ListRegion = () => {
         return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
 
-    // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
     const findRegionById = useCallback((regions: ApiRegionType[], id: string): ApiRegionType | undefined => {
         for (const reg of regions) {
             if (reg.id === id) {
                 return reg;
             }
-            if (reg.regions && reg.regions.length > 0) { // ✅ تغییر نام از categories به cities
-                const found = findRegionById(reg.regions, id); // ✅ تغییر نام از categories به cities
+            if (reg.regions && reg.regions.length > 0) {
+                const found = findRegionById(reg.regions, id);
                 if (found) return found;
             }
         }
         return undefined;
     }, []);
 
-    // تابع کمکی برای استخراج زیرمجموعه‌های مستقیم یک دسته‌بندی خاص
     const getDirectChildrenOfParent = useCallback((regions: ApiRegionType[], parentId: string | null): RegionType[] => {
         let directChildren: RegionType[] = [];
         if (parentId === null) {
-            // برای دسته‌بندی‌های سطح اول (والد null)
             directChildren = regions.filter(reg => reg.parentId === null).map(reg => ({
                 id: reg.id,
                 name: reg.name,
@@ -273,7 +272,6 @@ const ListRegion = () => {
                 depth: reg.depth,
             }));
         } else {
-            // برای زیرمجموعه‌های یک والد خاص، ابتدا والد را پیدا کرده و سپس از آرایه `cities` آن استفاده می‌کنیم.
             const parent = findRegionById(regions, parentId);
             if (parent && parent.regions) {
                 directChildren = parent.regions.map(reg => ({
@@ -311,7 +309,6 @@ const ListRegion = () => {
     const handleClickCloseDeleteModal = () => {
         setOpenDeleteModal(false);
         setRegionIdToDelete(null);
-        // پس از حذف، داده‌ها را دوباره از API واکشی کن
         fetchRegions();
     };
 
@@ -329,12 +326,22 @@ const ListRegion = () => {
         if (alertMessage) {
             timer = setTimeout(() => {
                 clearAlert();
-            }, 5000); // 5000 milliseconds = 5 seconds
+            }, 5000);
         }
         return () => {
-            clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+            clearTimeout(timer);
         };
     }, [alertMessage]);
+
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
     const handleEditClick = () => {
         if (selectedRowForMenu) {
@@ -342,29 +349,26 @@ const ListRegion = () => {
             setEditingId(selectedRowForMenu.id);
             setEditingParentId(selectedRowForMenu.parentId);
 
-            // **پاک کردن وضعیت خطاها هنگام ویرایش**
             setNameError(false);
             setNameHelperText('');
 
-            // ✅ Added: Scroll to the region name input and focus
             setTimeout(() => {
                 regionNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 regionNameInputRef.current?.focus();
-            }, 100); // Small delay to ensure DOM update
+            }, 100);
         }
         handleCloseMenu();
+        setIsFormVisible(true);
         clearAlert();
     };
 
     const handleCancelEdit = () => {
         resetFormAndState();
         clearAlert();
-        // **پاک کردن وضعیت خطاها**
         setNameError(false);
         setNameHelperText('');
     };
 
-    // --- توابع فراخوانی API ---
     const fetchRegions = async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -478,7 +482,6 @@ const ListRegion = () => {
 
 
     const editRegion = async () => {
-        // بررسی خالی نبودن نام جدید
         if (!name.trim()) {
             setNameError(true); // تنظیم وضعیت خطا به true
             setNameHelperText('Bölge adı boş bırakılamaz!'); // تنظیم پیام کمکی
@@ -494,7 +497,6 @@ const ListRegion = () => {
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
 
-        // بررسی وجود توکن احراز هویت
         if (!authToken) {
             showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
             setLoadingButton(false);
@@ -502,14 +504,12 @@ const ListRegion = () => {
         }
 
         try {
-            // ساختار داده‌های مورد نیاز برای API جدید
             const updateData = {
                 id: Number(editingId), // ID دسته بندی مورد نظر برای بروزرسانی
                 newname: name, // نام جدید
                 parentId: editingParentId ? Number(editingParentId) : null // ParentId را به number یا null تبدیل می‌کنیم
             };
 
-            // فراخوانی API برای بروزرسانی دسته بندی
             const response = await axios.request({
                 baseURL: server.baseurl + server.baseinfo + "update-region", // ✅ تغییر آدرس API
                 method: "put",
@@ -611,9 +611,9 @@ const ListRegion = () => {
         setName('');
         setEditingId(null);
         setEditingParentId(null);
-        // **پاک کردن وضعیت خطاها**
         setNameError(false);
         setNameHelperText('');
+        setIsFormVisible(false);
     };
 
 
@@ -834,7 +834,47 @@ const ListRegion = () => {
                 margin: "10px 0 30px 0",
                 padding: "10px 15px 30px 15px"
             }}>
-                {/* Breadcrumb Box */}
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
+
+                    <Typography variant="h5" mb={2}>{editingId ? 'Bölge Düzenle' : 'Yeni Bölge Kaydı'}</Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && hasCreatePermission && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Bölge Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    isBlinking={isBlinking}
+                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                >
+                                    Yeni Bölge Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+
+                    </Stack>
+
+                </Stack>
                 {breadcrumbPath.length > 1 && (
                     <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
                         {formattedBreadcrumb.map((item, index) => (
@@ -860,7 +900,7 @@ const ListRegion = () => {
                     </Paper>
                 )}
 
-                {(hasCreatePermission || hasEditPermission) && (
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Grid container spacing={1}>
                         <Grid item xs={12} sm={1} display="flex" alignItems="center">
                             <CustomFormLabel htmlFor="region-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
@@ -955,7 +995,7 @@ const ListRegion = () => {
                                     startIcon={<IconFileDownload />}
                                 // You can add fullWidth if you want it to be responsive
                                 >
-                                    Tüm Bölgeleri İndir (PDF)
+                                    Tümünü İndir (PDF)
                                 </Button>
                             </Grid>
                         )}

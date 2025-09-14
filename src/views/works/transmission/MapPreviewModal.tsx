@@ -782,17 +782,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     }, [viewBox, getSvgCoordinates]);
 
     const handleSaveChanges = useCallback(() => {
-        // const existingProductTypeNames = new Set(allProductTypes.map(p => p.name.toLowerCase()));
-
-        // گره‌هایی که در نقشه وجود دارند اما در لیست اصلی (allProductTypes) نیستند
-        const newlyCreatedNodes = mapNodes.filter(node => node.isNew);
-
+        // تبدیل اطلاعات نقشه به فرمت مورد نیاز برای سرور
         const updatedTransmissions: TransmissionRow[] = mapEdges.map(edge => {
             const fromNode = mapNodes.find(node => node.id === edge.fromNodeId);
             const toNode = mapNodes.find(node => node.id === edge.toNodeId);
             const originalTransmission = transmissions.find(t => t.id === edge.id);
 
-            // پیدا کردن id گره‌ها
             const fromProductTypeId = fromNode?.id || originalTransmission?.fromProductTypeId;
             const toProductTypeId = toNode?.id || originalTransmission?.toProductTypeId;
 
@@ -814,8 +809,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 network: originalTransmission?.network || networkTitle,
                 formulaTitle: originalFormulaTitle,
                 networkId: originalTransmission?.networkId || networkId,
-                fromProductTypeId: fromProductTypeId!,
-                toProductTypeId: toProductTypeId!,
+                fromProductTypeId: fromProductTypeId,
+                toProductTypeId: toProductTypeId,
                 fromProductTypeX: fromProductTypeX,
                 toProductTypeY: fromProductTypeY,
                 toProductTypeX: toProductTypeX,
@@ -824,11 +819,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             };
         });
 
-        onSaveMapChanges(updatedTransmissions, newlyCreatedNodes);
+        // فراخوانی مستقیم تابع والد برای ذخیره اطلاعات
+        onSaveMapChanges(updatedTransmissions, []); // آرایه گره‌های جدید را خالی ارسال کنید
         onClose();
-    }, [mapEdges, mapNodes, networkTitle, networkId, onSaveMapChanges, onClose, transmissions, allProductTypes]);
-
-
+    }, [mapEdges, mapNodes, networkTitle, networkId, onSaveMapChanges, onClose, transmissions]);
     const handleDownload = useCallback((format: 'png' | 'pdf') => {
         if (svgContainerRef.current) {
             toPng(svgContainerRef.current, { backgroundColor: '#fff' })

@@ -12,7 +12,7 @@ import {
     ListItemIcon,
     Paper
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -20,7 +20,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus, IconX } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import axios from 'axios';
@@ -44,6 +44,17 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
 
 interface WorkType {
     id: number;
@@ -167,6 +178,10 @@ const ListWorks = () => {
 
 
 
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -239,6 +254,16 @@ const ListWorks = () => {
     useEffect(() => {
         clearAlert();
     }, [alertMessage]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setTitle(selectedRowForMenu.title);
@@ -262,6 +287,8 @@ const ListWorks = () => {
                 workTitleInputRef.current?.focus();
             }, 100);
         }
+
+        setIsFormVisible(true);
         handleCloseMenu();
         clearAlert();
     };
@@ -479,6 +506,8 @@ const ListWorks = () => {
         setTenderIdError(false);
         setFormErrors(null);
         setStatusFilter('all');
+
+        setIsFormVisible(false);
     };
     function getListWork() {
         setLoadingData(true);
@@ -639,16 +668,54 @@ const ListWorks = () => {
     };
 
     return (
-        <>
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        <Box mt={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
                 <Typography variant="h5" mb={2}>
                     {editingId ? 'İşi Düzenle' : 'Yeni İş Kaydı'}
                 </Typography>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni İş Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false}
+                            >
+                                Yeni İş Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetFormAndState}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
 
-                {(hasCreatePermission || hasEditPermission) && (
+                </Stack>
+            </Stack>
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={3}>
-                            <CustomFormLabel htmlFor="tender-selection" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                            <CustomFormLabel htmlFor="tender-selection" required>
                                 İhale Seç
                             </CustomFormLabel>
                             {editingId !== null ? (
@@ -695,7 +762,7 @@ const ListWorks = () => {
                             )}
                         </Grid>
                         <Grid item xs={12} sm={3}>
-                            <CustomFormLabel htmlFor="work-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                            <CustomFormLabel htmlFor="work-title" required>
                                 İş Başlığı
                             </CustomFormLabel>
                             <CustomTextField
@@ -719,7 +786,7 @@ const ListWorks = () => {
 
                         <Grid item xs={12} sm={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <CustomFormLabel htmlFor="start-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                <CustomFormLabel htmlFor="start-date" required>
                                     Başlangıç Tarihi
                                 </CustomFormLabel>
                                 <DatePicker
@@ -752,7 +819,7 @@ const ListWorks = () => {
                         </Grid>
                         <Grid item xs={12} sm={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <CustomFormLabel htmlFor="end-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                <CustomFormLabel htmlFor="end-date" required>
                                     Bitiş Tarihi
                                 </CustomFormLabel>
                                 <DatePicker
@@ -828,23 +895,23 @@ const ListWorks = () => {
                             </Stack>
                         </Grid>
                     </Grid>
+                </Paper>
 
-                )}
-                {alertMessage && (
-                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                        <Alert severity={alertSeverity} onClose={clearAlert}>
-                            {alertMessage}
-                        </Alert>
-                    </Stack>
-                )}
-                {formErrors && (
-                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                        <Alert severity="error">
-                            {formErrors}
-                        </Alert>
-                    </Stack>
-                )}
-            </Paper>
+            )}
+            {alertMessage && (
+                <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                    <Alert severity={alertSeverity} onClose={clearAlert}>
+                        {alertMessage}
+                    </Alert>
+                </Stack>
+            )}
+            {formErrors && (
+                <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                    <Alert severity="error">
+                        {formErrors}
+                    </Alert>
+                </Stack>
+            )}
             <BlankCard>
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
@@ -1008,7 +1075,7 @@ const ListWorks = () => {
                                                         variant="outlined"
                                                         size="small"
                                                         onClick={() => handleGoToNetworks(row.id, row.tenderId)}
-                                                        startIcon={<BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} />}
+                                                        startIcon={<BoltIcon color="inherit" sx={{ fontSize: 20 }} />}
                                                     >
                                                         Şebekeleri Görüntüle
                                                     </Button>
@@ -1127,7 +1194,7 @@ const ListWorks = () => {
                 showAlert={showAlert}
                 onDeleteSuccess={getListWork}
             />
-        </>
+        </Box>
     );
 };
 

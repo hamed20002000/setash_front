@@ -64,8 +64,9 @@ const blinkAnimation = keyframes`
 `;
 
 
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 
 const descendingComparator = <T, Key extends string>(a: T, b: T, orderBy: Key): number => {
@@ -123,6 +124,8 @@ const ListReceipts = () => {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseType | null>(null);
 
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const [isFilterActive, setIsFilterActive] = useState(false);
 
@@ -438,7 +441,14 @@ const ListReceipts = () => {
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
-
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -530,6 +540,8 @@ const ListReceipts = () => {
         setReceiptItems([]);
         setDeletedItems([]);
         setEditingReceiptId(null);
+
+        setIsFormVisible(false);
         clearAlert();
     };
 
@@ -659,6 +671,7 @@ const ListReceipts = () => {
         setReceiptItems(processedItems.filter(item => item.recordStatus === 0));
         setDeletedItems(processedItems.filter(item => item.recordStatus === 1));
         handleCloseMenu();
+        setIsFormVisible(true);
         clearAlert();
     };
 
@@ -738,12 +751,58 @@ const ListReceipts = () => {
         setEndDate(null);
     };
     return (
-        <Box>
+        <Box mt={2}>
+            <Stack
+                direction={{ xs: 'column', md: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'stretch', md: 'center' }}
+                mb={3}
+                spacing={2}
+                flexWrap="wrap"
+            >
+                <Typography variant="h6" sx={{ mb: { xs: 2, md: 0 } }}>
+                    {editingReceiptId ? `Fişi Düzenle: ${code}` : "Yeni Fiş Kaydet"}</Typography>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && hasCreatePermission && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Fiş Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                            >
+                                Yeni Fiş Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetForm}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
 
-            {(hasCreatePermission || hasEditPermission) && (
+                </Stack>
+            </Stack>
+            {((isFormVisible && hasCreatePermission) || (editingReceiptId && hasEditPermission)) && (
                 <>
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h6" mb={2}>{editingReceiptId ? `Fişi Düzenle: ${code}` : "Yeni Fiş Kaydet"}</Typography>
+                        {/* <Typography variant="h6" mb={2}>{editingReceiptId ? `Fişi Düzenle: ${code}` : "Yeni Fiş Kaydet"}</Typography> */}
                         <Grid container spacing={2}>
                             <Grid item xs={12} md={6}>
                                 <CustomFormLabel htmlFor="warehouse-autocomplete" required>Depo</CustomFormLabel>
@@ -841,9 +900,10 @@ const ListReceipts = () => {
                                     color="primary"
                                     onClick={handleDownloadAllReceiptsPdf}
                                     startIcon={<IconFileDownload />}
+                                    isBlinking={true}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi Fişleri İndir (PDF)
+                                    Filtrelenmişi İndir (PDF)
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -857,7 +917,7 @@ const ListReceipts = () => {
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData}
                             >
-                                Tümünü Fişleri İndir (PDF)
+                                Tümünü İndir (PDF)
                             </Button>
                         </CustomTooltip>
 
@@ -959,7 +1019,7 @@ const ListReceipts = () => {
                                                     {hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu PDF olarak indirin" : ""}>
                                                             <MenuItem onClick={() => handleDownloadPdf(row)}>
-                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> PDF
+                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Bu satırı indir(PDF)
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}

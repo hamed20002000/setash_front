@@ -88,6 +88,10 @@ interface ReceiptDetailType {
     warehouseDispatchDetail: {
         id: string;
         quantity: string;
+        warehouseDispatchHeaders: {
+            id: string;
+            code: string;
+        };
     }
 }
 
@@ -195,6 +199,11 @@ const ListStoreReceipts = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
+
+    const [isFilterActive, setIsFilterActive] = useState(false);
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
@@ -291,7 +300,14 @@ const ListStoreReceipts = () => {
     }, [fetchReceipts, fetchStores, fetchDispatchesByWorkhouseId, routeStoreId, navigate, showAlert, authToken]);
 
     useEffect(() => {
-        const filteredBySearchAndStatus = receiptsList.filter(r => {
+        // ابتدا وضعیت فعال بودن فیلتر را بررسی می‌کنیم
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDate !== null || endDate !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+
+        // سپس فیلتر کردن اصلی را انجام می‌دهیم
+        const filteredByAllCriteria = receiptsList.filter(r => {
             const matchesSearch = r.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (r.store?.name && r.store.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (r.warehouse?.name && r.warehouse.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -307,17 +323,26 @@ const ListStoreReceipts = () => {
 
             return matchesSearch && matchesStatus && matchesDate;
         });
-        setDisplayedReceipts(filteredBySearchAndStatus);
+
+        // در نهایت لیست نمایش داده شده را به‌روز می‌کنیم و صفحه را به صفر برمی‌گردانیم
+        setDisplayedReceipts(filteredByAllCriteria);
         setPage(0);
     }, [receiptsList, searchTerm, statusFilter, startDate, endDate]);
-
     useEffect(() => {
         const isDetailsValid = receiptDetails.length > 0 &&
             receiptDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
         setIsFormValid(!!docDate && !!selectedStore && !!selectedDispatch && isDetailsValid);
     }, [docDate, selectedStore, selectedDispatch, receiptDetails]);
 
-    // Form and UI Handlers
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const resetFormAndState = () => {
         setDocDate(new Date());
         setSelectedStore(null);
@@ -326,6 +351,7 @@ const ListStoreReceipts = () => {
         setRemovedReceiptDetails([]);
         setEditingId(null);
         setEditingCode(null);
+        setIsFormVisible(false);
     };
 
     const handleAddReceiptDetail = () => {
@@ -398,27 +424,34 @@ const ListStoreReceipts = () => {
         if (!selectedRowForMenu) return;
 
         try {
+            // ابتدا مقادیر اصلی فرم را از ردیف انتخاب شده پر کنید
             setEditingId(selectedRowForMenu.id);
             setEditingCode(selectedRowForMenu.code);
             setDocDate(new Date(selectedRowForMenu.docDate));
-            setSelectedStore(selectedRowForMenu.store || null);
-
-            if (selectedRowForMenu.store && selectedRowForMenu.store.workhouse?.id) {
-                const dispatchRes = await axios.get(
-                    server.baseurl + server.warehouse + `get-warehouse-dispatches-by-workhouse-id/${Number(selectedRowForMenu.store.workhouse.id)}`,
-                    { headers: { "Authorization": `Bearer ${authToken}` } }
-                );
-                if (dispatchRes.data.httpStatusCode === 200) {
-                    const dispatches = dispatchRes.data.data.filter((d: DispatchType) => d.recordStatus === 0);
-                    setDispatchesList(dispatches);
-                    const foundDispatch = dispatches.find(
-                        (d: DispatchType) => d.id === selectedRowForMenu.warehouseDispatchHeaders?.id
-                    );
-                    setSelectedDispatch(foundDispatch || null);
-                }
+            debugger
+            // اگر در مسیر routeStoreId بودیم، store را از لیست موجود پیدا کنید
+            if (routeStoreId) {
+                const storeFromList = storesList.find(s => s.id === routeStoreId);
+                setSelectedStore(storeFromList || null);
+            } else {
+                // اگر در حالت عمومی بودیم، store را از خود ردیف انتخاب شده بگیرید
+                setSelectedStore(selectedRowForMenu.store || null);
             }
 
-            const formattedDetails: FormReceiptDetail[] = (selectedRowForMenu.storeReceiptDetails || []).map(d => ({
+            // حالا که dispatchesList قبلا پر شده، مقدار انتخاب شده را از داخل آن پیدا کنید
+            const sevkIdFromReceipt = selectedRowForMenu.storeReceiptDetails?.[0]?.warehouseDispatchDetail?.warehouseDispatchHeaders?.id;
+
+            if (sevkIdFromReceipt) {
+                const foundDispatch = dispatchesList.find(
+                    (d: DispatchType) => d.id === sevkIdFromReceipt
+                );
+                setSelectedDispatch(foundDispatch || null);
+            } else {
+                setSelectedDispatch(null);
+            }
+
+            // ... بقیه کد ویرایش آیتم‌ها
+            const formattedDetails = (selectedRowForMenu.storeReceiptDetails || []).map(d => ({
                 itemId: Number(d.item?.id),
                 quantity: d.quantity,
                 description: d.description,
@@ -431,6 +464,8 @@ const ListStoreReceipts = () => {
         } catch (e: any) {
             showAlert(e.response?.data?.message || 'Veri yüklenirken bir hata oluştu.', 'error');
         }
+
+        setIsFormVisible(true);
         handleCloseMenu();
     };
 
@@ -493,7 +528,8 @@ const ListStoreReceipts = () => {
             doc.setFontSize(14);
             doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos);
             yPos += 7;
-            doc.text(`Sevk Kodu: ${receipt.warehouseDispatchHeaders?.code || '-'}`, 15, yPos);
+            const sevkKodu = receipt.storeReceiptDetails?.[0]?.warehouseDispatchDetail?.warehouseDispatchHeaders?.code || '-';
+            doc.text(`Sevk Kodu: ${sevkKodu}`, 15, yPos);
             yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
             yPos += 15;
@@ -542,6 +578,8 @@ const ListStoreReceipts = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         let yPos = 50;
+        const sevkKodu = receipt.storeReceiptDetails?.[0]?.warehouseDispatchDetail?.warehouseDispatchHeaders?.code || '-';
+
 
         (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -570,7 +608,7 @@ const ListStoreReceipts = () => {
         doc.setFontSize(14);
         doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos);
         yPos += 7;
-        doc.text(`Sevk Kodu: ${receipt.warehouseDispatchHeaders?.code || '-'}`, 15, yPos);
+        doc.text(`Sevk Kodu: ${sevkKodu}`, 15, yPos);
         yPos += 7;
         doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
         yPos += 15;
@@ -600,6 +638,87 @@ const ListStoreReceipts = () => {
 
         doc.save(`Fis_${receipt.code}.pdf`);
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
+    const handleDownloadFilteredReceiptsPDF = () => {
+        // اگر لیست فیلترشده خالی بود، یک هشدار نمایش بده
+        if (!displayedReceipts || displayedReceipts.length === 0) {
+            showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
+            return;
+        }
+
+        showAlert('Filtrelenmiş fişler indiriliyor...', 'info');
+
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // تنظیم فونت برای پشتیبانی از کاراکترهای ترکی
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        // تابع هدر برای هر صفحه
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text('Filtrelenmiş Fiş Raporu', pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+
+            // نمایش فیلترهای تاریخ در هدر گزارش
+            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+        };
+
+        // تابع فوتر برای هر صفحه
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.setTextColor(0);
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const docAny = doc as any;
+            const pageCount = docAny.internal.getNumberOfPages();
+            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        };
+
+        // ستون‌های جدول
+        const columns = ["Kod", "Sevk Kodu", "Belge Tarihi", "Durum"];
+
+        // ایجاد سطرها از لیست فیلترشده
+        const rows = displayedReceipts.map(r => {
+            // 👈 این خط را ویرایش کنید
+            const sevkKodu = r.storeReceiptDetails?.[0]?.warehouseDispatchDetail?.warehouseDispatchHeaders?.code || '-';
+
+            return [
+                r.code,
+                sevkKodu, // 👈 متغیر sevkKodu را اینجا استفاده کنید
+                formatDateDisplay(r.docDate),
+                r.status
+            ];
+        });
+
+        try {
+            autoTable(doc, {
+                startY: 60,
+                head: [columns],
+                body: rows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+
+            doc.save('Filtrelenmis_Fis_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
     };
 
     const insertReceipt = async () => {
@@ -640,7 +759,8 @@ const ListStoreReceipts = () => {
         }
     };
     const editReceipt = async () => {
-        if (!isFormValid || !editingId) {
+        if (!editingId) {
+            debugger
             showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
             return;
         }
@@ -687,16 +807,51 @@ const ListStoreReceipts = () => {
             <Box sx={{ p: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                     <Typography variant="h5">Şantiye Fişleri</Typography>
-                    <Grid spacing={2}>
-                        <CustomTooltip style={{ marginLeft: "2px" }} title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button variant="outlined" color="error" onClick={() => navigate(-1)} endIcon={<IconArrowRight size={20} />}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiye Fişleri Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    fullWidth={false}
+                                    isBlinking={isBlinking}
+                                >
+                                    Yeni Şantiye Fişleri Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                endIcon={<IconArrowRight size={20} />}>
                                 Geri Dön
                             </Button>
                         </CustomTooltip>
-                    </Grid>
+
+                    </Stack>
                 </Stack>
                 {/* Form Kayıt/Düzenleme */}
-                {(hasCreatePermission || hasEditPermission) && (
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Fiş Düzenle' : 'Yeni Fiş Oluştur'}</Typography>
                         <Grid container spacing={2}>
@@ -755,7 +910,7 @@ const ListStoreReceipts = () => {
                                     }}
                                     isOptionEqualToValue={(option, value) => option.id === value?.id}
                                     renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Sevk Belgesi Seçin" />}
-                                    disabled={!selectedStore || !!editingId}
+                                // disabled={!selectedStore}
                                 />
                             </Grid>
                         </Grid>
@@ -872,16 +1027,34 @@ const ListStoreReceipts = () => {
 
                     <Grid item xs={12} mt={2} mr={2}>
                         <Stack direction="row" spacing={2} justifyContent="flex-end" mb={2} mr={2}>
+                            {isFilterActive && hasDownloadPermission && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fişler indirin" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="secondary" // رنگ دکمه را تغییر دادم تا متمایز باشد
+                                        onClick={handleDownloadFilteredReceiptsPDF}
+                                        startIcon={<IconFileDownload />}
+                                        isBlinking={true}
+                                        disabled={loadingData || displayedReceipts.length === 0}
+                                    >
+                                        Filtrelenmişi İndir (PDF)
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
                             {hasDownloadPermission && (
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllReceiptsPDF}
-                                    startIcon={<IconFileDownload />}
-                                    disabled={loadingData || receiptsList.length === 0}
-                                >
-                                    Tüm Şantiye Fişleri İndir (PDF)
-                                </Button>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Şantiyenin Depo Fişleri indirin" : ""}>
+
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={handleDownloadAllReceiptsPDF}
+                                        startIcon={<IconFileDownload />}
+                                        disabled={loadingData || receiptsList.length === 0}
+                                    >
+                                        Tümünü İndir (PDF)
+                                    </Button>
+
+                                </CustomTooltip>
                             )}
 
                         </Stack>
@@ -958,7 +1131,9 @@ const ListStoreReceipts = () => {
                                         displayedReceipts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
                                             <TableRow key={row.id}>
                                                 <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.warehouseDispatchHeaders?.code || '-'}</Typography></TableCell>
+                                                <TableCell><Typography variant="h6">
+                                                    {row.storeReceiptDetails?.[0]?.warehouseDispatchDetail?.warehouseDispatchHeaders?.code || '-'}
+                                                </Typography></TableCell>
                                                 <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
                                                 <TableCell>
                                                     <Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} />
@@ -987,7 +1162,7 @@ const ListStoreReceipts = () => {
                                                                 handleCloseMenu();
                                                             }}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                PDF'yi İndir
+                                                                Bu satırı indir(PDF)
                                                             </MenuItem>
                                                         )}
                                                         {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}

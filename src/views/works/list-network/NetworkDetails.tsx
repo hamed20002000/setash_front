@@ -17,7 +17,9 @@ import {
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
     Chip,
     IconButton,
-    List, ListItem, ListItemButton, ListItemText
+    List, ListItem, ListItemButton, ListItemText,
+    keyframes,
+    styled
 } from '@mui/material';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -27,11 +29,23 @@ import RegisterUnregisteredItemModal, { RegisterItemInitialData } from '../../te
 import { ApiItemType } from '../../tender/TenderDetails';
 import NetworkItemInputForm, { AvailableItemOption } from './NetworkItemInputForm';
 import NetworkDetailsTable from './NetworkDetailsTable';
-import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown, IconArrowRight, IconBuildingArch } from '@tabler/icons-react';
+import { IconDownload, IconUpload, IconPlus, IconChevronUp, IconChevronDown, IconArrowRight, IconBuildingArch, IconX } from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
+import Excel from 'exceljs';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
-// --- New Interfaces based on API response ---
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
+
 interface ApiNetworkItem {
     id: string;
     value: string;
@@ -152,7 +166,10 @@ const NetworkDetails = () => {
     const [openTrafoSelectionModal, setOpenTrafoSelectionModal] = useState(false);
     const [selectedTrafo, setSelectedTrafo] = useState<WorkDetailRow | null>(null);
 
-    // ✅ وضعیت جدید برای پیگیری تغییرات محلی
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
 
     const filteredItemsForWorkItemForm = useMemo(() => {
@@ -186,6 +203,17 @@ const NetworkDetails = () => {
         };
     }, [alertMessage, clearAlert]);
 
+
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const resetMainFormFields = useCallback(() => {
         setSelectedProduct(null);
         setYeniValue('');
@@ -204,6 +232,7 @@ const NetworkDetails = () => {
         setEditingSubEntry(null);
         setIsEditingSubEntry(false);
         setEditingItemTempId(null);
+        setIsFormVisible(false);
     }, []);
 
     const getListProductTypes = useCallback(() => {
@@ -962,7 +991,7 @@ const NetworkDetails = () => {
             )
         );
         showAlert(`'${newTrAdiName}' adlı TR ADI başarıyla güncellendi!`, 'success');
-        setHasUnsavedChanges(true); // ✅ ثبت تغییر
+        setHasUnsavedChanges(true);
     }, [showAlert]);
 
     const handleDeleteTrAdiFromTable = useCallback((trAdiId: string) => {
@@ -1010,6 +1039,8 @@ const NetworkDetails = () => {
         setEditingSubEntry(subEntry);
         setIsEditingSubEntry(true);
         showAlert('Alt öğe formu düzenleme için yüklendi.', 'info');
+
+        setIsFormVisible(true);
     }, [showAlert, registeredWorkEntries, allProductTypesFromAPI]);
 
 
@@ -1345,7 +1376,9 @@ const NetworkDetails = () => {
         }
     };
 
-    const handleExportExcel = useCallback(() => {
+
+
+    const handleExportExcel = useCallback(async () => {
         if (registeredWorkEntries.length === 0) {
             showAlert('Dışa aktarılacak kayıtlı iş detayı bulunmamaktadır.', 'warning');
             return;
@@ -1354,6 +1387,10 @@ const NetworkDetails = () => {
         showAlert('Excel dışa aktarılıyor...', 'info');
 
         try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('WorkDetails', {
+                views: [{ rightToLeft: false }] // این پراپرتی جهت نمایش را به LTR تغییر می‌دهد.
+            });
             const allUniqueItems = new Set<string>();
             registeredWorkEntries.forEach(trAdiRow => {
                 trAdiRow.subEntries.forEach(subEntry => {
@@ -1373,65 +1410,90 @@ const NetworkDetails = () => {
                 ...uniqueItemNames
             ];
 
-            const dataRows: any[] = [];
+            // Add the header row to the worksheet
+            const headerRow = worksheet.addRow(header);
+
+            // Define column widths and styles
+            const columnWidths = [
+                { width: 20 },
+                { width: 20 },
+                { width: 10 },
+                { width: 10 },
+                { width: 10 },
+                ...uniqueItemNames.map(() => ({ width: 15 }))
+            ];
+            worksheet.columns = columnWidths;
+
+            // Apply header styles
+            const headerColors = ['FFCC99', 'C6EFCE', 'F2F2F2', 'B8CCE4', 'E6B8B8', 'ADD8E6'];
+            headerRow.eachCell((cell, colNumber) => {
+                if (colNumber > 5) { // شروع از ستون ششم
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FF' + headerColors[(colNumber - 6) % headerColors.length] }
+                    };
+                }
+                cell.font = { bold: true, color: { argb: 'FF333333' } };
+                cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+            });
+
+            // Add data rows and apply styles
+            const dataColors = ['F3f3f3']; // Lighter colors for data rows
             registeredWorkEntries.forEach(trAdiRow => {
                 const trAdiTitle = trAdiRow.trAdi;
                 let isFirstRowForTrAdi = true;
 
                 trAdiRow.subEntries.forEach(subEntry => {
-                    const row: any = {
-                        'TR ADI': isFirstRowForTrAdi ? trAdiTitle : '',
-                        'D.N': subEntry.dn,
-                        'YENİ': subEntry.yeni,
-                        'DMM': subEntry.dmm,
-                        'MEVCUT': subEntry.mevcut
-                    };
+                    const rowData = [
+                        isFirstRowForTrAdi ? trAdiTitle : '',
+                        subEntry.dn,
+                        subEntry.yeni,
+                        subEntry.dmm,
+                        subEntry.mevcut,
+                        ...uniqueItemNames.map(itemName => {
+                            const item = subEntry.itemDetails.find(d => d.name === itemName);
+                            return item ? parseFloat(item.value) : '';
+                        })
+                    ];
 
-                    uniqueItemNames.forEach(itemName => {
-                        const item = subEntry.itemDetails.find(d => d.name === itemName);
-                        row[itemName] = item ? parseFloat(item.value) : '';
+                    const row = worksheet.addRow(rowData);
+
+                    row.eachCell((cell, colNumber) => {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: dataColors[(colNumber - 1) % dataColors.length] }
+                        };
+                        cell.alignment = { wrapText: true, vertical: 'middle' };
                     });
 
-                    dataRows.push(row);
                     isFirstRowForTrAdi = false;
                 });
             });
 
-            const ws = XLSX.utils.json_to_sheet(dataRows, { header: header });
+            // Make the text wrap for the unique item columns (after MEVCUT)
+            for (let i = 5; i < header.length; i++) {
+                const col = worksheet.getColumn(i + 1);
+                col.eachCell({ includeEmpty: false }, (cell) => {
+                    cell.alignment = {
+                        wrapText: true,
+                    };
+                });
+            }
 
-            const columnWidths = [
-                { wch: 20 }, // TR ADI
-                { wch: 20 }, // D.N
-                { wch: 10 }, // YENİ
-                { wch: 10 }, // DMM
-                { wch: 10 }, // MEVCUT
-                ...uniqueItemNames.map(() => ({ wch: 15 })) // عرض برای ستون‌های آیتم
-            ];
-            ws['!cols'] = columnWidths;
-
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'WorkDetails');
-
-            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-
+            // Write the workbook to a buffer and save it
+            const buffer = await workbook.xlsx.writeBuffer();
             const fileName = `Exported_WorkDetails_${new Date().toISOString().slice(0, 10)}.xlsx`;
-            const blob = new Blob([wbout], { type: 'application/octet-stream' });
-
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            saveAs(new Blob([buffer]), fileName);
 
             showAlert('Excel başarıyla dışa aktarıldı!', 'success');
-        } catch (error: any) {
+        } catch (error) {
             console.error("Excel dışa aktarılırken hata:", error);
             showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
     }, [registeredWorkEntries, showAlert]);
+
 
     const handleSelectTrafo = useCallback((trafo: WorkDetailRow) => {
         setSelectedTrafo(trafo);
@@ -1466,411 +1528,456 @@ const NetworkDetails = () => {
                 margin: "10px 0 30px 0",
                 padding: "10px 15px 30px 15px"
             }}>
-                <Paper elevation={3} sx={{ p: 3, mb: 1 }}>
-                    <Grid container spacing={1}>
-                        <Grid item xs={12}>
-                            <Stack
-                                direction={{ xs: 'column', sm: 'row' }}
-                                justifyContent="space-between"
-                                alignItems={{ xs: 'stretch', sm: 'center' }}
-                            >
-                                <Typography variant="h4" gutterBottom>
-                                    İş Detayları:
-                                </Typography>
-                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                                    {registeredWorkEntries.length > 1 && (
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
+
+                    <Typography variant="h5" mb={2}>{editingSubEntry ? 'İş Detayları Düzenle' : 'Yeni İş Detayları Kaydı'}</Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni İş Detayları Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    isBlinking={isBlinking}
+                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                >
+                                    Yeni İş Detayları Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetMainFormFields}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                endIcon={<IconArrowRight size={20} />}>
+                                Geri Dön
+                            </Button>
+                        </CustomTooltip>
+                    </Stack>
+
+                </Stack>
+
+                {(isFormVisible) && (
+                    <Paper elevation={3} sx={{ p: 3, mb: 1 }}>
+                        <Grid container spacing={1}>
+                            <Grid item xs={12}>
+                                <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    justifyContent="space-between"
+                                    alignItems={{ xs: 'stretch', sm: 'center' }}
+                                >
+                                    <Typography variant="h4" gutterBottom>
+                                        İş Detayları:
+                                    </Typography>
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                                        {registeredWorkEntries.length > 1 && (
+                                            <Button
+                                                variant="outlined"
+                                                color="secondary"
+                                                onClick={() => setOpenTrafoSelectionModal(true)}
+                                                startIcon={<IconBuildingArch />}
+                                            >
+                                                Trafo Seç
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            startIcon={<IconUpload />}
+                                            disabled={loadingFileUpload || loadingExcelTemplate || loadingProductTypes || loadingItemsForWorkItemForm}
+                                        >
+                                            Excel İçe Aktar
+                                            <input
+                                                type="file"
+                                                accept=".xlsx, .xls, .csv"
+                                                onChange={handleFileUpload}
+                                                ref={fileInputRef}
+                                                style={{ display: 'none' }}
+                                            />
+                                        </Button>
                                         <Button
                                             variant="outlined"
                                             color="secondary"
-                                            onClick={() => setOpenTrafoSelectionModal(true)}
-                                            startIcon={<IconBuildingArch />}
+                                            onClick={handleDownloadExcelTemplate}
+                                            startIcon={<IconDownload />}
+                                            disabled={loadingExcelTemplate || loadingFileUpload}
                                         >
-                                            Trafo Seç
+                                            Şablonu İndir
                                         </Button>
+                                        <Button
+                                            variant="contained"
+                                            color="info"
+                                            onClick={handleExportExcel}
+                                            startIcon={<IconUpload style={{ transform: 'rotate(180deg)' }} />}
+                                            disabled={registeredWorkEntries.length === 0 || loadingExcelTemplate}
+                                        >
+                                            Excel Dışa Aktar
+                                        </Button>
+                                    </Stack>
+                                </Stack>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
+                                    <CustomFormLabel htmlFor="tr-adi" required>Trafo Bölgesi</CustomFormLabel>
+
+                                </Stack>
+                                <TextField
+                                    id="tr-adi"
+                                    placeholder="Trafo Bölgesi"
+                                    fullWidth
+                                    value={trAdi}
+                                    onChange={(e) => setTrAdi(e.target.value)}
+                                    variant="outlined"
+                                    size="small"
+                                    disabled={selectedTrafo !== null}
+                                />
+                                {selectedTrafo && (
+                                    <Button
+                                        variant="outlined"
+                                        color="secondary"
+                                        onClick={handleStartNewTrAdiEntry}
+                                        sx={{ mt: 1, width: '100%' }}
+                                    >
+                                        Yeni TR ADI Oluştur
+                                    </Button>
+                                )}
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%', mb: 0.5 }}>
+                                    <CustomFormLabel htmlFor="product-type-autocomplete" sx={{ mb: 0, flexShrink: 0 }} required>D.N</CustomFormLabel>
+                                    <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={handleOpenNewDirectModal}
+                                        sx={{ minWidth: 'auto', p: 0.8, ml: 'auto' }}
+                                    >
+                                        <CustomTooltip title="Yeni Direk Kaydet">
+                                            <IconPlus size={20} />
+                                        </CustomTooltip>
+                                    </Button>
+                                </Stack>
+                                <Autocomplete
+                                    id="product-type-autocomplete"
+                                    options={filteredProductTypes}
+                                    getOptionLabel={(option) => option.name}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={selectedProduct}
+                                    onChange={(_event, newValue) => {
+                                        setSelectedProduct(newValue);
+                                        if (selectedProductError && newValue) {
+                                            setSelectedProductError(false);
+                                            setSelectedProductHelperText('');
+                                        }
+                                    }}
+                                    onOpen={() => {
+                                        if (productAutocompleteTextFieldRef.current) {
+                                            productAutocompleteTextFieldRef.current.focus();
+                                        }
+                                    }}
+                                    onClose={() => { }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="D.N Seçin"
+                                            variant="outlined"
+                                            size="small"
+                                            error={selectedProductError}
+                                            helperText={selectedProductHelperText}
+                                            inputRef={productAutocompleteTextFieldRef}
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {loadingProductTypes ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                            onClick={(e) => { e.stopPropagation(); }}
+                                            onKeyDown={(e) => { e.stopPropagation(); }}
+                                        />
                                     )}
+                                    loading={loadingProductTypes}
+                                    disabled={loadingProductTypes}
+                                    noOptionsText="Hiç öğe bulunamadı."
+                                />
+                            </Grid>
+                            <Grid item xs={12}>
+                                <FormControl component="fieldset" error={yeniError || dmmError || mevcutError} fullWidth>
+                                    <FormLabel component="legend">Miktar Tipi</FormLabel>
+                                    <RadioGroup
+                                        row={false}
+                                        name="quantity-type"
+                                        value={selectedRadioOption}
+                                        onChange={(e) => {
+                                            setSelectedRadioOption(e.target.value as 'yeni' | 'dmm' | 'mevcut');
+                                            setYeniError(false); setYeniHelperText('');
+                                            setDmmError(false); setDmmHelperText('');
+                                            setMevcutError(false); setMevcutHelperText('');
+                                            setYeniValue('');
+                                            setDmmValue('');
+                                            setMevcutValue('');
+                                        }}
+                                        sx={{
+                                            flexDirection: { xs: 'column', sm: 'row' },
+                                            flexWrap: 'wrap',
+                                            '& .MuiFormControlLabel-root': {
+                                                marginBottom: { xs: 1, sm: 0 },
+                                                marginRight: { xs: 0, sm: 1 },
+                                                width: { xs: '100%', sm: 'auto' },
+                                            },
+                                            '& .MuiTextField-root': {
+                                                width: { xs: '100%', sm: '100px' },
+                                                marginBottom: { xs: 1, sm: 0 },
+                                                marginRight: { xs: 0, sm: 2 },
+                                            },
+                                        }}
+                                    >
+                                        <FormControlLabel
+                                            value="yeni"
+                                            control={<Radio size="small" />}
+                                            label="YENİ"
+                                        />
+                                        <TextField
+                                            id="yeni-input"
+                                            placeholder="Miktar"
+                                            size="small"
+                                            value={yeniValue}
+                                            onChange={(e) => setYeniValue(e.target.value)}
+                                            disabled={selectedRadioOption !== 'yeni'}
+                                            error={selectedRadioOption === 'yeni' && yeniError}
+                                            helperText={selectedRadioOption === 'yeni' && yeniHelperText}
+                                        />
+
+                                        <FormControlLabel
+                                            value="dmm"
+                                            control={<Radio size="small" />}
+                                            label="DMM"
+                                        />
+                                        <TextField
+                                            id="dmm-input"
+                                            placeholder="Miktar"
+                                            size="small"
+                                            value={dmmValue}
+                                            onChange={(e) => setDmmValue(e.target.value)}
+                                            disabled={selectedRadioOption !== 'dmm'}
+                                            error={selectedRadioOption === 'dmm' && dmmError}
+                                            helperText={selectedRadioOption === 'dmm' && dmmHelperText}
+                                        />
+
+                                        <FormControlLabel
+                                            value="mevcut"
+                                            control={<Radio size="small" />}
+                                            label="MEVCUT"
+                                        />
+                                        <TextField
+                                            id="mevcut-input"
+                                            placeholder="Miktar"
+                                            size="small"
+                                            value={mevcutValue}
+                                            onChange={(e) => setMevcutValue(e.target.value)}
+                                            disabled={selectedRadioOption !== 'mevcut'}
+                                            error={selectedRadioOption === 'mevcut' && mevcutError}
+                                            helperText={selectedRadioOption === 'mevcut' && mevcutHelperText}
+                                        />
+                                    </RadioGroup>
+                                    {(yeniError || dmmError || mevcutError) && (
+                                        <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>
+                                            Lütfen seçilen miktar alanını doldurun!
+                                        </Typography>
+                                    )}
+                                </FormControl>
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <NetworkItemInputForm
+                                    availableItems={filteredItemsForWorkItemForm}
+                                    onAddItem={handleAddItemToRegister}
+                                    itemsToRegister={itemsToRegister}
+                                    onRemoveItem={handleRemoveItemToRegister}
+                                    onEditItem={handleEditItemToRegister}
+                                    itemToEdit={itemToEditInForm}
+                                    loadingAvailableItems={loadingItemsForWorkItemForm}
+                                />
+                            </Grid>
+
+                            {(unregisteredProductTypes.length > 0 || unregisteredItems.length > 0) && (
+                                <Grid item xs={12}>
+                                    <Typography variant="h6" color="error" mt={3} mb={1}>
+                                        Aşağıdaki öğeler sistemde bulunamadı. Lütfen kaydedin:
+                                    </Typography>
+                                    {unregisteredProductTypes.length > 0 && (
+                                        <Box sx={{ mb: 2, border: '1px dashed red', p: 1, borderRadius: '4px' }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                                                <Typography variant="subtitle1" component="div">
+                                                    Kaydedilmemiş D.N türleri ({unregisteredProductTypes.length} adet):
+                                                </Typography>
+                                                {unregisteredProductTypes.length > 5 && (
+                                                    <IconButton onClick={() => setIsUnregisteredProductTypesExpanded(prev => !prev)} size="small">
+                                                        {isUnregisteredProductTypesExpanded ? <IconChevronUp size={20} /> : <IconChevronDown size={20} />}
+                                                    </IconButton>
+                                                )}
+                                            </Stack>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap"
+                                                sx={{
+                                                    maxHeight: isUnregisteredProductTypesExpanded ? 'none' : '60px',
+                                                    overflow: 'hidden',
+                                                    transition: 'max-height 0.3s ease-in-out',
+                                                    pb: 1
+                                                }}
+                                            >
+                                                {unregisteredProductTypes.map((dnName, index) => (
+                                                    <Chip
+                                                        key={`unreg-dn-${index}`}
+                                                        label={
+                                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                                {dnName}
+                                                                <IconButton
+                                                                    size="small"
+                                                                    sx={{ ml: 0.5 }}
+                                                                    onClick={() => handleOpenNewDirectModalFromUnregistered(dnName)}
+                                                                >
+                                                                    <IconPlus size={16} />
+                                                                </IconButton>
+                                                            </Box>
+                                                        }
+                                                        variant="outlined"
+                                                        color="error"
+                                                        sx={{
+                                                            borderColor: 'red',
+                                                            borderWidth: 1.5,
+                                                            borderStyle: 'dashed',
+                                                            '.MuiChip-label': { pr: 0 }
+                                                        }}
+                                                    />
+                                                ))}
+                                            </Stack>
+                                        </Box>
+                                    )}
+
+                                    {unregisteredItems.length > 0 && (
+                                        <Box sx={{ border: '1px dashed red', p: 1, borderRadius: '4px' }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                                                <Typography variant="subtitle1" component="div">
+                                                    Kaydedilmemiş Öğe türleri ({unregisteredItems.length} adet):
+                                                </Typography>
+                                                {unregisteredItems.length > 5 && (
+                                                    <IconButton onClick={() => setIsUnregisteredItemsExpanded(prev => !prev)} size="small">
+                                                        {isUnregisteredItemsExpanded ? <IconChevronUp size={20} /> : <IconChevronDown size={20} />}
+                                                    </IconButton>
+                                                )}
+                                            </Stack>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap"
+                                                sx={{
+                                                    maxHeight: isUnregisteredItemsExpanded ? 'none' : '60px',
+                                                    overflow: 'hidden',
+                                                    transition: 'max-height 0.3s ease-in-out',
+                                                    pb: 1
+                                                }}
+                                            >
+                                                {unregisteredItems.map((itemName, index) => (
+                                                    <Chip
+                                                        key={`unreg-item-${index}`}
+                                                        label={
+                                                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                                                {itemName}
+                                                                <IconButton
+                                                                    size="small"
+                                                                    sx={{ ml: 0.5 }}
+                                                                    onClick={() => handleOpenNewItemModal(itemName)}
+                                                                >
+                                                                    <IconPlus size={16} />
+                                                                </IconButton>
+                                                            </Box>
+                                                        }
+                                                        variant="outlined"
+                                                        color="error"
+                                                        sx={{
+                                                            borderColor: 'red',
+                                                            borderWidth: 1.5,
+                                                            borderStyle: 'dashed',
+                                                            '.MuiChip-label': { pr: 0 }
+                                                        }}
+                                                    />
+                                                ))}
+                                            </Stack>
+                                        </Box>
+                                    )}
+                                </Grid>
+                            )}
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
                                     <Button
                                         variant="contained"
                                         color="primary"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        startIcon={<IconUpload />}
-                                        disabled={loadingFileUpload || loadingExcelTemplate || loadingProductTypes || loadingItemsForWorkItemForm}
+                                        onClick={isEditingSubEntry ? handleUpdateSubEntry : handleRegisterNewEntry}
+                                        disabled={loadingRegisterButton || itemsToRegister.length === 0}
                                     >
-                                        Excel İçe Aktar
-                                        <input
-                                            type="file"
-                                            accept=".xlsx, .xls, .csv"
-                                            onChange={handleFileUpload}
-                                            ref={fileInputRef}
-                                            style={{ display: 'none' }}
-                                        />
+                                        {loadingRegisterButton ? (
+                                            <>
+                                                <CircularProgress size={20} sx={{ mr: 1 }} /> Kaydediliyor...
+                                            </>
+                                        ) : isEditingSubEntry ? 'Güncelle' : 'Yeni Kayıt Yap'}
                                     </Button>
-                                    <Button
-                                        variant="outlined"
-                                        color="secondary"
-                                        onClick={handleDownloadExcelTemplate}
-                                        startIcon={<IconDownload />}
-                                        disabled={loadingExcelTemplate || loadingFileUpload}
-                                    >
-                                        Şablonu İndir
-                                    </Button>
-                                    <Button
-                                        variant="contained"
-                                        color="info"
-                                        onClick={handleExportExcel}
-                                        startIcon={<IconUpload style={{ transform: 'rotate(180deg)' }} />}
-                                        disabled={registeredWorkEntries.length === 0 || loadingExcelTemplate}
-                                    >
-                                        Excel Dışa Aktar
-                                    </Button>
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                            endIcon={<IconArrowRight size={20} />}>
-                                            Geri Dön
-                                        </Button>
-                                    </CustomTooltip>
-                                </Stack>
-                            </Stack>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%' }}>
-                                <CustomFormLabel htmlFor="tr-adi" required>Trafo Bölgesi</CustomFormLabel>
-
-                            </Stack>
-                            <TextField
-                                id="tr-adi"
-                                placeholder="Trafo Bölgesi"
-                                fullWidth
-                                value={trAdi}
-                                onChange={(e) => setTrAdi(e.target.value)}
-                                variant="outlined"
-                                size="small"
-                                disabled={selectedTrafo !== null}
-                            />
-                            {selectedTrafo && (
-                                <Button
-                                    variant="outlined"
-                                    color="secondary"
-                                    onClick={handleStartNewTrAdiEntry}
-                                    sx={{ mt: 1, width: '100%' }}
-                                >
-                                    Yeni TR ADI Oluştur
-                                </Button>
-                            )}
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <Stack direction="row" alignItems="center" spacing={1} sx={{ width: '100%', mb: 0.5 }}>
-                                <CustomFormLabel htmlFor="product-type-autocomplete" sx={{ mb: 0, flexShrink: 0 }} required>D.N</CustomFormLabel>
-                                <Button
-                                    variant="outlined"
-                                    size="small"
-                                    onClick={handleOpenNewDirectModal}
-                                    sx={{ minWidth: 'auto', p: 0.8, ml: 'auto' }}
-                                >
-                                    <CustomTooltip title="Yeni Direk Kaydet">
-                                        <IconPlus size={20} />
-                                    </CustomTooltip>
-                                </Button>
-                            </Stack>
-                            <Autocomplete
-                                id="product-type-autocomplete"
-                                options={filteredProductTypes}
-                                getOptionLabel={(option) => option.name}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={selectedProduct}
-                                onChange={(_event, newValue) => {
-                                    setSelectedProduct(newValue);
-                                    if (selectedProductError && newValue) {
-                                        setSelectedProductError(false);
-                                        setSelectedProductHelperText('');
-                                    }
-                                }}
-                                onOpen={() => {
-                                    if (productAutocompleteTextFieldRef.current) {
-                                        productAutocompleteTextFieldRef.current.focus();
-                                    }
-                                }}
-                                onClose={() => { }}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="D.N Seçin"
-                                        variant="outlined"
-                                        size="small"
-                                        error={selectedProductError}
-                                        helperText={selectedProductHelperText}
-                                        inputRef={productAutocompleteTextFieldRef}
-                                        InputProps={{
-                                            ...params.InputProps,
-                                            endAdornment: (
-                                                <>
-                                                    {loadingProductTypes ? <CircularProgress color="inherit" size={20} /> : null}
-                                                    {params.InputProps.endAdornment}
-                                                </>
-                                            ),
-                                        }}
-                                        onClick={(e) => { e.stopPropagation(); }}
-                                        onKeyDown={(e) => { e.stopPropagation(); }}
-                                    />
-                                )}
-                                loading={loadingProductTypes}
-                                disabled={loadingProductTypes}
-                                noOptionsText="Hiç öğe bulunamadı."
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <FormControl component="fieldset" error={yeniError || dmmError || mevcutError} fullWidth>
-                                <FormLabel component="legend">Miktar Tipi</FormLabel>
-                                <RadioGroup
-                                    row={false}
-                                    name="quantity-type"
-                                    value={selectedRadioOption}
-                                    onChange={(e) => {
-                                        setSelectedRadioOption(e.target.value as 'yeni' | 'dmm' | 'mevcut');
-                                        setYeniError(false); setYeniHelperText('');
-                                        setDmmError(false); setDmmHelperText('');
-                                        setMevcutError(false); setMevcutHelperText('');
-                                        setYeniValue('');
-                                        setDmmValue('');
-                                        setMevcutValue('');
-                                    }}
-                                    sx={{
-                                        flexDirection: { xs: 'column', sm: 'row' },
-                                        flexWrap: 'wrap',
-                                        '& .MuiFormControlLabel-root': {
-                                            marginBottom: { xs: 1, sm: 0 },
-                                            marginRight: { xs: 0, sm: 1 },
-                                            width: { xs: '100%', sm: 'auto' },
-                                        },
-                                        '& .MuiTextField-root': {
-                                            width: { xs: '100%', sm: '100px' },
-                                            marginBottom: { xs: 1, sm: 0 },
-                                            marginRight: { xs: 0, sm: 2 },
-                                        },
-                                    }}
-                                >
-                                    <FormControlLabel
-                                        value="yeni"
-                                        control={<Radio size="small" />}
-                                        label="YENİ"
-                                    />
-                                    <TextField
-                                        id="yeni-input"
-                                        placeholder="Miktar"
-                                        size="small"
-                                        value={yeniValue}
-                                        onChange={(e) => setYeniValue(e.target.value)}
-                                        disabled={selectedRadioOption !== 'yeni'}
-                                        error={selectedRadioOption === 'yeni' && yeniError}
-                                        helperText={selectedRadioOption === 'yeni' && yeniHelperText}
-                                    />
-
-                                    <FormControlLabel
-                                        value="dmm"
-                                        control={<Radio size="small" />}
-                                        label="DMM"
-                                    />
-                                    <TextField
-                                        id="dmm-input"
-                                        placeholder="Miktar"
-                                        size="small"
-                                        value={dmmValue}
-                                        onChange={(e) => setDmmValue(e.target.value)}
-                                        disabled={selectedRadioOption !== 'dmm'}
-                                        error={selectedRadioOption === 'dmm' && dmmError}
-                                        helperText={selectedRadioOption === 'dmm' && dmmHelperText}
-                                    />
-
-                                    <FormControlLabel
-                                        value="mevcut"
-                                        control={<Radio size="small" />}
-                                        label="MEVCUT"
-                                    />
-                                    <TextField
-                                        id="mevcut-input"
-                                        placeholder="Miktar"
-                                        size="small"
-                                        value={mevcutValue}
-                                        onChange={(e) => setMevcutValue(e.target.value)}
-                                        disabled={selectedRadioOption !== 'mevcut'}
-                                        error={selectedRadioOption === 'mevcut' && mevcutError}
-                                        helperText={selectedRadioOption === 'mevcut' && mevcutHelperText}
-                                    />
-                                </RadioGroup>
-                                {(yeniError || dmmError || mevcutError) && (
-                                    <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>
-                                        Lütfen seçilen miktar alanını doldurun!
-                                    </Typography>
-                                )}
-                            </FormControl>
-                        </Grid>
-
-                        <Grid item xs={12}>
-                            <NetworkItemInputForm
-                                availableItems={filteredItemsForWorkItemForm}
-                                onAddItem={handleAddItemToRegister}
-                                itemsToRegister={itemsToRegister}
-                                onRemoveItem={handleRemoveItemToRegister}
-                                onEditItem={handleEditItemToRegister}
-                                itemToEdit={itemToEditInForm}
-                                loadingAvailableItems={loadingItemsForWorkItemForm}
-                            />
-                        </Grid>
-
-                        {(unregisteredProductTypes.length > 0 || unregisteredItems.length > 0) && (
-                            <Grid item xs={12}>
-                                <Typography variant="h6" color="error" mt={3} mb={1}>
-                                    Aşağıdaki öğeler sistemde bulunamadı. Lütfen kaydedin:
-                                </Typography>
-                                {unregisteredProductTypes.length > 0 && (
-                                    <Box sx={{ mb: 2, border: '1px dashed red', p: 1, borderRadius: '4px' }}>
-                                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                                            <Typography variant="subtitle1" component="div">
-                                                Kaydedilmemiş D.N türleri ({unregisteredProductTypes.length} adet):
-                                            </Typography>
-                                            {unregisteredProductTypes.length > 5 && (
-                                                <IconButton onClick={() => setIsUnregisteredProductTypesExpanded(prev => !prev)} size="small">
-                                                    {isUnregisteredProductTypesExpanded ? <IconChevronUp size={20} /> : <IconChevronDown size={20} />}
-                                                </IconButton>
-                                            )}
-                                        </Stack>
-                                        <Stack direction="row" spacing={1} flexWrap="wrap"
-                                            sx={{
-                                                maxHeight: isUnregisteredProductTypesExpanded ? 'none' : '60px',
-                                                overflow: 'hidden',
-                                                transition: 'max-height 0.3s ease-in-out',
-                                                pb: 1
-                                            }}
-                                        >
-                                            {unregisteredProductTypes.map((dnName, index) => (
-                                                <Chip
-                                                    key={`unreg-dn-${index}`}
-                                                    label={
-                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                            {dnName}
-                                                            <IconButton
-                                                                size="small"
-                                                                sx={{ ml: 0.5 }}
-                                                                onClick={() => handleOpenNewDirectModalFromUnregistered(dnName)}
-                                                            >
-                                                                <IconPlus size={16} />
-                                                            </IconButton>
-                                                        </Box>
-                                                    }
-                                                    variant="outlined"
-                                                    color="error"
-                                                    sx={{
-                                                        borderColor: 'red',
-                                                        borderWidth: 1.5,
-                                                        borderStyle: 'dashed',
-                                                        '.MuiChip-label': { pr: 0 }
-                                                    }}
-                                                />
-                                            ))}
-                                        </Stack>
-                                    </Box>
-                                )}
-
-                                {unregisteredItems.length > 0 && (
-                                    <Box sx={{ border: '1px dashed red', p: 1, borderRadius: '4px' }}>
-                                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                                            <Typography variant="subtitle1" component="div">
-                                                Kaydedilmemiş Öğe türleri ({unregisteredItems.length} adet):
-                                            </Typography>
-                                            {unregisteredItems.length > 5 && (
-                                                <IconButton onClick={() => setIsUnregisteredItemsExpanded(prev => !prev)} size="small">
-                                                    {isUnregisteredItemsExpanded ? <IconChevronUp size={20} /> : <IconChevronDown size={20} />}
-                                                </IconButton>
-                                            )}
-                                        </Stack>
-                                        <Stack direction="row" spacing={1} flexWrap="wrap"
-                                            sx={{
-                                                maxHeight: isUnregisteredItemsExpanded ? 'none' : '60px',
-                                                overflow: 'hidden',
-                                                transition: 'max-height 0.3s ease-in-out',
-                                                pb: 1
-                                            }}
-                                        >
-                                            {unregisteredItems.map((itemName, index) => (
-                                                <Chip
-                                                    key={`unreg-item-${index}`}
-                                                    label={
-                                                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                                            {itemName}
-                                                            <IconButton
-                                                                size="small"
-                                                                sx={{ ml: 0.5 }}
-                                                                onClick={() => handleOpenNewItemModal(itemName)}
-                                                            >
-                                                                <IconPlus size={16} />
-                                                            </IconButton>
-                                                        </Box>
-                                                    }
-                                                    variant="outlined"
-                                                    color="error"
-                                                    sx={{
-                                                        borderColor: 'red',
-                                                        borderWidth: 1.5,
-                                                        borderStyle: 'dashed',
-                                                        '.MuiChip-label': { pr: 0 }
-                                                    }}
-                                                />
-                                            ))}
-                                        </Stack>
-                                    </Box>
-                                )}
-                            </Grid>
-                        )}
-                        <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={isEditingSubEntry ? handleUpdateSubEntry : handleRegisterNewEntry}
-                                    disabled={loadingRegisterButton || itemsToRegister.length === 0}
-                                >
-                                    {loadingRegisterButton ? (
-                                        <>
-                                            <CircularProgress size={20} sx={{ mr: 1 }} /> Kaydediliyor...
-                                        </>
-                                    ) : isEditingSubEntry ? 'Güncelle' : 'Yeni Kayıt Yap'}
-                                </Button>
-                                {isEditingSubEntry && (
-                                    <Button
-                                        variant="outlined"
-                                        color="secondary"
-                                        onClick={resetMainFormFields}
-                                        disabled={loadingRegisterButton}
-                                    >
-                                        İptal
-                                    </Button>
-                                )}
-                                {registeredWorkEntries.length > 0 && (
-                                    // ✅ دکمه به همراه تولتیپ و انیمیشن
-
-
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Yapılan tüm değişiklikleri sunucuya kaydetmek için tıklayın." : ""}>
+                                    {isEditingSubEntry && (
                                         <Button
-                                            variant="contained"
-                                            color="success"
-                                            onClick={handleSendAllRegisteredData}
+                                            variant="outlined"
+                                            color="secondary"
+                                            onClick={resetMainFormFields}
                                             disabled={loadingRegisterButton}
-                                            sx={{
-                                                ...(hasUnsavedChanges && {
-                                                    animation: 'pulse-red 2s infinite',
-                                                    backgroundColor: 'red', // یا رنگ دلخواه دیگر
-                                                })
-                                            }}
                                         >
-                                            Tüm Kayıtları Gönder
+                                            İptal
                                         </Button>
+                                    )}
+                                    {registeredWorkEntries.length > 0 && (
+                                        // ✅ دکمه به همراه تولتیپ و انیمیشن
 
-                                    </CustomTooltip>
 
-                                )}
-                            </Stack>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yapılan tüm değişiklikleri sunucuya kaydetmek için tıklayın." : ""}>
+                                            <Button
+                                                variant="contained"
+                                                color="success"
+                                                onClick={handleSendAllRegisteredData}
+                                                disabled={loadingRegisterButton}
+                                                sx={{
+                                                    ...(hasUnsavedChanges && {
+                                                        animation: 'pulse-red 2s infinite',
+                                                        backgroundColor: 'red', // یا رنگ دلخواه دیگر
+                                                    })
+                                                }}
+                                            >
+                                                Tüm Kayıtları Gönder
+                                            </Button>
+
+                                        </CustomTooltip>
+
+                                    )}
+                                </Stack>
+                            </Grid>
                         </Grid>
-                    </Grid>
-                </Paper>
+                    </Paper>
+                )}
                 {alertMessage && (
                     <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
                         <Alert severity={alertSeverity} onClose={clearAlert}>

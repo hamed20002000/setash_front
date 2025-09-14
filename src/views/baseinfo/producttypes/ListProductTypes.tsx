@@ -10,12 +10,12 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, Radio, RadioGroup, FormControlLabel, CircularProgress
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteProductTypes from './DeleteProductType';
@@ -44,6 +44,16 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
 
 interface ProductTypesType {
     id: number;
@@ -148,6 +158,8 @@ const ListProductTypes = () => {
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
 
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
@@ -205,6 +217,16 @@ const ListProductTypes = () => {
         };
     }, [alertMessage]);
 
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const handleEditClick = () => {
         if (selectedRowForMenu) {
             setName(selectedRowForMenu.name);
@@ -219,6 +241,7 @@ const ListProductTypes = () => {
             }, 100);
         }
         handleCloseMenu();
+        setIsFormVisible(true);
         clearAlert();
     };
     const handleCancelEdit = () => {
@@ -405,9 +428,10 @@ const ListProductTypes = () => {
         setName('');
         setEditingId(null);
         setOriginalName('');
-        setProductType(0); // Resetting the type to default
+        setProductType(0);
         setNameError(false);
         setNameHelperText('');
+        setIsFormVisible(false);
     };
 
     function getListProductTypes() {
@@ -578,8 +602,49 @@ const ListProductTypes = () => {
                 margin: "10px 0 30px 0",
                 padding: "10px 15px 30px 15px"
             }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
 
-                {(hasCreatePermission || hasEditPermission) && (
+                    <Typography variant="h5" mb={2}>{editingId ? 'Direk veya Trafo Düzenle' : 'Yeni Direk veya Trafo Kaydı'}</Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && hasCreatePermission && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Direk veya Trafo Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    isBlinking={isBlinking}
+                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                >
+                                    Yeni Direk veya Trafo Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+
+                    </Stack>
+
+                </Stack>
+
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Grid container spacing={1}>
                         <Grid item xs={12} sm={1} display="flex" alignItems="center">
                             <CustomFormLabel htmlFor="ProductTypes-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
@@ -686,7 +751,7 @@ const ListProductTypes = () => {
                                     onClick={handleDownloadAllProductTypesPDF}
                                     startIcon={<IconFileDownload />}
                                 >
-                                    Tüm Direkler-Trafoları İndir (PDF)
+                                    Tümünü İndir (PDF)
                                 </Button>
                             </Grid>
                         )}

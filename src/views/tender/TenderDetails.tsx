@@ -29,6 +29,8 @@ import BlankCard from 'src/components/shared/BlankCard';
 import "./style.css"
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import * as XLSX from 'xlsx';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import RegisterUnregisteredItemModal from './RegisterUnregisteredItemModal';
@@ -437,7 +439,7 @@ const TenderDetails = () => {
     const [itemToRegister, setItemToRegister] = useState<RegisterItemInitialData | null>(null);
     const [openRegisterCategoryModal, setOpenRegisterCategoryModal] = useState(false);
     const [categoryToRegister, setCategoryToRegister] = useState<RegisterCategoryInitialData | null>(null);
-    const [templateWorkbookBuffer, setTemplateWorkbookBuffer] = useState<ArrayBuffer | null>(null);
+    // const [templateWorkbookBuffer, setTemplateWorkbookBuffer] = useState<ArrayBuffer | null>(null);
     const newRecordSelectedNode = newRecordSelectedUnifiedNodeId
         ? findNodeByIdPure(combinedTreeData, newRecordSelectedUnifiedNodeId)
         : null;
@@ -886,22 +888,22 @@ const TenderDetails = () => {
         }
     }, [tenderId, isTreeDataLoaded, fetchDataAndBuildTree, loadExistingTenderDetails]); // loadExistingTenderDetails باید به لیست وابستگی ها اضافه شود
 
-    useEffect(() => {
-        fetch('/tender_template.xlsx')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.arrayBuffer();
-            })
-            .then(buffer => {
-                setTemplateWorkbookBuffer(buffer);
-            })
-            .catch(error => {
-                console.log(error)
-                showAlert('Excel şablonu yüklenirken hata oluştu.', 'error');
-            });
-    }, [showAlert]);
+    // useEffect(() => {
+    //     fetch('/tender_template.xlsx')
+    //         .then(response => {
+    //             if (!response.ok) {
+    //                 throw new Error(`HTTP error! status: ${response.status}`);
+    //             }
+    //             return response.arrayBuffer();
+    //         })
+    //         .then(buffer => {
+    //             setTemplateWorkbookBuffer(buffer);
+    //         })
+    //         .catch(error => {
+    //             console.log(error)
+    //             showAlert('Excel şablonu yüklenirken hata oluştu.', 'error');
+    //         });
+    // }, [showAlert]);
 
     const addNewItemToApi = useCallback(async (itemName: string): Promise<number | null> => {
         const authToken = localStorage.getItem('authToken');
@@ -1831,106 +1833,458 @@ const TenderDetails = () => {
         event.target.select();
     }, []);
 
-    const handleExportExcelPreview = useCallback(() => {
-        if (!templateWorkbookBuffer) {
-            showAlert('Excel şablonu henüz yüklenmedi veya yüklenemedi.', 'warning');
+    // const handleExportExcelPreview = useCallback(() => {
+    //     if (!templateWorkbookBuffer) {
+    //         showAlert('Excel şablonu henüz yüklenmedi veya yüklenemedi.', 'warning');
+    //         return;
+    //     }
+    //     const workbook = XLSX.read(templateWorkbookBuffer, { type: 'array', cellStyles: true });
+    //     const sheetName = workbook.SheetNames[0];
+    //     const ws = workbook.Sheets[sheetName];
+    //     const startDataRowIndex = 3;
+    //     const dataRowsForTemplate = gridData.map(row => [
+    //         row.eskiPoz, row.tedasNo, row.anaNo, row.altNo,
+    //         row.description, row.olcuBrimi, row.malzeme, row.malzemeYuklenici,
+    //         row.montaj, row.demontaj, row.demontajMontaj,
+    //         row.birimFiyatMalzeme, row.birimFiyatMontaj, row.birimFiyatDemontaj, row.birimFiyatDemontajMontaj,
+    //         row.aciklama,
+    //         row.isCategory && row.categoryPercentage !== null ? row.categoryPercentage : '',
+    //         row.toplamMalzeme, row.toplamMontaj, row.toplamDemontaj, row.toplamDemontajdanMontaj
+    //     ]);
+    //     XLSX.utils.sheet_add_aoa(ws, dataRowsForTemplate, { origin: startDataRowIndex, cellStyles: true });
+    //     const startRowForTotals = startDataRowIndex + dataRowsForTemplate.length + 1;
+    //     const totalSumsOutputRows = [
+    //         [...Array(16).fill(''), 'ALT TOPLAM:', totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl],
+    //         [...Array(16).fill(''), 'TOPLAM KEŞİF BEDELİ TL:', totalKesifBedeliTl, '', '', '']
+    //     ];
+    //     XLSX.utils.sheet_add_aoa(ws, totalSumsOutputRows, { origin: startRowForTotals, cellStyles: true });
+    //     const borderStyle = {
+    //         top: { style: "thin", color: { auto: 1 } },
+    //         bottom: { style: "thin", color: { auto: 1 } },
+    //         left: { style: "thin", color: { auto: 1 } },
+    //         right: { style: "thin", color: { auto: 1 } },
+    //     };
+    //     const totalLabelStyle = {
+    //         font: { bold: true, color: { rgb: "000000" } },
+    //         fill: { fgColor: { rgb: "D9E1F2" } },
+    //         alignment: { horizontal: "right", vertical: "center", wrapText: false },
+    //         border: borderStyle,
+    //     };
+    //     const totalAmountStyle = {
+    //         font: { bold: true, color: { rgb: "000000" } },
+    //         fill: { fgColor: { rgb: "D9E1F2" } },
+    //         alignment: { horizontal: "right", vertical: "center", wrapText: false },
+    //         border: borderStyle,
+    //         numFmt: "#,##0.00"
+    //     };
+    //     for (let R = 0; R < totalSumsOutputRows.length; R++) {
+    //         const currentRowIndexInWorksheet = startRowForTotals + R;
+    //         const currentTotalRowData = totalSumsOutputRows[R];
+    //         for (let C = 0; C < currentTotalRowData.length; C++) {
+    //             const cellAddress = XLSX.utils.encode_cell({ r: currentRowIndexInWorksheet, c: C });
+    //             const cellValue = currentTotalRowData[C];
+    //             let cell = ws[cellAddress];
+    //             if (!cell) { cell = { t: 's', v: cellValue }; ws[cellAddress] = cell; }
+    //             if (C === 16) {
+    //                 Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+    //                 if (R === 0) {
+    //                     Object.assign(cell.s || (cell.s = {}), { alignment: { horizontal: "center", vertical: "center" } });
+    //                 }
+    //             }
+    //             else if (C >= 17 && C <= 20) {
+    //                 if (typeof cellValue === 'number') {
+    //                     cell.t = 'n';
+    //                     Object.assign(cell.s || (cell.s = {}), totalAmountStyle);
+    //                 } else {
+    //                     Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+    //                 }
+    //             }
+    //             else {
+    //                 Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+    //             }
+    //         }
+    //     }
+    //     const specificMerges = [
+    //         { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },
+    //         { s: { r: 0, c: 4 }, e: { r: 2, c: 4 } },
+    //         { s: { r: 0, c: 5 }, e: { r: 2, c: 5 } },
+    //         { s: { r: 0, c: 15 }, e: { r: 2, c: 15 } },
+    //         { s: { r: 0, c: 16 }, e: { r: 2, c: 16 } },
+    //         { s: { r: 1, c: 1 }, e: { r: 1, c: 3 } },
+    //         { s: { r: 1, c: 6 }, e: { r: 1, c: 10 } },
+    //         { s: { r: 1, c: 11 }, e: { r: 1, c: 14 } },
+    //         { s: { r: 1, c: 17 }, e: { r: 1, c: 20 } },
+    //         { s: { r: startRowForTotals, c: 16 }, e: { r: startRowForTotals, c: 17 } },
+    //         { s: { r: startRowForTotals + 1, c: 16 }, e: { r: startRowForTotals + 1, c: 17 } },
+    //     ];
+    //     ws['!merges'] = (ws['!merges'] || []).concat(specificMerges);
+    //     const colWidths = [
+    //         { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 30 }, { wch: 10 },
+    //         { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+    //         { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 },
+    //         { wch: 40 },
+    //         { wch: 15 },
+    //         { wch: 20 },
+    //         { wch: 20 },
+    //         { wch: 20 },
+    //         { wch: 20 }
+    //     ];
+    //     ws['!cols'] = colWidths;
+    //     XLSX.writeFile(workbook, `İhaleDetayları_${tenderId}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
+    //     showAlert('Excel önizlemesi başarıyla oluşturuldu!', 'success');
+    // }, [templateWorkbookBuffer, gridData, totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl, totalKesifBedeliTl, tenderId, showAlert]);
+
+    // const handleExportExcelPreview = useCallback(async () => {
+    //     if (processedAndFilteredGridData.length === 0) {
+    //         showAlert('Dışa aktarılacak kayıtlı iş detayı bulunmamaktadır.', 'warning');
+    //         return;
+    //     }
+
+    //     showAlert('Excel oluşturuluyor...', 'info');
+
+    //     try {
+    //         const workbook = new Excel.Workbook();
+    //         const worksheet = workbook.addWorksheet('İhale Detayları', {
+    //             views: [{ rightToLeft: false }] // نمایش از راست به چپ
+    //         });
+
+    //         // تعیین استایل‌های پرکاربرد
+    //         const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; // رنگ خاکستری-آبی
+    //         const totalFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }; // رنگ خاکستری روشن
+    //         const headerFont = { bold: true, color: { argb: 'FF000000' } };
+    //         const totalFont = { bold: true, color: { argb: 'FF000000' } };
+    //         const centerAlignment = { vertical: 'middle', horizontal: 'center' };
+    //         const rightAlignment = { vertical: 'middle', horizontal: 'right' };
+    //         const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+    //         const border = {
+    //             top: thinBorder,
+    //             left: thinBorder,
+    //             bottom: thinBorder,
+    //             right: thinBorder
+    //         };
+
+    //         // تعریف هدر اصلی و فرعی در قالب آرایه‌های مجزا
+    //         const headerRow1 = ['ESKİ POZ', 'YENİ POZ NO', '', '', 'MALZEME VEYA İŞİN CİNSİ', 'ÖLÇÜ BRİMİ', 'MİKTAR', '', '', '', '', 'Birim fiyatlar', '', '', '', 'AÇIKLAMA', '%Kategoriler', 'TUTARLAR', '', '', ''];
+    //         const headerRow2 = ['', 'TEDAŞ', 'ANA', 'ALT', '', '', 'MALZEME (GDZ)', 'MALZEME MİKTARI', 'MONTAJ MİKTARI', 'DEMONTAJ MİKTARI', 'DMM MİKTARI', 'MALZEME (TL)', 'MONTAJ (TL)', 'DEMONTAJ (SÖKME) (TL)', 'DEMONTAJDAN MONTAJ (TL)', '', '', 'MALZEME TUTARI-TL', 'MONTAJ TUTARI-TL', 'DEMONTAJ TUTARI-TL', 'DMM TUTARI-TL', ''];
+
+    //         // اضافه کردن هدرها و اعمال استایل
+    //         const worksheetHeader1 = worksheet.addRow(headerRow1);
+    //         const worksheetHeader2 = worksheet.addRow(headerRow2);
+    //         const worksheetHeader3 = worksheet.addRow([]); // یک سطر خالی برای ایجاد فضای مناسب
+
+    //         // ادغام سلول‌های هدر
+    //         worksheet.mergeCells('A1:A3');
+    //         worksheet.mergeCells('B1:D1');
+    //         worksheet.mergeCells('E1:E3');
+    //         worksheet.mergeCells('F1:F3');
+    //         worksheet.mergeCells('G1:K1');
+    //         worksheet.mergeCells('L1:O1');
+    //         worksheet.mergeCells('P1:P3');
+    //         worksheet.mergeCells('Q1:Q3');
+    //         worksheet.mergeCells('R1:U1');
+    //         worksheet.mergeCells('B2:D2');
+    //         worksheet.mergeCells('G2:K2');
+    //         worksheet.mergeCells('L2:O2');
+    //         worksheet.mergeCells('R2:U2');
+
+    //         // اعمال استایل به سلول‌های هدر
+    //         [worksheetHeader1, worksheetHeader2, worksheetHeader3].forEach(row => {
+    //             row.eachCell({ includeEmpty: true }, cell => {
+    //                 cell.border = border;
+    //                 cell.alignment = centerAlignment;
+    //                 cell.font = headerFont;
+    //             });
+    //         });
+
+    //         // تنظیم عرض ستون‌ها
+    //         worksheet.columns = [
+    //             { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 }, { width: 30 }, { width: 10 },
+    //             { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 },
+    //             { width: 15 }, { width: 15 }, { width: 20 }, { width: 25 },
+    //             { width: 40 }, { width: 15 },
+    //             { width: 20 }, { width: 20 }, { width: 20 }, { width: 20 }
+    //         ];
+
+    //         // ایجاد و اضافه کردن ردیف‌های داده
+    //         const startDataRowIndex = 4;
+    //         processedAndFilteredGridData.forEach((row, index) => {
+    //             const newRow = [
+    //                 row.eskiPoz, row.tedasNo, row.anaNo, row.altNo, row.description, row.olcuBrimi,
+    //                 row.malzeme, row.malzemeYuklenici, row.montaj, row.demontaj, row.demontajMontaj,
+    //                 row.birimFiyatMalzeme, row.birimFiyatMontaj, row.birimFiyatDemontaj, row.birimFiyatDemontajMontaj,
+    //                 row.aciklama, row.isCategory && row.categoryPercentage !== null ? row.categoryPercentage : '',
+    //                 row.toplamMalzeme, row.toplamMontaj, row.toplamDemontaj, row.toplamDemontajdanMontaj
+    //             ];
+    //             worksheet.addRow(newRow);
+
+    //             // اعمال استایل به هر سلول از ردیف داده
+    //             const currentRow = worksheet.getRow(startDataRowIndex + index);
+    //             currentRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+    //                 cell.border = border;
+    //                 cell.alignment = { vertical: 'top', horizontal: 'center', wrapText: true };
+
+    //                 if (colNumber > 17 && colNumber < 22) { // ستون‌های TUTARLAR
+    //                     cell.numFmt = '#,##0.00';
+    //                     cell.alignment = rightAlignment;
+    //                 } else if (colNumber === 5 || colNumber === 16) { // ستون‌های Description و Açıklama
+    //                     cell.alignment = { ...cell.alignment, horizontal: 'right' };
+    //                 }
+    //             });
+    //         });
+
+    //         // اضافه کردن سطر جمع کل
+    //         const totalRowIndex = worksheet.lastRow.number + 2;
+    //         const totalRow1 = worksheet.addRow([]);
+    //         const totalRow2 = worksheet.addRow([]);
+    //         worksheet.mergeCells(`P${totalRowIndex}:Q${totalRowIndex}`);
+    //         worksheet.mergeCells(`P${totalRowIndex + 1}:Q${totalRowIndex + 1}`);
+
+    //         // پر کردن و استایل‌دهی سطر جمع کل
+    //         const totalLabelCell1 = worksheet.getCell(`P${totalRowIndex}`);
+    //         const totalLabelCell2 = worksheet.getCell(`P${totalRowIndex + 1}`);
+    //         totalLabelCell1.value = 'ALT TOPLAM:';
+    //         totalLabelCell2.value = 'TOPLAM KEŞİF BEDELİ TL:';
+
+    //         [totalRow1, totalRow2].forEach(row => {
+    //             row.eachCell({ includeEmpty: true }, cell => {
+    //                 cell.border = border;
+    //                 cell.font = totalFont;
+    //                 cell.fill = totalFill;
+    //                 cell.alignment = rightAlignment;
+    //             });
+    //         });
+
+    //         // تنظیم مقادیر عددی و فرمت‌دهی سطر جمع کل
+    //         worksheet.getCell(`R${totalRowIndex}`).value = totalMalzemeTutariTl;
+    //         worksheet.getCell(`S${totalRowIndex}`).value = totalMontajTutariTl;
+    //         worksheet.getCell(`T${totalRowIndex}`).value = totalDemontajTutariTl;
+    //         worksheet.getCell(`U${totalRowIndex}`).value = totalDmmTutariTl;
+    //         worksheet.getCell(`R${totalRowIndex + 1}`).value = totalKesifBedeliTl;
+
+    //         worksheet.getCell(`R${totalRowIndex}`).numFmt = '#,##0.00';
+    //         worksheet.getCell(`S${totalRowIndex}`).numFmt = '#,##0.00';
+    //         worksheet.getCell(`T${totalRowIndex}`).numFmt = '#,##0.00';
+    //         worksheet.getCell(`U${totalRowIndex}`).numFmt = '#,##0.00';
+    //         worksheet.getCell(`R${totalRowIndex + 1}`).numFmt = '#,##0.00';
+
+    //         // ذخیره فایل
+    //         const buffer = await workbook.xlsx.writeBuffer();
+    //         const fileName = `İhaleDetayları_${tenderId}_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+    //         saveAs(new Blob([buffer]), fileName);
+
+    //         showAlert('Excel başarıyla dışa aktarıldı!', 'success');
+    //     } catch (error) {
+    //         console.error("Excel dışa aktarılırken hata:", error);
+    //         showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+    //     }
+    // }, [processedAndFilteredGridData, totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl, totalKesifBedeliTl, tenderId, showAlert]);
+
+
+    const handleExportExcelPreview = useCallback(async () => {
+        if (processedAndFilteredGridData.length === 0) {
+            showAlert('Dışa aktarılacak kayıtlı iş detayı bulunmamaktadır.', 'warning');
             return;
         }
-        const workbook = XLSX.read(templateWorkbookBuffer, { type: 'array', cellStyles: true });
-        const sheetName = workbook.SheetNames[0];
-        const ws = workbook.Sheets[sheetName];
-        const startDataRowIndex = 3;
-        const dataRowsForTemplate = gridData.map(row => [
-            row.eskiPoz, row.tedasNo, row.anaNo, row.altNo,
-            row.description, row.olcuBrimi, row.malzeme, row.malzemeYuklenici,
-            row.montaj, row.demontaj, row.demontajMontaj,
-            row.birimFiyatMalzeme, row.birimFiyatMontaj, row.birimFiyatDemontaj, row.birimFiyatDemontajMontaj,
-            row.aciklama,
-            row.isCategory && row.categoryPercentage !== null ? row.categoryPercentage : '',
-            row.toplamMalzeme, row.toplamMontaj, row.toplamDemontaj, row.toplamDemontajdanMontaj
-        ]);
-        XLSX.utils.sheet_add_aoa(ws, dataRowsForTemplate, { origin: startDataRowIndex, cellStyles: true });
-        const startRowForTotals = startDataRowIndex + dataRowsForTemplate.length + 1;
-        const totalSumsOutputRows = [
-            [...Array(16).fill(''), 'ALT TOPLAM:', totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl],
-            [...Array(16).fill(''), 'TOPLAM KEŞİF BEDELİ TL:', totalKesifBedeliTl, '', '', '']
-        ];
-        XLSX.utils.sheet_add_aoa(ws, totalSumsOutputRows, { origin: startRowForTotals, cellStyles: true });
-        const borderStyle = {
-            top: { style: "thin", color: { auto: 1 } },
-            bottom: { style: "thin", color: { auto: 1 } },
-            left: { style: "thin", color: { auto: 1 } },
-            right: { style: "thin", color: { auto: 1 } },
-        };
-        const totalLabelStyle = {
-            font: { bold: true, color: { rgb: "000000" } },
-            fill: { fgColor: { rgb: "D9E1F2" } },
-            alignment: { horizontal: "right", vertical: "center", wrapText: false },
-            border: borderStyle,
-        };
-        const totalAmountStyle = {
-            font: { bold: true, color: { rgb: "000000" } },
-            fill: { fgColor: { rgb: "D9E1F2" } },
-            alignment: { horizontal: "right", vertical: "center", wrapText: false },
-            border: borderStyle,
-            numFmt: "#,##0.00"
-        };
-        for (let R = 0; R < totalSumsOutputRows.length; R++) {
-            const currentRowIndexInWorksheet = startRowForTotals + R;
-            const currentTotalRowData = totalSumsOutputRows[R];
-            for (let C = 0; C < currentTotalRowData.length; C++) {
-                const cellAddress = XLSX.utils.encode_cell({ r: currentRowIndexInWorksheet, c: C });
-                const cellValue = currentTotalRowData[C];
-                let cell = ws[cellAddress];
-                if (!cell) { cell = { t: 's', v: cellValue }; ws[cellAddress] = cell; }
-                if (C === 16) {
-                    Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
-                    if (R === 0) {
-                        Object.assign(cell.s || (cell.s = {}), { alignment: { horizontal: "center", vertical: "center" } });
+
+        showAlert('Excel oluşturuluyor...', 'info');
+
+        try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('İhale Detayları', {
+                views: [{ rightToLeft: false }]
+            });
+
+            const thinBorder: Partial<Excel.Border> = {
+                style: 'thin',
+                color: { argb: 'FFD3D3D3' }
+            };
+
+            const border: Partial<Excel.Borders> = {
+                top: thinBorder,
+                left: thinBorder,
+                bottom: thinBorder,
+                right: thinBorder
+            };
+
+            const headerFill: Partial<Excel.Fill> = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFD9E1F2' }
+            };
+
+            const subHeaderFill: Partial<Excel.Fill> = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFEDEDED' }
+            };
+
+            const font: Partial<Excel.Font> = {
+                name: 'Calibri',
+                size: 11,
+                bold: false,
+                color: { argb: 'FF000000' }
+            };
+
+            const headerFont: Partial<Excel.Font> = { ...font, bold: true };
+            const subHeaderFont: Partial<Excel.Font> = { ...font, bold: true };
+
+            const centerAlignment: Partial<Excel.Alignment> = {
+                vertical: 'middle',
+                horizontal: 'center',
+                wrapText: true
+            };
+
+            const leftAlignment: Partial<Excel.Alignment> = {
+                vertical: 'middle',
+                horizontal: 'left',
+                wrapText: true
+            };
+
+            const rightAlignment: Partial<Excel.Alignment> = {
+                vertical: 'middle',
+                horizontal: 'right',
+                wrapText: true
+            };
+
+            const numberFormat: string = '#,##0.00';
+            const percentFormat: string = '0.00';
+
+
+            const fullHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: headerFont,
+                fill: headerFill
+            } as Partial<Excel.Style>;
+
+            const fullSubHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: subHeaderFont,
+                fill: subHeaderFill
+            } as Partial<Excel.Style>;
+
+
+            // --- ساختار هدرها ---
+            const h1 = ['ESKİ POZ', 'YENİ POZ NO', '', '', 'MALZEME VEYA İŞİN CİNSİ', 'ÖLÇÜ BRİMİ', 'MİKTAR', '', '', '', '', 'Birim fiyatlar', '', '', '', 'AÇIKLAMA', '%Kategoriler', 'TUTARLAR', '', '', ''];
+            const h2 = ['', 'TEDAŞ', 'ANA', 'ALT', '', '', 'MALZEME (GDZ)', 'MALZEME MİKTARI', 'MONTAJ MİKTARI', 'DEMONTAJ MİKTARI', 'DMM MİKTARI', 'MALZEME (TL)', 'MONTAJ (TL)', 'DEMONTAJ (SÖKME) (TL)', 'DEMONTAJDAN MONTAJ (TL)', '', '', 'MALZEME TUTARI-TL', 'MONTAJ TUTARI-TL', 'DEMONTAJ TUTARI-TL', 'DMM TUTARI-TL', ''];
+
+            const worksheetHeader1 = worksheet.addRow(h1);
+            const worksheetHeader2 = worksheet.addRow(h2);
+
+            // --- اعمال Merge و استایل‌دهی به هدرها ---
+            worksheet.mergeCells('A1:A2');
+            worksheet.mergeCells('B1:D1');
+            worksheet.mergeCells('E1:E2');
+            worksheet.mergeCells('F1:F2');
+            worksheet.mergeCells('G1:K1');
+            worksheet.mergeCells('L1:O1');
+            worksheet.mergeCells('P1:P2');
+            worksheet.mergeCells('Q1:Q2');
+            worksheet.mergeCells('R1:U1');
+
+            // اعمال استایل به تمام سلول‌های هدر
+            worksheetHeader1.eachCell({ includeEmpty: true }, (cell) => {
+                Object.assign(cell.style, fullHeaderStyle);
+            });
+            worksheetHeader2.eachCell({ includeEmpty: true }, (cell) => {
+                Object.assign(cell.style, fullSubHeaderStyle);
+            });
+
+            // تنظیم عرض ستون‌ها
+            worksheet.columns = [
+                { width: 10 }, { width: 10 }, { width: 10 }, { width: 10 },
+                { width: 30 }, { width: 10 },
+                { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 },
+                { width: 15 }, { width: 15 }, { width: 20 }, { width: 25 },
+                { width: 40 }, { width: 15 },
+                { width: 20 }, { width: 20 }, { width: 20 }, { width: 20 }
+            ];
+
+            processedAndFilteredGridData.forEach((row, _index) => {
+                const newRow = [
+                    row.eskiPoz, row.tedasNo, row.anaNo, row.altNo, row.description, row.olcuBrimi,
+                    row.malzeme, row.malzemeYuklenici, row.montaj, row.demontaj, row.demontajMontaj,
+                    row.birimFiyatMalzeme, row.birimFiyatMontaj, row.birimFiyatDemontaj, row.birimFiyatDemontajMontaj,
+                    row.aciklama, row.isCategory && row.categoryPercentage !== null ? row.categoryPercentage : '',
+                    row.toplamMalzeme, row.toplamMontaj, row.toplamDemontaj, row.toplamDemontajdanMontaj
+                ];
+                const worksheetRow = worksheet.addRow(newRow);
+
+                worksheetRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    cell.style = { border: border, font: font, alignment: { wrapText: true, vertical: 'top', horizontal: 'center' } };
+
+                    if (colNumber > 17 && colNumber <= 21) {
+                        cell.numFmt = numberFormat;
+                        cell.alignment = rightAlignment;
+                    } else if (colNumber === 17) {
+                        cell.numFmt = percentFormat;
+                        cell.alignment = centerAlignment;
+                    } else if (colNumber === 5 || colNumber === 16) {
+                        cell.alignment = leftAlignment;
                     }
-                }
-                else if (C >= 17 && C <= 20) {
-                    if (typeof cellValue === 'number') {
-                        cell.t = 'n';
-                        Object.assign(cell.s || (cell.s = {}), totalAmountStyle);
-                    } else {
-                        Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
+                });
+            });
+
+            // --- اضافه کردن سطر جمع کل ---
+            const lastDataRowNumber = worksheet.lastRow?.number || 0;
+            const totalRowIndex = lastDataRowNumber + 2;
+            const totalRow1 = worksheet.getRow(totalRowIndex);
+            const totalRow2 = worksheet.getRow(totalRowIndex + 1);
+
+            totalRow1.getCell(16).value = 'ALT TOPLAM:';
+            totalRow2.getCell(16).value = 'TOPLAM KEŞİF BEDELİ TL:';
+            totalRow1.getCell(18).value = totalMalzemeTutariTl;
+            totalRow1.getCell(19).value = totalMontajTutariTl;
+            totalRow1.getCell(20).value = totalDemontajTutariTl;
+            totalRow1.getCell(21).value = totalDmmTutariTl;
+            totalRow2.getCell(18).value = totalKesifBedeliTl;
+
+            worksheet.mergeCells(`P${totalRow1.number}:Q${totalRow1.number}`);
+            worksheet.mergeCells(`P${totalRow2.number}:Q${totalRow2.number}`);
+            worksheet.mergeCells(`R${totalRow2.number}:U${totalRow2.number}`);
+
+            // [totalRow1, totalRow2].forEach(row => {
+            //     row.eachCell({ includeEmpty: true }, cell => {
+            //         cell.style = {
+            //             border: border,
+            //             font: headerFont,
+            //             fill: headerFill,
+            //             alignment: rightAlignment
+            //         };
+            //         if (cell.col >= 18 && cell.col <= 21) {
+            //             cell.numFmt = numberFormat;
+            //         }
+            //     });
+            // });
+
+            [totalRow1, totalRow2].forEach(row => {
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    cell.style = {
+                        border: border,
+                        font: headerFont,
+                        fill: headerFill as Excel.Fill,
+                        alignment: rightAlignment
+                    };
+                    // از colNumber به جای cell.col استفاده کنید
+                    if (colNumber > 17 && colNumber <= 21) {
+                        cell.numFmt = numberFormat;
                     }
-                }
-                else {
-                    Object.assign(cell.s || (cell.s = {}), totalLabelStyle);
-                }
-            }
+                });
+            });
+
+            // --- ذخیره فایل ---
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `İhaleDetayları_${tenderId}_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla dışa aktarıldı!', 'success');
+        } catch (error) {
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
-        const specificMerges = [
-            { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },
-            { s: { r: 0, c: 4 }, e: { r: 2, c: 4 } },
-            { s: { r: 0, c: 5 }, e: { r: 2, c: 5 } },
-            { s: { r: 0, c: 15 }, e: { r: 2, c: 15 } },
-            { s: { r: 0, c: 16 }, e: { r: 2, c: 16 } },
-            { s: { r: 1, c: 1 }, e: { r: 1, c: 3 } },
-            { s: { r: 1, c: 6 }, e: { r: 1, c: 10 } },
-            { s: { r: 1, c: 11 }, e: { r: 1, c: 14 } },
-            { s: { r: 1, c: 17 }, e: { r: 1, c: 20 } },
-            { s: { r: startRowForTotals, c: 16 }, e: { r: startRowForTotals, c: 17 } },
-            { s: { r: startRowForTotals + 1, c: 16 }, e: { r: startRowForTotals + 1, c: 17 } },
-        ];
-        ws['!merges'] = (ws['!merges'] || []).concat(specificMerges);
-        const colWidths = [
-            { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 30 }, { wch: 10 },
-            { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
-            { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 25 },
-            { wch: 40 },
-            { wch: 15 },
-            { wch: 20 },
-            { wch: 20 },
-            { wch: 20 },
-            { wch: 20 }
-        ];
-        ws['!cols'] = colWidths;
-        XLSX.writeFile(workbook, `İhaleDetayları_${tenderId}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
-        showAlert('Excel önizlemesi başarıyla oluşturuldu!', 'success');
-    }, [templateWorkbookBuffer, gridData, totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl, totalKesifBedeliTl, tenderId, showAlert]);
+    }, [processedAndFilteredGridData, totalMalzemeTutariTl, totalMontajTutariTl, totalDemontajTutariTl, totalDmmTutariTl, totalKesifBedeliTl, tenderId, showAlert]);
+
 
     interface CombinedTreeMenuItemProps {
         node: UnifiedTreeNode;
@@ -2116,7 +2470,6 @@ const TenderDetails = () => {
                                     right: 24,
                                     zIndex: 1000,
                                     display: hasUnsavedChanges ? 'block' : 'none',
-                                    // ✅ این بخش جدید را اضافه کنید
                                     '& .blinking-button': {
                                         animation: `${blinkAnimation} 1.5s infinite`,
                                         '&:hover': {
@@ -2127,7 +2480,7 @@ const TenderDetails = () => {
                             >
                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}>
                                     <Button
-                                        className="blinking-button" // ✅ کلاس CSS را به دکمه اضافه کنید
+                                        className="blinking-button"
                                         variant="contained"
                                         color="error"
                                         onClick={handleSaveAllData}

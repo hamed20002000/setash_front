@@ -30,7 +30,7 @@ import {
   ToggleButton as MuiToggleButton,
   TableSortLabel,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -38,7 +38,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight, IconFileDownload }
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconChevronRight, IconFileDownload, IconX }
   from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -54,6 +54,17 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+  animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+  transition: 'transform 0.3s ease-in-out',
+}));
 
 interface ApiCategoryType {
   id: string;
@@ -194,6 +205,10 @@ const ListCategory = () => {
 
   const { isTooltipGloballyEnabled } = useTooltip();
 
+
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(true);
+
   // دسته‌بندی والد فعلی که زیرمجموعه‌های آن نمایش داده می‌شوند
   const [currentParentCategory, setCurrentParentCategory] = useState<CategoryType | null>(null);
   // مسیر Breadcrumb
@@ -234,7 +249,6 @@ const ListCategory = () => {
     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
   }, [allowedOperations]);
 
-  // تابع کمکی برای پیدا کردن یک دسته‌بندی بر اساس ID در ساختار Nested (بازگشتی)
   const findCategoryById = useCallback((categories: ApiCategoryType[], id: string): ApiCategoryType | undefined => {
     for (const cat of categories) {
       if (cat.id === id) {
@@ -261,15 +275,12 @@ const ListCategory = () => {
   };
 
 
-  // تابع کمکی برای استخراج زیرمجموعه‌های مستقیم یک دسته‌بندی خاص
   const getDirectChildrenOfParent = useCallback((categories: ApiCategoryType[], parentId: string | null): CategoryType[] => {
     let directChildren: CategoryType[] = [];
     if (parentId === null) {
-      // برای دسته‌بندی‌های سطح اول (والد null)
       directChildren = categories.filter(cat => cat.parentId === null).map(cat => ({
         id: cat.id,
         name: cat.name,
-        // code: cat.code, // 🔴 حذف شد
         createAt: cat.createAt,
         recordStatus: cat.recordStatus,
         status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Pasif' : 'Silindi',
@@ -277,13 +288,12 @@ const ListCategory = () => {
         depth: cat.depth,
       }));
     } else {
-      // برای زیرمجموعه‌های یک والد خاص، ابتدا والد را پیدا کرده و سپس از آرایه `categories` آن استفاده می‌کنیم.
+
       const parent = findCategoryById(categories, parentId);
       if (parent && parent.categories) {
         directChildren = parent.categories.map(cat => ({
           id: cat.id,
           name: cat.name,
-          // code: cat.code, // 🔴 حذف شد
           createAt: cat.createAt,
           recordStatus: cat.recordStatus,
           status: cat.recordStatus === 0 ? 'Aktif' : cat.recordStatus === 1 ? 'Pasif' : 'Silindi',
@@ -316,7 +326,6 @@ const ListCategory = () => {
   const handleClickCloseDeleteModal = () => {
     setOpenDeleteModal(false);
     setCategoryIdToDelete(null);
-    // پس از حذف، داده‌ها را دوباره از API واکشی کن
     fetchCategories();
   };
 
@@ -334,32 +343,37 @@ const ListCategory = () => {
     if (alertMessage) {
       timer = setTimeout(() => {
         clearAlert();
-      }, 5000); // 5000 milliseconds = 5 seconds
+      }, 5000);
     }
     return () => {
-      clearTimeout(timer); // Clear the timer if the component unmounts or alertMessage changes
+      clearTimeout(timer);
     };
   }, [alertMessage]);
+
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsBlinking(false);
+    }, 5000);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
-      // setCode(selectedRowForMenu.code); // 🔴 حذف شد: ست کردن code هنگام ویرایش
+      setIsFormVisible(true);
 
       setEditingId(selectedRowForMenu.id);
       setEditingParentId(selectedRowForMenu.parentId);
 
-      // **پاک کردن وضعیت خطاها هنگام ویرایش**
       setNameError(false);
       setNameHelperText('');
-      // setCodeError(false); // 🔴 پاک کردن خطای code
-      // setCodeHelperText(''); // 🔴 پاک کردن متن کمکی code
-
-      // ✅ Added: Scroll to the category name input and focus
       setTimeout(() => {
         categoryNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         categoryNameInputRef.current?.focus();
-      }, 100); // Small delay to ensure DOM update
+      }, 100);
     }
     handleCloseMenu();
     clearAlert();
@@ -368,14 +382,9 @@ const ListCategory = () => {
   const handleCancelEdit = () => {
     resetFormAndState();
     clearAlert();
-    // **پاک کردن وضعیت خطاها**
     setNameError(false);
     setNameHelperText('');
-    // setCodeError(false); // 🔴 پاک کردن خطای code
-    // setCodeHelperText(''); // 🔴 پاک کردن متن کمکی code
   };
-
-  // --- توابع فراخوانی API ---
   const fetchCategories = async () => {
     setLoadingData(true);
     const authToken = localStorage.getItem('authToken');
@@ -423,23 +432,13 @@ const ListCategory = () => {
 
   const insertCategory = async () => {
     if (!name.trim()) {
-      setNameError(true); // تنظیم وضعیت خطا به true
-      setNameHelperText('Kategori adı boş bırakılamaz!'); // تنظیم پیام کمکی
+      setNameError(true);
+      setNameHelperText('Kategori adı boş bırakılamaz!');
       showAlert('İsim boş bırakılamaz!', 'warning');
       return;
     }
-    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
-    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
-
-    // 🔴 حذف شد: اعتبارسنجی فیلد Code
-    // if (!code.trim()) {
-    //   setCodeError(true);
-    //   setCodeHelperText('Kategori kodu boş bırakılamaz!');
-    //   showAlert('Kod boş bırakılamaz!', 'warning');
-    //   return;
-    // }
-    // setCodeError(false);
-    // setCodeHelperText('');
+    setNameError(false);
+    setNameHelperText('');
 
     clearAlert();
     setLoadingButton(true);
@@ -452,33 +451,27 @@ const ListCategory = () => {
     }
 
     try {
-      // تعیین عمق و parentId دسته‌بندی جدید
-      const categoryParentId = currentParentCategory ? currentParentCategory.id : null; // ParentId should be null for top-level categories
-
-      // داده‌هایی که باید به API ارسال شوند
+      const categoryParentId = currentParentCategory ? currentParentCategory.id : null;
       const newCategoryData = {
         name: name,
-        // code: code, // 🔴 حذف شد: ارسال code به API
-        // API expects `parentId` as number if it's not null, or 0 if it's null (or simply omit)
-        parentId: categoryParentId ? Number(categoryParentId) : null // Ensure parentId is number or null
+        parentId: categoryParentId ? Number(categoryParentId) : null
       };
 
-      // فراخوانی API برای ایجاد دسته‌بندی جدید
       const response = await axios.request({
-        baseURL: server.baseurl + server.baseinfo + "create-category", // آدرس API برای ایجاد دسته‌بندی
+        baseURL: server.baseurl + server.baseinfo + "create-category",
         method: "post",
         headers: {
           "Accept": "application/json",
           "Authorization": `Bearer ${authToken}`,
-          "Content-Type": "application/json" // حتماً Content-Type را تنظیم کنید
+          "Content-Type": "application/json"
         },
-        data: newCategoryData // ارسال داده‌ها
+        data: newCategoryData
       });
 
       if (response.data.httpStatusCode === 201) {
         showAlert('Yeni kategori başarıyla eklendi!', 'success');
         resetFormAndState();
-        await fetchCategories(); // پس از اضافه شدن موفقیت‌آمیز، دوباره لیست کامل دسته‌بندی‌ها را واکشی می‌کنیم
+        await fetchCategories();
       } else {
         showAlert(response.data.message || 'Kategori eklenirken bir hata oluştu.', 'error');
       }
@@ -499,32 +492,19 @@ const ListCategory = () => {
 
 
   const editCategory = async () => {
-    // بررسی خالی نبودن نام جدید
     if (!name.trim()) {
-      setNameError(true); // تنظیم وضعیت خطا به true
-      setNameHelperText('Kategori adı boş bırakılamaz!'); // تنظیم پیام کمکی
+      setNameError(true);
+      setNameHelperText('Kategori adı boş bırakılamaz!');
       showAlert('İsim boş bırakılamaz!', 'warning');
       return;
     }
-    setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
-    setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
-
-    // 🔴 حذف شد: اعتبارسنجی فیلد Code برای ویرایش
-    // if (!code.trim()) {
-    //   setCodeError(true);
-    //   setCodeHelperText('Kategori kodu boş bırakılamaz!');
-    //   showAlert('Kod boş bırakılamaz!', 'warning');
-    //   return;
-    // }
-    // setCodeError(false);
-    // setCodeHelperText('');
-
+    setNameError(false);
+    setNameHelperText('');
     clearAlert();
 
     setLoadingButton(true);
     const authToken = localStorage.getItem('authToken');
 
-    // بررسی وجود توکن احراز هویت
     if (!authToken) {
       showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
       setLoadingButton(false);
@@ -532,30 +512,27 @@ const ListCategory = () => {
     }
 
     try {
-      // ساختار داده‌های مورد نیاز برای API جدید
       const updateData = {
-        id: Number(editingId), // ID دسته بندی مورد نظر برای بروزرسانی
-        newname: name, // نام جدید
-        // code: code, // 🔴 حذف شد: ارسال code به API برای ویرایش
-        parentId: editingParentId ? Number(editingParentId) : null // ParentId را به number یا null تبدیل می‌کنیم
+        id: Number(editingId),
+        newname: name,
+        parentId: editingParentId ? Number(editingParentId) : null
       };
 
-      // فراخوانی API برای بروزرسانی دسته بندی
       const response = await axios.request({
-        baseURL: server.baseurl + server.baseinfo + "update-category", // آدرس API جدید
+        baseURL: server.baseurl + server.baseinfo + "update-category",
         method: "put",
         headers: {
           "Accept": "application/json",
           "Authorization": `Bearer ${authToken}`,
           "Content-Type": "application/json"
         },
-        data: updateData // ارسال داده‌ها در بدنه درخواست
+        data: updateData
       });
 
       if (response.data.httpStatusCode === 200) {
         showAlert('Kategori başarıyla güncellendi!', 'success');
         resetFormAndState();
-        await fetchCategories(); // واکشی مجدد همه دسته‌بندی‌ها برای نمایش داده‌های بروزرسانی شده
+        await fetchCategories();
       } else {
         showAlert(response.data.message || 'Kategori güncellenirken bir hata oluştu.', 'error');
       }
@@ -584,12 +561,12 @@ const ListCategory = () => {
 
     try {
       const updateData = {
-        id: Number(id), // ID دسته بندی مورد نظر برای بروزرسانی
+        id: Number(id),
         recordStatus: statusValue
       };
 
       const response = await axios.request({
-        baseURL: server.baseurl + server.baseinfo + "update-category", // endpoint جدید شما
+        baseURL: server.baseurl + server.baseinfo + "update-category",
         method: "put",
         headers: {
           "Accept": "application/json",
@@ -634,54 +611,42 @@ const ListCategory = () => {
 
   const resetFormAndState = () => {
     setName('');
-    // setCode(''); // 🔴 حذف شد: ریست کردن code
     setEditingId(null);
     setEditingParentId(null);
-    // **پاک کردن وضعیت خطاها**
     setNameError(false);
     setNameHelperText('');
-    // setCodeError(false); // 🔴 پاک کردن خطای code
-    // setCodeHelperText(''); // 🔴 پاک کردن متن کمکی code
+
+    setIsFormVisible(false);
   };
 
-
-  // این `useEffect` فقط در زمان mount شدن کامپوننت فراخوانی اولیه را انجام می‌دهد.
   useEffect(() => {
     const initFetch = async () => {
       await fetchCategories();
     };
     initFetch();
-  }, []); // بدون وابندگی برای اجرای فقط یک بار
-
-  // این `useEffect` زمانی اجرا می‌شود که `rawApiCategories` (داده‌های اصلی) یا فیلترها تغییر کنند.
+  }, []);
   useEffect(() => {
-    // 1. Get direct children of the current parent
     const directChildren = getDirectChildrenOfParent(rawApiCategories, currentParentCategory?.id || null);
 
-    // 2. Filter these children by search term and status
     const filteredBySearchAndStatus = directChildren.filter(category => {
-      const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase()); // 🔴 جستجو بر اساس code حذف شد
+      const matchesSearch = category.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus =
         statusFilter === 'all' ||
         (statusFilter === 'active' && category.recordStatus === 0) ||
         (statusFilter === 'inactive' && category.recordStatus === 1);
       return matchesSearch && matchesStatus;
     });
-
-    // 3. Apply sorting to the filtered data
     const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
 
-    setDisplayedCategories(sortedData); // Set the sorted and filtered data
-    setPage(0); // Reset to first page when filters or data change
+    setDisplayedCategories(sortedData);
+    setPage(0);
   }, [rawApiCategories, currentParentCategory, searchTerm, statusFilter, getDirectChildrenOfParent, order, orderBy]);
 
 
   const handleEnterSubcategories = (category: CategoryType) => {
     setCurrentParentCategory(category);
-    // بروزرسانی Breadcrumb
     const newPath = [...breadcrumbPath];
     const lastItem = newPath[newPath.length - 1];
-    // اگر آخرین آیتم breadcrumb همان دسته‌بندی نیست، آن را اضافه کن.
     if (lastItem.id !== category.id) {
       newPath.push({ id: category.id, name: category.name, depth: category.depth });
     }
@@ -694,12 +659,10 @@ const ListCategory = () => {
 
     const newPath = breadcrumbPath.slice(0, itemIndex + 1);
     setBreadcrumbPath(newPath);
-    // پیدا کردن شیء کامل دسته‌بندی برای تنظیم currentParentCategory
     const selectedCategory = item.id === null ? null : findCategoryById(rawApiCategories, item.id);
     setCurrentParentCategory(selectedCategory ? {
       id: selectedCategory.id,
       name: selectedCategory.name,
-      // code: selectedCategory.code, // 🔴 حذف شد
       createAt: selectedCategory.createAt,
       recordStatus: selectedCategory.recordStatus,
       status: selectedCategory.recordStatus === 0 ? 'Aktif' : selectedCategory.recordStatus === 1 ? 'Pasif' : 'Silindi',
@@ -720,12 +683,11 @@ const ListCategory = () => {
     }
   };
 
-  // ✅ Added: Handler for changing sort order
   const handleRequestSort = (property: SortableCategoryKeys) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-    setPage(0); // Reset to first page when sort changes
+    setPage(0);
   };
 
 
@@ -746,7 +708,6 @@ const ListCategory = () => {
     setPage(0);
   };
 
-  // `paginatedCategories` now uses `displayedCategories` which are already filtered and sorted.
   const paginatedCategories = displayedCategories.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   const getFormattedBreadcrumbPath = () => {
@@ -760,13 +721,12 @@ const ListCategory = () => {
 
     return [
       firstItem,
-      { id: null, name: '...', depth: -2 }, // ... placeholder
+      { id: null, name: '...', depth: -2 },
       ...middlePart
     ];
   };
 
   const formattedBreadcrumb = getFormattedBreadcrumbPath();
-  // Add the following function inside the `ListCategory` component, before the `return` statement.
 
   const flattenAndPrepareCategoriesForPdf = (categories: ApiCategoryType[], path: string[] = []): string[][] => {
     let rows: string[][] = [];
@@ -800,7 +760,6 @@ const ListCategory = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Add font for Turkish characters
     doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
     doc.setFont('NotoSans');
@@ -826,7 +785,6 @@ const ListCategory = () => {
     const rows = flattenAndPrepareCategoriesForPdf(rawApiCategories);
 
     try {
-      // @ts-ignore
       autoTable(doc, {
         startY: 50,
         head: [['Kategori Adı', 'Oluşturulma Tarihi', 'Durum']],
@@ -863,7 +821,46 @@ const ListCategory = () => {
         margin: "10px 0 30px 0",
         padding: "10px 15px 30px 15px"
       }}>
-        {/* Breadcrumb Box */}
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
+
+          <Typography variant="h5" mb={2}>{editingId ? 'Kategori Düzenle' : 'Yeni Kategori Kaydı'}</Typography>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            alignItems="stretch"
+            flexGrow={1}
+            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+          >
+            {!isFormVisible && hasCreatePermission && (
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Kategori Belgesi kaydetmek için tıklayınız" : ""}>
+                <BlinkingButton
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setIsFormVisible(true)}
+                  isBlinking={isBlinking}
+                  fullWidth={false}
+                >
+                  Yeni Kategori Kaydet
+                </BlinkingButton>
+              </CustomTooltip>
+            )}
+            {isFormVisible && (
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={resetFormAndState}
+                  fullWidth={false}
+                  startIcon={<IconX size={20} />}
+                >
+                  Gizle
+                </Button>
+              </CustomTooltip>
+            )}
+
+          </Stack>
+
+        </Stack>
         {breadcrumbPath.length > 1 && (
           <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
             {formattedBreadcrumb.map((item, index) => (
@@ -888,15 +885,14 @@ const ListCategory = () => {
             ))}
           </Paper>
         )}
-
-        {(hasCreatePermission || hasEditPermission) && (
+        {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
           <Grid container spacing={1}>
             <Grid item xs={12} sm={1} display="flex" alignItems="center">
               <CustomFormLabel htmlFor="category-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                 İsim
               </CustomFormLabel>
             </Grid>
-            <Grid item xs={12} sm={7}> {/* 🔴 تغییر اندازه از sm={5} به sm={8} برای اشغال فضای بیشتر */}
+            <Grid item xs={12} sm={7}>
               <CustomTextField
                 id="category-name"
                 placeholder={currentParentCategory ? "Alt Kategori Adı" : "Ana Kategori Adı"}
@@ -983,7 +979,7 @@ const ListCategory = () => {
                   startIcon={<IconFileDownload />}
                 // You can add fullWidth if you want it to be responsive
                 >
-                  Tüm Kategorileri İndir (PDF)
+                  Tümünü İndir (PDF)
                 </Button>
               </Grid>
             )}

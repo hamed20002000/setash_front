@@ -50,8 +50,9 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 
 interface VehicleData {
@@ -172,6 +173,9 @@ const ListDrivers = () => {
     const [selectedDriver, setSelectedDriver] = useState<internal | null>(null);
 
 
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const [isFilterActive, setIsFilterActive] = useState(false);
 
     const [startDate, setStartDate] = useState<Date | null>(null);
@@ -244,6 +248,14 @@ const ListDrivers = () => {
         fetchDrivers();
     }, [fetchDrivers]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
@@ -265,6 +277,7 @@ const ListDrivers = () => {
         setBirthDateError(false);
         setFatherNameError(false);
         setNationalCodeError(false);
+        setIsFormVisible(false);
     };
 
     const validateForm = (): boolean => {
@@ -405,6 +418,7 @@ const ListDrivers = () => {
                 firstNameInputRef.current?.focus();
             }, 100);
         }
+        setIsFormVisible(true);
         handleCloseMenu();
     };
 
@@ -1018,134 +1032,170 @@ const ListDrivers = () => {
 
     return (
         <>
-            <Box sx={{ p: 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
 
-                {(hasCreatePermission || hasEditPermission) && (
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                        <Typography variant="h5">Şoförler</Typography>
-
-                    </Stack>
-
-                )}
-                {alertMessage && (
-                    <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
-                        <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
-                    </Stack>
-                )}
-                <Paper elevation={3} sx={{ p: isSmallScreen ? 2 : 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'Sürücüyü Düzenle' : 'Yeni Sürücü Kaydı'}</Typography>
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <CustomFormLabel htmlFor="driver-firstName" required>Adı</CustomFormLabel>
-                            <CustomTextField
-                                id="driver-firstName"
-                                fullWidth
-                                value={firstName}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFirstName(e.target.value); if (firstNameError) setFirstNameError(false); }}
-                                inputRef={firstNameInputRef}
-                                error={firstNameError}
-                                helperText={firstNameError ? "Adı alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <CustomFormLabel htmlFor="driver-lastName" required>Soyadı</CustomFormLabel>
-                            <CustomTextField
-                                id="driver-lastName"
-                                fullWidth
-                                value={lastName}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLastName(e.target.value); if (lastNameError) setLastNameError(false); }}
-                                error={lastNameError}
-                                helperText={lastNameError ? "Soyadı alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <CustomFormLabel htmlFor="start-date" required>Doğum Tarihi</CustomFormLabel>
-                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <DatePicker
-                                    label=""
-                                    value={birthdate}
-                                    onChange={(newValue) => {
-                                        setBirthDate(newValue);
-                                        if (birthDateError && newValue) setBirthDateError(false);
-                                    }}
-                                    inputFormat="dd/MM/yyyy"
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            error={birthDateError}
-                                            helperText={birthDateError ? "Başlangıç tarihi boş olamaz!" : ""}
-                                        />
-                                    )}
-                                />
-                            </LocalizationProvider>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <CustomFormLabel htmlFor="driver-fatherName" required>Baba Adı</CustomFormLabel>
-                            <CustomTextField
-                                id="driver-fatherName"
-                                fullWidth
-                                value={fatherName}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFatherName(e.target.value); if (fatherNameError) setFatherNameError(false); }}
-                                error={fatherNameError}
-                                helperText={fatherNameError ? "Baba adı alanı boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <CustomFormLabel htmlFor="driver-identityNo" required>TC</CustomFormLabel>
-                            <CustomTextField
-                                id="driver-identityNo"
-                                fullWidth
-                                value={identityNo}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setNationalCode(e.target.value); if (nationalCodeError) setNationalCodeError(false); }}
-                                error={nationalCodeError}
-                                helperText={nationalCodeError ? "TC boş bırakılamaz!" : ""}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <CustomFormLabel required>Setaş Sürücüsü mü?</CustomFormLabel>
-                            <RadioGroup
-                                row
-                                value={internal}
-                                onChange={(e) => setDriverType(e.target.value)}
+                <Typography variant="h5" mb={2}>{editingId ? 'Sürücüyü Düzenle' : 'Yeni Şoförler Kaydı'}</Typography>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && hasCreatePermission && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şoförler Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
                             >
-                                <FormControlLabel value="1" control={<Radio />} label="Evet" />
-                                <FormControlLabel value="0" control={<Radio />} label="Hayır" />
-                            </RadioGroup>
-                        </Grid>
-                        <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
-                                {editingId !== null ? (
-                                    <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili sürücüyü güncelleyin" : ""}>
-                                            <Button variant="contained" color="info" onClick={editDriver} disabled={loadingButton} fullWidth={isSmallScreen}>
-                                                {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Düzenle'}
-                                            </Button>
-                                        </CustomTooltip>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et" : ""}>
-                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit} fullWidth={isSmallScreen}>İptal Et</Button>
-                                        </CustomTooltip>
-                                    </>
-                                ) : (
+                                Yeni Şoförler Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetFormAndState}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
 
-                                    <>
-                                        {hasCreatePermission && (
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir sürücü ekle" : ""}>
-                                                <Button variant="contained" color="success" onClick={insertDriver} disabled={loadingButton} fullWidth={isSmallScreen}>
-                                                    {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Yeni Sürücü Ekle'}
+                </Stack>
+
+            </Stack>
+
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
+                <Box sx={{ p: 3 }}>
+
+                    <Paper elevation={3} sx={{ p: isSmallScreen ? 2 : 3, mb: 3 }}>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel htmlFor="driver-firstName" required>Adı</CustomFormLabel>
+                                <CustomTextField
+                                    id="driver-firstName"
+                                    fullWidth
+                                    value={firstName}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFirstName(e.target.value); if (firstNameError) setFirstNameError(false); }}
+                                    inputRef={firstNameInputRef}
+                                    error={firstNameError}
+                                    helperText={firstNameError ? "Adı alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel htmlFor="driver-lastName" required>Soyadı</CustomFormLabel>
+                                <CustomTextField
+                                    id="driver-lastName"
+                                    fullWidth
+                                    value={lastName}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLastName(e.target.value); if (lastNameError) setLastNameError(false); }}
+                                    error={lastNameError}
+                                    helperText={lastNameError ? "Soyadı alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel htmlFor="start-date" required>Doğum Tarihi</CustomFormLabel>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <DatePicker
+                                        label=""
+                                        value={birthdate}
+                                        onChange={(newValue) => {
+                                            setBirthDate(newValue);
+                                            if (birthDateError && newValue) setBirthDateError(false);
+                                        }}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                fullWidth
+                                                error={birthDateError}
+                                                helperText={birthDateError ? "Başlangıç tarihi boş olamaz!" : ""}
+                                            />
+                                        )}
+                                    />
+                                </LocalizationProvider>
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel htmlFor="driver-fatherName" required>Baba Adı</CustomFormLabel>
+                                <CustomTextField
+                                    id="driver-fatherName"
+                                    fullWidth
+                                    value={fatherName}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFatherName(e.target.value); if (fatherNameError) setFatherNameError(false); }}
+                                    error={fatherNameError}
+                                    helperText={fatherNameError ? "Baba adı alanı boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel htmlFor="driver-identityNo" required>TC</CustomFormLabel>
+                                <CustomTextField
+                                    id="driver-identityNo"
+                                    fullWidth
+                                    value={identityNo}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setNationalCode(e.target.value); if (nationalCodeError) setNationalCodeError(false); }}
+                                    error={nationalCodeError}
+                                    helperText={nationalCodeError ? "TC boş bırakılamaz!" : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Setaş Şoförler mü?</CustomFormLabel>
+                                <RadioGroup
+                                    row
+                                    value={internal}
+                                    onChange={(e) => setDriverType(e.target.value)}
+                                >
+                                    <FormControlLabel value="1" control={<Radio />} label="Evet" />
+                                    <FormControlLabel value="0" control={<Radio />} label="Hayır" />
+                                </RadioGroup>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
+                                    {editingId !== null ? (
+                                        <>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili sürücüyü güncelleyin" : ""}>
+                                                <Button variant="contained" color="info" onClick={editDriver} disabled={loadingButton} fullWidth={isSmallScreen}>
+                                                    {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Düzenle'}
                                                 </Button>
                                             </CustomTooltip>
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et" : ""}>
+                                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit} fullWidth={isSmallScreen}>İptal Et</Button>
+                                            </CustomTooltip>
+                                        </>
+                                    ) : (
 
-                                        )}
-                                    </>
-                                )}
-                            </Stack>
+                                        <>
+                                            {hasCreatePermission && (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir sürücü ekle" : ""}>
+                                                    <Button variant="contained" color="success" onClick={insertDriver} disabled={loadingButton} fullWidth={isSmallScreen}>
+                                                        {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Yeni Sürücü Ekle'}
+                                                    </Button>
+                                                </CustomTooltip>
+
+                                            )}
+                                        </>
+                                    )}
+                                </Stack>
+                            </Grid>
                         </Grid>
-                    </Grid>
-                </Paper>
-            </Box>
+                    </Paper>
+                </Box>
 
+            )}
 
+            {alertMessage && (
+                <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
+                    <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                </Stack>
+            )}
             <BlankCard>
 
 
@@ -1159,6 +1209,7 @@ const ListDrivers = () => {
                                         color="primary"
                                         onClick={handleDownloadFilteredWithCarsPDF}
                                         startIcon={<IconFileDownload />}
+                                        isBlinking={true}
                                         disabled={loadingData}
                                     >
                                         Filtrelenmişi Araçlı Şoförleri İndir
@@ -1170,6 +1221,7 @@ const ListDrivers = () => {
                                         color="primary"
                                         onClick={handleDownloadFilteredAllDriversPDF}
                                         startIcon={<IconFileDownload />}
+                                        isBlinking={true}
                                         disabled={loadingData}
                                     >
                                         Filtrelenmişi Tüm Şoförleri İndir
@@ -1207,7 +1259,7 @@ const ListDrivers = () => {
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} md={3}>
                             <TextField
-                                label="Sürücü Ara"
+                                label="Şoförler Ara"
                                 variant="outlined"
                                 fullWidth
                                 size={isSmallScreen ? "small" : "medium"}
@@ -1271,7 +1323,7 @@ const ListDrivers = () => {
                                     {!isSmallScreen && <TableCell><Typography variant="h6">Doğum Tarihi</Typography></TableCell>}
                                     {!isSmallScreen && <TableCell><Typography variant="h6">Baba Adı</Typography></TableCell>}
                                     <TableCell><TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} style={{ color: "#171c23" }}><Typography variant="h6">TC</Typography></TableSortLabel></TableCell>
-                                    {!isMediumScreen && <TableCell><Typography variant="h6">Sürücü Tipi</Typography></TableCell>}
+                                    {!isMediumScreen && <TableCell><Typography variant="h6">Şoförler Tipi</Typography></TableCell>}
                                     <TableCell><TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel></TableCell>
                                     <TableCell></TableCell>
                                 </TableRow>
@@ -1330,7 +1382,7 @@ const ListDrivers = () => {
                                                                 handleCloseMenu();
                                                             }}>
                                                                 <ListItemIcon><IconFileText width={18} /></ListItemIcon>
-                                                                Sürücü Detayları PDF İndir
+                                                                Sürücü Detayları İndir (PDF)
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}

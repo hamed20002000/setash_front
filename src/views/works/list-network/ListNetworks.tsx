@@ -12,10 +12,10 @@ import {
     Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
     FormControl, Select,
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconSearch, IconDots, IconEdit, IconTrash, IconPlus, IconArrowRight, IconFileDownload } from '@tabler/icons-react';
+import { IconSearch, IconDots, IconEdit, IconTrash, IconPlus, IconArrowRight, IconFileDownload, IconX } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import axios from 'axios';
@@ -48,6 +48,17 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
 
 interface NetworkType {
     id: string;
@@ -145,6 +156,11 @@ const ListNetwork = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
+
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -202,6 +218,15 @@ const ListNetwork = () => {
             fetchTenderDetails(parseInt(tenderId));
         }
     }, [workId, tenderId]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -407,6 +432,7 @@ const ListNetwork = () => {
         setTitleError(false);
         setDescriptionError(false);
         setFormErrors(null);
+        setIsFormVisible(false);
     };
 
     const insertNetwork = async () => {
@@ -611,6 +637,7 @@ const ListNetwork = () => {
             setTitleError(false);
             setDescriptionError(false);
             setFormErrors(null);
+            setIsFormVisible(true);
             handleCloseMenu();
             setTimeout(() => {
                 networkTitleInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -823,23 +850,97 @@ const ListNetwork = () => {
                         )}
                     </Stack>
 
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                            endIcon={<IconArrowRight size={20} />}>
-                            Geri Dön
-                        </Button>
-                    </CustomTooltip>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    fullWidth={false}
+                                    isBlinking={isBlinking}
+                                >
+                                    Yeni Şebeke Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                endIcon={<IconArrowRight size={20} />}>
+                                Geri Dön
+                            </Button>
+                        </CustomTooltip>
+
+                    </Stack>
                 </Box>
             )}
 
-            <Box sx={{ p: 2, mt: 4 }}>
-                <Grid container spacing={2} alignItems="center" mb={2}>
-                    <Grid item xs={12} md={9}>
-                        <Typography variant="h5">Mevcut Şebeke</Typography>
-                    </Grid>
-                </Grid>
-            </Box>
-            {(hasCreatePermission || hasEditPermission) && (
+            {!workId && (
+                <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4} mt={2}>
+                    <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Şebeke Kaydı'}</Typography>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şebeke Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    fullWidth={false}
+                                    isBlinking={isBlinking}
+                                >
+                                    Yeni Şebeke Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+
+                    </Stack>
+                </Stack>
+            )}
+
+            {workId && (
+                <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Şebeke Kaydı'}</Typography>
+            )}
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <Box component="div" sx={{
                     p: 2, border: "1px solid", borderColor: "divider",
                     borderRadius: "8px", mb: 2
@@ -976,7 +1077,7 @@ const ListNetwork = () => {
                                     fullWidth
                                     startIcon={<IconFileDownload size={20} />}
                                 >
-                                    Tüm Şebeke İndir (PDF)
+                                    Tümünü İndir (PDF)
                                 </Button>
                             </Grid>
                         )}

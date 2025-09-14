@@ -38,8 +38,9 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 
 // Type Definitions
@@ -147,6 +148,10 @@ const ManualEntryForm = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
 
     const { isTooltipGloballyEnabled } = useTooltip();
+
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const [openStatusModal, setOpenStatusModal] = useState(false);
     const [statusToUpdate, setStatusToUpdate] = useState<1 | 2 | null>(null);
@@ -600,6 +605,15 @@ const ManualEntryForm = () => {
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
     }, [searchTerm, statusFilter, startDate, endDate]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const handleAddItem = () => {
         setOrderItems(prevItems => prevItems.map(item => ({ ...item, isEditing: false })));
         setOrderItems(prevItems => [...prevItems, { id: Date.now(), item: '', quantity: 0, description: '', price: 0, isEditing: true }]);
@@ -633,6 +647,7 @@ const ManualEntryForm = () => {
         setNetworkError(false);
         setDocDateError(false);
         setOrderItemsError(false);
+        setIsFormVisible(false);
     };
 
     const handleSaveOrder = async () => {
@@ -733,6 +748,7 @@ const ManualEntryForm = () => {
         });
         setOrderItems(itemsToEdit);
         handleCloseMenu();
+        setIsFormVisible(true);
         clearAlert();
     };
     // Table Handlers
@@ -886,15 +902,46 @@ const ManualEntryForm = () => {
     };
     return (
         <Box>
-            {/* Alert Box */}
-            {alertMessage && (
-                <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
-                    <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && hasCreatePermission && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Satın Alma Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                            >
+                                Yeni Satın Alma Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetForm}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
                 </Stack>
-            )}
+            </Stack>
 
-
-            {(hasCreatePermission || hasEditPermission) && (
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
                     <Grid container spacing={2}>
@@ -968,6 +1015,12 @@ const ManualEntryForm = () => {
 
             )}
 
+            {alertMessage && (
+                <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
+                    <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                </Stack>
+            )}
+
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
@@ -978,9 +1031,10 @@ const ManualEntryForm = () => {
                                     color="primary"
                                     onClick={exportAllFilteredToPdf}
                                     startIcon={<IconFileDownload />}
+                                    isBlinking={true}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi Satın Alma İndir
+                                    Filtrelenmişi İndir (PDF)
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -993,7 +1047,7 @@ const ManualEntryForm = () => {
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData}
                             >
-                                Tümünü Satın Alma İndir (PDF)
+                                Tümünü İndir (PDF)
                             </Button>
                         </CustomTooltip>
                     </Stack>
@@ -1001,7 +1055,7 @@ const ManualEntryForm = () => {
                 <Box sx={{ p: 2 }}>
                     <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid item xs={12} sm={6} md={2}>
                             <TextField
                                 label="Sipariş Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
@@ -1032,7 +1086,7 @@ const ManualEntryForm = () => {
                                 </Stack>
                             </LocalizationProvider>
                         </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
+                        <Grid item xs={12} sm={6} md={5}>
                             <ToggleButtonGroup
                                 value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
                             >

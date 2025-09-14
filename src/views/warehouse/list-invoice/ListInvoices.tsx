@@ -49,10 +49,11 @@ interface ProviderType {
 interface DriverApiResponseType {
     id: string;
     name: string;
+    family: string;
     recordStatus: number;
     internal: boolean;
 }
-interface DriverType { id: string; name: string; recordStatus: number; status: string; internal: string }
+interface DriverType { id: string; name: string; family: string; recordStatus: number; status: string; internal: string }
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
 interface ItemType { id: string; name: string; abbreviation: string; recordStatus: number; unit: UnitType; }
 interface InvoiceItem {
@@ -79,7 +80,7 @@ interface InvoiceType {
     id: number;
     invoiceNo: string | null;
     provider: { id: string; name: string; firm: boolean; } | null;
-    driver: { id: string; name: string; } | null;
+    driver: { id: string; name: string; family: string; } | null;
     warehouse?: {
         id: string;
         name: string;
@@ -96,6 +97,7 @@ interface InvoiceType {
     driverVehicle?: {
         id: string;
         name: string;
+        family: string;
         model: string;
         plaque: string;
     } | null;
@@ -163,11 +165,12 @@ const blinkAnimation = keyframes`
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
 
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 // Table Style and Functions
-type SortableInvoiceKeys = 'invoiceNo' | 'provider.name' | 'driver.name' | 'docDate' | 'status' | 'totalAmount';
+type SortableInvoiceKeys = 'invoiceNo' | 'provider.name' | 'driver.name' | 'docDate' | 'status' | 'totalAmount' | 'driver.family'; // اضافه کردن این خط
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -272,7 +275,8 @@ const ListInvoices = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
     const [isFilterActive, setIsFilterActive] = useState(false);
 
     const [openStatusHistoryModal, setOpenStatusHistoryModal] = useState(false);
@@ -339,7 +343,7 @@ const ListInvoices = () => {
                 doc.text('Tedarik Tipi: Siparişsiz Fatura', pageWidth - 15, 47, { align: 'right' });
             }
 
-            doc.text(`Sürücü: ${invoice.driver?.name || '-'}`, pageWidth - 15, 54, { align: 'right' });
+            doc.text(`Sürücü: ${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`, pageWidth - 15, 54, { align: 'right' });
             doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, pageWidth - 15, 61, { align: 'right' });
             doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, pageWidth - 15, 68, { align: 'right' });
         };
@@ -428,6 +432,18 @@ const ListInvoices = () => {
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
+
+    useEffect(() => {
+        // یک تایمر 5 ثانیه‌ای برای خاموش کردن چشمک‌زدن
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+
+        // تابع cleanup برای جلوگیری از خطا در صورت ترک صفحه
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
 
     useEffect(() => {
@@ -546,6 +562,7 @@ const ListInvoices = () => {
                 const driversWithStatus = activeDrivers.map((item) => ({
                     id: item.id,
                     name: item.name || '',
+                    family: item.family || '',
                     recordStatus: item.recordStatus,
                     status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
                     internal: item.internal ? '1' : '0'
@@ -573,6 +590,7 @@ const ListInvoices = () => {
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-invoices", { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200) {
+                debugger
                 setInvoicesList(response.data.data as InvoiceType[]);
             } else { showAlert(response.data.message || 'Faturalar yüklenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
@@ -677,6 +695,7 @@ const ListInvoices = () => {
         setSelectedVehicleName(null);
         setVehiclesList([]);
         setWarehouse(null);
+        setIsFormVisible(false);
         clearAlert();
     };
 
@@ -871,6 +890,8 @@ const ListInvoices = () => {
                 firm: detailProvider?.firm === '1'
             };
         });
+
+        setIsFormVisible(true);
         setInvoiceItems(itemsToEdit);
     };
     const handleSelectVehicle = () => {
@@ -1136,7 +1157,7 @@ const ListInvoices = () => {
             const supplyType = hasOrder ? 'Siparişli Fatura' : 'Siparişsiz Fatura';
             doc.text(`Fatura No: ${invoice.invoiceNo || '-'}`, pageWidth - 15, 40, { align: 'right' });
             doc.text(`Tedarik Tipi: ${supplyType}`, pageWidth - 15, 47, { align: 'right' });
-            doc.text(`Sürücü: ${invoice.driver?.name || '-'}`, pageWidth - 15, 54, { align: 'right' });
+            doc.text(`Sürücü: ${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`, pageWidth - 15, 54, { align: 'right' });
             doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, pageWidth - 15, 61, { align: 'right' });
             doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, pageWidth - 15, 68, { align: 'right' });
         };
@@ -1221,19 +1242,57 @@ const ListInvoices = () => {
         setEndDate(null);
     };
     return (
-        <Box>
+        <Box mt={2}>
 
-            {(hasCreatePermission || hasEditPermission) && (
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                <Typography variant="h6" mb={2}>Fatura Detayları</Typography>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && hasCreatePermission && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Fatura Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                            >
+                                Yeni Fatura Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetForm}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
+                </Stack>
+            </Stack>
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <>
 
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h6" mb={2}>Fatura Detayları</Typography>
                         <Grid container spacing={2}>
                             <Grid item xs={12} md={4}>
                                 <CustomFormLabel htmlFor="driver-autocomplete" required>Sürücü</CustomFormLabel>
                                 <Stack direction="row" alignItems="center" spacing={2}>
                                     <Autocomplete<DriverType>
-                                        id="driver-autocomplete" options={drivers} getOptionLabel={(option) => option.name}
+                                        id="driver-autocomplete" options={drivers}
+                                        getOptionLabel={(option) => `${option.name} ${option.family}`}
                                         value={drivers.find(d => d.id === driver) || null}
                                         onChange={(_event, newValue) => {
                                             const newDriverId = newValue ? newValue.id : '';
@@ -1343,9 +1402,10 @@ const ListInvoices = () => {
                                     color="primary"
                                     onClick={handleDownloadAllFilteredInvoicesPDF}
                                     startIcon={<IconFileDownload />}
+                                    isBlinking={true}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi Faturaleri İndir
+                                    Filtrelenmişi İndir (PDF)
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -1358,7 +1418,7 @@ const ListInvoices = () => {
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData}
                             >
-                                Tümünü Faturaleri İndir (PDF)
+                                Tümünü İndir (PDF)
                             </Button>
                         </CustomTooltip>
                     </Stack>
@@ -1366,7 +1426,7 @@ const ListInvoices = () => {
                 <Box sx={{ p: 2 }}>
                     <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid item xs={12} sm={6} md={2}>
                             <TextField
                                 label="Fatura Ara" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange}
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
@@ -1396,7 +1456,7 @@ const ListInvoices = () => {
                                 </Stack>
                             </LocalizationProvider>
                         </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
+                        <Grid item xs={12} sm={6} md={5}>
                             <ToggleButtonGroup
                                 value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
                             >
@@ -1455,7 +1515,9 @@ const ListInvoices = () => {
                                                     {row.invoiceNo ? row.invoiceNo : '-'}
                                                 </Typography>
                                             </TableCell>
-                                            <TableCell><Typography variant="h6">{row.driver?.name || '-'}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">
+                                                {row.driver?.name || ''} {row.driver?.family || ''}
+                                            </Typography></TableCell>
                                             <TableCell>
                                                 <Typography variant="h6">
                                                     {row.warehouse?.name || '-'}
@@ -1550,9 +1612,9 @@ const ListInvoices = () => {
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı Yazdırın" : ""}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı indir(PDF)" : ""}>
                                                             <MenuItem onClick={() => handlePrintInvoice(row)}>
-                                                                <ListItemIcon><IconFileInvoice size={18} /></ListItemIcon> Yazdır
+                                                                <ListItemIcon><IconFileInvoice size={18} /></ListItemIcon> Bu satırı indir(PDF)
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}

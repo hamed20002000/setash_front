@@ -36,6 +36,7 @@ import DeleteDispatch from "./DeleteDispatch";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
+
 // === Type Definitions ===
 interface DispatchDetailType {
     id: string;
@@ -188,9 +189,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-const BlinkingButtondownload = styled(Button)(() => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
-}));
 
 // === Main Component ===
 const ListWarehouseDispatch = () => {
@@ -258,6 +256,9 @@ const ListWarehouseDispatch = () => {
     // === New State for Status Description Modal (Read-only) ===
     const [openStatusDescriptionModal, setOpenStatusDescriptionModal] = useState(false);
     const [readOnlyDescription, setReadOnlyDescription] = useState<string>('');
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -433,6 +434,15 @@ const ListWarehouseDispatch = () => {
     }, [searchTerm, statusFilter, startDate, endDate]);
 
     useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
+    useEffect(() => {
         let blinkInterval: NodeJS.Timeout | null = null;
         if (isFormValid && !loadingButton) {
             blinkInterval = setInterval(() => { }, 500);
@@ -474,6 +484,7 @@ const ListWarehouseDispatch = () => {
         setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
+        setIsFormVisible(false);
     };
 
     // === API Actions ===
@@ -608,6 +619,7 @@ const ListWarehouseDispatch = () => {
                 description: d.description,
             }));
             setDispatchDetails(formattedDetails);
+            setIsFormVisible(true);
             handleCloseMenu();
         }
     };
@@ -964,403 +976,437 @@ const ListWarehouseDispatch = () => {
 
     // === UI ===
     return (
-        <>
-            <Box sx={{ p: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                    <Typography variant="h5">Sevk İşlemleri</Typography>
-                    <Grid spacing={2}>
-                        <CustomTooltip style={{ marginLeft: "2px" }} title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                endIcon={<IconArrowRight size={20} />}>
-                                Geri Dön
+        <Box mt={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                <Typography variant="h5">Sevk İşlemleri</Typography>
+
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && hasCreatePermission && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Sevk Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false}
+                            >
+                                Yeni Sevk Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetFormAndState}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
                             </Button>
                         </CustomTooltip>
-                    </Grid>
+                    )}
+
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                            endIcon={<IconArrowRight size={20} />}>
+                            Geri Dön
+                        </Button>
+                    </CustomTooltip>
                 </Stack>
-                {/* Form Kayıt/Düzenleme */}
-                {(hasCreatePermission || hasEditPermission) && (
-                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h5" mb={2}>{editingId ? 'Sevk Belgesini Düzenle' : 'Yeni Sevk Belgesi'}</Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Şoför</CustomFormLabel>
-                                <Autocomplete
-                                    id="driver-select"
-                                    options={drivers}
-                                    getOptionLabel={(option) => `${option.name} ${option.family}`}
-                                    value={drivers.find(d => d.id === selectedDriverId) || null}
-                                    onChange={(_, newValue) => {
-                                        setSelectedDriverId(newValue ? newValue.id : null);
-                                        if (newValue) {
-                                            fetchVehicles(String(newValue.id));
-                                        } else {
-                                            setSelectedVehicle(null);
-                                            setSelectedVehicleName(null);
-                                            setVehiclesList([]);
-                                        }
-                                        if (driverIdError && newValue) setDriverIdError(false);
-                                    }}
-                                    isOptionEqualToValue={(option, value) => option.id === value.id}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            fullWidth
-                                            size="small"
-                                            placeholder="Şoför Seçin"
-                                            error={driverIdError}
-                                            helperText={driverIdError ? "Şoför seçimi zorunludur!" : ""}
-                                        />
-                                    )}
-                                />
-                                {selectedVehicleName && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
-                                        <Chip
-                                            label={`Seçilen Araç: ${selectedVehicleName}`}
-                                            color="info"
-                                        />
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Aracı değiştir" : ""}>
-                                            <IconButton onClick={handleEditVehicleSelection} size="small">
-                                                <IconEdit size={18} />
-                                            </IconButton>
-                                        </CustomTooltip>
-                                    </Box>
+            </Stack>
+            {/* Form Kayıt/Düzenleme */}
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                    <Typography variant="h5" mb={2}>{editingId ? 'Sevk Belgesini Düzenle' : 'Yeni Sevk Belgesi'}</Typography>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel required>Şoför</CustomFormLabel>
+                            <Autocomplete
+                                id="driver-select"
+                                options={drivers}
+                                getOptionLabel={(option) => `${option.name} ${option.family}`}
+                                value={drivers.find(d => d.id === selectedDriverId) || null}
+                                onChange={(_, newValue) => {
+                                    setSelectedDriverId(newValue ? newValue.id : null);
+                                    if (newValue) {
+                                        fetchVehicles(String(newValue.id));
+                                    } else {
+                                        setSelectedVehicle(null);
+                                        setSelectedVehicleName(null);
+                                        setVehiclesList([]);
+                                    }
+                                    if (driverIdError && newValue) setDriverIdError(false);
+                                }}
+                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        placeholder="Şoför Seçin"
+                                        error={driverIdError}
+                                        helperText={driverIdError ? "Şoför seçimi zorunludur!" : ""}
+                                    />
                                 )}
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Şantiye</CustomFormLabel>
-                                <Autocomplete
-                                    id="workhouse-select"
-                                    options={workhouses}
-                                    getOptionLabel={(option) => option.name}
-                                    value={workhouses.find(w => w.id === selectedWorkhouseId) || null}
-                                    onChange={(_, newValue) => {
-                                        setSelectedWorkhouseId(newValue ? newValue.id : null);
-                                        if (workhouseIdError && newValue) setWorkhouseIdError(false);
+                            />
+                            {selectedVehicleName && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
+                                    <Chip
+                                        label={`Seçilen Araç: ${selectedVehicleName}`}
+                                        color="info"
+                                    />
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Aracı değiştir" : ""}>
+                                        <IconButton onClick={handleEditVehicleSelection} size="small">
+                                            <IconEdit size={18} />
+                                        </IconButton>
+                                    </CustomTooltip>
+                                </Box>
+                            )}
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel required>Şantiye</CustomFormLabel>
+                            <Autocomplete
+                                id="workhouse-select"
+                                options={workhouses}
+                                getOptionLabel={(option) => option.name}
+                                value={workhouses.find(w => w.id === selectedWorkhouseId) || null}
+                                onChange={(_, newValue) => {
+                                    setSelectedWorkhouseId(newValue ? newValue.id : null);
+                                    if (workhouseIdError && newValue) setWorkhouseIdError(false);
+                                }}
+                                isOptionEqualToValue={(option, value) => option.id === value.id}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        placeholder="Şantiye Seçin"
+                                        error={workhouseIdError}
+                                        helperText={workhouseIdError ? "Şantiye seçimi zorunludur!" : ""}
+                                    />
+                                )}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel required>Belge Tarihi</CustomFormLabel>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <DatePicker
+                                    label=""
+                                    value={docDate}
+                                    onChange={(newValue) => {
+                                        setDocDate(newValue);
+                                        if (docDateError && newValue) setDocDateError(false);
                                     }}
-                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    inputFormat="dd/MM/yyyy"
                                     renderInput={(params) => (
                                         <TextField
                                             {...params}
                                             fullWidth
                                             size="small"
-                                            placeholder="Şantiye Seçin"
-                                            error={workhouseIdError}
-                                            helperText={workhouseIdError ? "Şantiye seçimi zorunludur!" : ""}
+                                            error={docDateError}
+                                            helperText={docDateError ? "Tarih alanı boş bırakılamaz!" : ""}
                                         />
                                     )}
                                 />
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Belge Tarihi</CustomFormLabel>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <DatePicker
-                                        label=""
-                                        value={docDate}
-                                        onChange={(newValue) => {
-                                            setDocDate(newValue);
-                                            if (docDateError && newValue) setDocDateError(false);
-                                        }}
-                                        inputFormat="dd/MM/yyyy"
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
+                            </LocalizationProvider>
+                        </Grid>
+                    </Grid>
+                    {/* Sevk Detayları */}
+                    <Box mt={4}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                            <Typography variant="h6">Sevk Detayları</Typography>
+                            <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddDispatchDetail}>Detay Ekle</Button>
+                        </Stack>
+                        <Grid container spacing={2}>
+                            {dispatchDetails.map((detail, index) => {
+                                const availableItems = itemsWithBalance.filter(item =>
+                                    !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
+                                );
+                                const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
+                                const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
+                                const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
+
+                                return (
+                                    <Grid item xs={12} key={index}>
+                                        <Stack direction="row" spacing={2} alignItems="center">
+                                            <Autocomplete
                                                 fullWidth
                                                 size="small"
-                                                error={docDateError}
-                                                helperText={docDateError ? "Tarih alanı boş bırakılamaz!" : ""}
+                                                options={availableItems}
+                                                getOptionLabel={(option) => `${option.name} ${option.itemId ? displayBalance : ''}`}
+                                                value={currentSelectedItem || null}
+                                                onChange={(_, newValue) => {
+                                                    const newQuantity = newValue ? Math.max(0, Number(itemsWithBalance.find(i => i.itemId === newValue.itemId)?.balance || 0)) : '';
+                                                    handleDispatchDetailChange(index, 'itemId', newValue ? Number(newValue.itemId) : null);
+                                                    handleDispatchDetailChange(index, 'quantity', newQuantity);
+                                                }}
+                                                isOptionEqualToValue={(option, value) => option.itemId === value.itemId}
+                                                renderInput={(params) => <TextField {...params} label="Malzeme Seçin" />}
                                             />
-                                        )}
-                                    />
-                                </LocalizationProvider>
-                            </Grid>
-                        </Grid>
-                        {/* Sevk Detayları */}
-                        <Box mt={4}>
-                            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                                <Typography variant="h6">Sevk Detayları</Typography>
-                                <Button variant="outlined" startIcon={<IconPlus />} onClick={handleAddDispatchDetail}>Detay Ekle</Button>
-                            </Stack>
-                            <Grid container spacing={2}>
-                                {dispatchDetails.map((detail, index) => {
-                                    const availableItems = itemsWithBalance.filter(item =>
-                                        !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
-                                    );
-                                    const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
-                                    const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
-                                    const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
-
-                                    return (
-                                        <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                <Autocomplete
-                                                    fullWidth
-                                                    size="small"
-                                                    options={availableItems}
-                                                    getOptionLabel={(option) => `${option.name} ${option.itemId ? displayBalance : ''}`}
-                                                    value={currentSelectedItem || null}
-                                                    onChange={(_, newValue) => {
-                                                        const newQuantity = newValue ? Math.max(0, Number(itemsWithBalance.find(i => i.itemId === newValue.itemId)?.balance || 0)) : '';
-                                                        handleDispatchDetailChange(index, 'itemId', newValue ? Number(newValue.itemId) : null);
-                                                        handleDispatchDetailChange(index, 'quantity', newQuantity);
-                                                    }}
-                                                    isOptionEqualToValue={(option, value) => option.itemId === value.itemId}
-                                                    renderInput={(params) => <TextField {...params} label="Malzeme Seçin" />}
-                                                />
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    {currentSelectedItem?.unit?.title && (
-                                                        <Chip label={currentSelectedItem.unit.title} color="secondary" variant="outlined" />
-                                                    )}
-                                                </Box>
-                                                <CustomTextField
-                                                    type="number"
-                                                    placeholder="Miktar"
-                                                    value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                />
-                                                <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
-                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
-                                            </Stack>
-                                        </Grid>
-                                    )
-                                })}
-                            </Grid>
-                            {dispatchDetailsError && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>En az bir sevk detayı eklemek zorunludur!</Typography>}
-                        </Box>
-                        <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
-                            {editingId ? (
-                                <>
-                                    <Button variant="contained" color="info" onClick={editDispatch} disabled={loadingButton}>
-                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
-                                    </Button>
-                                    <Button variant="outlined" color="secondary" onClick={handleCancelEdit} disabled={loadingButton}>İptal Et</Button>
-                                </>
-                            ) : (
-                                hasCreatePermission && (
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm alanları doldurarak sevk belgesini kaydedin." : ""}>
-                                        <span>
-                                            <BlinkingButton
-                                                variant="contained"
-                                                color="success"
-                                                onClick={insertDispatch}
-                                                disabled={!isFormValid || loadingButton}
-                                                isBlinking={isFormValid && !loadingButton}
-                                            >
-                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Sevk Belgesi Ekle'}
-                                            </BlinkingButton>
-                                        </span>
-                                    </CustomTooltip>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                {currentSelectedItem?.unit?.title && (
+                                                    <Chip label={currentSelectedItem.unit.title} color="secondary" variant="outlined" />
+                                                )}
+                                            </Box>
+                                            <CustomTextField
+                                                type="number"
+                                                placeholder="Miktar"
+                                                value={detail.quantity}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                fullWidth
+                                            />
+                                            <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
+                                            <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
+                                        </Stack>
+                                    </Grid>
                                 )
-                            )}
-                        </Stack>
-                    </Paper>
-                )}
-                {alertMessage && (
-                    <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
-                        <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
-                    </Stack>
-                )}
-                {/* Tablo */}
-                <BlankCard>
-                    <Grid item xs={12} mt={2} mr={2}>
-                        <Stack direction="row" spacing={2} justifyContent="flex-end">
-                            {isFilterActive && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Sevk indirin" : ""}>
-                                    <BlinkingButtondownload
-                                        variant="contained"
-                                        color="primary"
-                                        onClick={handleDownloadFilteredAllPDF}
-                                        startIcon={<IconFileDownload />}
-                                        disabled={loadingData}
-                                    >
-                                        Filtrelenmişi Tüm Sevkleri İndir
-                                    </BlinkingButtondownload>
+                            })}
+                        </Grid>
+                        {dispatchDetailsError && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>En az bir sevk detayı eklemek zorunludur!</Typography>}
+                    </Box>
+                    <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
+                        {editingId ? (
+                            <>
+                                <Button variant="contained" color="info" onClick={editDispatch} disabled={loadingButton}>
+                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                </Button>
+                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit} disabled={loadingButton}>İptal Et</Button>
+                            </>
+                        ) : (
+                            hasCreatePermission && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm alanları doldurarak sevk belgesini kaydedin." : ""}>
+                                    <span>
+                                        <BlinkingButton
+                                            variant="contained"
+                                            color="success"
+                                            onClick={insertDispatch}
+                                            disabled={!isFormValid || loadingButton}
+                                            isBlinking={isFormValid && !loadingButton}
+                                        >
+                                            {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Sevk Belgesi Ekle'}
+                                        </BlinkingButton>
+                                    </span>
                                 </CustomTooltip>
-                            )}
-
-                            {hasDownloadPermission && (
-                                <Button
+                            )
+                        )}
+                    </Stack>
+                </Paper>
+            )}
+            {alertMessage && (
+                <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
+                    <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
+                </Stack>
+            )}
+            {/* Tablo */}
+            <BlankCard>
+                <Grid item xs={12} mt={2} mr={2}>
+                    <Stack direction="row" spacing={2} justifyContent="flex-end">
+                        {isFilterActive && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Sevk indirin" : ""}>
+                                <BlinkingButton
                                     variant="contained"
                                     color="primary"
-                                    onClick={handleDownloadAllDispatchesPDF}
+                                    onClick={handleDownloadFilteredAllPDF}
                                     startIcon={<IconFileDownload />}
-                                    disabled={loadingData || dispatchList.length === 0}
+                                    isBlinking={true}
+                                    disabled={loadingData}
                                 >
-                                    Tüm Sevkleri İndir (PDF)
-                                </Button>
-                            )}
-                        </Stack>
-                    </Grid>
-                    <Box sx={{ p: 2 }}>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={3}>
-                                <TextField
-                                    label="Sevk Belgesi Ara"
-                                    variant="outlined"
-                                    fullWidth
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={6}>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <DatePicker
-                                            label="Başlangıç Tarihi"
-                                            value={startDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setStartDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <DatePicker
-                                            label="Bitiş Tarihi"
-                                            value={endDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setEndDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
-                                            <IconX size={20} />
-                                        </IconButton>
-                                    </Stack>
-                                </LocalizationProvider>
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <ToggleButtonGroup
-                                    value={statusFilter}
-                                    exclusive
-                                    onChange={(_, newFilter) => newFilter && setStatusFilter(newFilter)}
-                                    fullWidth
-                                >
-                                    <StyledToggleButton value="all">Tümü</StyledToggleButton>
-                                    <StyledToggleButton value="active">Aktif</StyledToggleButton>
-                                    <StyledToggleButton value="inactive">Pasif</StyledToggleButton>
-                                </ToggleButtonGroup>
-                            </Grid>
+                                    Filtrelenmişi İndir (PDF)
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+
+                        {hasDownloadPermission && (
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                onClick={handleDownloadAllDispatchesPDF}
+                                startIcon={<IconFileDownload />}
+                                disabled={loadingData || dispatchList.length === 0}
+                            >
+                                Tümünü İndir (PDF)
+                            </Button>
+                        )}
+                    </Stack>
+                </Grid>
+                <Box sx={{ p: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={6} md={3}>
+                            <TextField
+                                label="Sevk Belgesi Ara"
+                                variant="outlined"
+                                fullWidth
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
                         </Grid>
+                        <Grid item xs={12} sm={6} md={6}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
+                                    </IconButton>
+                                </Stack>
+                            </LocalizationProvider>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <ToggleButtonGroup
+                                value={statusFilter}
+                                exclusive
+                                onChange={(_, newFilter) => newFilter && setStatusFilter(newFilter)}
+                                fullWidth
+                            >
+                                <StyledToggleButton value="all">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="active">Aktif</StyledToggleButton>
+                                <StyledToggleButton value="inactive">Pasif</StyledToggleButton>
+                            </ToggleButtonGroup>
+                        </Grid>
+                    </Grid>
+                </Box>
+                {loadingData ? (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                        <CircularProgress />
+                        <Typography variant="h6" sx={{ ml: 2 }}>Sevk Belgeleri yükleniyor...</Typography>
                     </Box>
-                    {loadingData ? (
-                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-                            <CircularProgress />
-                            <Typography variant="h6" sx={{ ml: 2 }}>Sevk Belgeleri yükleniyor...</Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer>
-                            <Table>
-                                <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
-                                    <TableRow>
-                                        <TableCell><Typography variant="h6">Kod</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Depo</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Şoför</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Araç</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Şantiye</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Belge Tarihi</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Durum</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Sevk Detayları</Typography></TableCell>
-                                        <TableCell></TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {displayedDispatches.length > 0 ? (
-                                        displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
-                                            <TableRow key={row.id}>
-                                                <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.warehouse?.name || '-'}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.workhouse?.name || '-'}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                                <TableCell>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Chip label={row.statusText} color={row.statusColor} />
-                                                        {row.statusDescription && (
-                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Açıklamasını Görüntüle" : ""}>
-                                                                <IconButton onClick={() => handleOpenReadOnlyDescriptionModal(row.statusDescription!)}>
-                                                                    <IconInfoCircle size={18} />
-                                                                </IconButton>
-                                                            </CustomTooltip>
-                                                        )}
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
-                                                            <Button variant="outlined" startIcon={<IconEye />}
-                                                                onClick={() => {
-                                                                    setDetailsToShow(row.warehouseDispatchDetails || []);
-                                                                    setOpenDetailsModal(true);
-                                                                }}
-                                                            >
-                                                                Görünüm
-                                                            </Button>
+                ) : (
+                    <TableContainer>
+                        <Table>
+                            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                                <TableRow>
+                                    <TableCell><Typography variant="h6">Kod</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Depo</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Şoför</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Araç</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Şantiye</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Belge Tarihi</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Durum</Typography></TableCell>
+                                    <TableCell><Typography variant="h6">Sevk Detayları</Typography></TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {displayedDispatches.length > 0 ? (
+                                    displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
+                                        <TableRow key={row.id}>
+                                            <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">{row.warehouse?.name || '-'}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">{row.workhouse?.name || '-'}</Typography></TableCell>
+                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
+                                            <TableCell>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Chip label={row.statusText} color={row.statusColor} />
+                                                    {row.statusDescription && (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Açıklamasını Görüntüle" : ""}>
+                                                            <IconButton onClick={() => handleOpenReadOnlyDescriptionModal(row.statusDescription!)}>
+                                                                <IconInfoCircle size={18} />
+                                                            </IconButton>
                                                         </CustomTooltip>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <IconButton onClick={(e) => {
-                                                        setSelectedRowForMenu(row);
-                                                        setAnchorEl(e.currentTarget);
-                                                    }}><IconDots width={18} /></IconButton>
-                                                    <Menu anchorEl={anchorEl}
-                                                        open={openMenu && selectedRowForMenu?.id === row.id}
-                                                        onClose={handleCloseMenu}>
-                                                        {hasDownloadPermission && (
-                                                            <MenuItem onClick={() => {
-                                                                handleDownloadSingleDispatchPDF(selectedRowForMenu!);
-                                                                handleCloseMenu();
-                                                            }}>
-                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                PDF'yi İndir
-                                                            </MenuItem>
-                                                        )}
-                                                        {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}
-                                                        {hasDeletePermission &&
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
-                                                        {/* Yeni MenuItem ها برای وضعیت */}
-                                                        {selectedRowForMenu?.status === 0 && (
-                                                            <>
-                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
-                                                                    <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
-                                                                </MenuItem>
-                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
-                                                                    <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
-                                                                </MenuItem>
-                                                            </>
-                                                        )}
-                                                        {selectedRowForMenu?.status === 1 && (
-                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
-                                                                <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
-                                                            </MenuItem>
-                                                        )}
-                                                        {selectedRowForMenu?.status === 2 && (
+                                                    )}
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
+                                                        <Button variant="outlined" startIcon={<IconEye />}
+                                                            onClick={() => {
+                                                                setDetailsToShow(row.warehouseDispatchDetails || []);
+                                                                setOpenDetailsModal(true);
+                                                            }}
+                                                        >
+                                                            Görünüm
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell>
+                                                <IconButton onClick={(e) => {
+                                                    setSelectedRowForMenu(row);
+                                                    setAnchorEl(e.currentTarget);
+                                                }}><IconDots width={18} /></IconButton>
+                                                <Menu anchorEl={anchorEl}
+                                                    open={openMenu && selectedRowForMenu?.id === row.id}
+                                                    onClose={handleCloseMenu}>
+                                                    {hasDownloadPermission && (
+                                                        <MenuItem onClick={() => {
+                                                            handleDownloadSingleDispatchPDF(selectedRowForMenu!);
+                                                            handleCloseMenu();
+                                                        }}>
+                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                            Bu satırı indir(PDF)
+                                                        </MenuItem>
+                                                    )}
+                                                    {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}
+                                                    {hasDeletePermission &&
+                                                        <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
+                                                    {/* Yeni MenuItem ها برای وضعیت */}
+                                                    {selectedRowForMenu?.status === 0 && (
+                                                        <>
                                                             <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
                                                                 <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
                                                             </MenuItem>
-                                                        )}
-                                                    </Menu>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow><TableCell colSpan={9} align="center"><Typography>Hiç sevk belgesi bulunamadı.</Typography></TableCell></TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                    <TablePagination
-                        rowsPerPageOptions={[5, 10, 25]}
-                        component="div"
-                        count={displayedDispatches.length}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        onPageChange={(_, newPage) => setPage(newPage)}
-                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                        labelRowsPerPage="Satır başına:"
-                    />
-                </BlankCard>
-            </Box>
+                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
+                                                                <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
+                                                            </MenuItem>
+                                                        </>
+                                                    )}
+                                                    {selectedRowForMenu?.status === 1 && (
+                                                        <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
+                                                            <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
+                                                        </MenuItem>
+                                                    )}
+                                                    {selectedRowForMenu?.status === 2 && (
+                                                        <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
+                                                            <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
+                                                        </MenuItem>
+                                                    )}
+                                                </Menu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow><TableCell colSpan={9} align="center"><Typography>Hiç sevk belgesi bulunamadı.</Typography></TableCell></TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
+                <TablePagination
+                    rowsPerPageOptions={[5, 10, 25]}
+                    component="div"
+                    count={displayedDispatches.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                    labelRowsPerPage="Satır başına:"
+                />
+            </BlankCard>
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)}>
                 <DialogTitle>Araç Seçin</DialogTitle>
                 <DialogContent>
@@ -1480,7 +1526,7 @@ const ListWarehouseDispatch = () => {
                 onDeleteSuccess={() => fetchInitialData()}
                 showAlert={showAlert}
             />
-        </>
+        </Box>
     );
 };
 

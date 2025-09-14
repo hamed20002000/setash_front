@@ -55,10 +55,10 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
-
 interface WarehouseType {
     id: number;
     name: string;
@@ -333,6 +333,10 @@ const ListWarehouses = () => {
     const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
     const [isFilterActive, setIsFilterActive] = useState(false);
 
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
@@ -468,6 +472,15 @@ const ListWarehouses = () => {
         };
     }, [alertMessage]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: WarehouseType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -501,6 +514,7 @@ const ListWarehouses = () => {
                 nameInputRef.current?.focus();
             }, 100);
         }
+        setIsFormVisible(true);
         handleCloseMenu();
     };
 
@@ -534,6 +548,7 @@ const ListWarehouses = () => {
         setNameError(false);
         setCodeError(false);
         setAddressError(false);
+        setIsFormVisible(false);
         setRegionIdError(false);
     };
 
@@ -1087,160 +1102,192 @@ const ListWarehouses = () => {
         setEndDate(null);
     };
     return (
-        <>
+        <Box mt={2}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                <Typography variant="h5">Depolar</Typography>
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && hasCreatePermission && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Depolar Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                            >
+                                Yeni Depolar Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetFormAndState}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
 
-            {(hasCreatePermission || hasEditPermission) && (
-                <Box sx={{ p: 3 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                        <Typography variant="h5">Depolar</Typography>
+                </Stack>
 
+            </Stack>
+            {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
+                <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
 
-                    </Stack>
-                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h5" mb={2}>{editingId ? 'Depoyu Düzenle' : 'Yeni Depo Kaydı'}</Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel htmlFor="Warehouse-name" required>İsim</CustomFormLabel>
-                                <CustomTextField
-                                    id="Warehouse-name"
-                                    placeholder="Depo Adı"
-                                    size="small"
-                                    value={name}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        setName(e.target.value);
-                                        if (nameError && e.target.value.trim()) setNameError(false);
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel htmlFor="Warehouse-name" required>İsim</CustomFormLabel>
+                            <CustomTextField
+                                id="Warehouse-name"
+                                placeholder="Depo Adı"
+                                size="small"
+                                value={name}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    setName(e.target.value);
+                                    if (nameError && e.target.value.trim()) setNameError(false);
+                                }}
+                                inputRef={nameInputRef}
+                                error={nameError}
+                                helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
+                                sx={{ width: '100%' }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel htmlFor="Warehouse-code" required>Kod</CustomFormLabel>
+                            <CustomTextField
+                                id="Warehouse-code"
+                                placeholder="Depo Kodu"
+                                size="small"
+                                value={code}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    setCode(e.target.value);
+                                    if (codeError && e.target.value.trim()) setCodeError(false);
+                                }}
+                                error={codeError}
+                                helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
+                                sx={{ width: '100%' }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
+                            <FormControl
+                                size="small" error={regionIdError}
+                                sx={{ width: '100%' }}>
+                                <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
+                                <Select
+                                    labelId="select-region-label"
+                                    id="select-region"
+                                    value={selectedRegionId || ''}
+                                    label="Bölge Seçin"
+                                    open={isRegionSelectOpen}
+                                    onOpen={handleOpenRegionSelect}
+                                    onClose={handleCloseRegionSelect}
+                                    onChange={(event) => {
+                                        const selectedId = event.target.value as number;
+                                        setSelectedRegionId(selectedId);
+                                        if (regionIdError && selectedId) setRegionIdError(false);
                                     }}
-                                    inputRef={nameInputRef}
-                                    error={nameError}
-                                    helperText={nameError ? "İsim alanı boş bırakılamaz!" : ""}
-                                    sx={{ width: '100%' }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel htmlFor="Warehouse-code" required>Kod</CustomFormLabel>
-                                <CustomTextField
-                                    id="Warehouse-code"
-                                    placeholder="Depo Kodu"
-                                    size="small"
-                                    value={code}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        setCode(e.target.value);
-                                        if (codeError && e.target.value.trim()) setCodeError(false);
+                                    renderValue={renderSelectedRegion}
+                                    MenuProps={{
+                                        sx: { maxHeight: 400 },
+                                        PaperProps: {
+                                            sx: { p: 1 }
+                                        },
                                     }}
-                                    error={codeError}
-                                    helperText={codeError ? "Kod alanı boş bırakılamaz!" : ""}
-                                    sx={{ width: '100%' }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel htmlFor="region-selection" required>Bölge Seçimi</CustomFormLabel>
-                                <FormControl
-                                    size="small" error={regionIdError}
-                                    sx={{ width: '100%' }}>
-                                    <InputLabel id="select-region-label">Bölge Seçin</InputLabel>
-                                    <Select
-                                        labelId="select-region-label"
-                                        id="select-region"
-                                        value={selectedRegionId || ''}
-                                        label="Bölge Seçin"
-                                        open={isRegionSelectOpen}
-                                        onOpen={handleOpenRegionSelect}
-                                        onClose={handleCloseRegionSelect}
-                                        onChange={(event) => {
-                                            const selectedId = event.target.value as number;
-                                            setSelectedRegionId(selectedId);
-                                            if (regionIdError && selectedId) setRegionIdError(false);
+                                >
+                                    <TextField
+                                        autoFocus
+                                        fullWidth
+                                        size="small"
+                                        placeholder="Bölge Ara..."
+                                        value={regionSearchQuery}
+                                        onChange={(e) => setRegionSearchQuery(e.target.value)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onKeyDown={(e) => e.stopPropagation()}
+                                        sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
+                                        InputProps={{
+                                            startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>),
                                         }}
-                                        renderValue={renderSelectedRegion}
-                                        MenuProps={{
-                                            sx: { maxHeight: 400 },
-                                            PaperProps: {
-                                                sx: { p: 1 }
-                                            },
-                                        }}
-                                    >
-                                        <TextField
-                                            autoFocus
-                                            fullWidth
-                                            size="small"
-                                            placeholder="Bölge Ara..."
-                                            value={regionSearchQuery}
-                                            onChange={(e) => setRegionSearchQuery(e.target.value)}
-                                            onClick={(e) => e.stopPropagation()}
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                            sx={{ p: 1, pb: 0, '& .MuiInputBase-root': { pr: '8px !important' } }}
-                                            InputProps={{
-                                                startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>),
-                                            }}
-                                        />
-                                        {loadingData ? (
-                                            <MuiMenuItem disabled>
-                                                <CircularProgress size={20} /> Yükleniyor...
-                                            </MuiMenuItem>
-                                        ) : filteredRegionTree.length > 0 ? (
-                                            filteredRegionTree.map(node => (
-                                                <RegionTreeSelectMenuItem
-                                                    key={node.id}
-                                                    node={node}
-                                                    onSelect={(id) => { setSelectedRegionId(id); handleCloseRegionSelect(); }}
-                                                    selectedId={selectedRegionId}
-                                                    onCloseParentSelect={handleCloseRegionSelect}
-                                                    searchQuery={regionSearchQuery}
-                                                />
-                                            ))
-                                        ) : (
-                                            <MuiMenuItem disabled>Hiç bölge bulunamadı.</MuiMenuItem>
-                                        )}
-                                    </Select>
-                                    {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
-                                </FormControl>
-                            </Grid>
-                            <Grid item xs={12} sm={12}>
-                                <CustomFormLabel htmlFor="Warehouse-address" required>Adres</CustomFormLabel>
-                                <CustomTextField
-                                    id="Warehouse-address"
-                                    placeholder="Depo Adresi"
-                                    fullWidth
-                                    value={address}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        setAddress(e.target.value);
-                                        if (addressError && e.target.value.trim()) setAddressError(false);
-                                    }}
-                                    error={addressError}
-                                    helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
-                                />
-                            </Grid>
+                                    />
+                                    {loadingData ? (
+                                        <MuiMenuItem disabled>
+                                            <CircularProgress size={20} /> Yükleniyor...
+                                        </MuiMenuItem>
+                                    ) : filteredRegionTree.length > 0 ? (
+                                        filteredRegionTree.map(node => (
+                                            <RegionTreeSelectMenuItem
+                                                key={node.id}
+                                                node={node}
+                                                onSelect={(id) => { setSelectedRegionId(id); handleCloseRegionSelect(); }}
+                                                selectedId={selectedRegionId}
+                                                onCloseParentSelect={handleCloseRegionSelect}
+                                                searchQuery={regionSearchQuery}
+                                            />
+                                        ))
+                                    ) : (
+                                        <MuiMenuItem disabled>Hiç bölge bulunamadı.</MuiMenuItem>
+                                    )}
+                                </Select>
+                                {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
+                            </FormControl>
+                        </Grid>
+                        <Grid item xs={12} sm={12}>
+                            <CustomFormLabel htmlFor="Warehouse-address" required>Adres</CustomFormLabel>
+                            <CustomTextField
+                                id="Warehouse-address"
+                                placeholder="Depo Adresi"
+                                fullWidth
+                                value={address}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    setAddress(e.target.value);
+                                    if (addressError && e.target.value.trim()) setAddressError(false);
+                                }}
+                                error={addressError}
+                                helperText={addressError ? "Adres alanı boş bırakılamaz!" : ""}
+                            />
+                        </Grid>
 
-                            <Grid item xs={12}>
-                                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                    {editingId !== null ? (
-                                        <>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyi güncelleyin" : ""}>
-                                                <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
-                                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                        <Grid item xs={12}>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                {editingId !== null ? (
+                                    <>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyi güncelleyin" : ""}>
+                                            <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
+                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                            </Button>
+                                        </CustomTooltip>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni depo moduna dön" : ""}>
+                                            <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
+                                        </CustomTooltip>
+                                    </>
+                                ) : (
+                                    <>
+                                        {hasCreatePermission && (
+                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir depo ekle" : ""}>
+                                                <Button variant="contained" color="success" onClick={insertWarehouse} disabled={loadingButton}>
+                                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Depo Ekle'}
                                                 </Button>
                                             </CustomTooltip>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni depo moduna dön" : ""}>
-                                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>İptal Et</Button>
-                                            </CustomTooltip>
-                                        </>
-                                    ) : (
-                                        <>
-                                            {hasCreatePermission && (
-                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir depo ekle" : ""}>
-                                                    <Button variant="contained" color="success" onClick={insertWarehouse} disabled={loadingButton}>
-                                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Depo Ekle'}
-                                                    </Button>
-                                                </CustomTooltip>
 
-                                            )}
-                                        </>
-                                    )}
-                                </Stack>
-                            </Grid>
+                                        )}
+                                    </>
+                                )}
+                            </Stack>
                         </Grid>
-                    </Paper>
-                </Box>
+                    </Grid>
+                </Paper>
             )}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
@@ -1258,9 +1305,10 @@ const ListWarehouses = () => {
                                     color="primary"
                                     onClick={handleDownloadFilteredPDF}
                                     startIcon={<IconFileDownload />}
+                                    isBlinking={true}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi İndir
+                                    Filtrelenmişi İndir (PDF)
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -1272,7 +1320,7 @@ const ListWarehouses = () => {
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData || WarehousesList.length === 0}
                             >
-                                Tüm Depoları İndir (PDF)
+                                Tümünü İndir (PDF)
                             </Button>
                         )}
                     </Stack>
@@ -1558,7 +1606,7 @@ const ListWarehouses = () => {
                 warehouseName={selectedWarehouseName}
                 onDownloadPDF={handleDownloadBalancePDF}
             />
-        </>
+        </Box>
     );
 };
 

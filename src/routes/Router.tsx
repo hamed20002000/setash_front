@@ -142,6 +142,7 @@ const ListReceipt = Loadable(lazy(() => import('../views/warehouse/list-receipt/
 const ListStores = Loadable(lazy(() => import('../views/works/store/ListStores')));
 const ListStoreReceipts = Loadable(lazy(() => import('../views/works/StoreReceipt/ListStoreReceipt')));
 const ListBetweenWarehouseDispatch = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListBetweenWarehouseDispatch')));
+const ListBetweenReceipt = Loadable(lazy(() => import('../views/warehouse/list-between-receipt/ListBetweenReceipt')));
 
 
 
@@ -412,6 +413,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListStoreReceipts />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/receipt/list-between-receipt/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListBetweenReceipt />
           </PermissionGuard>
         )
       },

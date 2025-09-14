@@ -1,22 +1,22 @@
 // ListUnit.tsx
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
-import React, { useEffect, useState, useRef, useMemo } from "react"; // Added useRef here
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup, ToggleButton as MuiToggleButton,
-  TableSortLabel, // ✅ Added: For sorting icons and functionality
+  TableSortLabel,
 } from '@mui/material';
 
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload }
+import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX }
   from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -44,6 +44,17 @@ const formatDateDisplay = (dateString: string | null): string => {
     return "Geçersiz Tarih";
   }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+  animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+  transition: 'transform 0.3s ease-in-out',
+}));
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
   '&.Mui-selected': {
@@ -78,9 +89,6 @@ interface UnitType {
 }
 
 const MOCK_UNITS: UnitType[] = [];
-
-// Helper functions for sorting - placed outside the component for reusability
-// توابع کمکی برای مرتب‌سازی - خارج از کامپوننت برای قابلیت استفاده مجدد
 const descendingComparator = <T, Key extends keyof T>(
   a: T,
   b: T,
@@ -89,7 +97,6 @@ const descendingComparator = <T, Key extends keyof T>(
   const valA = a[orderBy];
   const valB = b[orderBy];
 
-  // Handle undefined/null values by pushing them to the end (or beginning) of the sort order
   if (valB === undefined || valB === null) {
     return valA === undefined || valA === null ? 0 : -1;
   }
@@ -97,14 +104,12 @@ const descendingComparator = <T, Key extends keyof T>(
     return 1;
   }
 
-  // Specific handling for string and number types
   if (typeof valB === 'string' && typeof valA === 'string') {
     return valB.localeCompare(valA);
   }
   if (typeof valB === 'number' && typeof valA === 'number') {
     return valB - valA;
   }
-  // Fallback to string comparison for other types or mixed types
   if (String(valB) < String(valA)) {
     return -1;
   }
@@ -114,10 +119,10 @@ const descendingComparator = <T, Key extends keyof T>(
   return 0;
 };
 
-const getComparator = <Key extends keyof UnitType>( // Here, we use UnitType
+const getComparator = <Key extends keyof UnitType>(
   order: 'asc' | 'desc',
   orderBy: Key,
-): (a: UnitType, b: UnitType) => number => { // And here, UnitType
+): (a: UnitType, b: UnitType) => number => {
   return order === 'desc'
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
@@ -163,16 +168,17 @@ const ListUnit = () => {
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  // ✅ Added: State for sorting
   const [orderBy, setOrderBy] = useState<keyof UnitType>('createAt'); // Default sort column
   const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
 
-  // ✅ Added: Ref for the unit name input field
   const unitNameInputRef = useRef<HTMLInputElement>(null);
 
-  // **New states for input validation error**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
+
+
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(true);
 
   const { allowedOperations } = useAuth();
   const hasCreatePermission = useMemo(() => {
@@ -263,6 +269,7 @@ const ListUnit = () => {
     // **Clear input validation errors**
     setNameError(false);
     setNameHelperText('');
+    setIsFormVisible(true);
   };
 
   const insertUnit = async () => {
@@ -444,6 +451,7 @@ const ListUnit = () => {
     // **Clear input validation errors**
     setNameError(false);
     setNameHelperText('');
+    setIsFormVisible(false);
   };
 
 
@@ -492,6 +500,15 @@ const ListUnit = () => {
     getListUnit();
   }, []);
 
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsBlinking(false);
+    }, 5000);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
   const handleStatusFilterChange = (
     event: React.MouseEvent<HTMLElement>,
     newFilter: 'all' | 'active' | 'inactive' | null,
@@ -622,8 +639,49 @@ const ListUnit = () => {
         margin: "10px 0 30px 0",
         padding: "10px 15px 30px 15px"
       }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
 
-        {(hasCreatePermission || hasEditPermission) && (
+          <Typography variant="h5" mb={2}>{editingId ? 'Ölçü Düzenle' : 'Yeni Ölçü Kaydı'}</Typography>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={1}
+            alignItems="stretch"
+            flexGrow={1}
+            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+          >
+            {!isFormVisible && hasCreatePermission && (
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Ölçü Belgesi kaydetmek için tıklayınız" : ""}>
+                <BlinkingButton
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setIsFormVisible(true)}
+                  isBlinking={isBlinking}
+                  fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                >
+                  Yeni Ölçü Kaydet
+                </BlinkingButton>
+              </CustomTooltip>
+            )}
+            {isFormVisible && (
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={resetFormAndState}
+                  // disabled={loadingButton}
+                  fullWidth={false}
+                  startIcon={<IconX size={20} />}
+                >
+                  Gizle
+                </Button>
+              </CustomTooltip>
+            )}
+
+          </Stack>
+
+        </Stack>
+
+        {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
           <Grid container spacing={1}>
             <Grid item xs={12} sm={1} display="flex" alignItems="center">
               <CustomFormLabel htmlFor="unit-name" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
@@ -718,7 +776,7 @@ const ListUnit = () => {
                   startIcon={<IconFileDownload />}
                 // You can add fullWidth if you want it to be responsive
                 >
-                  Tüm Ölçüleri İndir (PDF)
+                  Tümünü İndir (PDF)
                 </Button>
               </Grid>
             )}

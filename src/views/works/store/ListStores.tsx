@@ -57,8 +57,9 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 
 interface StoreType {
@@ -357,6 +358,8 @@ const ListStores = () => {
     const [isFilterActive, setIsFilterActive] = useState(false);
 
 
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
@@ -550,6 +553,15 @@ const ListStores = () => {
         };
     }, [alertMessage]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: StoreType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -587,6 +599,7 @@ const ListStores = () => {
                 nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 nameInputRef.current?.focus();
             }, 100);
+            setIsFormVisible(true);
         }
         handleCloseMenu();
     };
@@ -624,6 +637,7 @@ const ListStores = () => {
         setAddressError(false);
         setRegionIdError(false);
         setWorkhouseIdError(false);
+        setIsFormVisible(false);
     };
 
     const validateForm = (): boolean => {
@@ -778,6 +792,70 @@ const ListStores = () => {
             showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             handleCloseMenu();
+        }
+    };
+
+    // تابع جدید برای چاپ یک ردیف خاص
+    const handlePrintSingleStorePDF = (store: StoreType) => {
+        // یک doc جدید jsPDF ایجاد کنید
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // فونت و هدر و فوتر را تنظیم کنید (می‌توانید از توابع کمکی موجود استفاده کنید)
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        const header = () => {
+            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+            doc.setFontSize(18);
+            doc.text(`Mağaza Detayları`, pageWidth - 15, 30, { align: 'right' });
+            doc.setFontSize(12);
+            doc.text(`Mağaza Adı: ${store.name}`, pageWidth - 15, 40, { align: 'right' });
+            doc.text(`Kod: ${store.code}`, pageWidth - 15, 47, { align: 'right' });
+        };
+
+        const footer = () => {
+            doc.setFontSize(10);
+            doc.text(`Sayfa 1 / 1`, 15, doc.internal.pageSize.getHeight() - 10);
+        };
+
+        const columns = [
+            "İsim", "Kod", "Adres", "Bölge",
+            "Şantiye", "Oluşturulma Tarihi", "Durum"
+        ];
+
+        // فقط اطلاعات یک ردیف را به عنوان داده جدول استفاده کنید
+        const rows = [[
+            store.name || '-',
+            store.code || '-',
+            store.address || '-',
+            store.region?.name || '-',
+            store.workhouse?.name || '-',
+            formatDateDisplay(store.createAt),
+            store.status,
+        ]];
+
+        try {
+            autoTable(doc, {
+                startY: 50,
+                head: [columns],
+                body: rows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: () => {
+                    header();
+                    footer();
+                },
+                showHead: 'everyPage',
+                margin: { top: 50, bottom: 20 }
+            });
+            doc.save(`${store.name}_${store.code}.pdf`);
+            showAlert('Mağaza PDF dosyası başarıyla oluşturuldu.', 'success');
+        } catch (error: any) {
+            console.error('PDF oluşturulurken hata:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
         }
     };
 
@@ -1004,16 +1082,98 @@ const ListStores = () => {
                             <Chip label={`Şantiye: ${workhouseInfo.name}`} color="primary" variant="filled" size="small" />
                             <Chip label={`Kod: ${workhouseInfo.code}`} color="success" variant="filled" size="small" />
                         </Stack>
-                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                            endIcon={<IconArrowRight size={20} />}>
-                            Geri Dön
-                        </Button>
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems="stretch"
+                            flexGrow={1}
+                            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                        >
+                            {!isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyenin Depo Belgesi kaydetmek için tıklayınız" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setIsFormVisible(true)}
+                                        fullWidth={false}
+                                        isBlinking={isBlinking}
+                                    >
+                                        Yeni Şantiyenin Depo Kaydet
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+                            {isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        onClick={resetFormAndState}
+                                        // disabled={loadingButton}
+                                        fullWidth={false}
+                                        startIcon={<IconX size={20} />}
+                                    >
+                                        Gizle
+                                    </Button>
+                                </CustomTooltip>
+                            )}
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                    endIcon={<IconArrowRight size={20} />}>
+                                    Geri Dön
+                                </Button>
+                            </CustomTooltip>
+
+                        </Stack>
                     </Stack>
                 )}
-                {(hasCreatePermission || hasEditPermission) && (
-                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                {!workhouseId && (
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Şantiye Düzenle' : 'Şantiyenin Depo Kaydı'}</Typography>
 
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems="stretch"
+                            flexGrow={1}
+                            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                        >
+                            {!isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyenin Depo Belgesi kaydetmek için tıklayınız" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setIsFormVisible(true)}
+                                        fullWidth={false}
+                                        isBlinking={isBlinking}
+                                    >
+                                        Yeni Şantiyenin Depo Kaydet
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+                            {isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        onClick={resetFormAndState}
+                                        // disabled={loadingButton}
+                                        fullWidth={false}
+                                        startIcon={<IconX size={20} />}
+                                    >
+                                        Gizle
+                                    </Button>
+                                </CustomTooltip>
+                            )}
+
+                        </Stack>
+                    </Stack>
+                )}
+
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        {workhouseId && (
+                            <Typography variant="h5" mb={2}>{editingId ? 'Şantiye Düzenle' : 'Şantiyenin Depo Kaydı'}</Typography>
+                        )}
                         <Grid container spacing={2}>
                             {!workhouseId && (
                                 <Grid item xs={12} sm={6}>
@@ -1190,29 +1350,33 @@ const ListStores = () => {
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
                         {isFilterActive && (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Şantiye indirin" : ""}>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Şantiyenin Depo indirin" : ""}>
                                 <BlinkingButton
                                     variant="contained"
                                     color="primary"
                                     onClick={handleDownloadFilteredStoresPDF}
                                     startIcon={<IconFileDownload />}
+                                    isBlinking={true}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi Şantiye Detaylı İndir (PDF)
+                                    Filtrelenmişi İndir (PDF)
                                 </BlinkingButton>
                             </CustomTooltip>
 
                         )}
                         {hasDownloadPermission && (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleDownloadAllStoresPDF}
-                                startIcon={<IconFileDownload />}
-                                disabled={loadingData || storesList.length === 0}
-                            >
-                                Tüm Şantiye Detaylı İndir (PDF)
-                            </Button>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Şantiyenin Depo indirin" : ""}>
+
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllStoresPDF}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData || storesList.length === 0}
+                                >
+                                    Tümünü İndir (PDF)
+                                </Button>
+                            </CustomTooltip>
                         )}
                     </Stack>
                 </Grid>
@@ -1415,6 +1579,14 @@ const ListStores = () => {
                                                             <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                                 <ListItemIcon><IconTrash width={18} /></ListItemIcon>
                                                                 Silmek
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Faturayı indir(PDF)" : ""}>
+                                                            <MuiMenuItem onClick={() => handlePrintSingleStorePDF(row)}>
+                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Bu satırı indir(PDF)
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}

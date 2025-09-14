@@ -59,8 +59,9 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-const BlinkingButton = styled(Button)(({ }) => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 
 interface WorkType {
@@ -369,6 +370,8 @@ const ListWorkhouses = () => {
     const [regionSearchQuery, setRegionSearchQuery] = useState('');
 
 
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
     const [isFilterActive, setIsFilterActive] = useState(false);
 
     const [startDate, setStartDate] = useState<Date | null>(null);
@@ -573,6 +576,14 @@ const ListWorkhouses = () => {
         };
     }, [alertMessage]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
 
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: WorkhouseType) => {
@@ -610,6 +621,7 @@ const ListWorkhouses = () => {
                 nameInputRef.current?.focus();
             }, 100);
         }
+        setIsFormVisible(true);
         handleCloseMenu();
     };
 
@@ -646,6 +658,7 @@ const ListWorkhouses = () => {
         setAddressError(false);
         setRegionIdError(false);
         setWorkIdError(false);
+        setIsFormVisible(false);
     };
 
     const validateForm = (): boolean => {
@@ -1328,16 +1341,93 @@ const ListWorkhouses = () => {
                             <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />
                             <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />
                         </Stack>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                endIcon={<IconArrowRight size={20} />}>
-                                Geri Dön
-                            </Button>
-                        </CustomTooltip>
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems="stretch"
+                            flexGrow={1}
+                            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                        >
+                            {!isFormVisible && hasCreatePermission && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyeyi Belgesi kaydetmek için tıklayınız" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setIsFormVisible(true)}
+                                        isBlinking={isBlinking}
+                                        fullWidth={false}
+                                    >
+                                        Yeni Şantiyeyi Kaydet
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+                            {isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        onClick={resetFormAndState}
+                                        // disabled={loadingButton}
+                                        fullWidth={false}
+                                        startIcon={<IconX size={20} />}
+                                    >
+                                        Gizle
+                                    </Button>
+                                </CustomTooltip>
+                            )}
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                    endIcon={<IconArrowRight size={20} />}>
+                                    Geri Dön
+                                </Button>
+                            </CustomTooltip>
+
+                        </Stack>
+                    </Stack>
+                )}
+                {(!workId) && (
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
+
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems="stretch"
+                            flexGrow={1}
+                            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                        >
+                            {!isFormVisible && hasCreatePermission && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyeyi Belgesi kaydetmek için tıklayınız" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setIsFormVisible(true)}
+                                        isBlinking={isBlinking}
+                                        fullWidth={false}
+                                    >
+                                        Yeni Şantiyeyi Kaydet
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+                            {isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        onClick={resetFormAndState}
+                                        // disabled={loadingButton}
+                                        fullWidth={false}
+                                        startIcon={<IconX size={20} />}
+                                    >
+                                        Gizle
+                                    </Button>
+                                </CustomTooltip>
+                            )}
+
+                        </Stack>
                     </Stack>
                 )}
 
-                {(hasCreatePermission || hasEditPermission) && (
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Şantiyeyi Düzenle' : 'Yeni Şantiye Kaydı'}</Typography>
 
@@ -1530,9 +1620,10 @@ const ListWorkhouses = () => {
                                         color="primary"
                                         onClick={exportFilteredAllWorkhousesPdf}
                                         startIcon={<IconFileDownload />}
+                                        isBlinking={true}
                                         disabled={loadingData}
                                     >
-                                        Filtrelenmişi Şantiyeleri  İndir (PDF)
+                                        Filtrelenmişi İndir (PDF)
                                     </BlinkingButton>
                                 </CustomTooltip>
 
@@ -1542,9 +1633,10 @@ const ListWorkhouses = () => {
                                         color="primary"
                                         onClick={exportFilteredAllWorkhousesWithDetailsPdf}
                                         startIcon={<IconFileDownload />}
+                                        isBlinking={true}
                                         disabled={loadingData}
                                     >
-                                        Filtrelenmişi Şantiyeleri Detaylı İndir (PDF)
+                                        Filtrelenmişi Detaylı İndir (PDF)
                                     </BlinkingButton>
                                 </CustomTooltip>
                             </>
@@ -1552,10 +1644,10 @@ const ListWorkhouses = () => {
                         {hasDownloadPermission && (
                             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                                 <Button variant="outlined" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesPdf}>
-                                    Tümünü Şantiyeleri  İndir (PDF)
+                                    Tümünü İndir (PDF)
                                 </Button>
                                 <Button variant="contained" startIcon={<IconFileSpreadsheet />} onClick={exportAllWorkhousesWithDetailsPdf}>
-                                    Tümünü Şantiyeleri Detaylı İndir(PDF)
+                                    Detaylı İndir (PDF)
                                 </Button>
                             </Box>
                         )}
@@ -1731,7 +1823,7 @@ const ListWorkhouses = () => {
                                                                     exportSingleWorkhouseWithDetailsPdf(selectedRowForMenu.id, selectedRowForMenu.name);
                                                                 }
                                                             }}>
-                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon> Detaylı PDF İndir
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>Bu satırı indir(PDF)
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}

@@ -212,9 +212,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-const BlinkingButtondownload = styled(Button)(() => ({
-    animation: `${blinkAnimation} 1s linear infinite`,
-}));
 
 const ListBetweenWarehouseDispatch = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
@@ -277,6 +274,8 @@ const ListBetweenWarehouseDispatch = () => {
     const [endDate, setEndDate] = useState<Date | null>(null);
 
     const [removedDispatchDetails, setRemovedDispatchDetails] = useState<any[]>([]);
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -450,6 +449,15 @@ const ListBetweenWarehouseDispatch = () => {
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
     }, [searchTerm, statusFilter, startDate, endDate]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const validateForm = (): boolean => {
         let isValid = true;
         if (!selectedDriverId) { setDriverIdError(true); isValid = false; } else { setDriverIdError(false); }
@@ -469,6 +477,7 @@ const ListBetweenWarehouseDispatch = () => {
         setSelectedDriverId(null);
         setSelectedDestinationWarehouseId(null);
         setDispatchDetails([]);
+        setIsFormVisible(false);
         setEditingId(null);
         setDocDateError(false);
         setDriverIdError(false);
@@ -566,6 +575,7 @@ const ListBetweenWarehouseDispatch = () => {
                 description: d.description,
             }));
             setDispatchDetails(formattedDetails);
+            setIsFormVisible(true);
             handleCloseMenu();
         }
     };
@@ -905,20 +915,67 @@ const ListBetweenWarehouseDispatch = () => {
     return (
         <>
             <Box sx={{ p: 3 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                    <Typography variant="h5">Depolar Arası Sevk İşlemleri</Typography>
-                    <Stack direction="row" spacing={1}>
+                <Stack
+                    direction={{ xs: 'column', md: 'row' }}
+                    justifyContent="space-between"
+                    alignItems={{ xs: 'stretch', md: 'center' }}
+                    mb={3}
+                    spacing={2}
+                    flexWrap="wrap"
+                >
+                    <Typography variant="h5" sx={{ mb: { xs: 2, md: 0 } }}>
+                        Depolar Arası Sevk İşlemleri
+                    </Typography>
+
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && hasCreatePermission && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Depolar Arası Sevk Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    isBlinking={isBlinking}
+                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                >
+                                    Yeni Depolar Arası Sevk
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
 
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                endIcon={<IconArrowRight size={20} />}>
+                            <Button
+                                variant="outlined"
+                                color="error"
+                                onClick={() => navigate(-1)}
+                                endIcon={<IconArrowRight size={20} />}
+                                fullWidth={false}
+                            >
                                 Geri Dön
                             </Button>
                         </CustomTooltip>
                     </Stack>
                 </Stack>
-
-                {(hasCreatePermission || hasEditPermission) && (
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Depo Sevk Belgesini Düzenle' : 'Yeni Depo Sevk Belgesi'}</Typography>
                         <Grid container spacing={2}>
@@ -1140,15 +1197,16 @@ const ListBetweenWarehouseDispatch = () => {
                     <Stack direction="row" spacing={2} justifyContent="flex-end" mt={2} mb={2} mr={2}>
                         {isFilterActive && hasDownloadPermission && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle sevkleri indirin" : ""}>
-                                <BlinkingButtondownload
+                                <BlinkingButton
                                     variant="contained"
                                     color="secondary"
                                     onClick={handleDownloadFilteredAllPDF} // اینجا تابع فراخوانی می‌شود
                                     startIcon={<IconFileDownload />}
+                                    isBlinking={true}
                                     disabled={loadingData || displayedDispatches.length === 0}
                                 >
-                                    Filtrelenmişi Depolar Arası Sevk İndir (PDF)
-                                </BlinkingButtondownload>
+                                    Filtrelenmişi İndir (PDF)
+                                </BlinkingButton>
                             </CustomTooltip>
                         )}
                         {hasDownloadPermission && (
@@ -1159,7 +1217,7 @@ const ListBetweenWarehouseDispatch = () => {
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData || dispatchList.length === 0}
                             >
-                                Tüm Depolar Arası Sevk İndir (PDF)
+                                Tümünü İndir (PDF)
                             </Button>
                         )}
                     </Stack>
@@ -1274,7 +1332,7 @@ const ListBetweenWarehouseDispatch = () => {
                                                                 handleCloseMenu();
                                                             }}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                PDF'yi İndir
+                                                                Bu satırı indir(PDF)
                                                             </MenuItem>
                                                         )}
                                                         {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}

@@ -26,7 +26,7 @@ import FinalCalculationModal from './FinalCalculationModal';
 import DeleteTransmissionModal from './DeleteTransmissionModal';
 import DeleteAllConfirmationModal from './DeleteAllConfirmationModal';
 import RegisterNewNodesModal from './RegisterNewNodesModal';
-import { keyframes } from '@mui/system';
+import { keyframes, styled } from '@mui/system';
 
 import { MapNode, TransmissionRow, SelectOption, AddedItem, ItemType, ProductTypesType } from './types';
 import { useAuth } from 'src/context/AuthContext';
@@ -50,6 +50,11 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
+
 const getComparator = (order: 'asc' | 'desc', orderBy: SortableTransmissionKeys): (a: TransmissionRow, b: TransmissionRow) => number => {
     return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
 };
@@ -134,6 +139,11 @@ const ListTransmission = () => {
     const [openSelectTrafoModal, setOpenSelectTrafoModal] = useState(false);
 
 
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
+
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -163,6 +173,15 @@ const ListTransmission = () => {
             clearTimeout(timer);
         };
     }, [alertMessage, clearAlert]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -197,6 +216,7 @@ const ListTransmission = () => {
         setSelectedItem(null);
         setItemQuantity('');
         setIsInitialEntry(transmissionList.length === 0);
+        setIsFormVisible(false);
     }, [itemsList, addedItems, transmissionList]);
 
     const combinedProductTypeOptions = useMemo(() => {
@@ -582,18 +602,6 @@ const ListTransmission = () => {
     }, [navigate, showAlert, combinedProductTypeOptions]);
 
 
-    // const allUsedNodeIds = useMemo(() => {
-    //     const ids = new Set<string>();
-    //     transmissionList.forEach(row => {
-    //         if (row.fromProductTypeId) {
-    //             ids.add(row.fromProductTypeId);
-    //         }
-    //         if (row.toProductTypeId) {
-    //             ids.add(row.toProductTypeId);
-    //         }
-    //     });
-    //     return ids;
-    // }, [transmissionList]);
 
     const availableTrafoOptionsForMap = useMemo(() => {
         // گزینه‌های ترافو را بر اساس منطق fromProductType فیلتر کنید
@@ -947,6 +955,7 @@ const ListTransmission = () => {
             toProductTypeX: row.toProductTypeX,
             toProductTypeY: row.toProductTypeY,
         }));
+        debugger
         try {
             await axios.post(server.baseurl + server.initialoperations + "create-transmission-row-batch",
                 { networkId: Number(networkId), createTransmissionRows: payload },
@@ -1024,19 +1033,6 @@ const ListTransmission = () => {
         setSelectedRowForMenu(null);
     }, []);
 
-    // const handleEditClick = useCallback((row: TransmissionRow) => {
-    //     setEditingRowId(row.id);
-    //     setIsInitialEntry(false);
-    //     const fromOption = combinedProductTypeOptions.find(opt => opt.id === row.fromProductTypeId) || null;
-    //     const toOption = combinedProductTypeOptions.find(opt => opt.id === row.toProductTypeId) || null;
-
-    //     setFromProductType(fromOption);
-    //     setToProductType(toOption);
-    //     setDistance(String(row.distance));
-    //     setMiktarTipi(row.miktarTipi);
-    //     setFormulaTitle(row.formulaTitle);
-    //     setAddedItems(row.items || []);
-    // }, [combinedProductTypeOptions]);
 
     const handleEditClick = useCallback((row: TransmissionRow) => {
         setEditingRowId(row.id);
@@ -1055,6 +1051,7 @@ const ListTransmission = () => {
         const validMiktarTypes = ['Yeni YG', 'Yeni AG', 'DMM YG', 'DMM AG'];
         const newMiktarTipi = validMiktarTypes.includes(row.miktarTipi as string) ? row.miktarTipi : 'Yeni YG';
         setMiktarTipi(newMiktarTipi as any);
+        setIsFormVisible(true);
 
     }, [combinedProductTypeOptions]);
 
@@ -1124,16 +1121,10 @@ const ListTransmission = () => {
     }, [transmissionIdToDelete, transmissionList, showAlert, handleBatchUpdate, networkId, fetchTransmissionList]);
 
 
-    const handleSaveMapChanges = useCallback(async (updatedTransmissions: TransmissionRow[], newlyCreatedNodes: MapNode[]) => {
-        if (newlyCreatedNodes.length > 0) {
-            setPendingTransmissions(updatedTransmissions);
-            setNodesToRegister(newlyCreatedNodes);
-            setOpenConfirmationModal(true);
-        } else {
-            setTransmissionList(updatedTransmissions);
-            await handleBatchUpdate(updatedTransmissions);
-            showAlert('Harita değişiklikleri başarıyla kaydedildi!', 'success');
-        }
+    const handleSaveMapChanges = useCallback(async (updatedTransmissions: TransmissionRow[]) => {
+        setTransmissionList(updatedTransmissions);
+        await handleBatchUpdate(updatedTransmissions);
+        showAlert('Harita değişiklikleri başarıyla kaydedildi!', 'success');
     }, [handleBatchUpdate, showAlert]);
 
     const handleConfirmRegistration = useCallback(async (confirm: boolean) => {
@@ -1235,7 +1226,6 @@ const ListTransmission = () => {
     return (
         <Box sx={{ p: 3 }}>
             <Grid container spacing={2} alignItems="center" justifyContent="space-between" mb={3}>
-                {/* بخش اول: نمایش اطلاعات اصلی */}
                 <Grid item xs={12} sm={3} md={3}>
                     <Stack direction="column" alignItems="flex-start" flexWrap="wrap" gap={1}>
                         <Chip
@@ -1259,62 +1249,96 @@ const ListTransmission = () => {
                     </Stack>
                 </Grid>
 
-                {/* بخش دوم: نمایش دکمه‌ها */}
-                <Grid item xs={12} sm={9} md={9} sx={{ textAlign: isSmallScreen ? 'left' : 'right' }}>
-                    {(hasCreatePermission || hasEditPermission) && (
-                        <Stack direction="row" spacing={1} flexWrap="wrap" gap={1} justifyContent="flex-end">
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni İletken İcmali Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                fullWidth={false}
+                                isBlinking={isBlinking}
+                            >
+                                Yeni İletken İcmali Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetFormFields}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                            endIcon={<IconArrowRight size={20} />}>
+                            Geri Dön
+                        </Button>
+                    </CustomTooltip>
+
+                </Stack>
+
+            </Grid>
+
+            <Grid item xs={12} sm={12} md={12} sx={{ textAlign: isSmallScreen ? 'left' : 'right' }}>
+                {((isFormVisible && hasCreatePermission) || (editingRowId && hasEditPermission)) && (
+                    <Stack direction="row" spacing={1} flexWrap="wrap" gap={1} justifyContent="flex-end">
+                        <Button
+                            variant="outlined"
+                            color="secondary"
+                            onClick={() => {
+                                resetFormFields();
+                                setIsInitialEntry(true);
+                            }}
+                            startIcon={<IconRefresh />}
+                            disabled={loadingButton}
+                            fullWidth={isSmallScreen}
+                        >
+                            Yeni TRAFO'dan Başla
+                        </Button>
+                        {transmissionList.length > 0 && (
                             <Button
                                 variant="outlined"
-                                color="secondary"
-                                onClick={() => {
-                                    resetFormFields();
-                                    setIsInitialEntry(true);
-                                }}
-                                startIcon={<IconRefresh />}
+                                color="info"
+                                onClick={() => setOpenSelectTrafoModal(true)}
+                                startIcon={<IconPlus />}
                                 disabled={loadingButton}
                                 fullWidth={isSmallScreen}
                             >
-                                Yeni TRAFO'dan Başla
+                                TRAFO Seç
                             </Button>
-                            {transmissionList.length > 0 && (
-                                <Button
-                                    variant="outlined"
-                                    color="info"
-                                    onClick={() => setOpenSelectTrafoModal(true)}
-                                    startIcon={<IconPlus />}
-                                    disabled={loadingButton}
-                                    fullWidth={isSmallScreen}
-                                >
-                                    TRAFO Seç
-                                </Button>
-                            )}
+                        )}
 
-                            {hasCreatePermission && (
-                                <Button
-                                    variant="contained"
-                                    color="secondary"
-                                    onClick={handleOpenMapModal}
-                                    disabled={!networkId || loadingList || transmissionList.length === 0}
-                                    startIcon={<IconMap />}
-                                    fullWidth={isSmallScreen}
-                                >
-                                    Haritayı Görüntüle
-                                </Button>
-                            )}
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                    endIcon={<IconArrowRight size={20} />}
-                                    fullWidth={isSmallScreen}
-                                >
-                                    Geri Dön
-                                </Button>
-                            </CustomTooltip>
-                        </Stack>
-                    )}
-                </Grid>
+                        {hasCreatePermission && (
+                            <Button
+                                variant="contained"
+                                color="secondary"
+                                onClick={handleOpenMapModal}
+                                disabled={!networkId || loadingList || transmissionList.length === 0}
+                                startIcon={<IconMap />}
+                                fullWidth={isSmallScreen}
+                            >
+                                Haritayı Görüntüle
+                            </Button>
+                        )}
+                    </Stack>
+                )}
             </Grid>
-
-            {(hasCreatePermission || hasEditPermission) && (
+            {((isFormVisible && hasCreatePermission) || (editingRowId && hasEditPermission)) && (
                 <>
 
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>

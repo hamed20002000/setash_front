@@ -9,7 +9,7 @@ import {
     DialogActions,
     DialogContent,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
+import { keyframes, styled, useTheme } from '@mui/material/styles';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -22,7 +22,8 @@ import {
     IconPlus, IconTrash, IconEdit,
     IconArrowRight, IconDots,
     IconLink,
-    IconDownload
+    IconDownload,
+    IconX
 } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -44,6 +45,17 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
 
 const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
     if (priceInput === null || priceInput === undefined) {
@@ -161,6 +173,9 @@ const WorkhouseDetails = () => {
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
 
 
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const [isEditing, setIsEditing] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<any | null>(null);
 
@@ -267,6 +282,15 @@ const WorkhouseDetails = () => {
         };
     }, [alertMessage]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
+
     const validateForm = (): boolean => {
         let isValid = true;
         setStartDateError(false);
@@ -308,7 +332,8 @@ const WorkhouseDetails = () => {
         setEndDateError(false);
         setFormErrors(null);
 
-        // STATE اصلاح‌شده
+
+        setIsFormVisible(false);
         setSubscriptions([]);
     };
     const createWorkhouseDetail = async () => {
@@ -552,6 +577,7 @@ const WorkhouseDetails = () => {
             setAttachments([]);
         }
 
+        setIsFormVisible(true);
         handleCloseMenu();
     };
 
@@ -582,212 +608,250 @@ const WorkhouseDetails = () => {
                     <Chip label={`İsim: ${workhouseDetail?.name}`} color="primary" variant="filled" size="small" />
                     <Chip label={`Kod: ${workhouseDetail?.code}`} color="success" variant="filled" size="small" />
                 </Stack>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                    <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                        endIcon={<IconArrowRight size={20} />}>
-                        Geri Dön
-                    </Button>
-                </CustomTooltip>
-            </Stack>
-
-            {/* General Info and Details */}
-            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" mb={2}>Genel Bilgiler</Typography>
-                <Grid container spacing={2}>
-                    <Grid item xs={12} sm={3}>
-                        <CustomFormLabel htmlFor="workhouse-owner" required>
-                            Sahibi
-                        </CustomFormLabel>
-                        <CustomTextField
-                            id="workhouse-owner"
-                            placeholder="Sahip Adı"
-
-                            size="small"
-                            sx={{ width: '100%' }}
-                            value={owner}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOwner(e.target.value)}
-                            error={ownerError}
-                            helperText={ownerError ? "Bu alan zorunludur." : ""}
-                        />
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                        <CustomFormLabel htmlFor="workhouse-price" required>
-                            Kirası
-                        </CustomFormLabel>
-                        <CustomTextField
-                            id="workhouse-price"
-                            placeholder="Kirası"
-
-                            size="small"
-                            sx={{ width: '100%' }}
-                            type="number"
-                            value={price}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrice(Number(e.target.value))}
-                            error={priceError}
-                            InputProps={{ inputProps: { min: 0 } }}
-                            helperText={priceError ? "Bu alan zorunludur." : ""}
-                        />
-                    </Grid>
-
-                    <Grid item xs={12} sm={3}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="start-date" required>
-                                Kira Başlangıç Tarihi
-                            </CustomFormLabel>
-                            <DatePicker
-                                label=""
-                                value={rentStartDate}
-                                onChange={(newValue) => {
-                                    setRentStartDate(newValue);
-                                    if (startDateError && newValue) setStartDateError(false);
-                                    if (rentEndDate && newValue && newValue > rentEndDate) {
-                                        setEndDateError(true);
-                                        setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
-                                    } else {
-                                        setEndDateError(false);
-                                        setFormErrors(null);
-                                    }
-                                }}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-
-                                        size="small"
-                                        sx={{ width: '100%' }}
-                                        error={startDateError}
-                                        helperText={startDateError ? "Başlangıç tarihi boş olamaz!" : formErrors || ""}
-                                    />
-                                )}
-                            />
-                        </LocalizationProvider>
-                    </Grid>
-
-                    <Grid item xs={12} sm={3}>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                            <CustomFormLabel htmlFor="end-date" required>
-                                Kira Bitiş Tarihi
-                            </CustomFormLabel>
-                            <DatePicker
-                                label=""
-                                value={rentEndDate}
-                                onChange={(newValue) => {
-                                    setRentEndDate(newValue);
-                                    if (endDateError && newValue) setEndDateError(false);
-                                    if (rentStartDate && newValue && newValue < rentStartDate) {
-                                        setEndDateError(true);
-                                        setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
-                                    } else {
-                                        setEndDateError(false);
-                                        setFormErrors(null);
-                                    }
-                                }}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-
-                                        size="small"
-                                        sx={{ width: '100%' }}
-                                        error={endDateError}
-                                        helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
-                                    />
-                                )}
-                            />
-                        </LocalizationProvider>
-                    </Grid>
-
-                    <Grid item xs={12} sm={12}>
-                        <CustomFormLabel htmlFor="workhouse-description">Açıklama</CustomFormLabel>
-                        <CustomTextField
-                            id="workhouse-description"
-                            placeholder="Açıklama"
-                            multiline
-                            rows={4}
-                            fullWidth
-                            value={description}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
-                        />
-                    </Grid>
-                </Grid>
-            </Paper>
-
-            {/* Subscription Info and Details */}
-            <Paper elevation={3} sx={{ p: 3, mt: 3, mb: 3 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-                    <Typography variant="h6">Abonelik Bilgileri</Typography>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Abonelik bilgilerini düzenleyin" : ""}>
-                        <Button size="small" onClick={() => setOpenSubscriptionModal(true)} startIcon={<IconPlus />} variant="outlined">
-                            Abonelik Ekle
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems="stretch"
+                    flexGrow={1}
+                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                >
+                    {!isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiye detayları Belgesi kaydetmek için tıklayınız" : ""}>
+                            <BlinkingButton
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setIsFormVisible(true)}
+                                isBlinking={isBlinking}
+                                fullWidth={false}
+                            >
+                                Yeni Şantiye detayları Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )}
+                    {isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={resetForm}
+                                // disabled={loadingButton}
+                                fullWidth={false}
+                                startIcon={<IconX size={20} />}
+                            >
+                                Gizle
+                            </Button>
+                        </CustomTooltip>
+                    )}
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                        <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                            endIcon={<IconArrowRight size={20} />}>
+                            Geri Dön
                         </Button>
                     </CustomTooltip>
-                </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap" mt={2}>
-                    {subscriptions.length > 0 ? (
-                        renderSubscriptionChips(subscriptions)
-                    ) : (
-                        <Typography variant="body2" color="textSecondary">Henüz abonelik bilgisi yok.</Typography>
-                    )}
-                </Stack>
-            </Paper>
 
-            {/* Attachments */}
-            <Paper elevation={3} sx={{ p: 3, mt: 3, mb: 3 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-                    <CustomFormLabel htmlFor="workhouse-attachments">Ekler</CustomFormLabel>
-                    <Button size="small" onClick={() => fileInputRef.current?.click()} startIcon={<IconPlus />} variant="outlined">
-                        Dosya Ekle
-                    </Button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        onChange={handleFileChange}
-                        multiple
-                        accept=".pdf, .xls, .xlsx"
-                    />
                 </Stack>
-                <Box sx={{ border: '1px solid #ccc', borderRadius: '4px', p: 1, minHeight: 50, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {attachments.length > 0 ? (
-                        attachments.map((file, index) => (
-                            <Chip
-                                key={index}
-                                label={file}
-                                onDelete={() => handleRemoveAttachment(file)}
-                                sx={{ mr: 1, mb: 1 }}
-                            />
-                        ))
-                    ) : (
-                        <Typography variant="body2" color="textSecondary" sx={{ m: 'auto' }}>
-                            Henüz eklenmiş dosya yok.
-                        </Typography>
-                    )}
-                </Box>
-            </Paper>
+            </Stack>
 
-            <Grid container spacing={2} mb={2}>
-                <Grid item xs={12}>
-                    <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
-                        {isEditing ? (
-                            <>
-                                <Button variant="contained" color="primary" onClick={handleUpdateDetails} disabled={loadingButton || startDateError || endDateError}>
-                                    {loadingButton ? 'Bekleniyor...' : 'Güncellemeyi Kaydet'}
-                                </Button>
-                                <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
-                                    İptal Et
-                                </Button>
-                            </>
-                        ) : (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Şantiye detaylarını güncelleyin" : ""}>
-                                <Button variant="contained" color="info" onClick={createWorkhouseDetail} disabled={loadingButton || startDateError || endDateError}>
-                                    {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Detayları Güncelle'}
+            {((isFormVisible) || (isEditing)) && (
+                <>
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Typography variant="h6" mb={2}>Genel Bilgiler</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12} sm={3}>
+                                <CustomFormLabel htmlFor="workhouse-owner" required>
+                                    Sahibi
+                                </CustomFormLabel>
+                                <CustomTextField
+                                    id="workhouse-owner"
+                                    placeholder="Sahip Adı"
+
+                                    size="small"
+                                    sx={{ width: '100%' }}
+                                    value={owner}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOwner(e.target.value)}
+                                    error={ownerError}
+                                    helperText={ownerError ? "Bu alan zorunludur." : ""}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={3}>
+                                <CustomFormLabel htmlFor="workhouse-price" required>
+                                    Kirası
+                                </CustomFormLabel>
+                                <CustomTextField
+                                    id="workhouse-price"
+                                    placeholder="Kirası"
+
+                                    size="small"
+                                    sx={{ width: '100%' }}
+                                    type="number"
+                                    value={price}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrice(Number(e.target.value))}
+                                    error={priceError}
+                                    InputProps={{ inputProps: { min: 0 } }}
+                                    helperText={priceError ? "Bu alan zorunludur." : ""}
+                                />
+                            </Grid>
+
+                            <Grid item xs={12} sm={3}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <CustomFormLabel htmlFor="start-date" required>
+                                        Kira Başlangıç Tarihi
+                                    </CustomFormLabel>
+                                    <DatePicker
+                                        label=""
+                                        value={rentStartDate}
+                                        onChange={(newValue) => {
+                                            setRentStartDate(newValue);
+                                            if (startDateError && newValue) setStartDateError(false);
+                                            if (rentEndDate && newValue && newValue > rentEndDate) {
+                                                setEndDateError(true);
+                                                setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
+                                            } else {
+                                                setEndDateError(false);
+                                                setFormErrors(null);
+                                            }
+                                        }}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+
+                                                size="small"
+                                                sx={{ width: '100%' }}
+                                                error={startDateError}
+                                                helperText={startDateError ? "Başlangıç tarihi boş olamaz!" : formErrors || ""}
+                                            />
+                                        )}
+                                    />
+                                </LocalizationProvider>
+                            </Grid>
+
+                            <Grid item xs={12} sm={3}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <CustomFormLabel htmlFor="end-date" required>
+                                        Kira Bitiş Tarihi
+                                    </CustomFormLabel>
+                                    <DatePicker
+                                        label=""
+                                        value={rentEndDate}
+                                        onChange={(newValue) => {
+                                            setRentEndDate(newValue);
+                                            if (endDateError && newValue) setEndDateError(false);
+                                            if (rentStartDate && newValue && newValue < rentStartDate) {
+                                                setEndDateError(true);
+                                                setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
+                                            } else {
+                                                setEndDateError(false);
+                                                setFormErrors(null);
+                                            }
+                                        }}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+
+                                                size="small"
+                                                sx={{ width: '100%' }}
+                                                error={endDateError}
+                                                helperText={endDateError ? formErrors || "Bitiş tarihi boş olamaz!" : ""}
+                                            />
+                                        )}
+                                    />
+                                </LocalizationProvider>
+                            </Grid>
+
+                            <Grid item xs={12} sm={12}>
+                                <CustomFormLabel htmlFor="workhouse-description">Açıklama</CustomFormLabel>
+                                <CustomTextField
+                                    id="workhouse-description"
+                                    placeholder="Açıklama"
+                                    multiline
+                                    rows={4}
+                                    fullWidth
+                                    value={description}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
+                                />
+                            </Grid>
+                        </Grid>
+                    </Paper>
+
+                    <Paper elevation={3} sx={{ p: 3, mt: 3, mb: 3 }}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+                            <Typography variant="h6">Abonelik Bilgileri</Typography>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Abonelik bilgilerini düzenleyin" : ""}>
+                                <Button size="small" onClick={() => setOpenSubscriptionModal(true)} startIcon={<IconPlus />} variant="outlined">
+                                    Abonelik Ekle
                                 </Button>
                             </CustomTooltip>
-                        )}
-                    </Stack>
-                </Grid>
-            </Grid>
+                        </Stack>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" mt={2}>
+                            {subscriptions.length > 0 ? (
+                                renderSubscriptionChips(subscriptions)
+                            ) : (
+                                <Typography variant="body2" color="textSecondary">Henüz abonelik bilgisi yok.</Typography>
+                            )}
+                        </Stack>
+                    </Paper>
 
+                    <Paper elevation={3} sx={{ p: 3, mt: 3, mb: 3 }}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+                            <CustomFormLabel htmlFor="workhouse-attachments">Ekler</CustomFormLabel>
+                            <Button size="small" onClick={() => fileInputRef.current?.click()} startIcon={<IconPlus />} variant="outlined">
+                                Dosya Ekle
+                            </Button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleFileChange}
+                                multiple
+                                accept=".pdf, .xls, .xlsx"
+                            />
+                        </Stack>
+                        <Box sx={{ border: '1px solid #ccc', borderRadius: '4px', p: 1, minHeight: 50, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            {attachments.length > 0 ? (
+                                attachments.map((file, index) => (
+                                    <Chip
+                                        key={index}
+                                        label={file}
+                                        onDelete={() => handleRemoveAttachment(file)}
+                                        sx={{ mr: 1, mb: 1 }}
+                                    />
+                                ))
+                            ) : (
+                                <Typography variant="body2" color="textSecondary" sx={{ m: 'auto' }}>
+                                    Henüz eklenmiş dosya yok.
+                                </Typography>
+                            )}
+                        </Box>
+                    </Paper>
+
+                    <Grid container spacing={2} mb={2}>
+                        <Grid item xs={12}>
+                            <Stack direction="row" spacing={1} justifyContent="flex-end" mt={2}>
+                                {isEditing ? (
+                                    <>
+                                        <Button variant="contained" color="primary" onClick={handleUpdateDetails} disabled={loadingButton || startDateError || endDateError}>
+                                            {loadingButton ? 'Bekleniyor...' : 'Güncellemeyi Kaydet'}
+                                        </Button>
+                                        <Button variant="outlined" color="secondary" onClick={handleCancelEdit}>
+                                            İptal Et
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Şantiye detaylarını güncelleyin" : ""}>
+                                        <Button variant="contained" color="info" onClick={createWorkhouseDetail} disabled={loadingButton || startDateError || endDateError}>
+                                            {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Detayları Güncelle'}
+                                        </Button>
+                                    </CustomTooltip>
+                                )}
+                            </Stack>
+                        </Grid>
+                    </Grid>
+
+                </>
+
+            )}
             {alertMessage && (
                 <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>

@@ -16,7 +16,7 @@ import {
   ListItemText,
   TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
@@ -28,6 +28,7 @@ import CustomTextField from '../../../components/forms/theme-elements/CustomText
 import {
   IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
   IconFileDownload,
+  IconX,
 } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -57,6 +58,15 @@ const formatDateDisplay = (dateString: string | null): string => {
 };
 
 
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+  animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+  transition: 'transform 0.3s ease-in-out',
+}));
 
 interface ItemType {
   id: string;
@@ -419,6 +429,12 @@ const ListItemComponent = () => {
   const [weightError, setWeightError] = useState<boolean>(false);
   const [weightHelperText, setWeightHelperText] = useState<string>('');
 
+
+
+
+  const [isFormVisible, setIsFormVisible] = useState(false);
+  const [isBlinking, setIsBlinking] = useState(true);
+
   const { allowedOperations } = useAuth();
   const hasCreatePermission = useMemo(() => {
     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -467,7 +483,14 @@ const ListItemComponent = () => {
     setSelectedRowForMenu(null);
   };
 
-
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsBlinking(false);
+    }, 5000);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
 
   const handleClickOpenDeleteModal = () => {
     if (selectedRowForMenu) {
@@ -515,6 +538,7 @@ const ListItemComponent = () => {
     setEditingId(null);
     setUnitSearchTerm('');
     setCategorySearchTerm('');
+    setIsFormVisible(false);
     clearAlert();
 
     // **Clear all validation error states**
@@ -557,6 +581,7 @@ const ListItemComponent = () => {
       setWeightError(false); // ✅ اضافه شده: ریست کردن خطا
       setWeightHelperText(''); // ✅ اضافه شده: ریست کردن متن خطا
 
+      setIsFormVisible(true);
 
       // ✅ Added: Scroll to the item name input and focus
       setTimeout(() => {
@@ -1182,7 +1207,49 @@ const ListItemComponent = () => {
         padding: "10px 15px 30px 15px"
       }}>
 
-        {(hasCreatePermission || hasEditPermission) && (
+
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+
+          <Typography variant="h5" mb={2}>{editingId ? 'Ürün Düzenle' : 'Yeni Ürün Kaydı'}</Typography>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={2}
+            alignItems="stretch"
+            flexGrow={1}
+            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+          >
+            {!isFormVisible && hasCreatePermission && (
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Ürün Belgesi kaydetmek için tıklayınız" : ""}>
+                <BlinkingButton
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setIsFormVisible(true)}
+                  isBlinking={isBlinking}
+                  fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                >
+                  Yeni Ürün Kaydet
+                </BlinkingButton>
+              </CustomTooltip>
+            )}
+            {isFormVisible && (
+              <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={resetFormAndState}
+
+                  // disabled={loadingButton}
+                  fullWidth={false}
+                  startIcon={<IconX size={20} />}
+                >
+                  Gizle
+                </Button>
+              </CustomTooltip>
+            )}
+          </Stack>
+        </Stack>
+
+        {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
           <Grid container spacing={2}>
             {/* Item Name */}
             <Grid item xs={12} md={6}>
@@ -1485,7 +1552,7 @@ const ListItemComponent = () => {
                   onClick={handlePrintAllItems}
                   startIcon={<IconFileDownload />}
                 >
-                  Tüm Ürünleri İndir (PDF)
+                  Tümünü İndir (PDF)
                 </Button>
               </Grid>
             )}

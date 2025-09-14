@@ -10,14 +10,15 @@ import {
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import { styled } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
-    IconFileDownload
+    IconFileDownload,
+    IconX
 } from '@tabler/icons-react';
 import DeleteProvider from './DeleteProvider';
 import axios from 'axios';
@@ -45,6 +46,17 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
 
 
 interface ProviderType {
@@ -228,6 +240,11 @@ const ListProviders = () => {
     const [openAddressModal, setOpenAddressModal] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState('');
 
+
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const { isTooltipGloballyEnabled } = useTooltip();
 
     const { allowedOperations } = useAuth();
@@ -329,6 +346,14 @@ const ListProviders = () => {
     }, [fetchRegions, fetchProviders]);
 
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
     useEffect(() => {
         const filteredBySearchAndStatus = providersList.filter(prov => {
@@ -395,6 +420,7 @@ const ListProviders = () => {
             setFirmError(false);
             setRegionIdError(false);
 
+            setIsFormVisible(true);
             setTimeout(() => {
                 nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 nameInputRef.current?.focus();
@@ -436,6 +462,7 @@ const ListProviders = () => {
         setAddressError(false);
         setFirmError(false);
         setRegionIdError(false);
+        setIsFormVisible(false);
     };
 
     const validateForm = (): boolean => {
@@ -793,7 +820,45 @@ const ListProviders = () => {
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
 
-                {(hasCreatePermission || hasEditPermission) && (
+
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={2}
+                        alignItems="stretch"
+                        flexGrow={1}
+                        justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    >
+                        {!isFormVisible && hasCreatePermission && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Tedarikçi Belgesi kaydetmek için tıklayınız" : ""}>
+                                <BlinkingButton
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setIsFormVisible(true)}
+                                    isBlinking={isBlinking}
+                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                >
+                                    Yeni Tedarikçi Kaydet
+                                </BlinkingButton>
+                            </CustomTooltip>
+                        )}
+                        {isFormVisible && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    onClick={resetFormAndState}
+                                    // disabled={loadingButton}
+                                    fullWidth={false}
+                                    startIcon={<IconX size={20} />}
+                                >
+                                    Gizle
+                                </Button>
+                            </CustomTooltip>
+                        )}
+                    </Stack>
+                </Stack>
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h5" mb={2}>{editingId ? 'Sağlayıcıyı Düzenle' : 'Yeni Tedarikçi Kaydı'}</Typography>
                         <Grid container spacing={2}>
@@ -950,7 +1015,7 @@ const ListProviders = () => {
                                     startIcon={<IconFileDownload />}
                                 // You can add fullWidth if you want it to be responsive
                                 >
-                                    Tüm Tedarikçileri İndir (PDF)
+                                    Tümünü İndir (PDF)
                                 </Button>
                             </Grid>
                         )}
