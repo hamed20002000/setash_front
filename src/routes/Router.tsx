@@ -143,6 +143,9 @@ const ListStores = Loadable(lazy(() => import('../views/works/store/ListStores')
 const ListStoreReceipts = Loadable(lazy(() => import('../views/works/StoreReceipt/ListStoreReceipt')));
 const ListBetweenWarehouseDispatch = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListBetweenWarehouseDispatch')));
 const ListBetweenReceipt = Loadable(lazy(() => import('../views/warehouse/list-between-receipt/ListBetweenReceipt')));
+const ListProjects = Loadable(lazy(() => import('../views/project/list-projects/ListProjects')));
+const ListBetweenStoreDispatch = Loadable(lazy(() => import('../views/works/store/ListBetweenStoreDispatch')));
+const ListStoreDispatch = Loadable(lazy(() => import('../views/works/store/ListStoreDistpach')));
 
 
 
@@ -421,6 +424,30 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListBetweenReceipt />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/project/-projects/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListProjects />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/between-store-dispatch/:storeId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListBetweenStoreDispatch />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/store-dispatch/:storeId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreDispatch />
           </PermissionGuard>
         )
       },

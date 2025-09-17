@@ -441,14 +441,10 @@ const ListReceipts = () => {
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsBlinking(false);
-        }, 5000);
-        return () => {
-            clearTimeout(timer);
-        };
-    }, []);
+
+
+
+
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -493,6 +489,14 @@ const ListReceipts = () => {
         fetchWarehouses();
     }, []);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';

@@ -16,7 +16,7 @@ import {
 import { keyframes, styled } from '@mui/material/styles';
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
-    IconArrowRight, IconEye, IconX, IconReload
+    IconEye, IconX, IconReload
 } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -245,6 +245,8 @@ const ListBetweenReceipt = () => {
     const [endDate, setEndDate] = useState<Date | null>(null);
 
     const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
@@ -379,11 +381,14 @@ const ListBetweenReceipt = () => {
     }, [navigate, showAlert, authToken]);
 
     const fetchDispatchDetails = useCallback(async (dispatchId: string) => {
+        debugger
         if (!authToken) { navigate("/"); return; }
         try {
-            const response = await axios.get<ApiResponse<BetweenWarehouseDispatchForCombo>>(server.baseurl + server.warehouse + `get-warehouse-dispatch-by-id/${dispatchId}`, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
+            const response = await axios.get<ApiResponse<BetweenWarehouseDispatchForCombo>>
+                (server.baseurl + server.warehouse + `get-warehouse-dispatch-by-id/${dispatchId}`, {
+                    headers: { "Authorization": `Bearer ${authToken}` }
+                });
+
             if (response.data.httpStatusCode === 200) {
                 const details: FormReceiptDetail[] = (response.data.data.warehouseDispatchDetails || []).map(d => ({
                     itemId: Number(d.item.id),
@@ -465,6 +470,14 @@ const ListBetweenReceipt = () => {
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
     }, [searchTerm, statusFilter, startDate, endDate]);
 
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
     // === API Actions ===
     const insertReceipt = async () => {
         if (!validateForm()) return;
@@ -851,14 +864,16 @@ const ListBetweenReceipt = () => {
                     >
                         {!isFormVisible && hasCreatePermission && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Depolar Arası Fişler Belgesi kaydetmek için tıklayınız" : ""}>
-                                <BlinkingButtondownload
+                                <BlinkingButton
                                     variant="contained"
                                     color="primary"
+
+                                    isBlinking={isBlinking}
                                     onClick={() => setIsFormVisible(true)}
                                     fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
                                 >
                                     Yeni Depolar Arası Fişler
-                                </BlinkingButtondownload>
+                                </BlinkingButton>
                             </CustomTooltip>
                         )}
                         {isFormVisible && (
@@ -876,17 +891,7 @@ const ListBetweenReceipt = () => {
                             </CustomTooltip>
                         )}
 
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                            <Button
-                                variant="outlined"
-                                color="error"
-                                onClick={() => navigate(-1)}
-                                endIcon={<IconArrowRight size={20} />}
-                                fullWidth={false}
-                            >
-                                Geri Dön
-                            </Button>
-                        </CustomTooltip>
+
                     </Stack>
                 </Stack>
 

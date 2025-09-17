@@ -22,7 +22,7 @@ import {
   IconMap,
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
   IconBuildingFactory, IconFileInvoice, IconSitemap, IconHelmet, IconBuildingStore,
-  IconArrowsExchange
+  IconArrowsExchange, IconFolders, IconBulb
 } from '@tabler/icons-react';
 import server from '../../../../assets/address.json';
 
@@ -89,7 +89,9 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconSitemap: IconSitemap,
   IconHelmet: IconHelmet,
   IconBuildingStore: IconBuildingStore,
-  IconArrowsExchange: IconArrowsExchange
+  IconArrowsExchange: IconArrowsExchange,
+  IconFolders: IconFolders,
+  IconBulb: IconBulb
 };
 
 const getIconComponent = (iconName: string): React.ElementType => {

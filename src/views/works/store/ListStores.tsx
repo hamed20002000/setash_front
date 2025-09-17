@@ -23,7 +23,9 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown, IconFileDownload,
     IconArrowRight,
     IconReceipt,
-    IconX
+    IconX,
+    IconArrowsLeftRight,
+    IconBoxSeam
 } from '@tabler/icons-react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import DeleteStore from './DeleteStore';
@@ -1068,6 +1070,21 @@ const ListStores = () => {
         }
     };
 
+    const handleStoreTransferClick = () => {
+        if (selectedRowForMenu) {
+            const storeId = selectedRowForMenu.id;
+            navigate(`/store/between-store-dispatch/${storeId}`);
+        }
+        handleCloseMenu();
+    };
+    const handleStoreDispatchClick = () => {
+        if (selectedRowForMenu) {
+            const storeId = selectedRowForMenu.id;
+            navigate(`/store/store-dispatch/${storeId}`);
+        }
+        handleCloseMenu();
+    };
+
     const handleClearDateFilters = () => {
         setStartDate(null);
         setEndDate(null);
@@ -1172,7 +1189,7 @@ const ListStores = () => {
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         {workhouseId && (
-                            <Typography variant="h5" mb={2}>{editingId ? 'Şantiye Düzenle' : 'Şantiyenin Depo Kaydı'}</Typography>
+                            <Typography variant="h5" mb={2}>{editingId ? 'Şantiyenin Depo Düzenle' : 'Şantiyenin Depo Kaydı'}</Typography>
                         )}
                         <Grid container spacing={2}>
                             {!workhouseId && (
@@ -1531,7 +1548,22 @@ const ListStores = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
-
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Şantiyenin Depo arası sevk sayfasına git" : ""}>
+                                                        <MuiMenuItem onClick={handleStoreTransferClick}>
+                                                            <ListItemIcon>
+                                                                <IconArrowsLeftRight width={18} />
+                                                            </ListItemIcon>
+                                                            Şantiyenin Depo Arası Sevk
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Şantiyenin Depo Sevk İşlemi" : ""}>
+                                                        <MuiMenuItem onClick={handleStoreDispatchClick}>
+                                                            <ListItemIcon>
+                                                                <IconBoxSeam width={18} />
+                                                            </ListItemIcon>
+                                                            Sevk Et
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu mağazanın fişlerine git" : ""}>
                                                         <MuiMenuItem onClick={() => {
                                                             if (selectedRowForMenu) {
