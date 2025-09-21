@@ -32,9 +32,12 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
-
-import ViewWarehouseBalanceModal from './ViewWarehouseBalanceModal'
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+import ViewWarehouseBalanceModal from './ViewWarehouseBalanceModal';
 import { useAuth } from 'src/context/AuthContext';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 
@@ -48,7 +51,6 @@ export const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
-
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
@@ -186,20 +188,34 @@ const buildRegionTree = (regions: RegionType[] | undefined, depth: number = 0): 
     return tree;
 };
 
-// ✅ New component for rendering the tree menu items
 interface RegionTreeSelectMenuItemProps {
     node: RegionNode;
     onSelect: (regionId: number) => void;
     selectedId: number | null;
     onCloseParentSelect: () => void;
     searchQuery: string;
+    setExpandedNodes: React.Dispatch<React.SetStateAction<Set<number>>>; // Pass setter to child
+    expandedNodes: Set<number>;
 }
 
-const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ node, onSelect, selectedId, onCloseParentSelect, searchQuery }) => {
+const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ node, onSelect, selectedId, onCloseParentSelect, searchQuery, setExpandedNodes, expandedNodes }) => {
     const isSelected = selectedId === node.id;
     const hasChildren = node.children && node.children.length > 0;
-    // ✅ Logic to keep nodes open during search
-    const isOpen = searchQuery !== '' || (node.children && node.children.length > 0);
+    const isOpen = useMemo(() => searchQuery !== '' || (expandedNodes.has(node.id) && hasChildren), [searchQuery, expandedNodes, node.id, hasChildren]);
+
+    // 👇 This is the restored and corrected function
+    const handleToggleCollapse = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setExpandedNodes(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(node.id)) {
+                newSet.delete(node.id);
+            } else {
+                newSet.add(node.id);
+            }
+            return newSet;
+        });
+    };
 
     const handleItemClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -218,23 +234,19 @@ const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ nod
                     '&:hover': {
                         backgroundColor: 'rgba(0, 0, 0, 0.04)',
                     },
-                    '&.MuiMenuItem-root': {
-                        paddingTop: '6px',
-                        paddingBottom: '6px',
-                    },
                 }}
             >
                 <Stack direction="row" alignItems="center" width="100%">
                     {hasChildren ? (
                         <IconButton
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={handleToggleCollapse}
                             size="small"
                             sx={{ mr: 1, p: 0.5, visibility: searchQuery !== '' ? 'hidden' : 'visible' }}
                         >
                             {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                         </IconButton>
                     ) : (
-                        <Box sx={{ width: 16 + 8 + 4 }} />
+                        <Box sx={{ width: 16 + 8 }} />
                     )}
                     <ListItemText primary={node.name} />
                 </Stack>
@@ -249,6 +261,8 @@ const RegionTreeSelectMenuItem: React.FC<RegionTreeSelectMenuItemProps> = ({ nod
                             selectedId={selectedId}
                             onCloseParentSelect={onCloseParentSelect}
                             searchQuery={searchQuery}
+                            setExpandedNodes={setExpandedNodes}
+                            expandedNodes={expandedNodes}
                         />
                     ))}
                 </List>
@@ -264,7 +278,6 @@ const filterRegionTree = (nodes: RegionNode[], query: string): RegionNode[] => {
     return nodes
         .map(node => {
             const matches = node.name.toLowerCase().includes(lowerCaseQuery);
-
             const filteredChildren = filterRegionTree(node.children, query);
             const hasMatchingChildren = filteredChildren.length > 0;
 
@@ -332,13 +345,14 @@ const ListWarehouses = () => {
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
     const [selectedWarehouseName, setSelectedWarehouseName] = useState('');
     const [isFilterActive, setIsFilterActive] = useState(false);
-
-
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
-
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
+
+    // 👇 Two separate states for the download modals
+    const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
+    const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
 
     const { allowedOperations } = useAuth();
 
@@ -360,7 +374,6 @@ const ListWarehouses = () => {
     }, [allowedOperations]);
 
 
-    // ✅ Add this line inside the ListWarehouses component
     const filteredRegionTree = useMemo(() => {
         return filterRegionTree(regionTree, regionSearchQuery);
     }, [regionTree, regionSearchQuery]);
@@ -438,19 +451,25 @@ const ListWarehouses = () => {
     }, [searchTerm, statusFilter, startDate, endDate]);
 
     useEffect(() => {
-        const filteredBySearchAndStatus = WarehousesList.filter(wh => {
+        const filteredByAllCriteria = WarehousesList.filter(wh => {
             const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'active' && wh.recordStatus === 0) ||
                 (statusFilter === 'inactive' && wh.recordStatus === 1);
-            return matchesSearch && matchesStatus;
+
+            const warehouseCreateDate = new Date(wh.createAt);
+            const isWithinDateRange =
+                (!startDate || warehouseCreateDate >= startDate) &&
+                (!endDate || warehouseCreateDate <= endDate);
+
+            return matchesSearch && matchesStatus && isWithinDateRange;
         });
 
-        const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
+        const sortedData = stableSort(filteredByAllCriteria, getComparator(order, orderBy));
         setDisplayedWarehouses(sortedData);
         setPage(0);
-    }, [WarehousesList, searchTerm, statusFilter, order, orderBy]);
+    }, [WarehousesList, searchTerm, statusFilter, startDate, endDate, order, orderBy]);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -679,7 +698,7 @@ const ListWarehouses = () => {
             );
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
-                showAlert(`Direk başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                showAlert(`Depo başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 resetFormAndState();
                 fetchWarehouses();
             } else {
@@ -719,28 +738,28 @@ const ListWarehouses = () => {
         setPage(0);
     };
 
-    const paginatedWarehouses = useMemo(() => {
+    const allWarehousesForReport = useMemo(() => {
+        return stableSort(WarehousesList, getComparator(order, orderBy));
+    }, [WarehousesList, order, orderBy]);
+
+    const filteredAndSortedWarehousesList = useMemo(() => {
         const filteredByAllCriteria = WarehousesList.filter(wh => {
-            // فیلتر بر اساس کلمه جستجو و وضعیت
             const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'active' && wh.recordStatus === 0) ||
                 (statusFilter === 'inactive' && wh.recordStatus === 1);
-
-            // جدید: فیلتر بر اساس محدوده تاریخ ایجاد (createAt)
             const warehouseCreateDate = new Date(wh.createAt);
             const isWithinDateRange =
                 (!startDate || warehouseCreateDate >= startDate) &&
                 (!endDate || warehouseCreateDate <= endDate);
-
-            // ترکیب همه فیلترها
             return matchesSearch && matchesStatus && isWithinDateRange;
         });
+        return stableSort(filteredByAllCriteria, getComparator(order, orderBy));
+    }, [WarehousesList, searchTerm, statusFilter, startDate, endDate, order, orderBy]);
 
-        const sortedData = stableSort(filteredByAllCriteria, getComparator(order, orderBy));
-        return sortedData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    }, [WarehousesList, searchTerm, statusFilter, startDate, endDate, order, orderBy, page, rowsPerPage]);
+    const paginatedWarehouses = filteredAndSortedWarehousesList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
 
     const renderRegionTree = (nodes: RegionNode[], depth: number = 0) => {
         return nodes.map(node => {
@@ -787,13 +806,7 @@ const ListWarehouses = () => {
                             ) : (
                                 <Box sx={{ width: 16 + 8 }} />
                             )}
-                            {hasChildren ? (
-                                <ListItemText primary={node.name} />
-                            )
-                                : (
-                                    <ListItemText sx={{ marginLeft: "-12px" }} primary={node.name} />
-                                )}
-
+                            <ListItemText primary={node.name} />
                         </Stack>
                     </MuiMenuItem>
                     {isExpanded && hasChildren && renderRegionTree(node.children, depth + 1)}
@@ -822,74 +835,85 @@ const ListWarehouses = () => {
     };
 
     const handleDownloadAllWarehousesPDF = async () => {
-        if (!WarehousesList || WarehousesList.length === 0) {
+        if (!allWarehousesForReport || allWarehousesForReport.length === 0) {
             showAlert('PDF oluşturulacak depo bulunamadı.', 'warning');
             return;
         }
+        setOpenAllDownloadModal(false);
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Depolar Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
-        };
-
-        const rows = WarehousesList.map(wh => [
-            wh.name || '-',
-            wh.code || '-',
-            wh.address || '-',
-            wh.region?.name || '-',
-            formatDateDisplay(wh.createAt),
-            wh.status,
-        ]);
+        const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
+
+            const rows = allWarehousesForReport.map(wh => [
+                wh.name || '-',
+                wh.code || '-',
+                wh.address || '-',
+                wh.region?.name || '-',
+                formatDateDisplay(wh.createAt),
+                wh.status,
+            ]);
+
             autoTable(doc, {
-                startY: 50,
+                startY: 65,
                 head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'NotoSans',
+                    font: 'Arial',
                     fontStyle: 'normal',
-                    fontSize: 10,
+                    fontSize: 8,
                     cellPadding: 2,
                     overflow: 'linebreak'
                 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 35 },
-                    1: { cellWidth: 20 },
-                    2: { cellWidth: 40 },
-                    3: { cellWidth: 35 },
-                    4: { cellWidth: 25 },
-                    5: { cellWidth: 'auto' },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [0, 0, 0],
+                    font: 'Arial',
+                    fontSize: 9,
                 },
                 didDrawPage: () => {
-                    header();
-                    footer();
+                    doc.setFont('Arial', 'bold');
+                    doc.setFontSize(14);
+                    doc.text('Tüm Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
+                    doc.setFontSize(10);
+                    doc.setFont('Times', 'bold');
+                    doc.text(`Tarih:`, 15, 25);
+                    doc.setFont('Times', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+                    doc.setFont('NotoSans', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0);
+                    const companyInfo = [
+                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    ];
+                    let footerY = pageHeight - 30;
+                    companyInfo.forEach(line => {
+                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                        footerY += 4;
+                    });
+                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                margin: { top: 50, bottom: 45 },
             });
 
             doc.save('Tüm_Depolar_Raporu.pdf');
@@ -902,101 +926,100 @@ const ListWarehouses = () => {
 
 
     const handleDownloadFilteredPDF = async () => {
-        const filteredAndSortedWarehouses = WarehousesList.filter(wh => {
-            const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus =
-                statusFilter === 'all' ||
-                (statusFilter === 'active' && wh.recordStatus === 0) ||
-                (statusFilter === 'inactive' && wh.recordStatus === 1);
-            const warehouseCreateDate = new Date(wh.createAt);
-            const isWithinDateRange =
-                (!startDate || warehouseCreateDate >= startDate) &&
-                (!endDate || warehouseCreateDate <= endDate);
-            return matchesSearch && matchesStatus && isWithinDateRange;
-        });
-
-        if (!filteredAndSortedWarehouses || filteredAndSortedWarehouses.length === 0) {
+        if (!filteredAndSortedWarehousesList || filteredAndSortedWarehousesList.length === 0) {
             showAlert('PDF oluşturulacak filtrelenmiş depo bulunamadı.', 'warning');
             return;
         }
+        setOpenFilteredDownloadModal(false);
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Filtrelenmiş Depolar Raporu', pageWidth - 15, 30, { align: 'right' });
-            // doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : '-')} - ${formatDateDisplay(endDate ? endDate.toISOString() : '-')}`, pageWidth - 15, 50, { align: 'right' });
-            doc.setFontSize(12);
-
-            let filterInfo = '';
-            if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
-            if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
-            if (startDate || endDate) {
-                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
-            }
-            if (filterInfo) {
-                doc.text(filterInfo, pageWidth - 15, 40, { align: 'right' });
-            }
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        const rows = filteredAndSortedWarehouses.map(wh => [
-            wh.name || '-',
-            wh.code || '-',
-            wh.address || '-',
-            wh.region?.name || '-',
-            formatDateDisplay(wh.createAt),
-            wh.status,
-        ]);
-
         try {
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
+
+            const rows = filteredAndSortedWarehousesList.map(wh => [
+                wh.name || '-',
+                wh.code || '-',
+                wh.address || '-',
+                wh.region?.name || '-',
+                formatDateDisplay(wh.createAt),
+                wh.status,
+            ]);
+
             autoTable(doc, {
-                startY: 50,
+                startY: 65,
                 head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'NotoSans',
+                    font: 'Arial',
                     fontStyle: 'normal',
-                    fontSize: 10,
+                    fontSize: 8,
                     cellPadding: 2,
                     overflow: 'linebreak'
                 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 35 },
-                    1: { cellWidth: 20 },
-                    2: { cellWidth: 40 },
-                    3: { cellWidth: 35 },
-                    4: { cellWidth: 25 },
-                    5: { cellWidth: 'auto' },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [0, 0, 0],
+                    font: 'Arial',
+                    fontSize: 9,
                 },
                 didDrawPage: () => {
-                    header();
-                    footer();
+                    doc.setFont('Arial', 'bold');
+                    doc.setFontSize(14);
+                    doc.text('Filtrelenmiş Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
+                    doc.setFontSize(10);
+                    doc.setFont('Times', 'bold');
+                    doc.text(`Tarih:`, 15, 25);
+                    doc.setFont('Times', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+                    let filterInfo = '';
+                    if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+                    if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+                    if (startDate || endDate) {
+                        const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                        const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                        filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+                    }
+                    if (filterInfo) {
+                        doc.setFont('Arial', 'normal');
+                        doc.setFontSize(9);
+                        doc.text(filterInfo, pageWidth / 2, 47, { align: 'center' });
+                    }
+
+                    doc.setFont('NotoSans', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0);
+                    const companyInfo = [
+                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    ];
+                    let footerY = pageHeight - 30;
+                    companyInfo.forEach(line => {
+                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                        footerY += 4;
+                    });
+                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                margin: { top: 50, bottom: 45 },
             });
-
             doc.save('Filtrelenmis_Depolar_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error: any) {
@@ -1006,7 +1029,7 @@ const ListWarehouses = () => {
     };
 
 
-    const handleDownloadBalancePDF = async (_warehouseId: number, warehouseName: string, balanceData: any[]) => {
+    const handleDownloadBalancePDF = async (warehouseName: string, balanceData: any[]) => {
         if (!balanceData || balanceData.length === 0) {
             showAlert('PDF oluşturulacak envanter bulunamadı.', 'warning');
             return;
@@ -1014,49 +1037,73 @@ const ListWarehouses = () => {
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text(`${warehouseName} Envanter Raporu`, pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
-        };
-
-        const rows = balanceData.map(item => [
-            item.name,
-            item.balance,
-            item.code == null ? '-' : item.code
-        ]);
+        const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
+
+            const rows = balanceData.map(item => [
+                item.name,
+                item.balance,
+            ]);
+
             autoTable(doc, {
-                startY: 50,
-                head: [['Ürün Adı', 'Miktar', 'Kod']],
+                startY: 65,
+                head: [['Ürün Adı', 'Miktar']],
                 body: rows,
                 theme: 'grid',
-                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                styles: {
+                    font: 'Arial',
+                    fontStyle: 'normal',
+                    fontSize: 8,
+                    cellPadding: 2,
+                    overflow: 'linebreak'
+                },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [0, 0, 0],
+                    font: 'Arial',
+                    fontSize: 9,
+                },
                 didDrawPage: () => {
-                    header();
-                    footer();
+                    doc.setFont('Arial', 'bold');
+                    doc.setFontSize(14);
+                    doc.text(`${warehouseName} Envanter Raporu`, pageWidth / 2, 15, { align: 'center' });
+                    doc.setFontSize(10);
+                    doc.setFont('Times', 'bold');
+                    doc.text(`Tarih:`, 15, 25);
+                    doc.setFont('Times', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+                    doc.setFont('NotoSans', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0);
+                    const companyInfo = [
+                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    ];
+                    let footerY = pageHeight - 30;
+                    companyInfo.forEach(line => {
+                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                        footerY += 4;
+                    });
+                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                margin: { top: 50, bottom: 45 },
             });
 
             doc.save(`${warehouseName}_Envanter_Raporu.pdf`);
@@ -1067,6 +1114,238 @@ const ListWarehouses = () => {
         }
     };
 
+    const handleExportExcel = async (dataToExport: WarehouseType[], isFiltered: boolean) => {
+        setOpenAllDownloadModal(false);
+        setOpenFilteredDownloadModal(false);
+        if (!dataToExport || dataToExport.length === 0) {
+            showAlert('Dışa aktarılacak depo bulunamadı.', 'warning');
+            return;
+        }
+        showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+        try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Depolar Raporu', { views: [{ rightToLeft: false }] });
+
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            const fullHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: headerFont,
+                fill: headerFill
+            } as Partial<Excel.Style>;
+
+            const bodyStyle = {
+                border: border,
+                alignment: leftAlignment,
+                font: font
+            } as Partial<Excel.Style>;
+
+            const addCompanyInfo = (ws: Excel.Worksheet, columnCount: number) => {
+                ws.addRow([]);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+                const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+                companyInfo.forEach(line => {
+                    const row = ws.addRow([line]);
+                    row.getCell(1).alignment = { horizontal: 'center' };
+                    row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                    ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+                });
+            };
+
+            const titleText = isFiltered ? 'Filtrelenmiş Depolar Raporu' : 'Tüm Depolar Raporu';
+            const titleRow = worksheet.addRow([titleText]);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A1:G1');
+
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.mergeCells('A2:G2');
+
+            let filterInfo = '';
+            if (isFiltered) {
+                if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+                if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+                if (startDate || endDate) {
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+                }
+            }
+            if (filterInfo) {
+                worksheet.addRow([filterInfo]);
+                const filterInfoRow = worksheet.lastRow;
+                if (filterInfoRow) {
+                    filterInfoRow.getCell(1).alignment = { horizontal: 'center' };
+                    filterInfoRow.getCell(1).font = { name: 'Arial', size: 9, bold: false };
+                }
+                worksheet.mergeCells('A3:G3');
+            }
+            worksheet.addRow([]);
+
+            const tableHeaders = ['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum'];
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
+            });
+
+            dataToExport.forEach(wh => {
+                const row = worksheet.addRow([
+                    wh.name || '-',
+                    wh.code || '-',
+                    wh.address || '-',
+                    wh.region?.name || '-',
+                    formatDateDisplay(wh.createAt),
+                    wh.status,
+                ]);
+                row.eachCell((cell) => {
+                    cell.style = bodyStyle;
+                });
+            });
+
+            addCompanyInfo(worksheet, 6);
+
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileNamePrefix = isFiltered ? 'Filtrelenmis_Depolar' : 'Tüm_Depolar';
+            const fileName = `${fileNamePrefix}_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+        }
+    };
+
+    const handleDownloadBalanceExcel = async (warehouseName: string, balanceData: any[]) => {
+        if (!balanceData || balanceData.length === 0) {
+            showAlert('Dışa aktarılacak envanter bulunamadı.', 'warning');
+            return;
+        }
+        setOpenBalanceModal(false);
+
+        showAlert('Envanter Excel dosyası oluşturuluyor...', 'info');
+
+        try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Envanter Raporu', { views: [{ rightToLeft: false }] });
+
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            const fullHeaderStyle = { border: border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
+            const bodyStyle = { border: border, alignment: leftAlignment, font: font } as Partial<Excel.Style>;
+
+            const addCompanyInfo = (ws: Excel.Worksheet, columnCount: number) => {
+                ws.addRow([]);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+                const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+                companyInfo.forEach(line => {
+                    const row = ws.addRow([line]);
+                    row.getCell(1).alignment = { horizontal: 'center' };
+                    row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                    ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+                });
+            };
+
+            const titleRow = worksheet.addRow([`${warehouseName} Envanter Raporu`]);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A1:C1');
+
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.mergeCells('A2:C2');
+
+            worksheet.addRow([]);
+
+            const tableHeaders = ['Ürün Adı', 'Miktar'];
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
+            });
+
+            balanceData.forEach(item => {
+                const row = worksheet.addRow([
+                    item.name || '-',
+                    item.balance || '0'
+                ]);
+                row.eachCell((cell) => {
+                    cell.style = bodyStyle;
+                });
+            });
+
+            addCompanyInfo(worksheet, 2);
+
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `${warehouseName}_Envanter_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Envanter Excel dosyası başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+        }
+    };
 
     const handleWarehouseTransferClick = () => {
         if (selectedRowForMenu) {
@@ -1075,6 +1354,7 @@ const ListWarehouses = () => {
         }
         handleCloseMenu();
     };
+
     const handleViewBalanceClick = () => {
         if (selectedRowForMenu) {
             setSelectedWarehouseId(selectedRowForMenu.id);
@@ -1083,6 +1363,7 @@ const ListWarehouses = () => {
         }
         handleCloseMenu();
     };
+
     const handleDispatchClick = () => {
         if (selectedRowForMenu) {
             const warehouseId = selectedRowForMenu.id;
@@ -1091,16 +1372,19 @@ const ListWarehouses = () => {
         handleCloseMenu();
     };
 
-
     const handleCloseBalanceModal = () => {
         setOpenBalanceModal(false);
         setSelectedWarehouseId(null);
         setSelectedWarehouseName('');
     };
+
     const handleClearDateFilters = () => {
         setStartDate(null);
         setEndDate(null);
     };
+
+    console.log(displayedWarehouses)
+
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1119,7 +1403,7 @@ const ListWarehouses = () => {
                                 color="primary"
                                 onClick={() => setIsFormVisible(true)}
                                 isBlinking={isBlinking}
-                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                fullWidth={false}
                             >
                                 Yeni Depolar Kaydet
                             </BlinkingButton>
@@ -1131,7 +1415,6 @@ const ListWarehouses = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetFormAndState}
-                                // disabled={loadingButton}
                                 fullWidth={false}
                                 startIcon={<IconX size={20} />}
                             >
@@ -1234,6 +1517,8 @@ const ListWarehouses = () => {
                                                 selectedId={selectedRegionId}
                                                 onCloseParentSelect={handleCloseRegionSelect}
                                                 searchQuery={regionSearchQuery}
+                                                setExpandedNodes={setExpandedNodes}
+                                                expandedNodes={expandedNodes}
                                             />
                                         ))
                                     ) : (
@@ -1263,7 +1548,7 @@ const ListWarehouses = () => {
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 {editingId !== null ? (
                                     <>
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyi güncelleyin" : ""}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili depoyu güncelleyin" : ""}>
                                             <Button variant="contained" color="info" onClick={editWarehouse} disabled={loadingButton}>
                                                 {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
                                             </Button>
@@ -1295,33 +1580,34 @@ const ListWarehouses = () => {
                 </Stack>
             )}
             <BlankCard>
-
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
-                        {isFilterActive && (
+                        {isFilterActive && hasDownloadPermission && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle depoları indirin" : ""}>
                                 <BlinkingButton
                                     variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadFilteredPDF}
+                                    color="info"
+                                    onClick={() => setOpenFilteredDownloadModal(true)}
                                     startIcon={<IconFileDownload />}
-                                    isBlinking={true}
+                                    isBlinking={isFilterActive}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi İndir (PDF)
+                                    Filtrelenmişi İndir
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
                         {hasDownloadPermission && (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleDownloadAllWarehousesPDF}
-                                startIcon={<IconFileDownload />}
-                                disabled={loadingData || WarehousesList.length === 0}
-                            >
-                                Tümünü İndir (PDF)
-                            </Button>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri indir" : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setOpenAllDownloadModal(true)}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Tümünü İndir
+                                </Button>
+                            </CustomTooltip>
                         )}
                     </Stack>
                 </Grid>
@@ -1337,7 +1623,6 @@ const ListWarehouses = () => {
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
-
                         <Grid item xs={12} sm={6} md={6}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1418,7 +1703,7 @@ const ListWarehouses = () => {
                                                     {row.address.length > 50 ? `${row.address.substring(0, 50)}...` : row.address}
                                                 </Typography>
                                                 {row.address.length > 50 && (
-                                                    <Button variant="text" size="small" onClick={() => {
+                                                    <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                         setSelectedAddress(row.address);
                                                         setOpenAddressModal(true);
                                                     }}>
@@ -1527,18 +1812,6 @@ const ListWarehouses = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {/* {hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detaylı bilgilerini PDF formatında indirin" : ""}>
-                                                            <MuiMenuItem onClick={() => {
-                                                                if (selectedRowForMenu) {
-                                                                    // exportSingleWorkhouseWithDetailsPdf(selectedRowForMenu.id, selectedRowForMenu.name);
-                                                                }
-                                                            }}>
-                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon> Detaylı PDF İndir
-                                                            </MuiMenuItem>
-                                                        </CustomTooltip>
-                                                    )} */}
-
                                                 </Menu>
                                             </TableCell>
                                         </TableRow>
@@ -1559,7 +1832,9 @@ const ListWarehouses = () => {
                 <TablePagination
                     rowsPerPageOptions={[5, 10, 25]}
                     component="div"
-                    count={displayedWarehouses.length}
+                    count={filteredAndSortedWarehousesList.length}
+
+                    // count={displayedWarehouses.length}
                     rowsPerPage={rowsPerPage}
                     page={page}
                     onPageChange={handleChangePage}
@@ -1568,7 +1843,6 @@ const ListWarehouses = () => {
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>
-
             <Dialog
                 open={openAddressModal}
                 onClose={() => setOpenAddressModal(false)}
@@ -1598,14 +1872,78 @@ const ListWarehouses = () => {
                 showAlert={showAlert}
                 onDeleteSuccess={fetchWarehouses}
             />
-
             <ViewWarehouseBalanceModal
                 open={openBalanceModal}
                 onClose={handleCloseBalanceModal}
                 warehouseId={selectedWarehouseId}
                 warehouseName={selectedWarehouseName}
                 onDownloadPDF={handleDownloadBalancePDF}
+                onDownloadExcel={handleDownloadBalanceExcel}
             />
+            <Dialog
+                open={openAllDownloadModal}
+                onClose={() => setOpenAllDownloadModal(false)}
+            >
+                <DialogTitle>Tüm Depolar için Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleDownloadAllWarehousesPDF}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleExportExcel(WarehousesList, false)}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAllDownloadModal(false)} color="secondary">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            {isFilterActive && (
+                <Dialog
+                    open={openFilteredDownloadModal}
+                    onClose={() => setOpenFilteredDownloadModal(false)}
+                >
+                    <DialogTitle>Filtrelenmiş Depolar için Format Seçin</DialogTitle>
+                    <DialogContent>
+                        <Stack direction="column" spacing={2}>
+                            <Button
+                                variant="contained"
+                                color="primary"
+                                startIcon={<IconFileDownload />}
+                                onClick={handleDownloadFilteredPDF}
+                            >
+                                PDF Olarak İndir
+                            </Button>
+                            <Button
+                                variant="contained"
+                                color="success"
+                                startIcon={<IconFileDownload />}
+                                onClick={() => handleExportExcel(filteredAndSortedWarehousesList, true)}
+                            >
+                                Excel Olarak İndir
+                            </Button>
+                        </Stack>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenFilteredDownloadModal(false)} color="secondary">
+                            İptal
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+            )}
         </Box>
     );
 };

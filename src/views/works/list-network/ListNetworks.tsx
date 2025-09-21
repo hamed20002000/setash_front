@@ -35,7 +35,11 @@ import { SelectChangeEvent } from '@mui/material/Select';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
 import BlankCard from 'src/components/shared/BlankCard';
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -118,18 +122,12 @@ const ListNetwork = () => {
         workId: workId ? parseInt(workId) : 0,
     });
 
-    // 👇 State های جدید برای مدیریت حالت دوم
     const [selectedWorkIdForForm, setSelectedWorkIdForForm] = useState<number | null>(null);
     const [works, setWorks] = useState<WorkType[]>([]);
     const [allNetworks, setAllNetworks] = useState<NetworkType[]>([]);
-
-    // 👇 State های فیلتر
     const [filterWorkId, setFilterWorkId] = useState<number | null>(null);
-
     const [workTitleForDisplay, setWorkTitleForDisplay] = useState('');
     const [tenderTitleForDisplay, setTenderTitleForDisplay] = useState('');
-
-    // 👇 این State برای نمایش در جدول استفاده می‌شود
     const [networks, setNetworks] = useState<NetworkType[]>([]);
 
     const [loadingData, setLoadingData] = useState(true);
@@ -145,7 +143,6 @@ const ListNetwork = () => {
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<NetworkType | null>(null);
     const openMenu = Boolean(anchorEl);
     const [editingId, setEditingId] = useState<string | null>(null);
-    // const [originalTitle, setOriginalTitle] = useState<string>('');
     const [titleError, setTitleError] = useState<boolean>(false);
     const [descriptionError, setDescriptionError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
@@ -155,10 +152,9 @@ const ListNetwork = () => {
     const [networkTitleToDelete, setNetworkTitleToDelete] = useState<string>('');
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
-
-
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+    const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
 
     const { allowedOperations } = useAuth();
@@ -179,16 +175,13 @@ const ListNetwork = () => {
         return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
     }, [allowedOperations]);
 
-    // 👇 از useEffect برای اعمال فیلتر استفاده کنید
     useEffect(() => {
         let filtered = allNetworks;
 
-        // فیلتر بر اساس Work ID (در حالت دوم)
         if (filterWorkId) {
             filtered = filtered.filter(network => network.work && network.work.id === filterWorkId);
         }
 
-        // فیلتر بر اساس جستجو و وضعیت
         filtered = filtered.filter(network => {
             const matchesSearch = network.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (network.work && network.work.title && network.work.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -287,14 +280,13 @@ const ListNetwork = () => {
                     title: item.title,
                     description: item.description,
                     createAt: item.createAt,
-                    // تعیین مقدار status بر اساس recordStatus
                     status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
                     recordStatus: item.recordStatus,
                     work: item.work
                 }));
 
                 setAllNetworks(formattedNetworks);
-                setNetworks(formattedNetworks); // نمایش همه شبکه‌ها در ابتدا
+                setNetworks(formattedNetworks);
                 setWorks(worksData);
 
             } else {
@@ -428,7 +420,6 @@ const ListNetwork = () => {
         });
         setSelectedWorkIdForForm(null);
         setEditingId(null);
-        // setOriginalTitle('');
         setTitleError(false);
         setDescriptionError(false);
         setFormErrors(null);
@@ -494,11 +485,6 @@ const ListNetwork = () => {
         if (!validateForm() || (workId === undefined && selectedWorkIdForForm === null)) {
             return;
         }
-        // if (newNetworkData.title === originalTitle) {
-        //     showAlert('Şebeke bilgilerinde herhangi bir değişiklik yapmadınız.', 'info');
-        //     resetFormAndState();
-        //     return;
-        // }
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -552,11 +538,10 @@ const ListNetwork = () => {
         }
     };
 
-    // 👇 تابع جدید برای مدیریت فیلتر با ComboBox (بدون تأثیر بر State فرم ثبت)
     const handleWorkFilterChange = (event: SelectChangeEvent<number>) => {
         const newWorkId = event.target.value as number;
         setFilterWorkId(newWorkId || null);
-        setPage(0); // بازنشانی صفحه‌بندی
+        setPage(0);
     };
 
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: NetworkType) => {
@@ -623,17 +608,14 @@ const ListNetwork = () => {
     };
     const handleEditClick = () => {
         if (selectedRowForMenu) {
-            // 👇 این خط را اضافه کنید
             setSelectedWorkIdForForm(selectedRowForMenu.work?.id || null);
 
             setNewNetworkData({
                 title: selectedRowForMenu.title,
                 description: selectedRowForMenu.description,
-                // از selectedRowForMenu.work?.id استفاده کنید
                 workId: selectedRowForMenu.work?.id || 0,
             });
             setEditingId(selectedRowForMenu.id);
-            // setOriginalTitle(selectedRowForMenu.title);
             setTitleError(false);
             setDescriptionError(false);
             setFormErrors(null);
@@ -716,8 +698,11 @@ const ListNetwork = () => {
         div.innerHTML = html;
         return div.textContent || div.innerText || '';
     };
+
+    // New and updated PDF and Excel functions
     const handleDownloadNetworksPDF = () => {
-        if (!filteredNetworks || filteredNetworks.length === 0) {
+        setOpenDownloadModal(false);
+        if (!networks || networks.length === 0) {
             showAlert('PDF oluşturulacak şebeke bulunamadı.', 'warning');
             return;
         }
@@ -726,77 +711,226 @@ const ListNetwork = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // 💡 فونت را اضافه کنید
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Şebekeler Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-            if (workId) {
-                doc.text(`İş: ${workTitleForDisplay}`, pageWidth - 15, 47, { align: 'right' });
-            }
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        // آماده کردن داده‌ها برای جدول PDF
-        const head = ['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
-        const rows = filteredNetworks.map(network => [
-            network.title,
-            stripHtmlTags(network.description),
-            formatDateDisplay(network.createAt),
-            network.status
-        ]);
-
-        // اگر workId در URL نبود، ستون "Bağlı İş" را به PDF اضافه کنید
-        if (workId === undefined) {
-            head.splice(1, 0, 'Bağlı İş'); // اضافه کردن ستون "Bağlı İş" در جایگاه مناسب
-            rows.forEach((row, index) => {
-                const workTitle = filteredNetworks[index].work?.title || 'Bilinmiyor';
-                row.splice(1, 0, workTitle);
-            });
-        }
-
         try {
+            // Add fonts
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
+
+            const head = ['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
+            const rows = networks.map(network => {
+                const description = network.description ? stripHtmlTags(network.description) : '-';
+                return [
+                    network.title,
+                    description.length > 50 ? `${description.substring(0, 50)}...` : description,
+                    formatDateDisplay(network.createAt),
+                    network.status
+                ];
+            });
+
+            if (workId === undefined) {
+                head.splice(1, 0, 'Bağlı İş');
+                rows.forEach((row, index) => {
+                    const workTitle = networks[index].work?.title || 'Bilinmiyor';
+                    row.splice(1, 0, workTitle);
+                });
+            }
+
             autoTable(doc, {
-                startY: 50,
+                startY: 65,
                 head: [head],
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'NotoSans',
+                    font: 'Arial',
                     fontStyle: 'normal',
                     fontSize: 8,
                     cellPadding: 2,
                     overflow: 'linebreak'
                 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [0, 0, 0],
+                    font: 'Arial',
+                    fontSize: 9,
+                },
                 didDrawPage: () => {
-                    header();
-                    footer();
+                    doc.setFont('Arial', 'bold');
+                    doc.setFontSize(14);
+                    doc.text('Şebekeler Raporu', pageWidth / 2, 15, { align: 'center' });
+                    doc.setFontSize(10);
+                    doc.setFont('Times', 'bold');
+                    doc.text(`Tarih:`, 15, 25);
+                    doc.setFont('Times', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+                    if (workId) {
+                        doc.text(`İş: ${workTitleForDisplay}`, pageWidth - 20, 47, { align: 'right' });
+                    }
+                    if (tenderId) {
+                        doc.text(`İhale: ${tenderTitleForDisplay}`, pageWidth - 20, 54, { align: 'right' });
+                    }
+
+                    doc.setFont('NotoSans', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0);
+                    const companyInfo = [
+                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    ];
+                    let footerY = pageHeight - 30;
+                    companyInfo.forEach(line => {
+                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                        footerY += 4;
+                    });
+                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                margin: { top: 50, bottom: 45 },
             });
-
             doc.save('Şebekeler_Raporu.pdf');
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error: any) {
             console.error('PDF oluşturulurken hata:', error);
             showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+        }
+    };
+
+    const handleExportExcel = async () => {
+        setOpenDownloadModal(false);
+        if (!networks || networks.length === 0) {
+            showAlert('Dışa aktarılacak şebeke bulunamadı.', 'warning');
+            return;
+        }
+
+        showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+        try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Şebekeler Raporu', { views: [{ rightToLeft: false }] });
+
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            const fullHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: headerFont,
+                fill: headerFill
+            } as Partial<Excel.Style>;
+
+            const bodyStyle = {
+                border: border,
+                alignment: leftAlignment,
+                font: font
+            } as Partial<Excel.Style>;
+
+            const addCompanyInfo = (ws: Excel.Worksheet, columnCount: number) => {
+                ws.addRow([]); // Blank row for spacing
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+
+                // const startRowNumber = ws.lastRow ? ws.lastRow.number + 1 : 1;
+                const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+
+                companyInfo.forEach(line => {
+                    const row = ws.addRow([line]);
+                    row.getCell(1).alignment = { horizontal: 'center' };
+                    row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                    ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+                });
+            };
+
+            // Report Header
+            const titleRow = worksheet.addRow(['Tüm Şebekeler Raporu']);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A1:G1');
+
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.mergeCells('A2:G2');
+
+            let headers: string[];
+            if (workId === undefined) {
+                headers = ['Şebeke Adı', 'Bağlı İş', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
+            } else {
+                headers = ['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
+            }
+
+            worksheet.addRow([]);
+            const headerRow = worksheet.addRow(headers);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
+            });
+
+            networks.forEach(network => {
+                const description = network.description ? stripHtmlTags(network.description) : '-';
+                const rowData = workId === undefined
+                    ? [network.title, network.work?.title || 'Bilinmiyor', description, formatDateDisplay(network.createAt), network.status]
+                    : [network.title, description, formatDateDisplay(network.createAt), network.status];
+
+                const row = worksheet.addRow(rowData);
+                row.eachCell((cell) => {
+                    cell.style = bodyStyle;
+                });
+            });
+
+            const columnCount = workId === undefined ? 5 : 4;
+            // const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+
+            // // Add company info at the end, merged over the entire width
+            // const firstCompanyInfoRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
+
+            addCompanyInfo(worksheet, columnCount);
+
+            // Adjust column widths
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            // Save file
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `Şebekeler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
     };
 
@@ -810,7 +944,6 @@ const ListNetwork = () => {
             (statusFilter === 'active' && network.recordStatus === 0) ||
             (statusFilter === 'inactive' && network.recordStatus === 1);
 
-        // این قسمت با State های جدید ترکیب می شود
         const matchesWorkFilter = filterWorkId === null || (network.work && network.work.id === filterWorkId);
 
         return matchesSearch && matchesStatus && matchesWorkFilter;
@@ -876,7 +1009,6 @@ const ListNetwork = () => {
                                     variant="contained"
                                     color="error"
                                     onClick={resetFormAndState}
-                                    // disabled={loadingButton}
                                     fullWidth={false}
                                     startIcon={<IconX size={20} />}
                                 >
@@ -924,7 +1056,6 @@ const ListNetwork = () => {
                                     variant="contained"
                                     color="error"
                                     onClick={resetFormAndState}
-                                    // disabled={loadingButton}
                                     fullWidth={false}
                                     startIcon={<IconX size={20} />}
                                 >
@@ -937,9 +1068,6 @@ const ListNetwork = () => {
                 </Stack>
             )}
 
-            {workId && (
-                <Typography variant="h5" mb={2}>{editingId ? 'Şebeke Düzenle' : 'Şebeke Kaydı'}</Typography>
-            )}
             {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <Box component="div" sx={{
                     p: 2, border: "1px solid", borderColor: "divider",
@@ -954,7 +1082,7 @@ const ListNetwork = () => {
                                         <Select
                                             id="work-select"
                                             value={selectedWorkIdForForm || ''}
-                                            onChange={(e) => setSelectedWorkIdForForm(e.target.value as number)} // 👈 استفاده از تابع جدید
+                                            onChange={(e) => setSelectedWorkIdForForm(e.target.value as number)}
                                             displayEmpty
                                         >
                                             {works.map((work) => (
@@ -1038,7 +1166,7 @@ const ListNetwork = () => {
                                                         variant="contained"
                                                         color="primary"
                                                         onClick={insertNetwork}
-                                                        disabled={loadingButton || (workId === undefined && selectedWorkIdForForm === null)} // 👈 استفاده از State جدید
+                                                        disabled={loadingButton || (workId === undefined && selectedWorkIdForForm === null)}
                                                     >
                                                         {loadingButton ? <CircularProgress size={24} color="inherit" /> : 'Şebeke Ekle'}
                                                     </Button>
@@ -1070,18 +1198,19 @@ const ListNetwork = () => {
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
                         {hasDownloadPermission && (
                             <Grid item xs={12} md={3} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadNetworksPDF}
-                                    fullWidth
-                                    startIcon={<IconFileDownload size={20} />}
-                                >
-                                    Tümünü İndir (PDF)
-                                </Button>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setOpenDownloadModal(true)} // Open modal on click
+                                        fullWidth
+                                        startIcon={<IconFileDownload size={20} />}
+                                    >
+                                        Tümünü İndir
+                                    </Button>
+                                </CustomTooltip>
                             </Grid>
                         )}
-
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
@@ -1092,8 +1221,8 @@ const ListNetwork = () => {
                                 <FormControl fullWidth size="small">
                                     <Select
                                         id="work-filter"
-                                        value={filterWorkId || ''} // 👈 استفاده از State جدید فیلتر
-                                        onChange={handleWorkFilterChange} // 👈 استفاده از تابع جدید
+                                        value={filterWorkId || ''}
+                                        onChange={handleWorkFilterChange}
                                         displayEmpty
                                     >
                                         <MenuItem value="">
@@ -1108,7 +1237,7 @@ const ListNetwork = () => {
                                 </FormControl>
                             </Grid>
                         )}
-                        <Grid item xs={12} md={workId === undefined ? 6 : 12}>
+                        <Grid item xs={12} md={workId === undefined ? 6 : 9}>
                             <TextField
                                 label="Şebeke Ara"
                                 variant="outlined"
@@ -1124,7 +1253,7 @@ const ListNetwork = () => {
                                 }}
                             />
                         </Grid>
-                        <Grid item xs={12} md={workId === undefined ? 3 : 12}>
+                        <Grid item xs={12} md={workId === undefined ? 3 : 3}>
                             <ToggleButtonGroup
                                 value={statusFilter}
                                 exclusive
@@ -1181,7 +1310,7 @@ const ListNetwork = () => {
                                                 </Box>
                                                 {row.description && row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" size="small" onClick={() => {
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description)
                                                         }}>
                                                             Devamını Oku
@@ -1274,7 +1403,6 @@ const ListNetwork = () => {
                                                     )}
 
                                                     {hasEditPermission && (
-
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şebeke düzenle" : ""}>
                                                             <MenuItem onClick={handleEditClick}>
                                                                 <ListItemIcon>
@@ -1352,6 +1480,38 @@ const ListNetwork = () => {
                 <DialogActions>
                     <Button onClick={handleCloseDescriptionModal} color="primary">
                         Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+            {/* Download Modal */}
+            <Dialog
+                open={openDownloadModal}
+                onClose={() => setOpenDownloadModal(false)}
+            >
+                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleDownloadNetworksPDF}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleExportExcel}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadModal(false)} color="secondary">
+                        İptal
                     </Button>
                 </DialogActions>
             </Dialog>

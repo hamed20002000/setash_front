@@ -8,7 +8,7 @@ import {
   Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup, ToggleButton as MuiToggleButton,
-  TableSortLabel,
+  TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 
 import { keyframes, styled } from '@mui/material/styles';
@@ -32,7 +32,12 @@ import { useAuth } from 'src/context/AuthContext';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+
 
 const formatDateDisplay = (dateString: string | null): string => {
   if (!dateString) return "N/A";
@@ -168,13 +173,14 @@ const ListUnit = () => {
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  const [orderBy, setOrderBy] = useState<keyof UnitType>('createAt'); // Default sort column
-  const [order, setOrder] = useState<'asc' | 'desc'>('desc'); // Default sort direction
+  const [orderBy, setOrderBy] = useState<keyof UnitType>('createAt');
+  const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
   const unitNameInputRef = useRef<HTMLInputElement>(null);
 
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
+  const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
 
   const [isFormVisible, setIsFormVisible] = useState(false);
@@ -253,14 +259,14 @@ const ListUnit = () => {
       setNameError(false);
       setNameHelperText('');
 
-      // ✅ Added: Scroll to the unit name input and focus
       setTimeout(() => {
         unitNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         unitNameInputRef.current?.focus();
-      }, 100); // Small delay to ensure DOM update
+      }, 100);
     }
     handleCloseMenu();
     clearAlert();
+    setIsFormVisible(true);
   };
 
   const handleCancelEdit = () => {
@@ -269,18 +275,17 @@ const ListUnit = () => {
     // **Clear input validation errors**
     setNameError(false);
     setNameHelperText('');
-    setIsFormVisible(true);
   };
 
   const insertUnit = async () => {
     if (!name.trim()) {
-      setNameError(true); // Set error state to true
-      setNameHelperText('Ölçü adı boş olamaz!'); // Set helper text
+      setNameError(true);
+      setNameHelperText('Ölçü adı boş olamaz!');
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
-    setNameError(false); // Clear error if valid
-    setNameHelperText(''); // Clear helper text if valid
+    setNameError(false);
+    setNameHelperText('');
 
     clearAlert();
     const authToken = localStorage.getItem('authToken');
@@ -328,13 +333,13 @@ const ListUnit = () => {
   const editUnit = async () => {
     if (editingId === null) return;
     if (!name.trim()) {
-      setNameError(true); // Set error state to true
-      setNameHelperText('Ölçü adı boş olamaz!'); // Set helper text
+      setNameError(true);
+      setNameHelperText('Ölçü adı boş olamaz!');
       showAlert('İsim boş olamaz!', 'warning');
       return;
     }
-    setNameError(false); // Clear error if valid
-    setNameHelperText(''); // Clear helper text if valid
+    setNameError(false);
+    setNameHelperText('');
 
     clearAlert();
 
@@ -475,12 +480,11 @@ const ListUnit = () => {
       if (result.data.httpStatusCode === 200) {
         const formattedData = result.data.data.map((item: any) => ({
           id: item.id,
-          name: item.title, // Assuming 'title' from API corresponds to 'name' in UnitType
+          name: item.title,
           recordStatus: item.recordStatus,
           createAt: item.createAt,
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
-        // Removed initial sorting here, as it will be handled by the new sorting logic
         setUnitsList(formattedData as UnitType[]);
       } else {
         showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
@@ -537,84 +541,11 @@ const ListUnit = () => {
     setPage(0);
   };
 
-  // ✅ Added: Handler for changing sort order
   const handleRequestSort = (property: keyof UnitType) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-    setPage(0); // Reset to first page when sort changes
-  };
-
-  // Add this function inside the `ListUnit` component, before the `return` statement.
-
-  const handleDownloadAllUnitsPDF = () => {
-    if (!unitsList || unitsList.length === 0) {
-      showAlert('PDF oluşturulacak ölçü birimi bulunamadı.', 'warning');
-      return;
-    }
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // Add font for Turkish characters
-    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    doc.setFont('NotoSans');
-
-    const header = () => {
-      doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-      doc.setFontSize(18);
-      doc.text('Tüm Ölçü Birimleri Raporu', pageWidth - 15, 30, { align: 'right' });
-      doc.setFontSize(12);
-      doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-    };
-
-    const footer = () => {
-      doc.setFontSize(10);
-      doc.setTextColor(0);
-      doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-      doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-      const docAny = doc as any;
-      const pageCount = docAny.internal.getNumberOfPages();
-      doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-    };
-
-    const rows = unitsList.map(unit => [
-      unit.name,
-      formatDateDisplay(unit.createAt),
-      unit.status,
-    ]);
-
-    try {
-      // @ts-ignore
-      autoTable(doc, {
-        startY: 50,
-        head: [['İsim', 'Oluşturulma Tarihi', 'Durum']],
-        body: rows,
-        theme: 'grid',
-        styles: {
-          font: 'NotoSans',
-          fontStyle: 'normal',
-          fontSize: 10,
-          cellPadding: 2,
-          overflow: 'linebreak'
-        },
-        headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-        didDrawPage: () => {
-          header();
-          footer();
-        },
-        showHead: 'everyPage',
-        margin: { top: 50, bottom: 20 }
-      });
-
-      doc.save('Tüm_Olcu_Birimleri_Raporu.pdf');
-      showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-    } catch (error: any) {
-      console.error('PDF oluşturulurken hata:', error);
-      showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
-    }
+    setPage(0);
   };
 
   const filteredUnits = unitsList.filter(unit => {
@@ -626,10 +557,219 @@ const ListUnit = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // ✅ Apply sorting to filtered data
   const sortedAndFilteredUnits = stableSort(filteredUnits, getComparator(order, orderBy));
 
   const paginatedUnits = sortedAndFilteredUnits.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+
+  // Updated PDF Download Function
+  const handleDownloadAllUnitsPDF = () => {
+    if (!sortedAndFilteredUnits || sortedAndFilteredUnits.length === 0) {
+      showAlert('PDF oluşturulacak ölçü birimi bulunamadı.', 'warning');
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    try {
+      doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+      doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+      doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+      doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+      doc.addFileToVFS('Arial.ttf', ArialFont);
+      doc.addFont('Arial.ttf', 'Arial', 'normal');
+      doc.setFont('Arial');
+
+      const rows = sortedAndFilteredUnits.map(unit => [
+        unit.name,
+        formatDateDisplay(unit.createAt),
+        unit.status,
+      ]);
+
+      autoTable(doc, {
+        startY: 65,
+        head: [['İsim', 'Oluşturulma Tarihi', 'Durum']],
+        body: rows,
+        theme: 'grid',
+        styles: {
+          font: 'Arial',
+          fontStyle: 'normal',
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak'
+        },
+        headStyles: {
+          fillColor: [242, 242, 242],
+          textColor: [0, 0, 0],
+          font: 'Arial',
+          fontSize: 9,
+        },
+        didDrawPage: () => {
+          // --- Header Section ---
+          doc.setFont('Arial', 'bold');
+          doc.setFontSize(14);
+          doc.text('Tüm Ölçü Birimleri Raporu', pageWidth / 2, 15, { align: 'center' });
+          doc.setFontSize(10);
+          doc.setFont('Times', 'bold');
+          doc.text(`Tarih:`, 15, 25);
+          doc.setFont('Times', 'normal');
+          doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+          doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+          // --- Footer Section ---
+          doc.setFont('NotoSans', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(0);
+          const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+          ];
+          let footerY = pageHeight - 30;
+          companyInfo.forEach(line => {
+            doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+            footerY += 4;
+          });
+          const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+          const pageCount = (doc as any).internal.getNumberOfPages();
+          doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+          doc.setFont('NotoSans', 'normal');
+          doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        },
+        showHead: 'everyPage',
+        margin: { top: 50, bottom: 45 },
+      });
+
+      doc.save('Tüm_Olcu_Birimleri_Raporu.pdf');
+      showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    } catch (error: any) {
+      console.error('PDF oluşturulurken hata:', error);
+      showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    }
+  };
+
+
+  // New Excel Download Function
+  const handleExportExcel = async () => {
+    setOpenDownloadModal(false);
+    if (!sortedAndFilteredUnits || sortedAndFilteredUnits.length === 0) {
+      showAlert('Dışa aktarılacak ölçü birimi bulunamadı.', 'warning');
+      return;
+    }
+
+    showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+    try {
+      const workbook = new Excel.Workbook();
+      const worksheet = workbook.addWorksheet('Ölçü Birimleri Raporu', { views: [{ rightToLeft: false }] });
+
+      // Define styles
+      const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+      const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+      const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+      const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+      const headerFont = { ...font, bold: true };
+      const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+      const fullHeaderStyle = {
+        border: border,
+        alignment: centerAlignment,
+        font: headerFont,
+        fill: headerFill
+      } as Partial<Excel.Style>;
+
+      const bodyStyle = {
+        border: border,
+        alignment: leftAlignment,
+        font: font
+      } as Partial<Excel.Style>;
+
+      const addCompanyInfo = (ws: Excel.Worksheet) => {
+        ws.addRow([]); // Blank row for spacing
+        const companyInfo = [
+          'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+          'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+          'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+        ];
+        companyInfo.forEach(line => {
+          ws.addRow([line]);
+          const lastRow = ws.lastRow;
+          if (lastRow) {
+            lastRow.getCell(1).alignment = { horizontal: 'center' };
+            lastRow.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+            ws.mergeCells(`A${lastRow.number}:C${lastRow.number}`); // Merge cells
+          }
+        });
+      };
+
+      // Report Header
+      worksheet.addRow(['', '', '']);
+      const titleRow = worksheet.addRow(['Tüm Ölçü Birimleri Raporu']);
+      if (titleRow) {
+        titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+        titleRow.getCell(1).alignment = { horizontal: 'center' };
+      }
+      worksheet.mergeCells('A2:C2');
+
+      worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+      const dateRow = worksheet.lastRow;
+      if (dateRow) {
+        dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+        dateRow.getCell(1).alignment = { horizontal: 'left' };
+      }
+      worksheet.addRow([]);
+
+      // Table Headers
+      const tableHeaders = ['İsim', 'Oluşturulma Tarihi', 'Durum'];
+      const headerRow = worksheet.addRow(tableHeaders);
+      headerRow.eachCell((cell) => {
+        cell.style = fullHeaderStyle;
+      });
+
+      // Add data
+      sortedAndFilteredUnits.forEach(unit => {
+        const row = worksheet.addRow([
+          unit.name,
+          formatDateDisplay(unit.createAt),
+          unit.status
+        ]);
+        row.eachCell((cell) => {
+          cell.style = bodyStyle;
+        });
+      });
+
+      // Add company info at the end
+      addCompanyInfo(worksheet);
+
+      // Adjust column widths
+      worksheet.columns.forEach((column) => {
+        let maxLength = 0;
+        if (column.eachCell) {
+          column.eachCell({ includeEmpty: true }, (cell) => {
+            const columnLength = cell.value ? cell.value.toString().length : 10;
+            if (columnLength > maxLength) {
+              maxLength = columnLength;
+            }
+          });
+        }
+        column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+      });
+
+      // Save file
+      const buffer = await workbook.xlsx.writeBuffer();
+      const fileName = `Tüm_Olcu_Birimleri_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+      saveAs(new Blob([buffer]), fileName);
+
+      showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+    } catch (error) {
+      console.error("Excel dışa aktarılırken hata:", error);
+      showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+    }
+  };
 
 
   return (
@@ -656,7 +796,7 @@ const ListUnit = () => {
                   color="primary"
                   onClick={() => setIsFormVisible(true)}
                   isBlinking={isBlinking}
-                  fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                  fullWidth={false}
                 >
                   Yeni Ölçü Kaydet
                 </BlinkingButton>
@@ -668,7 +808,6 @@ const ListUnit = () => {
                   variant="contained"
                   color="error"
                   onClick={resetFormAndState}
-                  // disabled={loadingButton}
                   fullWidth={false}
                   startIcon={<IconX size={20} />}
                 >
@@ -698,9 +837,9 @@ const ListUnit = () => {
                 value={name}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setName(e.target.value);
-                  if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
-                    setNameError(false); // Clear the error
-                    setNameHelperText(''); // Clear the helper text
+                  if (nameError && e.target.value.trim()) {
+                    setNameError(false);
+                    setNameHelperText('');
                   }
                 }}
                 inputRef={unitNameInputRef}
@@ -769,18 +908,18 @@ const ListUnit = () => {
           <Stack direction="row" spacing={2} justifyContent="flex-end">
             {hasDownloadPermission && (
               <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleDownloadAllUnitsPDF}
-                  startIcon={<IconFileDownload />}
-                // You can add fullWidth if you want it to be responsive
-                >
-                  Tümünü İndir (PDF)
-                </Button>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setOpenDownloadModal(true)} // Open modal on click
+                    startIcon={<IconFileDownload />}
+                  >
+                    Tümünü İndir
+                  </Button>
+                </CustomTooltip>
               </Grid>
             )}
-
           </Stack>
         </Grid>
         <Box sx={{ p: 2 }}>
@@ -811,31 +950,24 @@ const ListUnit = () => {
                 aria-label="Status filter"
                 fullWidth
               >
-                {/* ✅ تغییر: استفاده از StyledToggleButton به جای ToggleButton معمولی */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="all"
                   aria-label="all units"
                 >
                   Tümü
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="active"
                   aria-label="active units"
                 >
                   Aktif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
-                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif rolleri göster" : ""}> */}
-                <StyledToggleButton // ✅ اینجا
+                <StyledToggleButton
                   value="inactive"
                   aria-label="inactive units"
                 >
                   Pasif
                 </StyledToggleButton>
-                {/* </CustomTooltip> */}
               </ToggleButtonGroup>
             </Grid>
           </Grid>
@@ -845,7 +977,6 @@ const ListUnit = () => {
             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
                 <TableCell>
-                  {/* ✅ Added: TableSortLabel for 'İsim' (Name) column */}
                   <TableSortLabel
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
@@ -856,7 +987,6 @@ const ListUnit = () => {
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  {/* ✅ Added: TableSortLabel for 'Oluşturulma Tarihi' (Creation Date) column */}
                   <TableSortLabel
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
@@ -867,7 +997,6 @@ const ListUnit = () => {
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
-                  {/* ✅ Added: TableSortLabel for 'Durum' (Status) column */}
                   <TableSortLabel
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
@@ -1019,6 +1148,38 @@ const ListUnit = () => {
         onDeleteSuccess={getListUnit}
         showAlert={showAlert}
       />
+      {/* Download Modal */}
+      <Dialog
+        open={openDownloadModal}
+        onClose={() => setOpenDownloadModal(false)}
+      >
+        <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+        <DialogContent>
+          <Stack direction="column" spacing={2}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<IconFileDownload />}
+              onClick={handleDownloadAllUnitsPDF}
+            >
+              PDF Olarak İndir
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<IconFileDownload />}
+              onClick={handleExportExcel}
+            >
+              Excel Olarak İndir
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDownloadModal(false)} color="secondary">
+            İptal
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 };

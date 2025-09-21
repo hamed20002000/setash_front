@@ -1,20 +1,13 @@
-// src/views/Warehouse/listreceipt.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
     Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
-    // ToggleButtonGroup, ToggleButton as MuiToggleButton, 
-    Dialog,
-    DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
-    TableSortLabel
+    Dialog, DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
+    TableSortLabel, useMediaQuery
 } from '@mui/material';
-import {
-    //  styled,
-    keyframes,
-    styled
-} from '@mui/material/styles';
+import { keyframes, styled, useTheme } from '@mui/material/styles';
 import { IconDots, IconEye, IconTrash, IconSearch, IconEdit, IconFileDownload, IconX } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -31,6 +24,10 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { useAuth } from 'src/context/AuthContext';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
 import {
     WarehouseType,
     ReceiptItem,
@@ -39,30 +36,14 @@ import {
 } from './types';
 import BlankCard from 'src/components/shared/BlankCard';
 
-
 // Table Style and Functions
 type SortableReceiptKeys = 'code' | 'docDate' | 'warehouseId';
-
-// const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
-//     '&.Mui-selected': {
-//         color: 'white',
-//         ...(value === 'all' && selected && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }),
-//         ...(value === 'active' && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
-//         ...(value === 'passive' && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
-//     },
-//     '&:not(.Mui-selected)': {
-//         color: theme.palette.text.primary,
-//         borderColor: theme.palette.divider,
-//         '&:hover': { backgroundColor: theme.palette.action.hover },
-//     },
-// }));
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-
 
 const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
     animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
@@ -96,6 +77,9 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 
 const ListReceipts = () => {
     const navigate = useNavigate();
+    const theme = useTheme();
+    const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
     const [warehouse, setWarehouse] = useState<number | null>(null);
     const [code, setCode] = useState('');
@@ -109,7 +93,6 @@ const ListReceipts = () => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
-    // const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'passive'>('all');
     const [orderBy, setOrderBy] = useState<SortableReceiptKeys>('docDate');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -126,19 +109,21 @@ const ListReceipts = () => {
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
-
     const [isFilterActive, setIsFilterActive] = useState(false);
-
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
+
+    // 👇 State for new download modals
+    const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
+    const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
+    const [openReceiptDetailsDownloadModal, setOpenReceiptDetailsDownloadModal] = useState(false);
+
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
-
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -148,286 +133,6 @@ const ListReceipts = () => {
         } catch (e) {
             return "Geçersiz Tarih";
         }
-    };
-
-    const handleDownloadPdf = async (receipt: ReceiptType) => {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const logoImg = new Image();
-        logoImg.src = logoSrc;
-
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Fiş Detayları', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Fiş Kodu: ${receipt.code}`, pageWidth - 15, 40, { align: 'right' });
-            doc.text(`Depo: ${warehousesList.find(w => w.id === receipt.warehouseId)?.name || '-'}`, pageWidth - 15, 47, { align: 'right' });
-            doc.text(`Tarih: ${formatDateDisplay(receipt.docDate)}`, pageWidth - 15, 54, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        const rows = receipt.receiptDetails.map(item => [
-            item.invoiceDetail?.invoiceHeader?.invoiceNo || '-', // دسترسی اصلاح‌شده
-            item.provider?.name || '-', // دسترسی اصلاح‌شده
-            item.firm ? 'Şirket İçi' : 'Şirket Dışı',
-            item.item.name || '-',
-            item.quantity,
-            item.item.unit?.title || '-',
-            item.description,
-        ]);
-
-        try {
-            autoTable(doc, {
-                startY: 70,
-                head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
-                body: rows,
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 25 },
-                    1: { cellWidth: 35 },
-                    2: { cellWidth: 20 },
-                    3: { cellWidth: 50 },
-                    4: { cellWidth: 15 },
-                    5: { cellWidth: 15 },
-                    6: { cellWidth: 'auto' },
-                },
-                didDrawPage: () => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
-            });
-
-            doc.save(`Fiş_${receipt.code}.pdf`);
-            showAlert('Fiş başarıyla PDF olarak indirildi.', 'success');
-        } catch (error: any) {
-            console.error(error);
-            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
-        }
-    };
-
-    const handleDownloadAllPdf = async () => {
-        const dataToDownload = receiptsList; // استفاده از لیست کامل و فیلترنشده
-
-        if (!dataToDownload || dataToDownload.length === 0) {
-            showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
-            return;
-        }
-
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const logoImg = new Image();
-        logoImg.src = logoSrc;
-
-        // ثبت فونت برای پشتیبانی از کاراکترهای ترکی
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = (_pageNumber: number) => {
-            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Fişlerin Detaylı Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        let yPos = 50;
-
-        dataToDownload.forEach((receipt, index) => {
-            // برای فیش دوم به بعد، صفحه جدید ایجاد کنید
-            if (index > 0) {
-                doc.addPage();
-                yPos = 50;
-            }
-
-            header(index + 1);
-
-            // اطلاعات کلی فیش
-            doc.setFontSize(14);
-            doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
-            yPos += 15;
-
-            // اطلاعات جزئیات محصولات در جدول
-            const rows = receipt.receiptDetails.map(item => [
-                item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
-                item.provider?.name || '-',
-                item.firm ? 'Şirket İçi' : 'Şirket Dışı',
-                item.item.name || '-',
-                item.quantity,
-                item.item.unit?.title || '-',
-                item.description,
-            ]);
-
-            autoTable(doc, {
-                startY: yPos,
-                head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
-                body: rows,
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 25 }, 1: { cellWidth: 35 }, 2: { cellWidth: 20 },
-                    3: { cellWidth: 50 }, 4: { cellWidth: 15 }, 5: { cellWidth: 15 }, 6: { cellWidth: 'auto' },
-                },
-                didDrawPage: (data) => {
-                    header(data.pageNumber);
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
-            });
-        });
-
-        doc.save('Tüm_Fişlerin_Detaylı_Raporu.pdf');
-        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-    };
-
-    const handleDownloadAllReceiptsPdf = async () => {
-        if (!sortedAndFilteredReceipts || sortedAndFilteredReceipts.length === 0) {
-            showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
-            return;
-        }
-
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const logoImg = new Image();
-        logoImg.src = logoSrc;
-
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(logoImg, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Fişlerin Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
-            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        let yPos = 60;
-
-        sortedAndFilteredReceipts.forEach((receipt, index) => {
-            if (index > 0) {
-                doc.addPage();
-                yPos = 60;
-            }
-            header();
-
-            // اطلاعات کلی فیش
-            doc.setFontSize(14);
-            doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, yPos);
-            yPos += 7;
-
-            // 🚀 تغییر اصلی: استفاده از receipt.warehouse?.name به جای جستجو در warehousesList
-            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
-            yPos += 7;
-
-            doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
-            yPos += 15;
-
-            // اطلاعات جزئیات محصولات در جدول
-            const rows = receipt.receiptDetails.map(item => [
-                item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
-                item.provider?.name || '-',
-                item.firm ? 'Şirket İçi' : 'Şirket Dışı',
-                item.item.name || '-',
-                item.quantity,
-                item.item.unit?.title || '-',
-                item.description,
-            ]);
-
-            autoTable(doc, {
-                startY: yPos,
-                head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
-                body: rows,
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 25 }, 1: { cellWidth: 35 }, 2: { cellWidth: 20 },
-                    3: { cellWidth: 50 }, 4: { cellWidth: 15 }, 5: { cellWidth: 15 }, 6: { cellWidth: 'auto' },
-                },
-                didDrawPage: () => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
-            });
-
-            // ⚠️ این خطوط را برای جلوگیری از تداخل با autoTable در صفحات جدید حذف کنید
-            // const docAny = doc as any;
-            // yPos = docAny.previous.finalY + 10;
-            // footer();
-        });
-
-        doc.save('Tüm_Fişler_Raporu.pdf');
-        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -441,9 +146,6 @@ const ListReceipts = () => {
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
-
-
-
 
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
@@ -472,7 +174,11 @@ const ListReceipts = () => {
     const getReceipts = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
+        if (!authToken) {
+            console.warn("No auth token found, redirecting to login.");
+            navigate("/");
+            return;
+        }
         try {
             const response = await axios.get(server.baseurl + server.warehouse + "get-receipt",
                 { headers: { "Authorization": `Bearer ${authToken}` } });
@@ -500,7 +206,6 @@ const ListReceipts = () => {
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
-        // const hasStatusFilter = statusFilter !== 'all';
         const hasDateFilter = startDate !== null || endDate !== null;
         setIsFilterActive(hasSearch || hasDateFilter);
     }, [searchTerm, startDate, endDate]);
@@ -544,7 +249,6 @@ const ListReceipts = () => {
         setReceiptItems([]);
         setDeletedItems([]);
         setEditingReceiptId(null);
-
         setIsFormVisible(false);
         clearAlert();
     };
@@ -567,7 +271,6 @@ const ListReceipts = () => {
         };
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); setLoadingData(false); return; }
-        debugger
         try {
             const response = await axios.post(server.baseurl + server.warehouse + "create-receipt", receiptData, { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 201) {
@@ -582,10 +285,7 @@ const ListReceipts = () => {
     };
 
     const handleUpdateReceipt = async () => {
-        debugger
         if (!validateForm() || !editingReceiptId) return;
-        debugger
-
         const finalReceiptItems = [...receiptItems, ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))];
         const receiptData = {
             id: Number(editingReceiptId),
@@ -616,47 +316,15 @@ const ListReceipts = () => {
         }
     };
 
-    // const handleEditClick = (row: ReceiptType) => {
-    //     setEditingReceiptId(row.id);
-    //     setCode(row.code);
-    //     setDocDate(new Date(row.docDate));
-    //     setWarehouse(row.warehouseId);
-    //     const processedItems: ProcessedReceiptItem[] = row.receiptDetails.map(detail => ({
-    //         id: Number(detail.id),
-    //         item: detail.item.id,
-    //         itemName: detail.item.name,
-    //         // از Optional Chaining و مقدار پیش‌فرض استفاده کنید
-    //         invoiceNo: detail.invoiceDetail.invoiceHeader?.invoiceNo || '-',
-    //         unit: detail.item.unit,
-    //         quantity: Number(detail.quantity),
-    //         description: detail.description,
-    //         invoiceDetailId: Number(detail.invoiceDetail.id),
-    //         providerId: Number(detail.invoiceDetail.invoiceHeader?.provider?.id || 0),
-    //         providerName: detail.invoiceDetail.invoiceHeader?.provider?.name || 'N/A',
-    //         firm: detail.firm,
-    //         recordStatus: detail.recordStatus
-    //     }));
-    //     setReceiptItems(processedItems.filter(item => item.recordStatus === 0));
-    //     setDeletedItems(processedItems.filter(item => item.recordStatus === 1));
-    //     handleCloseMenu();
-    //     clearAlert();
-    // };
-
-
     const handleEditClick = (row: ReceiptType) => {
         setEditingReceiptId(row.id);
         setCode(row.code);
         setDocDate(new Date(row.docDate));
-        debugger
         const warehouseObject = warehousesList.find(w => Number(w.id) === Number(row.warehouse.id)) || null;
         setSelectedWarehouse(warehouseObject);
-
-        // 👈 این خط را برای ذخیره ID انبار اضافه کنید
         setWarehouse(row.warehouse.id);
         const processedItems: ProcessedReceiptItem[] = row.receiptDetails.map(detail => {
-
             const invoiceNo = detail.invoiceDetail?.invoiceHeader?.invoiceNo || '-';
-
             return {
                 id: Number(detail.id),
                 item: detail.item.id,
@@ -684,13 +352,13 @@ const ListReceipts = () => {
             id: Number(detail.id),
             item: detail.item.id,
             itemName: detail.item.name,
-            invoiceNo: detail.invoiceDetail?.invoiceHeader?.invoiceNo || 'N/A', // دسترسی اصلاح‌شده
+            invoiceNo: detail.invoiceDetail?.invoiceHeader?.invoiceNo || 'N/A',
             unit: detail.item.unit,
             quantity: Number(detail.quantity),
             description: detail.description,
             invoiceDetailId: Number(detail.invoiceDetail?.id),
-            providerId: Number(detail.provider?.id || 0), // دسترسی اصلاح‌شده
-            providerName: detail.provider?.name || 'N/A', // دسترسی اصلاح‌شده
+            providerId: Number(detail.provider?.id || 0),
+            providerName: detail.provider?.name || 'N/A',
             firm: detail.firm,
             recordStatus: detail.recordStatus
         }));
@@ -698,9 +366,6 @@ const ListReceipts = () => {
         setOpenModal(true);
     };
     const handleCloseModal = () => setOpenModal(false);
-    // const handleStatusFilterChange = (_event: React.MouseEvent<HTMLElement>, newFilter: 'all' | 'active' | 'passive' | null) => {
-    //     if (newFilter !== null) { setStatusFilter(newFilter); setPage(0); }
-    // };
     const handleChangePage = (_event: unknown, newPage: number) => { setPage(newPage); };
     const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
         setRowsPerPage(parseInt(event.target.value, 10)); setPage(0);
@@ -734,15 +399,11 @@ const ListReceipts = () => {
 
     const filteredReceipts = useMemo(() => {
         return receiptsList.filter(receipt => {
-            // فیلتر بر اساس جستجوی متنی
             const matchesSearch = receipt.code.toLowerCase().includes(searchTerm.toLowerCase());
-
-            // فیلتر بر اساس تاریخ
             const docDate = new Date(receipt.docDate);
             const matchesDate =
                 (!startDate || docDate >= startDate) &&
                 (!endDate || docDate <= endDate);
-
             return matchesSearch && matchesDate;
         });
     }, [receiptsList, searchTerm, startDate, endDate]);
@@ -754,6 +415,518 @@ const ListReceipts = () => {
         setStartDate(null);
         setEndDate(null);
     };
+
+    // --- توابع کمکی برای دانلود PDF و Excel (با ساختار دقیق نمونه شما) ---
+
+    const getDocFonts = (doc: jsPDF) => {
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+        doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+        doc.addFileToVFS('Arial.ttf', ArialFont);
+        doc.addFont('Arial.ttf', 'Arial', 'normal');
+    };
+
+    const getPdfHeader = (doc: jsPDF, title: string, startY: number, isFiltered: boolean = false) => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const logoImg = new Image();
+        logoImg.src = logoSrc;
+
+        doc.setFont('NotoSans', 'normal');
+        doc.setFontSize(14);
+        doc.text(title, pageWidth / 2, startY, { align: 'center' });
+        doc.setFontSize(10);
+        doc.setFont('Times', 'bold');
+        doc.text(`Tarih:`, 15, startY + 10);
+        doc.setFont('Times', 'normal');
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, startY + 10);
+        doc.addImage(logoImg, 'PNG', pageWidth - 60, startY + 5, 50, 25);
+
+        if (isFiltered) {
+            let filterInfo = '';
+            if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+            if (startDate || endDate) {
+                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+            }
+            if (filterInfo) {
+                doc.setFont('Arial', 'normal');
+                doc.setFontSize(9);
+                doc.text(filterInfo, pageWidth / 2, startY + 32, { align: 'center' });
+            }
+        }
+        return isFiltered ? startY + 40 : startY + 30;
+    };
+
+    const getPdfFooter = (doc: jsPDF) => {
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const docAny = doc as any;
+
+        doc.setFont('NotoSans', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(0);
+        const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+        ];
+        let footerY = pageHeight - 30;
+        companyInfo.forEach(line => {
+            doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+            footerY += 4;
+        });
+
+        const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
+        const pageCount = docAny.internal.getNumberOfPages();
+        doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        doc.setFont('NotoSans', 'normal');
+        doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+        doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    };
+
+    const getExcelStyles = () => {
+        const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+        const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+        const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+        const headerFont = { ...font, bold: true };
+        const centerAlignment = { vertical: 'middle', horizontal: 'center' as const, wrapText: true };
+        const leftAlignment = { vertical: 'middle', horizontal: 'left' as const, wrapText: true };
+        const fullHeaderStyle = { border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
+        const bodyStyle = { border, alignment: leftAlignment, font } as Partial<Excel.Style>;
+        return { fullHeaderStyle, bodyStyle, thinBorder, border, headerFill, font, headerFont, centerAlignment, leftAlignment };
+    };
+
+    const addCompanyInfoToExcel = (ws: Excel.Worksheet, columnCount: number) => {
+        ws.addRow([]);
+        const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+        ];
+        const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+        companyInfo.forEach(line => {
+            const row = ws.addRow([line]);
+            row.getCell(1).alignment = { horizontal: 'center' as const };
+            row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+            ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+        });
+    };
+
+    // --- توابع دانلود PDF ---
+
+    const calculateTotalQuantity = (items: ReceiptItem[]): { [unit: string]: number } => {
+        const totals: { [unit: string]: number } = {};
+        items.forEach(item => {
+            const unit = item.item.unit?.title || 'Bilinmiyor';
+            const quantity = Number(item.quantity) || 0;
+            totals[unit] = (totals[unit] || 0) + quantity;
+        });
+        return totals;
+    };
+
+
+    const handleDownloadReceiptDetailsPDF = async (receipt: ReceiptType) => {
+        showAlert('Fiş detayları PDF oluşturuluyor...', 'info');
+        setOpenReceiptDetailsDownloadModal(false);
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            getDocFonts(doc);
+            doc.setFont('NotoSans');
+
+            const header = () => {
+                doc.setFont('NotoSans', 'normal');
+                doc.setFontSize(14);
+                doc.text('Fiş Detay Raporu', pageWidth / 2, 15, { align: 'center' });
+                doc.setFontSize(10);
+                doc.setFont('Times', 'bold');
+                doc.text(`Tarih:`, 15, 25);
+                doc.setFont('Times', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                const logoImg = new Image();
+                logoImg.src = logoSrc;
+                doc.addImage(logoImg, 'PNG', pageWidth - 60, 20, 50, 25);
+            };
+
+            const footer = () => {
+                doc.setFont('NotoSans', 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(0);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                ];
+                let footerY = pageHeight - 30;
+                companyInfo.forEach(line => {
+                    doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+                const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (doc as any).internal.getNumberOfPages();
+                doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                doc.setFont('NotoSans', 'normal');
+                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            };
+
+            header();
+
+            let currentY = 50;
+            doc.setFont('NotoSans', 'normal');
+            doc.setFontSize(12);
+            doc.text('Fiş Bilgileri:', 15, currentY);
+            currentY += 8;
+            doc.setFont('NotoSans', 'normal');
+            doc.setFontSize(10);
+            doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, currentY);
+            currentY += 6;
+            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, currentY);
+            currentY += 6;
+            doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, currentY);
+            currentY += 10;
+
+            if (receipt.receiptDetails.length > 0) {
+                doc.setFont('NotoSans', 'bold');
+                doc.setFontSize(12);
+                doc.text('Ürün Detayları:', 15, currentY);
+                currentY += 5;
+
+                const rows = receipt.receiptDetails.map(item => [
+                    item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
+                    item.provider?.name || '-',
+                    item.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                    item.item.name || '-',
+                    item.quantity,
+                    item.item.unit?.title || '-',
+                    item.description,
+                ]);
+
+                const totals = calculateTotalQuantity(receipt.receiptDetails);
+                const totalRows = Object.entries(totals).map(([unit, total]) => [
+                    { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+                    total,
+                    unit,
+                    ''
+                ]);
+
+                autoTable(doc, {
+                    startY: currentY,
+                    head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
+                    body: rows,
+                    foot: totalRows as any,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    footStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+                    didDrawPage: (_data) => {
+                        header();
+                        footer();
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 50, bottom: 45 },
+                });
+            } else {
+                doc.text('Bu fişe ait ürün bilgisi bulunamadı.', 15, currentY + 10);
+            }
+
+            footer();
+            doc.save(`Fiş_Detay_${receipt.code}.pdf`);
+            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error("Detay PDF oluşturulurken hata:", error);
+            showAlert('Detay PDF oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+
+    const handleDownloadAllOrFilteredPDF = (data: ReceiptType[], isFiltered: boolean) => {
+        if (!data || data.length === 0) {
+            showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
+            return;
+        }
+
+        const doc = new jsPDF();
+        getDocFonts(doc);
+        doc.setFont('NotoSans');
+
+        let yPos = 15;
+
+        data.forEach((receipt, index) => {
+            if (index > 0) {
+                doc.addPage();
+                yPos = 15;
+            }
+
+            yPos = getPdfHeader(doc, isFiltered ? 'Filtrelenmiş Fişler Raporu' : 'Tüm Fişler Raporu', yPos, isFiltered) + 10;
+
+            doc.setFont('NotoSans', 'normal');
+            doc.setFontSize(12);
+            doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, yPos);
+            yPos += 6;
+            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
+            yPos += 6;
+            doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
+            yPos += 10;
+
+            if (receipt.receiptDetails.length > 0) {
+                const rows = receipt.receiptDetails.map(item => [
+                    item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
+                    item.provider?.name || '-',
+                    item.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                    item.item.name || '-',
+                    item.quantity,
+                    item.item.unit?.title || '-',
+                    item.description,
+                ]);
+
+                const totals = calculateTotalQuantity(receipt.receiptDetails);
+                const totalRows = Object.entries(totals).map(([unit, total]) => [
+                    { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+                    total,
+                    unit,
+                    ''
+                ]);
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
+                    body: rows,
+                    foot: totalRows as any,
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    footStyles: { fillColor: [230, 230, 230], textColor: [0, 0, 0] },
+                    didDrawPage: (_data) => {
+                        getPdfHeader(doc, isFiltered ? 'Filtrelenmiş Fişler Raporu' : 'Tüm Fişler Raporu', 15, isFiltered);
+                        getPdfFooter(doc);
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 50, bottom: 45 },
+                });
+            } else {
+                doc.text('Bu fişe ait ürün bilgisi bulunamadı.', 15, yPos);
+            }
+        });
+
+        doc.save(`${isFiltered ? 'Filtrelenmiş' : 'Tüm'}_Fişlerin_Detaylı_Raporu.pdf`);
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
+    // --- توابع دانلود Excel ---
+
+    const handleDownloadReceiptDetailsExcel = async (receipt: ReceiptType) => {
+        showAlert('Fiş detayları Excel oluşturuluyor...', 'info');
+        setOpenReceiptDetailsDownloadModal(false);
+        try {
+            const { fullHeaderStyle, bodyStyle } = getExcelStyles();
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Fiş Detayları', { views: [{ rightToLeft: false }] });
+
+            const titleRow = worksheet.addRow([`Fiş Detay Raporu - ${receipt.code}`]);
+            titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+            titleRow.getCell(1).alignment = { horizontal: 'center' as const };
+            worksheet.mergeCells('A1:B1');
+            worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.mergeCells('A2:B2');
+            worksheet.addRow([]);
+
+            const infoHeaders = ['Fiş Kodu', 'Depo', 'Tarih'];
+            const infoData = [receipt.code || '-', receipt.warehouse?.name || '-', formatDateDisplay(receipt.docDate)];
+
+            const infoTitleRow = worksheet.addRow(['Fiş Bilgileri']);
+            infoTitleRow.eachCell(c => {
+                Object.assign(c.style, fullHeaderStyle);
+                c.style.alignment = { ...c.style.alignment, horizontal: 'left' as const };
+            });
+            worksheet.mergeCells(`A${infoTitleRow.number}:B${infoTitleRow.number}`);
+
+            infoHeaders.forEach((header, index) => {
+                worksheet.addRow([header, infoData[index]]).eachCell(c => Object.assign(c.style, bodyStyle));
+            });
+            worksheet.addRow([]);
+
+            const itemHeaders = ['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama'];
+            const columnCount = itemHeaders.length;
+
+            if (receipt.receiptDetails.length > 0) {
+                const infoTitleRow = worksheet.addRow(['Ürün Detayları']);
+                infoTitleRow.eachCell(c => {
+                    Object.assign(c.style, fullHeaderStyle);
+                    c.style.alignment = { ...c.style.alignment, horizontal: 'left' as const };
+                });
+                worksheet.mergeCells(`A${infoTitleRow.number}:${String.fromCharCode(65 + columnCount - 1)}${infoTitleRow.number}`);
+
+                const itemHeaderRow = worksheet.addRow(itemHeaders);
+                itemHeaderRow.eachCell(c => Object.assign(c.style, fullHeaderStyle));
+
+                receipt.receiptDetails.forEach(item => {
+                    worksheet.addRow([
+                        item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
+                        item.provider?.name || '-',
+                        item.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                        item.item.name || '-',
+                        item.quantity,
+                        item.item.unit?.title || '-',
+                        item.description
+                    ]).eachCell(c => Object.assign(c.style, bodyStyle));
+                });
+
+                const totals = calculateTotalQuantity(receipt.receiptDetails);
+                Object.entries(totals).forEach(([unit, total]) => {
+                    const totalRow = worksheet.addRow([]);
+                    totalRow.getCell(5).value = 'Toplam:';
+                    totalRow.getCell(5).style = { ...bodyStyle, font: { ...bodyStyle.font, bold: true }, alignment: { ...bodyStyle.alignment, horizontal: 'right' as const } };
+                    totalRow.getCell(6).value = total;
+                    totalRow.getCell(6).style = bodyStyle;
+                    totalRow.getCell(7).value = unit;
+                    totalRow.getCell(7).style = bodyStyle;
+                    worksheet.mergeCells(`A${totalRow.number}:D${totalRow.number}`);
+                });
+                worksheet.addRow([]);
+            } else {
+                worksheet.addRow(['Bu fişe ait ürün bilgisi bulunamadı.']).eachCell(c => Object.assign(c.style, bodyStyle));
+            }
+
+            // --- Corrected Block ---
+            // Move the company info and column width logic here
+            addCompanyInfoToExcel(worksheet, columnCount);
+            if (worksheet.columns) {
+                worksheet.columns.forEach(column => {
+                    let maxLength = 0;
+                    // ✅ یک بررسی اضافی نیز برای اطمینان از تعریف column اضافه کنید
+                    if (column && column.eachCell) {
+                        column.eachCell({ includeEmpty: true }, cell => {
+                            const columnLength = cell.value ? cell.value.toString().length : 10;
+                            if (columnLength > maxLength) maxLength = columnLength;
+                        });
+                    }
+                    column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+                });
+            }
+            // --- End of Corrected Block ---
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `Fiş_Detay_${receipt.code}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error("Excel oluşturulurken hata:", error);
+            showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+    const handleDownloadAllOrFilteredExcel = async (data: ReceiptType[], isFiltered: boolean) => {
+        showAlert('Excel dosyası oluşturuluyor...', 'info');
+        setOpenAllDownloadModal(false);
+        setOpenFilteredDownloadModal(false);
+        if (!data || data.length === 0) {
+            showAlert('Dışa aktarılacak fiş bulunamadı.', 'warning');
+            return;
+        }
+        try {
+            const { fullHeaderStyle, bodyStyle } = getExcelStyles();
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Fiş Raporu', { views: [{ rightToLeft: false }] });
+            const titleText = isFiltered ? 'Filtrelenmiş Fiş Raporu' : 'Tüm Fiş Raporu';
+            worksheet.addRow([titleText]).eachCell(c => {
+                c.font = { name: 'Times New Roman', size: 12, bold: true };
+                c.alignment = { horizontal: 'center' as const };
+            });
+            worksheet.mergeCells('A1:B1');
+            worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.mergeCells('A2:B2');
+            worksheet.addRow([]);
+
+            const itemHeaders = ['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama'];
+
+            data.forEach((receipt, index) => {
+                if (index > 0) worksheet.addRow([]); // Blank row for separation
+
+                const receiptInfoRow = worksheet.addRow([`Fiş Kodu: ${receipt.code || '-'}`, `Depo: ${receipt.warehouse?.name || '-'}`, `Tarih: ${formatDateDisplay(receipt.docDate)}`]);
+                receiptInfoRow.eachCell(c => Object.assign(c.style, bodyStyle));
+
+                worksheet.addRow([]);
+                const itemHeaderRow = worksheet.addRow(itemHeaders);
+                itemHeaderRow.eachCell(c => Object.assign(c.style, fullHeaderStyle));
+
+                receipt.receiptDetails.forEach(item => {
+                    worksheet.addRow([
+                        item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
+                        item.provider?.name || '-',
+                        item.firm ? 'Şirket İçi' : 'Şirket Dışı',
+                        item.item.name || '-',
+                        item.quantity,
+                        item.item.unit?.title || '-',
+                        item.description
+                    ]).eachCell(c => Object.assign(c.style, bodyStyle));
+                });
+
+                const totals = calculateTotalQuantity(receipt.receiptDetails);
+                Object.entries(totals).forEach(([unit, total]) => {
+                    const totalRow = worksheet.addRow([]);
+                    totalRow.getCell(5).value = 'Toplam:';
+                    totalRow.getCell(5).style = { ...bodyStyle, font: { ...bodyStyle.font, bold: true }, alignment: { ...bodyStyle.alignment, horizontal: 'right' as const } };
+                    totalRow.getCell(6).value = total;
+                    totalRow.getCell(6).style = bodyStyle;
+                    totalRow.getCell(7).value = unit;
+                    totalRow.getCell(7).style = bodyStyle;
+                    worksheet.mergeCells(`A${totalRow.number}:D${totalRow.number}`);
+                });
+            });
+
+            addCompanyInfoToExcel(worksheet, itemHeaders.length);
+
+            if (worksheet.columns) {
+                worksheet.columns.forEach(column => {
+                    let maxLength = 0;
+                    // ✅ یک بررسی اضافی نیز برای اطمینان از تعریف column اضافه کنید
+                    if (column && column.eachCell) {
+                        column.eachCell({ includeEmpty: true }, cell => {
+                            const columnLength = cell.value ? cell.value.toString().length : 10;
+                            if (columnLength > maxLength) maxLength = columnLength;
+                        });
+                    }
+                    column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+                });
+            }
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileNamePrefix = isFiltered ? 'Filtrelenmiş_Fişler' : 'Tüm_Fişler';
+            saveAs(new Blob([buffer]), `${fileNamePrefix}_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error: any) {
+            console.error("Excel oluşturulurken hata:", error);
+            showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
+
+    const handleDownloadAllClicked = () => {
+        setOpenAllDownloadModal(true);
+    };
+
+    const handleDownloadFilteredClicked = () => {
+        setOpenFilteredDownloadModal(true);
+    };
+
+    const handleDownloadReceiptDetailsClicked = (receipt: ReceiptType) => {
+        setSelectedReceiptForMenu(receipt);
+        setOpenReceiptDetailsDownloadModal(true);
+    };
+
     return (
         <Box mt={2}>
             <Stack
@@ -780,7 +953,7 @@ const ListReceipts = () => {
                                 color="primary"
                                 onClick={() => setIsFormVisible(true)}
                                 isBlinking={isBlinking}
-                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                fullWidth={isSmallScreen}
                             >
                                 Yeni Fiş Kaydet
                             </BlinkingButton>
@@ -792,40 +965,28 @@ const ListReceipts = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetForm}
-                                // disabled={loadingButton}
-                                fullWidth={false}
+                                fullWidth={isSmallScreen}
                                 startIcon={<IconX size={20} />}
                             >
                                 Gizle
                             </Button>
                         </CustomTooltip>
                     )}
-
                 </Stack>
             </Stack>
             {((isFormVisible && hasCreatePermission) || (editingReceiptId && hasEditPermission)) && (
                 <>
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        {/* <Typography variant="h6" mb={2}>{editingReceiptId ? `Fişi Düzenle: ${code}` : "Yeni Fiş Kaydet"}</Typography> */}
                         <Grid container spacing={2}>
                             <Grid item xs={12} md={6}>
                                 <CustomFormLabel htmlFor="warehouse-autocomplete" required>Depo</CustomFormLabel>
-                                {/* <Autocomplete<WarehouseType>
-                                    id="warehouse-autocomplete"
-                                    options={warehousesList}
-                                    getOptionLabel={(option) => option.name}
-                                    value={warehousesList.find(w => w.id === warehouse) || null}
-                                    onChange={(_event, newValue) => setWarehouse(newValue ? newValue.id : null)}
-                                    renderInput={(params) => <TextField {...params} label="Depo Seçin" variant="outlined" size="small" />}
-                                /> */}
                                 <Autocomplete<WarehouseType>
                                     id="warehouse-autocomplete"
                                     options={warehousesList}
                                     getOptionLabel={(option) => option.name}
-                                    value={selectedWarehouse} // استفاده از آبجکت انبار
+                                    value={selectedWarehouse}
                                     onChange={(_event, newValue) => {
-                                        setSelectedWarehouse(newValue); // ست کردن آبجکت کامل
-                                        // اگر لازم بود، id را هم ست کنید
+                                        setSelectedWarehouse(newValue);
                                         setWarehouse(newValue ? newValue.id : null);
                                     }}
                                     renderInput={(params) => <TextField {...params} label="Depo Seçin" variant="outlined" size="small" />}
@@ -842,7 +1003,6 @@ const ListReceipts = () => {
                                 </LocalizationProvider>
                             </Grid>
                         </Grid>
-
                         <Typography variant="h6" mb={2} sx={{ mt: 3 }}>Ürün Detayları</Typography>
                         <ReceiptItemsTable
                             items={receiptItems}
@@ -852,7 +1012,6 @@ const ListReceipts = () => {
                             onRestoreItem={handleRestoreItem}
                             showAlert={showAlert}
                         />
-
                         <Box mt={3} textAlign="right">
                             {editingReceiptId ? (
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -863,7 +1022,7 @@ const ListReceipts = () => {
                                 <>
                                     {hasCreatePermission && (
                                         <CustomTooltip
-                                            title={hasUnsavedChanges ? "Tüm alanları doldurup Fişu kaydetmek için tıklayın." : "Fiş kaydetme hazır"}
+                                            title={hasUnsavedChanges ? "Tüm alanları doldurup Fişi kaydetmek için tıklayın." : "Fiş kaydetme hazır"}
                                             placement="top"
                                         >
                                             <Button
@@ -881,53 +1040,45 @@ const ListReceipts = () => {
                             )}
                         </Box>
                     </Paper>
-
                 </>
-
-
             )}
-
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                 </Stack>
             )}
             <BlankCard>
-
-
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                        {isFilterActive && (
+                        {isFilterActive && hasDownloadPermission && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Fiş indirin" : ""}>
                                 <BlinkingButton
                                     variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllReceiptsPdf}
+                                    color="info"
+                                    onClick={handleDownloadFilteredClicked}
                                     startIcon={<IconFileDownload />}
                                     isBlinking={true}
                                     disabled={loadingData}
                                 >
-                                    Filtrelenmişi İndir (PDF)
+                                    Filtrelenmişi İndir
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
-
-
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan Tümünü  Fiş İndir " : ""}>
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={handleDownloadAllPdf}
-                                startIcon={<IconFileDownload />}
-                                disabled={loadingData}
-                            >
-                                Tümünü İndir (PDF)
-                            </Button>
-                        </CustomTooltip>
-
+                        {hasDownloadPermission && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Fişleri İndir" : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={handleDownloadAllClicked}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData}
+                                >
+                                    Tümünü İndir
+                                </Button>
+                            </CustomTooltip>
+                        )}
                     </Stack>
                 </Grid>
-
                 <Box sx={{ p: 2 }}>
                     <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fiş Listesi</Typography>
                     <Grid container spacing={2} alignItems="center">
@@ -937,8 +1088,6 @@ const ListReceipts = () => {
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
-
-
                         <Grid item xs={12} sm={6} md={6}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -964,37 +1113,37 @@ const ListReceipts = () => {
                         </Grid>
                     </Grid>
                 </Box>
-
-                <TableContainer component={Paper}>
-                    <Table aria-label="receipt table">
-                        <TableHead>
-                            <TableRow>
-                                <TableCell>
-                                    <TableSortLabel
-                                        active={orderBy === 'code'} direction={orderBy === 'code' ? order : 'asc'} onClick={() => handleRequestSort('code')}
-                                    >
-                                        <Typography variant="h6">Fiş Kodu</Typography>
-                                    </TableSortLabel>
-                                </TableCell>
-                                <TableCell>
-                                    <TableSortLabel active={orderBy === 'warehouseId'} direction={orderBy === 'warehouseId' ? order : 'asc'} onClick={() => handleRequestSort('warehouseId')}>
-                                        <Typography variant="h6">Depo</Typography>
-                                    </TableSortLabel>
-                                </TableCell>
-                                <TableCell>
-                                    <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
-                                        <Typography variant="h6">Tarih</Typography>
-                                    </TableSortLabel>
-                                </TableCell>
-                                <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
-                                <TableCell align="right"></TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {loadingData ? (
-                                <TableRow><TableCell colSpan={6} align="center"><CircularProgress /></TableCell></TableRow>
-                            ) : (
-                                paginatedReceipts.length > 0 ? (
+                {loadingData ? (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                        <CircularProgress />
+                        <Typography variant="h6" sx={{ ml: 2 }}>Fişler yükleniyor...</Typography>
+                    </Box>
+                ) : (
+                    <TableContainer component={Paper}>
+                        <Table aria-label="receipt table">
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell>
+                                        <TableSortLabel active={orderBy === 'code'} direction={orderBy === 'code' ? order : 'asc'} onClick={() => handleRequestSort('code')}>
+                                            <Typography variant="h6">Fiş Kodu</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell>
+                                        <TableSortLabel active={orderBy === 'warehouseId'} direction={orderBy === 'warehouseId' ? order : 'asc'} onClick={() => handleRequestSort('warehouseId')}>
+                                            <Typography variant="h6">Depo</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell>
+                                        <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
+                                            <Typography variant="h6">Tarih</Typography>
+                                        </TableSortLabel>
+                                    </TableCell>
+                                    <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
+                                    <TableCell align="right"></TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {paginatedReceipts.length > 0 ? (
                                     paginatedReceipts.map((row) => (
                                         <TableRow key={row.id}>
                                             <TableCell><Typography variant="h6">{row.code || '-'}</Typography></TableCell>
@@ -1021,21 +1170,21 @@ const ListReceipts = () => {
                                                     onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
                                                     {hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu PDF olarak indirin" : ""}>
-                                                            <MenuItem onClick={() => handleDownloadPdf(row)}>
-                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Bu satırı indir(PDF)
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi PDF olarak indirin" : ""}>
+                                                            <MenuItem onClick={() => handleDownloadReceiptDetailsClicked(row)}>
+                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Detayları İndir
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasEditPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu düzenleyin" : ""}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi düzenleyin" : ""}>
                                                             <MenuItem onClick={() => handleEditClick(row)}>
                                                                 <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
                                                             </MenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişu silin" : ""}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi silin" : ""}>
                                                             <MenuItem onClick={() => handleClickOpenDeleteModal(row.id)}>
                                                                 <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
                                                             </MenuItem>
@@ -1047,16 +1196,15 @@ const ListReceipts = () => {
                                     ))
                                 ) : (
                                     <TableRow><TableCell colSpan={6} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç Fiş bulunamadı.</Typography></TableCell></TableRow>
-                                )
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
                 <TablePagination
                     rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredReceipts.length}
                     rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
                 />
-
             </BlankCard>
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
@@ -1097,6 +1245,94 @@ const ListReceipts = () => {
                 receiptIdToDelete={receiptIdToDelete}
                 onDeleteSuccess={getReceipts} showAlert={showAlert}
             />
+            <Dialog open={openAllDownloadModal} onClose={() => setOpenAllDownloadModal(false)}>
+                <DialogTitle>Tüm Fişler İçin Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ width: '100%', minWidth: { sm: '400px' } }}>
+                        <Button
+                            variant="contained" color="primary" startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                handleDownloadAllOrFilteredPDF(receiptsList, false);
+                                setOpenAllDownloadModal(false);
+                            }}
+                        >
+                            Tüm Fişler Raporu (PDF)
+                        </Button>
+                        <Button
+                            variant="contained" color="success" startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                handleDownloadAllOrFilteredExcel(receiptsList, false);
+                                setOpenAllDownloadModal(false);
+                            }}
+                        >
+                            Tüm Fişler Raporu (Excel)
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAllDownloadModal(false)} color="secondary">İptal</Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={openFilteredDownloadModal} onClose={() => setOpenFilteredDownloadModal(false)}>
+                <DialogTitle>Filtrelenmiş Fişler İçin Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ width: '100%', minWidth: { sm: '400px' } }}>
+                        <Button
+                            variant="contained" color="primary" startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                handleDownloadAllOrFilteredPDF(sortedAndFilteredReceipts, true);
+                                setOpenFilteredDownloadModal(false);
+                            }}
+                        >
+                            Filtrelenmiş Fişler Raporu (PDF)
+                        </Button>
+                        <Button
+                            variant="contained" color="success" startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                handleDownloadAllOrFilteredExcel(sortedAndFilteredReceipts, true);
+                                setOpenFilteredDownloadModal(false);
+                            }}
+                        >
+                            Filtrelenmiş Fişler Raporu (Excel)
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenFilteredDownloadModal(false)} color="secondary">İptal</Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={openReceiptDetailsDownloadModal} onClose={() => setOpenReceiptDetailsDownloadModal(false)}>
+                <DialogTitle>Detaylı Fiş Raporu İçin Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ width: '100%', minWidth: { sm: '400px' } }}>
+                        <Button
+                            variant="contained" color="primary" startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                if (selectedReceiptForMenu) {
+                                    handleDownloadReceiptDetailsPDF(selectedReceiptForMenu);
+                                    setOpenReceiptDetailsDownloadModal(false);
+                                }
+                            }}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained" color="success" startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                if (selectedReceiptForMenu) {
+                                    handleDownloadReceiptDetailsExcel(selectedReceiptForMenu);
+                                    setOpenReceiptDetailsDownloadModal(false);
+                                }
+                            }}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenReceiptDetailsDownloadModal(false)} color="secondary">İptal</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

@@ -6,7 +6,8 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, FormControl, InputLabel, Select, ListItemText,
-    Chip, Dialog, DialogTitle, DialogContent, DialogActions, Radio, RadioGroup, FormControlLabel
+    Chip, Dialog, DialogTitle, DialogContent, DialogActions, Radio, RadioGroup, FormControlLabel,
+
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
@@ -34,7 +35,11 @@ import { useAuth } from 'src/context/AuthContext';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -240,10 +245,9 @@ const ListProviders = () => {
     const [openAddressModal, setOpenAddressModal] = useState(false);
     const [selectedAddress, setSelectedAddress] = useState('');
 
-
-
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+    const [openDownloadModal, setOpenDownloadModal] = useState(false); // New state for download modal
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -318,10 +322,8 @@ const ListProviders = () => {
                 const providersWithStatus = allProviders.map((item: any) => ({
                     id: Number(item.id),
                     name: item.name || '',
-                    // تغییر از 'phone' به 'phoneNumber'
                     phoneNumber: item.phone || '',
                     address: item.address || '',
-                    // firm از boolean به string تبدیل می‌شود
                     firm: item.firm ? '1' : '0',
                     recordStatus: item.recordStatus,
                     createAt: item.createAt,
@@ -743,8 +745,9 @@ const ListProviders = () => {
         }
     };
 
+    // Updated PDF Download Function
     const handleDownloadAllProvidersPDF = () => {
-        if (!providersList || providersList.length === 0) {
+        if (!sortedAndFilteredProvidersList || sortedAndFilteredProvidersList.length === 0) {
             showAlert('PDF oluşturulacak tedarikçi bulunamadı.', 'warning');
             return;
         }
@@ -753,59 +756,80 @@ const ListProviders = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Tedarikçiler Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        // آماده کردن داده‌ها برای جدول PDF
-        const rows = providersList.map(prov => [
-            prov.name,
-            prov.phoneNumber,
-            prov.address,
-            prov.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı',
-            prov.region?.name || 'Bilinmiyor',
-            formatDateDisplay(prov.createAt),
-            prov.status
-        ]);
-
         try {
+            // Add fonts
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
+
+            // Prepare rows for the PDF table
+            const rows = sortedAndFilteredProvidersList.map(prov => [
+                prov.name,
+                prov.phoneNumber,
+                prov.address,
+                prov.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+                prov.region?.name || 'Bilinmiyor',
+                formatDateDisplay(prov.createAt),
+                prov.status
+            ]);
+
             autoTable(doc, {
-                startY: 50,
-                head: [['İsim', 'Telefon', 'Adres', 'Firma', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+                startY: 65,
+                head: [['İsim', 'Telefon Numarası', 'Adres', 'Firma', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'NotoSans',
+                    font: 'Arial',
                     fontStyle: 'normal',
                     fontSize: 8,
                     cellPadding: 2,
                     overflow: 'linebreak'
                 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [0, 0, 0],
+                    font: 'Arial',
+                    fontSize: 9,
+                },
                 didDrawPage: () => {
-                    header();
-                    footer();
+                    // --- Header Section ---
+                    doc.setFont('Arial', 'bold');
+                    doc.setFontSize(14);
+                    doc.text('Tüm Tedarikçiler Raporu', pageWidth / 2, 15, { align: 'center' });
+                    doc.setFontSize(10);
+                    doc.setFont('Times', 'bold');
+                    doc.text(`Tarih:`, 15, 25);
+                    doc.setFont('Times', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+                    // --- Footer Section ---
+                    doc.setFont('NotoSans', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0);
+                    const companyInfo = [
+                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    ];
+                    let footerY = pageHeight - 30;
+                    companyInfo.forEach(line => {
+                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                        footerY += 4;
+                    });
+                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                margin: { top: 50, bottom: 45 },
             });
 
             doc.save('Tüm_Tedarikciler_Raporu.pdf');
@@ -816,11 +840,127 @@ const ListProviders = () => {
         }
     };
 
+    const addCompanyInfo = (worksheet: Excel.Worksheet) => {
+        worksheet.addRow([]); // یک سطر خالی برای فاصله
+        const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+        ];
+        companyInfo.forEach(line => {
+            worksheet.addRow([line]);
+            const lastRow = worksheet.lastRow;
+            if (lastRow) {
+                lastRow.getCell(1).alignment = { horizontal: 'center' };
+                lastRow.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+            }
+        });
+    };
+    // New Excel Download Function
+    const handleExportExcel = async () => {
+        setOpenDownloadModal(false);
+        if (!sortedAndFilteredProvidersList || sortedAndFilteredProvidersList.length === 0) {
+            showAlert('Dışa aktarılacak tedarikçi bulunamadı.', 'warning');
+            return;
+        }
+
+        showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+        try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Tedarikçiler Raporu', { views: [{ rightToLeft: false }] });
+
+            // Define styles
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            const fullHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: headerFont,
+                fill: headerFill
+            } as Partial<Excel.Style>;
+
+            const bodyStyle = {
+                border: border,
+                alignment: leftAlignment,
+                font: font
+            } as Partial<Excel.Style>;
+
+            // Report Header
+            worksheet.addRow(['', '', '']);
+            const titleRow = worksheet.addRow(['Tüm Tedarikçiler Raporu']);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A2:G2');
+
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.addRow([]);
+
+            // Table Headers
+            const tableHeaders = ['İsim', 'Telefon Numarası', 'Adres', 'Firma', 'Bölge', 'Oluşturulma Tarihi', 'Durum'];
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
+            });
+
+            // Add data
+            sortedAndFilteredProvidersList.forEach(prov => {
+                const row = worksheet.addRow([
+                    prov.name,
+                    prov.phoneNumber,
+                    prov.address,
+                    prov.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+                    prov.region?.name || 'Bilinmiyor',
+                    formatDateDisplay(prov.createAt),
+                    prov.status,
+                ]);
+                row.eachCell((cell) => {
+                    cell.style = bodyStyle;
+                });
+            });
+
+            // Adjust column widths
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+            addCompanyInfo(worksheet);
+            // Save file
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `Tüm_Tedarikciler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+        }
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-
-
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                     <Stack
                         direction={{ xs: 'column', sm: 'row' }}
@@ -867,7 +1007,6 @@ const ListProviders = () => {
                                 <CustomTextField
                                     id="provider-name"
                                     placeholder="Tedarikçi Adı"
-
                                     sx={{ width: '100%' }}
                                     size="small"
                                     value={name}
@@ -885,7 +1024,6 @@ const ListProviders = () => {
                                 <CustomTextField
                                     id="provider-phonenumber"
                                     placeholder="Telefon Numarası"
-
                                     sx={{ width: '100%' }}
                                     size="small"
                                     value={phoneNumber}
@@ -948,7 +1086,7 @@ const ListProviders = () => {
                                 />
                             </Grid>
                             <Grid item xs={12} sm={4}>
-                                <CustomFormLabel htmlFor="firm-type" required>Setaş'tan mı?  </CustomFormLabel>
+                                <CustomFormLabel htmlFor="firm-type" required>Setaş'tan mı? </CustomFormLabel>
                                 <RadioGroup
                                     row
                                     aria-labelledby="firm-type-label"
@@ -977,7 +1115,6 @@ const ListProviders = () => {
                                             </CustomTooltip>
                                         </>
                                     ) : (
-
                                         <>
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Tedarikçi ekle" : ""}>
@@ -985,7 +1122,6 @@ const ListProviders = () => {
                                                         {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Tedarikçi Ekle'}
                                                     </Button>
                                                 </CustomTooltip>
-
                                             )}
                                         </>
                                     )}
@@ -1002,24 +1138,22 @@ const ListProviders = () => {
             </div>
 
             <BlankCard>
-
-
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
                         {hasDownloadPermission && (
                             <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllProvidersPDF}
-                                    startIcon={<IconFileDownload />}
-                                // You can add fullWidth if you want it to be responsive
-                                >
-                                    Tümünü İndir (PDF)
-                                </Button>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setOpenDownloadModal(true)}
+                                        startIcon={<IconFileDownload />}
+                                    >
+                                        Tümünü İndir
+                                    </Button>
+                                </CustomTooltip>
                             </Grid>
                         )}
-
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
@@ -1071,7 +1205,6 @@ const ListProviders = () => {
                                     <TableCell>
                                         <TableSortLabel active={orderBy === 'firm'} direction={orderBy === 'firm' ? order : 'asc'} onClick={() => handleRequestSort('firm')} style={{ color: "#171c23" }}><Typography variant="h6">Firma</Typography></TableSortLabel>
                                     </TableCell>
-
                                     <TableCell>
                                         <Typography variant="h6">Bölge</Typography>
                                     </TableCell>
@@ -1107,7 +1240,6 @@ const ListProviders = () => {
                                                 label={row.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı'}
                                                 color={row.firm === '1' ? 'primary' : 'secondary'}
                                             /></TableCell>
-
                                             <TableCell><Typography variant="h6">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></TableCell>
                                             <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
                                             <TableCell>
@@ -1142,7 +1274,6 @@ const ListProviders = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                         <CustomTooltip placement="left"
                                                             title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı pasif yap" : ""}>
@@ -1241,6 +1372,38 @@ const ListProviders = () => {
                 showAlert={showAlert}
                 onDeleteSuccess={fetchProviders}
             />
+            {/* Download Modal */}
+            <Dialog
+                open={openDownloadModal}
+                onClose={() => setOpenDownloadModal(false)}
+            >
+                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleDownloadAllProvidersPDF} // Call the PDF download function
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleExportExcel} // Call the Excel download function
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadModal(false)} color="secondary">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

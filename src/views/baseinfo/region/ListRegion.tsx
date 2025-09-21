@@ -29,6 +29,10 @@ import {
     ToggleButtonGroup,
     ToggleButton as MuiToggleButton,
     TableSortLabel,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 
@@ -55,7 +59,12 @@ import { useAuth } from 'src/context/AuthContext';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -224,6 +233,7 @@ const ListRegion = () => {
 
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
+    const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
 
     const [isFormVisible, setIsFormVisible] = useState(false);
@@ -383,7 +393,7 @@ const ListRegion = () => {
 
         try {
             const response = await axios.request<{ httpStatusCode: number; data: ApiRegionType[]; message?: string }>({
-                baseURL: server.baseurl + server.baseinfo + "get-regions", // ✅ تغییر آدرس API
+                baseURL: server.baseurl + server.baseinfo + "get-regions",
                 method: "get",
                 headers: {
                     "Accept": "application/json",
@@ -416,13 +426,13 @@ const ListRegion = () => {
 
     const insertRegion = async () => {
         if (!name.trim()) {
-            setNameError(true); // تنظیم وضعیت خطا به true
-            setNameHelperText('Bölge adı boş bırakılamaz!'); // تنظیم پیام کمکی
+            setNameError(true);
+            setNameHelperText('Bölge adı boş bırakılamaz!');
             showAlert('İsim boş bırakılamaz!', 'warning');
             return;
         }
-        setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
-        setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+        setNameError(false);
+        setNameHelperText('');
 
 
         clearAlert();
@@ -436,32 +446,28 @@ const ListRegion = () => {
         }
         debugger
         try {
-            // تعیین عمق و parentId دسته‌بندی جدید
-            const regionParentId = currentParentRegion ? currentParentRegion.id : null; // ParentId should be null for top-level regions
+            const regionParentId = currentParentRegion ? currentParentRegion.id : null;
 
-            // داده‌هایی که باید به API ارسال شوند
             const newRegionData = {
                 name: name,
-                // API expects `parentId` as number if it's not null, or 0 if it's null (or simply omit)
-                parentId: regionParentId ? Number(regionParentId) : null // Ensure parentId is number or null
+                parentId: regionParentId ? Number(regionParentId) : null
             };
 
-            // فراخوانی API برای ایجاد دسته‌بندی جدید
             const response = await axios.request({
-                baseURL: server.baseurl + server.baseinfo + "create-region", // ✅ تغییر آدرس API
+                baseURL: server.baseurl + server.baseinfo + "create-region",
                 method: "post",
                 headers: {
                     "Accept": "application/json",
                     "Authorization": `Bearer ${authToken}`,
-                    "Content-Type": "application/json" // حتماً Content-Type را تنظیم کنید
+                    "Content-Type": "application/json"
                 },
-                data: newRegionData // ارسال داده‌ها
+                data: newRegionData
             });
 
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni bölge başarıyla eklendi!', 'success');
                 resetFormAndState();
-                await fetchRegions(); // پس از اضافه شدن موفقیت‌آمیز، دوباره لیست کامل دسته‌بندی‌ها را واکشی می‌کنیم
+                await fetchRegions();
             } else {
                 showAlert(response.data.message || 'Bölge eklenirken bir hata oluştu.', 'error');
             }
@@ -483,13 +489,13 @@ const ListRegion = () => {
 
     const editRegion = async () => {
         if (!name.trim()) {
-            setNameError(true); // تنظیم وضعیت خطا به true
-            setNameHelperText('Bölge adı boş bırakılamaz!'); // تنظیم پیام کمکی
+            setNameError(true);
+            setNameHelperText('Bölge adı boş bırakılamaz!');
             showAlert('İsim boş bırakılamaz!', 'warning');
             return;
         }
-        setNameError(false); // در صورت معتبر بودن، خطا را پاک کنید
-        setNameHelperText(''); // در صورت معتبر بودن، پیام کمکی را پاک کنید
+        setNameError(false);
+        setNameHelperText('');
 
 
         clearAlert();
@@ -505,26 +511,26 @@ const ListRegion = () => {
 
         try {
             const updateData = {
-                id: Number(editingId), // ID دسته بندی مورد نظر برای بروزرسانی
-                newname: name, // نام جدید
-                parentId: editingParentId ? Number(editingParentId) : null // ParentId را به number یا null تبدیل می‌کنیم
+                id: Number(editingId),
+                newname: name,
+                parentId: editingParentId ? Number(editingParentId) : null
             };
 
             const response = await axios.request({
-                baseURL: server.baseurl + server.baseinfo + "update-region", // ✅ تغییر آدرس API
+                baseURL: server.baseurl + server.baseinfo + "update-region",
                 method: "put",
                 headers: {
                     "Accept": "application/json",
                     "Authorization": `Bearer ${authToken}`,
                     "Content-Type": "application/json"
                 },
-                data: updateData // ارسال داده‌ها در بدنه درخواست
+                data: updateData
             });
 
             if (response.data.httpStatusCode === 200) {
                 showAlert('Bölge başarıyla güncellendi!', 'success');
                 resetFormAndState();
-                await fetchRegions(); // واکشی مجدد همه دسته‌بندی‌ها برای نمایش داده‌های بروزرسانی شده
+                await fetchRegions();
             } else {
                 showAlert(response.data.message || 'Bölge güncellenirken bir hata oluştu.', 'error');
             }
@@ -564,7 +570,7 @@ const ListRegion = () => {
             };
 
             const response = await axios.request({
-                baseURL: server.baseurl + server.baseinfo + "update-region", // ✅ تغییر آدرس API
+                baseURL: server.baseurl + server.baseinfo + "update-region",
                 method: "put",
                 headers: {
                     "Accept": "application/json",
@@ -576,7 +582,7 @@ const ListRegion = () => {
 
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
-                showAlert(`Bölge başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                showAlert(`Direk başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 await fetchRegions();
             } else {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
@@ -617,20 +623,16 @@ const ListRegion = () => {
     };
 
 
-    // این `useEffect` فقط در زمان mount شدن کامپوننت فراخوانی اولیه را انجام می‌دهد.
     useEffect(() => {
         const initFetch = async () => {
             await fetchRegions();
         };
         initFetch();
-    }, []); // بدون وابندگی برای اجرای فقط یک بار
+    }, []);
 
-    // این `useEffect` زمانی اجرا می‌شود که `rawApiRegions` (داده‌های اصلی) یا فیلترها تغییر کنند.
     useEffect(() => {
-        // 1. Get direct children of the current parent
         const directChildren = getDirectChildrenOfParent(rawApiRegions, currentParentRegion?.id || null);
 
-        // 2. Filter these children by search term and status
         const filteredBySearchAndStatus = directChildren.filter(region => {
             const matchesSearch = region.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus =
@@ -640,20 +642,17 @@ const ListRegion = () => {
             return matchesSearch && matchesStatus;
         });
 
-        // 3. Apply sorting to the filtered data
         const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
 
-        setDisplayedRegions(sortedData); // Set the sorted and filtered data
-        setPage(0); // Reset to first page when filters or data change
+        setDisplayedRegions(sortedData);
+        setPage(0);
     }, [rawApiRegions, currentParentRegion, searchTerm, statusFilter, getDirectChildrenOfParent, order, orderBy]);
 
 
     const handleEnterSubregions = (region: RegionType) => {
         setCurrentParentRegion(region);
-        // بروزرسانی Breadcrumb
         const newPath = [...breadcrumbPath];
         const lastItem = newPath[newPath.length - 1];
-        // اگر آخرین آیتم breadcrumb همان دسته‌بندی نیست، آن را اضافه کن.
         if (lastItem.id !== region.id) {
             newPath.push({ id: region.id, name: region.name, depth: region.depth });
         }
@@ -666,7 +665,6 @@ const ListRegion = () => {
 
         const newPath = breadcrumbPath.slice(0, itemIndex + 1);
         setBreadcrumbPath(newPath);
-        // پیدا کردن شیء کامل دسته‌بندی برای تنظیم currentParentRegion
         const selectedRegion = item.id === null ? null : findRegionById(rawApiRegions, item.id);
         setCurrentParentRegion(selectedRegion ? {
             id: selectedRegion.id,
@@ -691,12 +689,11 @@ const ListRegion = () => {
         }
     };
 
-    // ✅ Added: Handler for changing sort order
     const handleRequestSort = (property: SortableRegionKeys) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
-        setPage(0); // Reset to first page when sort changes
+        setPage(0);
     };
 
 
@@ -717,7 +714,6 @@ const ListRegion = () => {
         setPage(0);
     };
 
-    // `paginatedRegions` now uses `displayedRegions` which are already filtered and sorted.
     const paginatedRegions = displayedRegions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
     const getFormattedBreadcrumbPath = () => {
@@ -731,14 +727,12 @@ const ListRegion = () => {
 
         return [
             firstItem,
-            { id: null, name: '...', depth: -2 }, // ... placeholder
+            { id: null, name: '...', depth: -2 },
             ...middlePart
         ];
     };
 
     const formattedBreadcrumb = getFormattedBreadcrumbPath();
-
-    // Add the following function inside the `ListRegion` component, before the `return` statement.
 
     const flattenAndPrepareRegionsForPdf = (regions: ApiRegionType[], path: string[] = []): string[][] => {
         let rows: string[][] = [];
@@ -749,7 +743,7 @@ const ListRegion = () => {
 
             const row = [
                 fullRegionName,
-                String(region.depth),
+                // getDepthName(region.depth),
                 formatDateDisplay(region.createAt),
                 region.recordStatus === 0 ? 'Aktif' : 'Pasif'
             ];
@@ -773,51 +767,71 @@ const ListRegion = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Bölgeler Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
-
         try {
-            // @ts-ignore - autoTable does not have a type definition for 'doc' property
+            // Add fonts
+            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
+
+            const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
+
             autoTable(doc, {
-                startY: 50,
-                head: [['Bölge Adı', 'Derinlik', 'Oluşturulma Tarihi', 'Durum']],
+                startY: 65,
+                head: [['Bölge Adı', 'Oluşturulma Tarihi', 'Durum']],
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'NotoSans',
+                    font: 'Arial',
                     fontStyle: 'normal',
-                    fontSize: 10,
+                    fontSize: 8,
                     cellPadding: 2,
                     overflow: 'linebreak'
                 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [0, 0, 0],
+                    font: 'Arial',
+                    fontSize: 9,
+                },
                 didDrawPage: () => {
-                    header();
-                    footer();
+                    // --- Header Section ---
+                    doc.setFont('Arial', 'bold');
+                    doc.setFontSize(14);
+                    doc.text('Tüm Bölgeler Raporu', pageWidth / 2, 15, { align: 'center' });
+                    doc.setFontSize(10);
+                    doc.setFont('Times', 'bold');
+                    doc.text(`Tarih:`, 15, 25);
+                    doc.setFont('Times', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+                    // --- Footer Section ---
+                    doc.setFont('NotoSans', 'normal');
+                    doc.setFontSize(8);
+                    doc.setTextColor(0);
+                    const companyInfo = [
+                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    ];
+                    let footerY = pageHeight - 30;
+                    companyInfo.forEach(line => {
+                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                        footerY += 4;
+                    });
+                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                margin: { top: 50, bottom: 45 },
             });
 
             doc.save('Tüm_Bölgeler_Raporu.pdf');
@@ -827,6 +841,124 @@ const ListRegion = () => {
             showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
         }
     };
+
+    // New Excel Download Function
+    const handleExportExcel = async () => {
+        setOpenDownloadModal(false);
+        if (!rawApiRegions || rawApiRegions.length === 0) {
+            showAlert('Dışa aktarılacak bölge bulunamadı.', 'warning');
+            return;
+        }
+
+        showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+        try {
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Bölgeler Raporu', { views: [{ rightToLeft: false }] });
+
+            // Define styles
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            const fullHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: headerFont,
+                fill: headerFill
+            } as Partial<Excel.Style>;
+
+            const bodyStyle = {
+                border: border,
+                alignment: leftAlignment,
+                font: font
+            } as Partial<Excel.Style>;
+
+            const addCompanyInfo = (ws: Excel.Worksheet) => {
+                ws.addRow([]); // Blank row for spacing
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+                companyInfo.forEach(line => {
+                    ws.addRow([line]);
+                    const lastRow = ws.lastRow;
+                    if (lastRow) {
+                        lastRow.getCell(1).alignment = { horizontal: 'center' };
+                        lastRow.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                        ws.mergeCells(`A${lastRow.number}:D${lastRow.number}`); // Merge cells for company info
+                    }
+                });
+            };
+
+            // Report Header
+            worksheet.addRow(['', '', '']);
+            const titleRow = worksheet.addRow(['Tüm Bölgeler Raporu']);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A2:D2');
+
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.addRow([]);
+
+            // Table Headers
+            const tableHeaders = ['Bölge Adı', 'Oluşturulma Tarihi', 'Durum'];
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
+            });
+
+            // Add data
+            const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
+            rows.forEach(rowData => {
+                const row = worksheet.addRow(rowData);
+                row.eachCell((cell) => {
+                    cell.style = bodyStyle;
+                });
+            });
+
+            // Add company info at the end
+            addCompanyInfo(worksheet);
+
+            // Adjust column widths
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            // Save file
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `Tüm_Bölgeler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (error) {
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+        }
+    };
+
+
     return (
         <>
             <div style={{
@@ -988,18 +1120,18 @@ const ListRegion = () => {
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
                         {hasDownloadPermission && (
                             <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleDownloadAllRegionsPDF}
-                                    startIcon={<IconFileDownload />}
-                                // You can add fullWidth if you want it to be responsive
-                                >
-                                    Tümünü İndir (PDF)
-                                </Button>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setOpenDownloadModal(true)} // Open modal on click
+                                        startIcon={<IconFileDownload />}
+                                    >
+                                        Tümünü İndir
+                                    </Button>
+                                </CustomTooltip>
                             </Grid>
                         )}
-
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
@@ -1028,30 +1160,24 @@ const ListRegion = () => {
                                 aria-label="Status filter"
                                 fullWidth
                             >
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm kategorileri göster" : ""}> */}
                                 <StyledToggleButton
                                     value="all"
                                     aria-label="all regions"
                                 >
                                     Tümü
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece aktif kategorileri göster" : ""}> */}
                                 <StyledToggleButton
                                     value="active"
                                     aria-label="active regions"
                                 >
                                     Aktif
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sadece pasif kategorileri göster" : ""}> */}
                                 <StyledToggleButton
                                     value="inactive"
                                     aria-label="inactive regions"
                                 >
                                     Pasif
                                 </StyledToggleButton>
-                                {/* </CustomTooltip> */}
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
@@ -1067,7 +1193,6 @@ const ListRegion = () => {
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
                                     <TableCell>
-                                        {/* Sortable Column: İsim (Name) */}
                                         <TableSortLabel
                                             active={orderBy === 'name'}
                                             direction={orderBy === 'name' ? order : 'asc'}
@@ -1078,7 +1203,6 @@ const ListRegion = () => {
                                         </TableSortLabel>
                                     </TableCell>
                                     <TableCell>
-                                        {/* Sortable Column: Oluşturulma Tarihi (Creation Date) */}
                                         <TableSortLabel
                                             active={orderBy === 'createAt'}
                                             direction={orderBy === 'createAt' ? order : 'asc'}
@@ -1089,7 +1213,6 @@ const ListRegion = () => {
                                         </TableSortLabel>
                                     </TableCell>
                                     <TableCell>
-                                        {/* Sortable Column: Durum (Status) */}
                                         <TableSortLabel
                                             active={orderBy === 'status'}
                                             direction={orderBy === 'status' ? order : 'asc'}
@@ -1146,11 +1269,11 @@ const ListRegion = () => {
                                             <TableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.name}" için şehir ekle/gör` : ""}>
 
-                                                    {(findRegionById(rawApiRegions, row.id)?.regions || []).length > 0 ? ( // ✅ تغییر نام از categories به cities
+                                                    {(findRegionById(rawApiRegions, row.id)?.regions || []).length > 0 ? (
                                                         <Button
                                                             variant="outlined"
                                                             size="small"
-                                                            onClick={() => handleEnterSubregions(row)} // ✅ تغییر نام تابع
+                                                            onClick={() => handleEnterSubregions(row)}
                                                             startIcon={<IconChevronRight size={18} />}
                                                         >
                                                             Şehirleri Görüntüle
@@ -1159,7 +1282,7 @@ const ListRegion = () => {
                                                         <Button
                                                             variant="outlined"
                                                             size="small"
-                                                            onClick={() => handleEnterSubregions(row)} // ✅ تغییر نام تابع
+                                                            onClick={() => handleEnterSubregions(row)}
                                                             startIcon={<IconPlus size={18} />}
                                                         >
                                                             Şehir Ekle
@@ -1267,10 +1390,42 @@ const ListRegion = () => {
             <DeleteRegion
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}
-                regionIdToDelete={regionIdToDelete} // ✅ تغییر prop
-                onDeleteSuccess={() => fetchRegions()} // ✅ تغییر نام تابع
+                regionIdToDelete={regionIdToDelete}
+                onDeleteSuccess={() => fetchRegions()}
                 showAlert={showAlert}
             />
+            {/* Download Modal */}
+            <Dialog
+                open={openDownloadModal}
+                onClose={() => setOpenDownloadModal(false)}
+            >
+                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleDownloadAllRegionsPDF}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleExportExcel}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadModal(false)} color="secondary">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

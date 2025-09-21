@@ -5,7 +5,7 @@ import {
     Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    TableSortLabel, Chip,
+    TableSortLabel, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
     useMediaQuery,
 } from '@mui/material';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
@@ -14,7 +14,7 @@ import { keyframes, styled, useTheme } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus, IconFileDownload, IconFileText, IconX } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconTrash, IconSearch, IconPlus, IconFileDownload, IconX, IconFileDescription } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -29,9 +29,13 @@ import CarDetailsModal from "./CarDetailsModal";
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
-
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
 import { useAuth } from 'src/context/AuthContext';
+
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
@@ -43,7 +47,6 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
-
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
@@ -61,14 +64,24 @@ interface VehicleData {
     model: number;
     plaque: string;
     recordStatus: number;
-    brand?: string; // Add brand field for better reporting
+    brand?: string;
 }
 
-interface DriverWithVehicles extends internal {
+interface DriverWithVehicles {
     driverVehicles: VehicleData[];
+    id: number;
+    name: string;
+    family: string;
+    birthdate: string;
+    fatherName: string;
+    identityNo: string;
+    internal: string;
+    recordStatus: number;
+    createAt: string;
+    status: string;
 }
 
-interface internal {
+interface DriverData {
     id: number;
     name: string;
     family: string;
@@ -82,7 +95,7 @@ interface internal {
     driverVehicles?: VehicleData[];
 }
 
-type SortableDriverKeys = keyof Pick<internal, 'name' | 'family' | 'identityNo' | 'createAt' | 'recordStatus'>;
+type SortableDriverKeys = keyof Pick<DriverData, 'name' | 'family' | 'identityNo' | 'createAt' | 'recordStatus'>;
 
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
@@ -96,7 +109,7 @@ const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key):
     return 0;
 };
 
-const getComparator = (order: 'asc' | 'desc', orderBy: SortableDriverKeys): (a: internal, b: internal) => number => {
+const getComparator = (order: 'asc' | 'desc', orderBy: SortableDriverKeys): (a: DriverData, b: DriverData) => number => {
     return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
 };
 
@@ -124,13 +137,13 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
+
 const ListDrivers = () => {
     const navigate = useNavigate();
     const theme = useTheme();
     const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
     const isMediumScreen = useMediaQuery(theme.breakpoints.down('md'));
 
-    // Form States
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [birthdate, setBirthDate] = useState<Date | null>(new Date());
@@ -139,21 +152,18 @@ const ListDrivers = () => {
     const [internal, setDriverType] = useState<string>('1');
     const [editingId, setEditingId] = useState<number | null>(null);
 
-    // Validation States
     const [firstNameError, setFirstNameError] = useState(false);
     const [lastNameError, setLastNameError] = useState(false);
     const [birthDateError, setBirthDateError] = useState(false);
     const [fatherNameError, setFatherNameError] = useState(false);
     const [nationalCodeError, setNationalCodeError] = useState(false);
 
-    // Data and UI States
-    const [driversList, setDriversList] = useState<internal[]>([]);
+    const [driversList, setDriversList] = useState<DriverData[]>([]);
     const [loadingData, setLoadingData] = useState(true);
     const [loadingButton, setLoadingButton] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Table States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
@@ -161,27 +171,29 @@ const ListDrivers = () => {
     const [orderBy, setOrderBy] = useState<SortableDriverKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [selectedRowForMenu, setSelectedRowForMenu] = useState<internal | null>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<DriverData | null>(null);
 
-    // Dialog/Modal States
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
-    const [driverToDelete, setDriverToDelete] = useState<internal | null>(null);
+    const [driverToDelete, setDriverToDelete] = useState<DriverData | null>(null);
     const { isTooltipGloballyEnabled } = useTooltip();
     const firstNameInputRef = useRef<HTMLInputElement>(null);
 
     const [openCarDetailsModal, setOpenCarDetailsModal] = useState(false);
-    const [selectedDriver, setSelectedDriver] = useState<internal | null>(null);
-
+    const [selectedDriver, setSelectedDriver] = useState<DriverData | null>(null);
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
-
     const [isFilterActive, setIsFilterActive] = useState(false);
-
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
+    const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
+    const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
+    const [openDriverDetailsDownloadModal, setOpenDriverDetailsDownloadModal] = useState(false);
+
+
     const { allowedOperations } = useAuth();
+
     const hasCreatePermission = useMemo(() => {
         return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
     }, [allowedOperations]);
@@ -227,7 +239,7 @@ const ListDrivers = () => {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
             if (response.data.httpStatusCode === 200) {
-                const allDrivers = response.data.data as internal[];
+                const allDrivers = response.data.data as DriverData[];
                 const driversWithStatus = allDrivers.map((item) => ({
                     ...item,
                     status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
@@ -287,7 +299,6 @@ const ListDrivers = () => {
         if (!birthdate) { setBirthDateError(true); isValid = false; } else { setBirthDateError(false); }
         if (!fatherName.trim()) { setFatherNameError(true); isValid = false; } else { setFatherNameError(false); }
         if (!identityNo.trim()) { setNationalCodeError(true); isValid = false; } else { setNationalCodeError(false); }
-
         if (!isValid) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return isValid;
     };
@@ -394,7 +405,7 @@ const ListDrivers = () => {
         clearAlert();
     };
 
-    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: internal) => {
+    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: DriverData) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
     };
@@ -436,7 +447,7 @@ const ListDrivers = () => {
         fetchDrivers();
     };
 
-    const handleClickOpenCarDetailsModal = (driver: internal) => {
+    const handleClickOpenCarDetailsModal = (driver: DriverData) => {
         setSelectedDriver(driver);
         setOpenCarDetailsModal(true);
     };
@@ -496,14 +507,12 @@ const ListDrivers = () => {
 
     const filteredDrivers = useMemo(() => {
         return driversList.filter(d => {
-            // فیلتر بر اساس جستجو و وضعیت
             const matchesSearch = d.name.toLowerCase().includes(searchTerm.toLowerCase()) || d.family.toLowerCase().includes(searchTerm.toLowerCase()) || d.identityNo.includes(searchTerm);
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'active' && d.recordStatus === 0) ||
                 (statusFilter === 'inactive' && d.recordStatus === 1);
 
-            // ** اضافه کردن فیلتر بر اساس تاریخ تولد **
             const birthdate = new Date(d.birthdate);
             const matchesDate =
                 (!startDate || birthdate >= startDate) &&
@@ -519,170 +528,265 @@ const ListDrivers = () => {
 
     const paginatedDrivers = sortedAndFilteredDrivers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    const handleDownloadAllDriversPDF = async () => {
+    // 👇 Refined PDF download functions
+    const generatePDF = (data: DriverData[], isFiltered: boolean) => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+        doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+        doc.addFileToVFS('Arial.ttf', ArialFont);
+        doc.addFont('Arial.ttf', 'Arial', 'normal');
+
+        const header = () => {
+            doc.setFont('Arial', 'bold');
+            doc.setFontSize(14);
+            const title = isFiltered ? 'Filtrelenmiş Şoförler Raporu' : 'Tüm Şoförler Raporu';
+            doc.text(title, pageWidth / 2, 15, { align: 'center' });
+            doc.setFontSize(10);
+            doc.setFont('Times', 'bold');
+            doc.text(`Tarih:`, 15, 25);
+            doc.setFont('Times', 'normal');
+            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+            doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+            if (isFiltered) {
+                let filterInfo = '';
+                if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+                if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+                if (startDate || endDate) {
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+                }
+                if (filterInfo) {
+                    doc.setFont('Arial', 'normal');
+                    doc.setFontSize(9);
+                    doc.text(filterInfo, pageWidth / 2, 47, { align: 'center' });
+                }
+            }
+        };
+
+        const footer = () => {
+            doc.setFont('NotoSans', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(0);
+            const companyInfo = [
+                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            ];
+            let footerY = pageHeight - 30;
+            companyInfo.forEach(line => {
+                doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                footerY += 4;
+            });
+            const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+            const pageCount = (doc as any).internal.getNumberOfPages();
+            doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+            doc.setFont('NotoSans', 'normal');
+            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+        };
+
+        const rows = data.map(driver => [
+            `${driver.name} ${driver.family}`,
+            formatDateDisplay(driver.birthdate),
+            driver.fatherName,
+            driver.identityNo,
+            driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+            driver.recordStatus === 0 ? 'Aktif' : 'Pasif',
+        ]);
+
+        autoTable(doc, {
+            startY: isFiltered ? 55 : 45,
+            head: [['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum']],
+            body: rows,
+            theme: 'grid',
+            styles: {
+                font: 'NotoSans',
+                fontStyle: 'normal',
+                fontSize: 8,
+                cellPadding: 2,
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [242, 242, 242],
+                textColor: [0, 0, 0],
+                font: 'NotoSans',
+                fontSize: 9,
+            },
+            didDrawPage: () => {
+                header();
+                footer();
+            },
+            showHead: 'everyPage',
+            margin: { top: 50, bottom: 45 },
+        });
+
+        doc.save(`${isFiltered ? 'Filtrelenmiş' : 'Tüm'}_Şoförler_Raporu.pdf`);
+        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    };
+
+    const handleDownloadAllDriversPDF = () => {
+        setOpenAllDownloadModal(false);
         if (!driversList || driversList.length === 0) {
             showAlert('PDF oluşturulacak sürücü bulunamadı.', 'warning');
             return;
         }
-
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
-        };
-
-        const rows = driversList.map(driver => [
-            `${driver.name} ${driver.family}`,
-            formatDateDisplay(driver.birthdate),
-            driver.fatherName,
-            driver.identityNo,
-            driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı',
-            driver.recordStatus === 0 ? 'Aktif' : 'Pasif',
-        ]);
-
-        try {
-            autoTable(doc, {
-                startY: 50,
-                head: [['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum']],
-                body: rows,
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 35 },
-                    1: { cellWidth: 25 },
-                    2: { cellWidth: 30 },
-                    3: { cellWidth: 25 },
-                    4: { cellWidth: 20 },
-                    5: { cellWidth: 'auto' },
-                },
-                didDrawPage: (_data) => {
-                    header();
-                    footer();
-                },
-                // ✅ اضافه شده: برای اطمینان از قرارگیری صحیح محتوا در صفحات جدید
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
-            });
-
-            doc.save('Tüm_Şoförler_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-        } catch (error) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
-        }
+        generatePDF(driversList, false);
     };
 
-
-    const handleDownloadFilteredAllDriversPDF = async () => {
-        // از filteredDrivers که از قبل بر اساس فیلترهای UI محاسبه شده، استفاده کنید.
-        if (!filteredDrivers || filteredDrivers.length === 0) {
+    const handleDownloadFilteredDriversPDF = () => {
+        setOpenFilteredDownloadModal(false);
+        if (!sortedAndFilteredDrivers || sortedAndFilteredDrivers.length === 0) {
             showAlert('PDF oluşturulacak sürücü bulunamadı.', 'warning');
             return;
         }
+        generatePDF(sortedAndFilteredDrivers, true);
+    };
 
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-
-        // افزودن فونت NotoSans برای پشتیبانی از حروف ترکی
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Tüm Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12); doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-            doc.line(pageWidth - 65, doc.internal.pageSize.getHeight() - 15, pageWidth - 15, doc.internal.pageSize.getHeight() - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, doc.internal.pageSize.getHeight() - 10);
-        };
-
-        // ایجاد سطرها از داده‌های فیلتر شده
-        const rows = filteredDrivers.map(driver => [
-            `${driver.name} ${driver.family}`,
-            formatDateDisplay(driver.birthdate),
-            driver.fatherName,
-            driver.identityNo,
-            driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı',
-            driver.recordStatus === 0 ? 'Aktif' : 'Pasif',
-        ]);
+    const handleExportExcel = async (dataToExport: DriverData[], isFiltered: boolean) => {
+        setOpenAllDownloadModal(false);
+        setOpenFilteredDownloadModal(false);
+        if (!dataToExport || dataToExport.length === 0) {
+            showAlert('Dışa aktarılacak sürücü bulunamadı.', 'warning');
+            return;
+        }
+        showAlert('Excel dosyası oluşturuluyor...', 'info');
 
         try {
-            autoTable(doc, {
-                startY: 50,
-                head: [['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum']],
-                body: rows,
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 35 },
-                    1: { cellWidth: 25 },
-                    2: { cellWidth: 30 },
-                    3: { cellWidth: 25 },
-                    4: { cellWidth: 20 },
-                    5: { cellWidth: 'auto' },
-                },
-                didDrawPage: () => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Şoförler Raporu', { views: [{ rightToLeft: false }] });
+
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+
+            const fullHeaderStyle = {
+                border: border,
+                alignment: centerAlignment,
+                font: headerFont,
+                fill: headerFill
+            } as Partial<Excel.Style>;
+
+            const bodyStyle = {
+                border: border,
+                alignment: leftAlignment,
+                font: font
+            } as Partial<Excel.Style>;
+
+            const addCompanyInfo = (ws: Excel.Worksheet, columnCount: number) => {
+                ws.addRow([]);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+                const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+                companyInfo.forEach(line => {
+                    const row = ws.addRow([line]);
+                    row.getCell(1).alignment = { horizontal: 'center' };
+                    row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                    ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+                });
+            };
+
+            const titleText = isFiltered ? 'Filtrelenmiş Şoförler Raporu' : 'Tüm Şoförler Raporu';
+            const titleRow = worksheet.addRow([titleText]);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A1:G1');
+
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.mergeCells('A2:G2');
+
+            let filterInfo = '';
+            if (isFiltered) {
+                if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+                if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+                if (startDate || endDate) {
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+                }
+            }
+            if (filterInfo) {
+                worksheet.addRow([filterInfo]);
+                const filterInfoRow = worksheet.lastRow;
+                if (filterInfoRow) {
+                    filterInfoRow.getCell(1).alignment = { horizontal: 'center' };
+                    filterInfoRow.getCell(1).font = { name: 'Arial', size: 9, bold: false };
+                }
+                worksheet.mergeCells('A3:G3');
+            }
+            worksheet.addRow([]);
+
+            const tableHeaders = ['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum'];
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
             });
 
-            doc.save('Filtrelenmiş_Şoförler_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+            dataToExport.forEach(driver => {
+                const row = worksheet.addRow([
+                    `${driver.name} ${driver.family}`,
+                    formatDateDisplay(driver.birthdate),
+                    driver.fatherName,
+                    driver.identityNo,
+                    driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı',
+                    driver.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                ]);
+                row.eachCell((cell) => {
+                    cell.style = bodyStyle;
+                });
+            });
+
+            addCompanyInfo(worksheet, tableHeaders.length);
+
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileNamePrefix = isFiltered ? 'Filtrelenmiş_Sürücüler' : 'Tüm_Sürücüler';
+            const fileName = `${fileNamePrefix}_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
     };
 
-    const handleDownloadDriversWithCarsPDF = async () => {
+    const handleDownloadDriversWithCarsPDF = async (isFiltered: boolean) => {
         showAlert('Araçlı sürücü bilgileri alınıyor, lütfen bekleyin...', 'info');
+        setOpenAllDownloadModal(false);
+        setOpenFilteredDownloadModal(false);
         try {
             const authToken = localStorage.getItem('authToken');
             if (!authToken) {
@@ -699,9 +803,24 @@ const ListDrivers = () => {
                 return;
             }
 
-            const driversWithCars = response.data.data;
-            if (driversWithCars.length === 0) {
-                showAlert('Araçlı sürücü bulunamadı.', 'warning');
+            const allDriversWithCars = response.data.data as DriverWithVehicles[];
+            const dataToExport = isFiltered ? allDriversWithCars.filter((driver: DriverWithVehicles) => {
+                const matchesDate =
+                    (!startDate || new Date(driver.birthdate) >= startDate) &&
+                    (!endDate || new Date(driver.birthdate) <= endDate);
+                const matchesSearch =
+                    driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    driver.family.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    driver.identityNo.includes(searchTerm);
+                const matchesStatus =
+                    statusFilter === 'all' ||
+                    (statusFilter === 'active' && driver.recordStatus === 0) ||
+                    (statusFilter === 'inactive' && driver.recordStatus === 1);
+                return matchesDate && matchesSearch && matchesStatus;
+            }) : allDriversWithCars;
+
+            if (dataToExport.length === 0) {
+                showAlert('Rapor oluşturulacak araçlı sürücü bulunamadı.', 'warning');
                 return;
             }
 
@@ -711,30 +830,65 @@ const ListDrivers = () => {
 
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.setFont('NotoSans');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
 
-            // تعریف توابع هدر و فوتر به صورت مستقل برای استفاده در قلاب didDrawPage
             const header = () => {
-                doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-                doc.setFontSize(18);
-                doc.text('Araçlı Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
-                doc.setFontSize(12);
-                doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+                doc.setFont('Arial', 'bold');
+                doc.setFontSize(14);
+                const title = isFiltered ? 'Filtrelenmiş Araçlı Şoförler Raporu' : 'Araçlı Şoförler Raporu';
+                doc.text(title, pageWidth / 2, 15, { align: 'center' });
+                doc.setFontSize(10);
+                doc.setFont('Times', 'bold');
+                doc.text(`Tarih:`, 15, 25);
+                doc.setFont('Times', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+                if (isFiltered) {
+                    let filterInfo = '';
+                    if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+                    if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+                    if (startDate || endDate) {
+                        const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                        const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                        filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+                    }
+                    if (filterInfo) {
+                        doc.setFont('Arial', 'normal');
+                        doc.setFontSize(9);
+                        doc.text(filterInfo, pageWidth / 2, 47, { align: 'center' });
+                    }
+                }
             };
             const footer = () => {
-                doc.setFontSize(10);
+                doc.setFont('NotoSans', 'normal');
+                doc.setFontSize(8);
                 doc.setTextColor(0);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                ];
+                let footerY = pageHeight - 30;
+                companyInfo.forEach(line => {
+                    doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+                const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (doc as any).internal.getNumberOfPages();
+                doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                doc.setFont('NotoSans', 'normal');
                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                const docAny = doc as any;
-                const pageCount = docAny.internal.getNumberOfPages();
-                doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
             const tableBody: (string[] | { content: string; colSpan: number; styles: object }[])[] = [];
 
-            driversWithCars.forEach((driver: DriverWithVehicles) => {
-                // اضافه کردن اطلاعات راننده به عنوان یک ردیف در جدول
+            dataToExport.forEach((driver: DriverWithVehicles) => {
                 tableBody.push([
                     {
                         content: `Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`,
@@ -747,24 +901,21 @@ const ListDrivers = () => {
                     }
                 ]);
 
-                // اضافه کردن اطلاعات خودروهای این راننده
                 const vehicleRows = driver.driverVehicles.map(car => [
                     car.name || '-',
-                    String(car.model) || '-', // تبدیل عدد به رشته
+                    String(car.model) || '-',
                     car.plaque || '-',
                     car.recordStatus === 0 ? 'Aktif' : 'Pasif',
                 ]);
                 tableBody.push(...vehicleRows);
 
-                // اضافه کردن یک خط جداکننده برای خوانایی بهتر بین رانندگان
-                if (driver !== driversWithCars[driversWithCars.length - 1]) {
+                if (driver !== dataToExport[dataToExport.length - 1]) {
                     tableBody.push([{ content: '', colSpan: 4, styles: { fillColor: [255, 255, 255], minCellHeight: 5 } }]);
                 }
             });
 
-            // فراخوانی نهایی autoTable برای رسم کل محتوا
             autoTable(doc, {
-                startY: 50, // شروع محتوای جدول بعد از هدر صفحه اول
+                startY: isFiltered ? 55 : 50,
                 head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
                 body: tableBody,
                 theme: 'grid',
@@ -784,7 +935,7 @@ const ListDrivers = () => {
                 margin: { top: 50, bottom: 20 }
             });
 
-            doc.save('Araçlı_Şoförler_Raporu.pdf');
+            doc.save(`${isFiltered ? 'Filtrelenmiş' : 'Tüm'}_Araçlı_Şoförler_Raporu.pdf`);
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error) {
             console.error('PDF oluşturulurken hata:', error);
@@ -792,8 +943,10 @@ const ListDrivers = () => {
         }
     };
 
-    const handleDownloadFilteredWithCarsPDF = async () => {
-        showAlert('Araçlı sürücü bilgileri alınıyor, lütfen bekleyin...', 'info');
+    const handleDownloadDriversWithCarsExcel = async (isFiltered: boolean) => {
+        setOpenAllDownloadModal(false);
+        setOpenFilteredDownloadModal(false);
+        showAlert('Araçlı sürücü Excel dosyası oluşturuluyor...', 'info');
 
         try {
             const authToken = localStorage.getItem('authToken');
@@ -802,134 +955,162 @@ const ListDrivers = () => {
                 return;
             }
 
-            // قدم اول: گرفتن تمام رانندگان به همراه خودروهایشان
-            const response = await axios.get(
-                `${server.baseurl}${server.warehouse}get-drivers-with-vehicle`, {
-                headers: { "Authorization": `Bearer ${authToken}` },
-            }
-            );
+            const response = await axios.get(`${server.baseurl}${server.warehouse}get-drivers-with-vehicle`, {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
 
             if (response.data.httpStatusCode !== 200 || !response.data.data) {
                 showAlert(response.data.message || 'Araçlı sürücü verileri alınamadı.', 'error');
                 return;
             }
 
-            const allDriversWithCars = response.data.data;
-
-            // قدم دوم: اعمال فیلترها بر روی داده‌های دریافتی از سرور
-            const filteredDriversWithCars = allDriversWithCars.filter((driver: DriverWithVehicles) => {
-                // فیلتر بر اساس تاریخ
+            const allDriversWithCars = response.data.data as DriverWithVehicles[];
+            const dataToExport = isFiltered ? allDriversWithCars.filter((driver: DriverWithVehicles) => {
                 const matchesDate =
                     (!startDate || new Date(driver.birthdate) >= startDate) &&
                     (!endDate || new Date(driver.birthdate) <= endDate);
-
-                // فیلتر بر اساس جستجو و وضعیت
                 const matchesSearch =
                     driver.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     driver.family.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     driver.identityNo.includes(searchTerm);
-
                 const matchesStatus =
                     statusFilter === 'all' ||
                     (statusFilter === 'active' && driver.recordStatus === 0) ||
                     (statusFilter === 'inactive' && driver.recordStatus === 1);
-
                 return matchesDate && matchesSearch && matchesStatus;
-            });
+            }) : allDriversWithCars;
 
-            if (filteredDriversWithCars.length === 0) {
-                showAlert('Filtrelenmiş kriterlere uygun araçlı sürücü bulunamadı.', 'warning');
+            if (dataToExport.length === 0) {
+                showAlert('Dışa aktarılacak araçlı sürücü bulunamadı.', 'warning');
                 return;
             }
 
-            // بقیه کد PDF سازی با استفاده از filteredDriversWithCars
-            const doc = new jsPDF();
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Araçlı Şoförler Raporu', { views: [{ rightToLeft: false }] });
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
 
-            doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-            doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.setFont('NotoSans');
+            const fullHeaderStyle = { border: border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
+            const bodyStyle = { border: border, alignment: leftAlignment, font: font } as Partial<Excel.Style>;
 
-            const header = () => {
-                doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-                doc.setFontSize(18);
-                doc.text('Araçlı Şoförler Raporu', pageWidth - 15, 30, { align: 'right' });
-                doc.setFontSize(12);
-                doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
-                doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
+            const addCompanyInfo = (ws: Excel.Worksheet, columnCount: number) => {
+                ws.addRow([]);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+                const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+                companyInfo.forEach(line => {
+                    const row = ws.addRow([line]);
+                    row.getCell(1).alignment = { horizontal: 'center' };
+                    row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                    ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+                });
             };
-            const footer = () => {
-                doc.setFontSize(10);
-                doc.setTextColor(0);
-                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                const docAny = doc as any;
-                const pageCount = docAny.internal.getNumberOfPages();
-                doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-            };
 
-            const tableBody: (string[] | { content: string; colSpan: number; styles: object }[])[] = [];
+            const titleText = isFiltered ? 'Filtrelenmiş Araçlı Şoförler Raporu' : 'Tüm Araçlı Şoförler Raporu';
+            const titleRow = worksheet.addRow([titleText]);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+            }
+            worksheet.mergeCells('A1:D1');
 
-            filteredDriversWithCars.forEach((driver: DriverWithVehicles) => {
-                tableBody.push([
-                    {
-                        content: `Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`,
-                        colSpan: 4,
-                        styles: {
-                            fontStyle: 'bold',
-                            fillColor: [230, 230, 230],
-                            halign: 'center'
-                        }
-                    }
-                ]);
-                const vehicleRows = driver.driverVehicles.map(car => [
-                    car.name || '-',
-                    String(car.model) || '-',
-                    car.plaque || '-',
-                    car.recordStatus === 0 ? 'Aktif' : 'Pasif',
-                ]);
-                tableBody.push(...vehicleRows);
-                if (driver !== filteredDriversWithCars[filteredDriversWithCars.length - 1]) {
-                    tableBody.push([{ content: '', colSpan: 4, styles: { fillColor: [255, 255, 255], minCellHeight: 5 } }]);
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            const dateRow = worksheet.lastRow;
+            if (dateRow) {
+                dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+                dateRow.getCell(1).alignment = { horizontal: 'left' };
+            }
+            worksheet.mergeCells('A2:D2');
+
+            let filterInfo = '';
+            if (isFiltered) {
+                if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+                if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+                if (startDate || endDate) {
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
                 }
+            }
+            if (filterInfo) {
+                worksheet.addRow([filterInfo]);
+                const filterInfoRow = worksheet.lastRow;
+                if (filterInfoRow) {
+                    filterInfoRow.getCell(1).alignment = { horizontal: 'center' };
+                    filterInfoRow.getCell(1).font = { name: 'Arial', size: 9, bold: false };
+                }
+                worksheet.mergeCells('A3:D3');
+            }
+            worksheet.addRow([]);
+
+            const tableHeaders = ['Araç Adı', 'Model', 'Plaka', 'Durum'];
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell((cell) => {
+                cell.style = fullHeaderStyle;
             });
 
-            autoTable(doc, {
-                startY: 50,
-                head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
-                body: tableBody,
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                didDrawPage: () => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+            dataToExport.forEach(driver => {
+                const driverInfoRow = worksheet.addRow([`Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`]);
+                driverInfoRow.getCell(1).style = { ...bodyStyle, font: { ...bodyStyle.font, bold: true } };
+                worksheet.mergeCells(`A${driverInfoRow.number}:D${driverInfoRow.number}`);
+
+                driver.driverVehicles.forEach(car => {
+                    worksheet.addRow([
+                        car.name || '-',
+                        car.model || '-',
+                        car.plaque || '-',
+                        car.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                    ]).eachCell(cell => { cell.style = bodyStyle; });
+                });
+
+                worksheet.addRow([]); // Blank row for separation
             });
 
-            doc.save('Filtrelenmiş_Araçlı_Şoförler_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+            addCompanyInfo(worksheet, 4);
+
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileNamePrefix = isFiltered ? 'Filtrelenmiş_Araçlı_Şoförler' : 'Tüm_Araçlı_Şoförler';
+            const fileName = `${fileNamePrefix}_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+
         } catch (error) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+            console.error("Excel dışa aktarılırken hata:", error);
+            showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
     };
-    const handleDownloadDriverDetailsPDF = async (driver: internal) => {
+
+
+    const handleDownloadDriverDetailsPDF = async (driver: DriverData) => {
         if (!driver) {
             showAlert('Sürücü verisi bulunamadı.', 'warning');
             return;
         }
 
-        showAlert('Araç bilgileri alınıyor, lütfen bekleyin...', 'info');
+        showAlert('Sürücü detayları PDF oluşturuluyor, lütfen bekleyin...', 'info');
+        setOpenDriverDetailsDownloadModal(false);
 
         try {
             const authToken = localStorage.getItem('authToken');
@@ -956,66 +1137,103 @@ const ListDrivers = () => {
 
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.setFont('NotoSans');
+            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+            doc.addFileToVFS('Arial.ttf', ArialFont);
+            doc.addFont('Arial.ttf', 'Arial', 'normal');
+            doc.setFont('Arial');
 
-            // تعریف هدر و فوتر به عنوان توابع
             const header = () => {
-
-                doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-                doc.setFontSize(18);
-                doc.text('Sürücü Detay Raporu', pageWidth - 15, 35, { align: 'right' });
-            };
-            const footer = () => {
+                doc.setFont('Arial', 'bold');
+                doc.setFontSize(14);
+                doc.text('Sürücü Detay Raporu', pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
+                doc.setFont('Times', 'bold');
+                doc.text(`Tarih:`, 15, 25);
+                doc.setFont('Times', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+            };
+
+            const footer = () => {
+                doc.setFont('NotoSans', 'normal');
+                doc.setFontSize(8);
                 doc.setTextColor(0);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                ];
+                let footerY = pageHeight - 30;
+                companyInfo.forEach(line => {
+                    doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+                const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (doc as any).internal.getNumberOfPages();
+                doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                doc.setFont('NotoSans', 'normal');
                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                const docAny = doc as any;
-                const pageCount = docAny.internal.getNumberOfPages();
-                doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
-            // رسم هدر و اطلاعات راننده
             header();
+
+            let currentY = 50;
+
+            doc.setFont('NotoSans', 'bold');
             doc.setFontSize(12);
-            doc.text(`Adı Soyadı: ${driver.name} ${driver.family}`, 15, 65);
-            doc.text(`TC Kimlik No: ${driver.identityNo}`, 15, 72);
-            doc.text(`Baba Adı: ${driver.fatherName}`, 15, 79);
-            doc.text(`Doğum Tarihi: ${formatDateDisplay(driver.birthdate)}`, 15, 86);
-            doc.text(`Sürücü Tipi: ${driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı'}`, 15, 93);
-            doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 65, { align: 'right' });
+            doc.text('Sürücü Bilgileri:', 15, currentY);
+            currentY += 8;
+            doc.setFont('NotoSans', 'normal');
+            doc.setFontSize(10);
+            doc.text(`Adı Soyadı: ${driver.name} ${driver.family}`, 15, currentY);
+            currentY += 6;
+            doc.text(`Baba Adı: ${driver.fatherName}`, 15, currentY);
+            currentY += 6;
+            doc.text(`Doğum Tarihi: ${formatDateDisplay(driver.birthdate)}`, 15, currentY);
+            currentY += 6;
+            doc.text(`TC Kimlik No: ${driver.identityNo}`, 15, currentY);
+            currentY += 6;
+            doc.text(`Sürücü Tipi: ${driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı'}`, 15, currentY);
+            currentY += 10;
 
-            // رسم جدول خودروها
-            autoTable(doc, {
-                startY: 105,
-                head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
-                body: vehicles.map((car: any) => [
-                    car.name || '-',
-                    car.model || '-',
-                    car.plaque || '-',
-                    car.recordStatus === 0 ? 'Aktif' : 'Pasif',
-                ]),
-                theme: 'grid',
-                styles: {
-                    font: 'NotoSans',
-                    fontStyle: 'normal',
-                    fontSize: 10,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                margin: { left: 15, right: 15 },
-                // ✅ اصلاح شده: این قلاب برای افزودن هدر و فوتر به صفحات بعدی است
-                didDrawPage: (_data) => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-            });
+            if (vehicles.length > 0) {
+                doc.setFont('NotoSans', 'bold');
+                doc.setFontSize(12);
+                doc.text('Araç Bilgileri:', 15, currentY);
+                currentY += 5;
 
-            // رسم فوتر
+                autoTable(doc, {
+                    startY: currentY,
+                    head: [['Araç Adı', 'Model', 'Plaka', 'Durum']],
+                    body: vehicles.map((car: any) => [
+                        car.name || '-',
+                        car.model || '-',
+                        car.plaque || '-',
+                        car.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                    ]),
+                    theme: 'grid',
+                    styles: {
+                        font: 'NotoSans',
+                        fontStyle: 'normal',
+                        fontSize: 10,
+                        cellPadding: 2,
+                        overflow: 'linebreak'
+                    },
+                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    didDrawPage: (_data) => {
+                        header();
+                        footer();
+                    },
+                    showHead: 'everyPage',
+                    margin: { top: 50, bottom: 45 },
+                });
+            } else {
+                doc.text('Bu sürücüye ait araç bilgisi bulunamadı.', 15, currentY + 10);
+            }
+
             footer();
-
             doc.save(`Sürücü_Detay_${driver.id}.pdf`);
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) {
@@ -1024,6 +1242,149 @@ const ListDrivers = () => {
         }
     };
 
+    const handleDownloadDriverDetailsExcel = async (driver: DriverData) => {
+        if (!driver) {
+            showAlert('Sürücü verisi bulunamadı.', 'warning');
+            return;
+        }
+
+        showAlert('Sürücü detayları Excel oluşturuluyor, lütfen bekleyin...', 'info');
+        setOpenDriverDetailsDownloadModal(false);
+
+        try {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) {
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                return;
+            }
+
+            const response = await axios.get(
+                `${server.baseurl}${server.warehouse}get-driver-vehicle-by-driver-id/${driver.id}`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+
+            const vehicles = response.data.data.map((item: any) => ({
+                name: item.name,
+                model: item.model,
+                plaque: item.plaque,
+                recordStatus: item.recordStatus,
+            }));
+
+            const workbook = new Excel.Workbook();
+            const worksheet = workbook.addWorksheet('Sürücü Detayları', { views: [{ rightToLeft: false }] });
+
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const headerFont = { ...font, bold: true };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+            const fullHeaderStyle = { border: border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
+            const bodyStyle = { border: border, alignment: leftAlignment, font: font } as Partial<Excel.Style>;
+
+            const addCompanyInfo = (ws: Excel.Worksheet, columnCount: number) => {
+                ws.addRow([]);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+                ];
+                const mergeRangeEndColumn = String.fromCharCode(65 + columnCount - 1);
+                companyInfo.forEach(line => {
+                    const row = ws.addRow([line]);
+                    row.getCell(1).alignment = { horizontal: 'center' };
+                    row.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+                    ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
+                });
+            };
+
+            // Header (Title and Date)
+            const titleRow = worksheet.addRow([`Sürücü Detay Raporu - ${driver.name} ${driver.family}`]);
+            titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+            titleRow.getCell(1).alignment = { horizontal: 'center' };
+            worksheet.mergeCells('A1:B1');
+
+            worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.mergeCells('A2:B2');
+            worksheet.addRow([]);
+
+            // Driver Info Header
+            const driverInfoHeader = worksheet.addRow(['Sürücü Bilgileri']);
+
+            const driverInfoHeaderCell = driverInfoHeader.getCell(1);
+            driverInfoHeaderCell.style = {
+                ...fullHeaderStyle,
+                alignment: { ...fullHeaderStyle.alignment, horizontal: 'left' }
+            };
+            worksheet.mergeCells(`A${driverInfoHeader.number}:B${driverInfoHeader.number}`);
+
+            // Driver Info Rows
+            worksheet.addRow(['Adı Soyadı', `${driver.name} ${driver.family}`]).eachCell(c => Object.assign(c.style, bodyStyle));
+            worksheet.addRow(['Baba Adı', driver.fatherName]).eachCell(c => Object.assign(c.style, bodyStyle));
+            worksheet.addRow(['Doğum Tarihi', formatDateDisplay(driver.birthdate)]).eachCell(c => Object.assign(c.style, bodyStyle));
+            worksheet.addRow(['TC Kimlik No', driver.identityNo]).eachCell(c => Object.assign(c.style, bodyStyle));
+            worksheet.addRow(['Sürücü Tipi', driver.internal === '1' ? 'Şirket İçi' : 'Şirket Dışı']).eachCell(c => Object.assign(c.style, bodyStyle));
+            worksheet.addRow([]);
+
+            // Vehicle Info Section
+            if (vehicles.length > 0) {
+                // Vehicle Info Header
+                const vehicleInfoHeader = worksheet.addRow(['Araç Bilgileri']);
+
+                const vehicleInfoHeaderCell = vehicleInfoHeader.getCell(1);
+                vehicleInfoHeaderCell.style = {
+                    ...fullHeaderStyle,
+                    alignment: { ...fullHeaderStyle.alignment, horizontal: 'left' }
+                };
+
+                worksheet.mergeCells(`A${vehicleInfoHeader.number}:D${vehicleInfoHeader.number}`);
+
+                // Vehicle Table Headers
+                const vehicleHeaders = ['Araç Adı', 'Model', 'Plaka', 'Durum'];
+                const vehicleHeaderRow = worksheet.addRow(vehicleHeaders);
+                vehicleHeaderRow.eachCell(c => Object.assign(c.style, fullHeaderStyle));
+
+                // Vehicle Data Rows
+                vehicles.forEach((car: VehicleData) => {
+                    worksheet.addRow([
+                        car.name || '-',
+                        car.model || '-',
+                        car.plaque || '-',
+                        car.recordStatus === 0 ? 'Aktif' : 'Pasif'
+                    ]).eachCell(c => Object.assign(c.style, bodyStyle));
+                });
+            } else {
+                worksheet.addRow(['Bu sürücüye ait araç bilgisi bulunamadı.']).eachCell(c => Object.assign(c.style, bodyStyle));
+            }
+
+            // Company Info Footer
+            addCompanyInfo(worksheet, 4);
+
+            // Column Widths
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `Sürücü_Detay_${driver.id}_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel dosyası başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (e: any) {
+            console.error("Detay Excel oluşturulurken hata:", e);
+            showAlert('Detay Excel oluşturulurken bir hata oluştu.', 'error');
+        }
+    };
 
     const handleClearDateFilters = () => {
         setStartDate(null);
@@ -1033,7 +1394,6 @@ const ListDrivers = () => {
     return (
         <>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
-
                 <Typography variant="h5" mb={2}>{editingId ? 'Sürücüyü Düzenle' : 'Yeni Şoförler Kaydı'}</Typography>
                 <Stack
                     direction={{ xs: 'column', sm: 'row' }}
@@ -1049,7 +1409,7 @@ const ListDrivers = () => {
                                 color="primary"
                                 onClick={() => setIsFormVisible(true)}
                                 isBlinking={isBlinking}
-                                fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                fullWidth={false}
                             >
                                 Yeni Şoförler Kaydet
                             </BlinkingButton>
@@ -1061,7 +1421,6 @@ const ListDrivers = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetFormAndState}
-                                // disabled={loadingButton}
                                 fullWidth={false}
                                 startIcon={<IconX size={20} />}
                             >
@@ -1069,14 +1428,11 @@ const ListDrivers = () => {
                             </Button>
                         </CustomTooltip>
                     )}
-
                 </Stack>
-
             </Stack>
 
             {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <Box sx={{ p: 3 }}>
-
                     <Paper elevation={3} sx={{ p: isSmallScreen ? 2 : 3, mb: 3 }}>
                         <Grid container spacing={2}>
                             <Grid item xs={12} sm={6} md={4}>
@@ -1147,7 +1503,7 @@ const ListDrivers = () => {
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Setaş Şoförler mü?</CustomFormLabel>
+                                <CustomFormLabel required>Setaş Şöförü mü?</CustomFormLabel>
                                 <RadioGroup
                                     row
                                     value={internal}
@@ -1171,7 +1527,6 @@ const ListDrivers = () => {
                                             </CustomTooltip>
                                         </>
                                     ) : (
-
                                         <>
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir sürücü ekle" : ""}>
@@ -1179,7 +1534,6 @@ const ListDrivers = () => {
                                                         {loadingButton ? <><CircularProgress size={20} /><Box component="span" ml={1}>Bekleniyor...</Box></> : 'Yeni Sürücü Ekle'}
                                                     </Button>
                                                 </CustomTooltip>
-
                                             )}
                                         </>
                                     )}
@@ -1188,7 +1542,6 @@ const ListDrivers = () => {
                         </Grid>
                     </Paper>
                 </Box>
-
             )}
 
             {alertMessage && (
@@ -1198,57 +1551,34 @@ const ListDrivers = () => {
             )}
             <BlankCard>
 
-
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
-                        {isFilterActive && (
+                        {isFilterActive && hasDownloadPermission && (
                             <>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Araçlı Şoförleri indirin" : ""}>
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle sürücüleri indirin" : ""}>
                                     <BlinkingButton
                                         variant="contained"
-                                        color="primary"
-                                        onClick={handleDownloadFilteredWithCarsPDF}
+                                        color="info"
+                                        onClick={() => setOpenFilteredDownloadModal(true)}
                                         startIcon={<IconFileDownload />}
                                         isBlinking={true}
                                         disabled={loadingData}
                                     >
-                                        Filtrelenmişi Araçlı Şoförleri İndir
-                                    </BlinkingButton>
-                                </CustomTooltip>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Tüm Şoförleri indirin" : ""}>
-                                    <BlinkingButton
-                                        variant="outlined"
-                                        color="primary"
-                                        onClick={handleDownloadFilteredAllDriversPDF}
-                                        startIcon={<IconFileDownload />}
-                                        isBlinking={true}
-                                        disabled={loadingData}
-                                    >
-                                        Filtrelenmişi Tüm Şoförleri İndir
+                                        Filtrelenmişi İndir
                                     </BlinkingButton>
                                 </CustomTooltip>
                             </>
                         )}
-
                         {hasDownloadPermission && (
                             <Stack direction={isSmallScreen ? "column" : "row"} spacing={2} flexWrap="wrap" gap={1}>
                                 <Button
                                     variant="contained"
                                     color="primary"
-                                    onClick={handleDownloadAllDriversPDF}
+                                    onClick={() => setOpenAllDownloadModal(true)}
                                     startIcon={<IconFileDownload />}
                                     fullWidth={isSmallScreen}
                                 >
-                                    Tüm Şoförleri İndir (PDF)
-                                </Button>
-                                <Button
-                                    variant="outlined"
-                                    color="primary"
-                                    onClick={handleDownloadDriversWithCarsPDF}
-                                    startIcon={<IconFileDownload />}
-                                    fullWidth={isSmallScreen}
-                                >
-                                    Araçlı Şoförleri İndir (PDF)
+                                    Tümünü İndir
                                 </Button>
                             </Stack>
                         )}
@@ -1268,8 +1598,6 @@ const ListDrivers = () => {
                                 InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
                             />
                         </Grid>
-
-
                         <Grid item xs={12} sm={6} md={6}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1362,7 +1690,6 @@ const ListDrivers = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sürücü için araç detaylarını kaydet" : ""}>
                                                             <MenuItem onClick={() => {
@@ -1372,21 +1699,18 @@ const ListDrivers = () => {
                                                                 <ListItemIcon><IconPlus width={18} /></ListItemIcon>Ayrıntıları Kaydet
                                                             </MenuItem>
                                                         </CustomTooltip>
-
                                                     )}
 
                                                     {hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sürücü detaylarını PDF olarak indir" : ""}>
-                                                            <MenuItem onClick={() => {
-                                                                handleDownloadDriverDetailsPDF(selectedRowForMenu!);
-                                                                handleCloseMenu();
-                                                            }}>
-                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>
-                                                                Sürücü Detayları İndir (PDF)
-                                                            </MenuItem>
-                                                        </CustomTooltip>
+                                                        <MenuItem onClick={() => {
+                                                            setSelectedDriver(selectedRowForMenu);
+                                                            setOpenDriverDetailsDownloadModal(true);
+                                                            handleCloseMenu();
+                                                        }}>
+                                                            <ListItemIcon><IconFileDescription width={18} /></ListItemIcon>
+                                                            Detayları İndir
+                                                        </MenuItem>
                                                     )}
-
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü pasif yap" : ""}>
                                                             <MenuItem onClick={handleSetInactive}><ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>Pasif Yap</MenuItem>
@@ -1450,6 +1774,137 @@ const ListDrivers = () => {
                 driverId={selectedDriver?.id || null}
                 driverName={selectedDriver?.name ? `${selectedDriver.name} ${selectedDriver.family}` : ''}
             />
+
+            {/* Download Modal for a single driver's details */}
+            <Dialog
+                open={openDriverDetailsDownloadModal}
+                onClose={() => setOpenDriverDetailsDownloadModal(false)}
+            >
+                <DialogTitle>Sürücü Detayları için Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleDownloadDriverDetailsPDF(selectedDriver!)}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleDownloadDriverDetailsExcel(selectedDriver!)}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDriverDetailsDownloadModal(false)} color="secondary">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Download Modal for ALL data */}
+            <Dialog
+                open={openAllDownloadModal}
+                onClose={() => setOpenAllDownloadModal(false)}
+            >
+                <DialogTitle>Tüm Şoförler için Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleDownloadAllDriversPDF}
+                        >
+                            Tüm Şoförler Raporu (PDF)
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleExportExcel(driversList, false)}
+                        >
+                            Tüm Şoförler Raporu (Excel)
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleDownloadDriversWithCarsPDF(false)}
+                        >
+                            Araçlı Şoförler Raporu (PDF)
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="warning"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleDownloadDriversWithCarsExcel(false)}
+                        >
+                            Araçlı Şoförler Raporu (Excel)
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAllDownloadModal(false)} color="secondary">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Download Modal for FILTERED data */}
+            <Dialog
+                open={openFilteredDownloadModal}
+                onClose={() => setOpenFilteredDownloadModal(false)}
+            >
+                <DialogTitle>Filtrelenmiş Şoförler için Format Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleDownloadFilteredDriversPDF}
+                        >
+                            Filtrelenmiş Raporu (PDF)
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleExportExcel(sortedAndFilteredDrivers, true)}
+                        >
+                            Filtrelenmiş Raporu (Excel)
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleDownloadDriversWithCarsPDF(true)}
+                        >
+                            Filtrelenmiş Araçlı Raporu (PDF)
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="warning"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleDownloadDriversWithCarsExcel(true)}
+                        >
+                            Filtrelenmiş Araçlı Raporu (Excel)
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenFilteredDownloadModal(false)} color="secondary">
+                        İptal
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </>
     );
 };

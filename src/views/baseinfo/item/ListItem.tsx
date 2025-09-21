@@ -44,7 +44,20 @@ import { useAuth } from 'src/context/AuthContext';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
+
+
+// import * as XLSX from 'xlsx';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+
+const stripHtml = (htmlString: string) => {
+  const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+  return doc.body.textContent || "";
+};
+
 
 const formatDateDisplay = (dateString: string | null): string => {
   if (!dateString) return "N/A";
@@ -411,6 +424,9 @@ const ListItemComponent = () => {
   // ✅ Added: State for sorting
   const [orderBy, setOrderBy] = useState<SortableItemKeys>('createAt'); // Use the new type here
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+
+
+  const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
   // ✅ Added: Ref for the item name input field
   const itemNameInputRef = useRef<HTMLInputElement>(null);
@@ -1120,6 +1136,84 @@ const ListItemComponent = () => {
     setFullDescriptionContent('');
   };
 
+  // const handlePrintAllItems = () => {
+  //   if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
+  //     showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
+  //     return;
+  //   }
+
+  //   const doc = new jsPDF();
+  //   const pageWidth = doc.internal.pageSize.getWidth();
+  //   const pageHeight = doc.internal.pageSize.getHeight();
+
+  //   // اطمینان از تعریف تابع stripHtml
+  //   const stripHtml = (htmlString: string) => { // ✅ نوع پارامتر را به string تغییر دهید
+  //     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+  //     return doc.body.textContent || "";
+  //   };
+
+  //   doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+  //   doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+  //   doc.setFont('NotoSans');
+
+  //   const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
+  //     const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
+  //     return [
+  //       item.name || '-',
+  //       item.unit?.title || '-',
+  //       item.category?.name || '-',
+  //       item.abbreviation || '-',
+  //       item.weight !== null ? String(item.weight) : '-',
+  //       descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
+  //       formatDateDisplay(item.createAt) || '-',
+  //       item.status || '-',
+  //     ];
+  //   });
+
+  //   try {
+  //     autoTable(doc, {
+  //       startY: 50,
+  //       head: [['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
+  //       body: rowsWithoutHtml,
+  //       theme: 'grid',
+  //       styles: {
+  //         font: 'NotoSans',
+  //         fontStyle: 'normal',
+  //         fontSize: 8,
+  //         cellPadding: 2,
+  //         overflow: 'linebreak'
+  //       },
+  //       headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+  //       // این قلاب به صورت خودکار در هر صفحه جدید فراخوانی می‌شود
+  //       didDrawPage: (_data) => {
+  //         // هدر
+  //         doc.addImage(Logo, 'PNG', 10, 10, 50, 25);
+  //         doc.setFontSize(18);
+  //         doc.text('Tüm Ürünler Raporu', pageWidth - 15, 30, { align: 'right' });
+  //         doc.setFontSize(12);
+  //         doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+
+  //         // فوتر
+  //         doc.setFontSize(10);
+  //         doc.setTextColor(0);
+  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+  //         const docAny = doc as any;
+  //         const pageCount = docAny.internal.getNumberOfPages();
+  //         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+  //       },
+  //       // تنظیمات اضافی برای تکرار هدر جدول در صفحات جدید
+  //       showHead: 'everyPage',
+  //       margin: { top: 50, bottom: 20 }, // فاصله از بالا برای هدر و از پایین برای فوتر
+  //     });
+  //     doc.save('Tüm_Ürünler_Raporu.pdf');
+  //     showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+  //   } catch (error) {
+  //     console.error('PDF oluşturulurken hata:', error);
+  //     showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+  //   }
+  // };
+
   const handlePrintAllItems = () => {
     if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
       showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
@@ -1130,74 +1224,354 @@ const ListItemComponent = () => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
 
-    // اطمینان از تعریف تابع stripHtml
-    const stripHtml = (htmlString: string) => { // ✅ نوع پارامتر را به string تغییر دهید
+    const stripHtml = (htmlString: string) => {
       const doc = new DOMParser().parseFromString(htmlString, 'text/html');
       return doc.body.textContent || "";
     };
 
-    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    doc.setFont('NotoSans');
-
-    const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
-      const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
-      return [
-        item.name || '-',
-        item.unit?.title || '-',
-        item.category?.name || '-',
-        item.abbreviation || '-',
-        item.weight !== null ? String(item.weight) : '-',
-        descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
-        formatDateDisplay(item.createAt) || '-',
-        item.status || '-',
-      ];
-    });
-
     try {
+      // افزودن فونت‌ها
+      doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+      doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+
+      // Add Times New Roman for headers and Arial for the table
+      // فرض می‌کنیم این متغیرها حاوی داده Base64 فونت‌ها هستند
+      doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+      doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+
+      doc.addFileToVFS('Arial.ttf', ArialFont);
+      doc.addFont('Arial.ttf', 'Arial', 'normal');
+
+      const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
+        const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
+        return [
+          item.name || '-',
+          item.unit?.title || '-',
+          item.category?.name || '-',
+          item.abbreviation || '-',
+          item.weight !== null ? String(item.weight) : '-',
+          descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
+          formatDateDisplay(item.createAt) || '-',
+          item.status || '-',
+        ];
+      });
+
       autoTable(doc, {
-        startY: 50,
+        startY: 65, // Start table lower to make space for the new header layout
         head: [['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
         body: rowsWithoutHtml,
         theme: 'grid',
         styles: {
-          font: 'NotoSans',
+          font: 'Arial',
           fontStyle: 'normal',
           fontSize: 8,
           cellPadding: 2,
           overflow: 'linebreak'
         },
-        headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-        // این قلاب به صورت خودکار در هر صفحه جدید فراخوانی می‌شود
-        didDrawPage: (_data) => {
-          // هدر
-          doc.addImage(Logo, 'PNG', 10, 10, 50, 25);
-          doc.setFontSize(18);
-          doc.text('Tüm Ürünler Raporu', pageWidth - 15, 30, { align: 'right' });
-          doc.setFontSize(12);
-          doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-
-          // فوتر
-          doc.setFontSize(10);
-          doc.setTextColor(0);
-          doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-          const docAny = doc as any;
-          const pageCount = docAny.internal.getNumberOfPages();
-          doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        headStyles: {
+          fillColor: [242, 242, 242],
+          textColor: [0, 0, 0],
+          font: 'Arial',
+          fontSize: 9,
         },
-        // تنظیمات اضافی برای تکرار هدر جدول در صفحات جدید
-        showHead: 'everyPage',
-        margin: { top: 50, bottom: 20 }, // فاصله از بالا برای هدر و از پایین برای فوتر
+        didDrawPage: () => {
+          // --- بخش جدید هدر ---
+          // 1. عنوان در سطر اول و وسط
+          doc.setFont('Arial', 'bold');
+          doc.setFontSize(14);
+          doc.text('Tüm Ürünler Raporu', pageWidth / 2, 15, { align: 'center' });
+
+          // 2. تاریخ در سطر دوم و سمت چپ
+          doc.setFontSize(10);
+          doc.setFont('Times', 'bold');
+          doc.text(`Tarih:`, 15, 25);
+
+          doc.setFont('Times', 'normal');
+          doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+
+          // 3. لوگو در سطر دوم و سمت راست
+          doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+          // --- پایان بخش جدید هدر ---
+
+          // --- بخش جدید فوتر ---
+          // 1. اطلاعات شرکت در مرکز و با فونت 8
+          doc.setFont('NotoSans', 'normal'); // فونت NotoSans را برای این متن‌ها تنظیم کنید
+          doc.setFontSize(8);
+          doc.setTextColor(0);
+          const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx  Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+          ];
+
+          let footerY = pageHeight - 30;
+          companyInfo.forEach(line => {
+            doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+            footerY += 4;
+          });
+
+          // 2. شماره صفحه در سمت چپ
+          const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+          const pageCount = (doc as any).internal.getNumberOfPages();
+          doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+
+          // 3. امضا در سمت راست
+          doc.setFont('NotoSans', 'normal'); // فونت NotoSans را برای کلمه "İmza" تنظیم کنید
+          doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15); // اضافه کردن خط امضا
+
+        },
+        margin: { top: 50, bottom: 45 }, // Adjusted margins for new header and footer layout
       });
+
+      // ... بخش محاسبه و اضافه کردن جدول جمع وزن‌ها
+      const totalWeightMap = new Map<string, number>();
+      sortedAndFilteredItems.forEach(item => {
+        if (item.weight !== null && !isNaN(Number(item.weight))) {
+          const unitTitle = item.unit?.title || 'Bilinmeyen Birim';
+          const currentWeight = totalWeightMap.get(unitTitle) || 0;
+          const totalWeight = currentWeight + Number(item.weight);
+          totalWeightMap.set(unitTitle, totalWeight);
+        }
+      });
+
+      if (totalWeightMap.size > 0) {
+        doc.addPage();
+        doc.setFont('NotoSans');
+        doc.setFontSize(14);
+        doc.text('Ağırlık Toplamları', 15, 20);
+
+        const summaryRows = Array.from(totalWeightMap.entries()).map(([unit, totalWeight]) => [
+          unit,
+          totalWeight.toFixed(2)
+        ]);
+
+        autoTable(doc, {
+          startY: 30,
+          head: [['Ölçü', 'Toplam Ağırlık']],
+          body: summaryRows,
+          theme: 'grid',
+          styles: {
+            font: 'NotoSans',
+            fontSize: 8,
+          },
+          headStyles: {
+            fillColor: [242, 242, 242],
+            textColor: [0, 0, 0],
+            font: 'NotoSans',
+            fontSize: 9,
+          },
+        });
+      }
+
       doc.save('Tüm_Ürünler_Raporu.pdf');
       showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+
     } catch (error) {
       console.error('PDF oluşturulurken hata:', error);
       showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
     }
   };
+  const addCompanyInfo = (worksheet: Excel.Worksheet) => {
+    worksheet.addRow([]); // یک سطر خالی برای فاصله
+    const companyInfo = [
+      'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+      'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+      'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+    ];
+    companyInfo.forEach(line => {
+      worksheet.addRow([line]);
+      const lastRow = worksheet.lastRow;
+      if (lastRow) {
+        lastRow.getCell(1).alignment = { horizontal: 'center' };
+        lastRow.getCell(1).font = { name: 'Arial', size: 8, bold: false };
+      }
+    });
+  };
+  const handleExportExcel = async () => {
+    setOpenDownloadModal(false); // بستن مودال بعد از انتخاب
+    if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
+      showAlert('Dışa aktarılacak ürün bulunamadı.', 'warning');
+      return;
+    }
 
+    showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+    try {
+      const workbook = new Excel.Workbook();
+      const worksheet = workbook.addWorksheet('Ürünler Raporu', {
+        views: [{ rightToLeft: false }]
+      });
+
+      // --- استایل‌های مشترک (می‌توانید از نمونه کد خود کپی کنید) ---
+      const thinBorder: Partial<Excel.Border> = {
+        style: 'thin',
+        color: { argb: 'FFD3D3D3' }
+      };
+
+      const border: Partial<Excel.Borders> = {
+        top: thinBorder,
+        left: thinBorder,
+        bottom: thinBorder,
+        right: thinBorder
+      };
+
+      const headerFill: Partial<Excel.Fill> = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFD9E1F2' }
+      };
+
+      const font: Partial<Excel.Font> = {
+        name: 'Calibri',
+        size: 11,
+        bold: false,
+        color: { argb: 'FF000000' }
+      };
+
+      const headerFont: Partial<Excel.Font> = { ...font, bold: true };
+
+      const centerAlignment: Partial<Excel.Alignment> = {
+        vertical: 'middle',
+        horizontal: 'center', // این مقدار به صورت یک لیترال تایپ 'center' شناخته می‌شود
+        wrapText: true
+      };
+
+      const leftAlignment: Partial<Excel.Alignment> = {
+        vertical: 'middle',
+        horizontal: 'left', // این مقدار به صورت یک لیترال تایپ 'left' شناخته می‌شود
+        wrapText: true
+      };
+
+      const rightAlignment: Partial<Excel.Alignment> = {
+        vertical: 'middle',
+        horizontal: 'right', // این مقدار به صورت یک لیترال تایپ 'right' شناخته می‌شود
+        wrapText: true
+      };
+
+
+      // تعریف fullHeaderStyle با Type Assertion
+      const fullHeaderStyle = {
+        border: border,
+        alignment: centerAlignment,
+        font: headerFont,
+        fill: headerFill
+      } as Partial<Excel.Style>;
+
+
+      // تعریف bodyStyle
+      const bodyStyle = {
+        border: border,
+        alignment: leftAlignment, // از leftAlignment که یک شیء است استفاده کنید
+        font: font
+      } as Partial<Excel.Style>;
+      // --------------------------------------------------------
+
+      // --- هدر گزارش (اطلاعات کلی) ---
+      worksheet.addRow(['', '', '']);
+      worksheet.addRow(['Tüm Ürünler Raporu']).font = { name: 'Times New Roman', size: 12, bold: true };
+      const lastRow = worksheet.lastRow;
+      if (lastRow) {
+        lastRow.getCell(1).alignment = { horizontal: 'center' };
+      }
+      worksheet.mergeCells('A2:H2');
+
+      worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+      // worksheet.lastRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+
+      const dateRow = worksheet.lastRow;
+      if (dateRow) { // ✅ بررسی وجود سطر تاریخ
+        dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
+        dateRow.getCell(1).alignment = { horizontal: 'left' };
+      }
+
+      worksheet.addRow([]); // یک سطر خالی برای فاصله
+
+      // --- هدر جدول اصلی ---
+      const tableHeaders = ['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum'];
+      const headerRow = worksheet.addRow(tableHeaders);
+      headerRow.eachCell((cell) => {
+        cell.style = fullHeaderStyle;
+      });
+
+      // --- اضافه کردن داده‌ها ---
+      sortedAndFilteredItems.forEach(item => {
+        const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
+        const row = worksheet.addRow([
+          item.name || '-',
+          item.unit?.title || '-',
+          item.category?.name || '-',
+          item.abbreviation || '-',
+          item.weight !== null ? String(item.weight) : '-',
+          descriptionWithoutHtml,
+          formatDateDisplay(item.createAt) || '-',
+          item.status || '-'
+        ]);
+        row.eachCell((cell) => {
+          cell.style = bodyStyle;
+        });
+      });
+
+      // --- اضافه کردن جدول جمع کل وزن ---
+      const totalWeightMap = new Map<string, number>();
+      sortedAndFilteredItems.forEach(item => {
+        if (item.weight !== null && !isNaN(Number(item.weight))) {
+          const unitTitle = item.unit?.title || 'Bilinmeyen Birim';
+          const currentWeight = totalWeightMap.get(unitTitle) || 0;
+          const totalWeight = currentWeight + Number(item.weight);
+          totalWeightMap.set(unitTitle, totalWeight);
+        }
+      });
+
+      if (totalWeightMap.size > 0) {
+        worksheet.addRow([]);
+        worksheet.addRow(['Ağırlık Toplamları']);
+        // worksheet.lastRow.getCell(1).font = { name: 'Times New Roman', size: 12, bold: true };
+
+        if (lastRow) {
+          lastRow.getCell(1).font = { name: 'Times New Roman', size: 12, bold: true };
+        }
+        const summaryHeaders = ['Ölçü', 'Toplam Ağırlık'];
+        worksheet.addRow(summaryHeaders).eachCell((cell) => cell.style = fullHeaderStyle);
+
+        Array.from(totalWeightMap.entries()).forEach(([unit, totalWeight]) => {
+          const row = worksheet.addRow([unit, totalWeight.toFixed(2)]);
+          row.eachCell((cell, colNumber) => {
+            cell.style = bodyStyle;
+            if (colNumber === 2) {
+              cell.alignment = rightAlignment;
+              cell.numFmt = '#,##0.00';
+            }
+          });
+        });
+      }
+      addCompanyInfo(worksheet);
+      // --- تنظیم عرض ستون‌ها ---
+      worksheet.columns.forEach((column) => {
+        let maxLength = 0;
+        if (column.eachCell) { // ✅ Add a check for the existence of the method
+          column.eachCell({ includeEmpty: true }, (cell) => {
+            const columnLength = cell.value ? cell.value.toString().length : 10;
+            if (columnLength > maxLength) {
+              maxLength = columnLength;
+            }
+          });
+        }
+        column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+      });
+
+      // --- ذخیره فایل ---
+      const buffer = await workbook.xlsx.writeBuffer();
+      const fileName = `Tüm_Ürünler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
+      saveAs(new Blob([buffer]), fileName);
+
+      showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+    } catch (error) {
+      console.error("Excel dışa aktarılırken hata:", error);
+      showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
+    }
+  };
 
   return (
     <>
@@ -1546,14 +1920,24 @@ const ListItemComponent = () => {
           <Stack direction="row" spacing={2} justifyContent="flex-end">
             {hasDownloadPermission && (
               <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-                <Button
+                {/* <Button
                   variant="contained"
                   color="primary"
                   onClick={handlePrintAllItems}
                   startIcon={<IconFileDownload />}
                 >
                   Tümünü İndir (PDF)
-                </Button>
+                </Button> */}
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setOpenDownloadModal(true)} // تغییر اکشن دکمه
+                    startIcon={<IconFileDownload />}
+                  >
+                    Tümünü İndir
+                  </Button>
+                </CustomTooltip>
               </Grid>
             )}
 
@@ -1747,7 +2131,7 @@ const ListItemComponent = () => {
                       {row.description.length > 50 && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
 
-                          <Button variant="text" size="small" onClick={() => {
+                          <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                             handleOpenDescriptionModal(row.description);
 
                           }}>
@@ -1898,6 +2282,38 @@ const ListItemComponent = () => {
         <DialogActions>
           <Button onClick={handleCloseDescriptionModal} color="primary">
             Kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openDownloadModal}
+        onClose={() => setOpenDownloadModal(false)}
+      >
+        <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+        <DialogContent>
+          <Stack direction="column" spacing={2}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<IconFileDownload />}
+              onClick={handlePrintAllItems} // تابع دانلود PDF
+            >
+              PDF Olarak İndir
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<IconFileDownload />}
+              onClick={handleExportExcel} // تابع دانلود Excel
+            >
+              Excel Olarak İndir
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDownloadModal(false)} color="secondary">
+            İptal
           </Button>
         </DialogActions>
       </Dialog>
