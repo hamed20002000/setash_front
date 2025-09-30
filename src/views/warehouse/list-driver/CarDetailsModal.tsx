@@ -2,8 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Button, Stack, Grid, CircularProgress, Typography, Box,
-    Paper, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Chip,
-    IconButton, Menu, MenuItem, ListItemIcon, Alert
+
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
+    Paper, TableContainer, Table, TableHead, TableRow, TableBody, Chip,
+    IconButton, Menu, ListItemIcon, Alert,
+    styled
 } from '@mui/material';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
@@ -13,6 +17,17 @@ import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import DeleteVehicle from './DeleteVehicle';
+import { useNavigate } from 'react-router';
+
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 interface CarDetailsModalProps {
     open: boolean;
@@ -35,6 +50,7 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
     driverId,
     driverName,
 }) => {
+    const navigate = useNavigate();
     // Form states
     const [carName, setCarName] = useState('');
     const [carModel, setCarModel] = useState('');
@@ -59,7 +75,7 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
     // Menu and delete modal states
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<VehicleData | null>(null);
-    const openMenu = Boolean(anchorEl);
+    // const openMenu = Boolean(anchorEl);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [vehicleToDelete, setVehicleToDelete] = useState<VehicleData | null>(null);
@@ -215,7 +231,17 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
                 showAlert(response.data.message || 'Araç güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+
+                showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            }
         } finally {
             setLoadingButton(false);
         }
@@ -383,23 +409,23 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
                 ) : (
                     <TableContainer component={Paper}>
                         <Table aria-label="driver vehicles table">
-                            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                            <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell><Typography variant="h6">Araç Adı</Typography></TableCell>
-                                    <TableCell><Typography variant="h6">Model</Typography></TableCell>
-                                    <TableCell><Typography variant="h6">Plaka</Typography></TableCell>
-                                    <TableCell><Typography variant="h6">Durum</Typography></TableCell>
-                                    <TableCell></TableCell>
+                                    <StyledTableCell><Typography variant="h6">Araç Adı</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Model</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Plaka</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
+                                    <StyledTableCell></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {vehiclesList.length > 0 ? (
                                     vehiclesList.map((row) => (
                                         <TableRow key={row.id}>
-                                            <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{row.model}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{row.plaque}</Typography></TableCell>
-                                            <TableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.name}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.model}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.plaque}</Typography></StyledTableCell>
+                                            <StyledTableCell>
                                                 <Chip
                                                     label={row.recordStatus === 0 ? 'Aktif' : 'Pasif'}
                                                     sx={{
@@ -407,40 +433,43 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
                                                         color: row.recordStatus === 0 ? 'success.main' : 'error.main'
                                                     }}
                                                 />
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <IconButton onClick={(event) => handleClickMenu(event, row)}>
                                                     <IconDots width={18} />
                                                 </IconButton>
                                                 <Menu
                                                     anchorEl={anchorEl}
-                                                    open={openMenu && selectedRowForMenu?.id === row.id}
+                                                    open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                     onClose={handleCloseMenu}
+                                                    MenuListProps={{ 'aria-labelledby': `menu-button-${row.id}` }}
                                                 >
-                                                    <MenuItem onClick={() => handleEditClick(row)}>
+                                                    <MuiMenuItem onClick={() => handleEditClick(row)}>
                                                         <ListItemIcon><IconEdit width={18} /></ListItemIcon> Düzenle
-                                                    </MenuItem>
-                                                    {row.recordStatus === 0 ? (
-                                                        <MenuItem onClick={() => handleUpdateStatus(row.id, 1)}>
-                                                            <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon> Pasif Yap
-                                                        </MenuItem>
-                                                    ) : (
-                                                        <MenuItem onClick={() => handleUpdateStatus(row.id, 0)}>
-                                                            <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon> Aktif Yap
-                                                        </MenuItem>
-                                                    )}
-                                                    <MenuItem onClick={() => handleDeleteClick(row)}>
+                                                    </MuiMenuItem>
+                                                    <MuiMenuItem onClick={() => handleDeleteClick(row)}>
                                                         <ListItemIcon><IconTrash width={18} /></ListItemIcon> Silmek
-                                                    </MenuItem>
+                                                    </MuiMenuItem>
+                                                    {row.recordStatus === 0 ? (
+                                                        <MuiMenuItem onClick={() => handleUpdateStatus(row.id, 1)}>
+                                                            <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon> Pasif Yap
+                                                        </MuiMenuItem>
+                                                    ) : (
+                                                        <MuiMenuItem onClick={() => handleUpdateStatus(row.id, 0)}>
+                                                            <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon> Aktif Yap
+                                                        </MuiMenuItem>
+                                                    )}
                                                 </Menu>
-                                            </TableCell>
+                                            </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} align="center">
-                                            <Typography variant="subtitle1" color="textSecondary">Bu sürücüye ait araç bulunamadı.</Typography>
-                                        </TableCell>
+                                        <StyledTableCell colSpan={5} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Bu sürücüye ait araç bulunamadı.
+                                            </Typography>
+                                        </StyledTableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

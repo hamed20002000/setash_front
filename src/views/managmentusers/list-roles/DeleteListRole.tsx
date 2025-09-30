@@ -71,13 +71,13 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
         showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-       const errorMessage = (e.response?.data?.message=="Internal server error"?"Bu rol bir kullanıcıya atanmıştır ve silinemez.":"") || 'Kayıt silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');      
-        onClose();
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
     } finally {
       setLoading(false);
@@ -96,10 +96,10 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-                      Eğer silerseniz, geri almanın bir yolu yoktur.
-                      Kaydı silmek istediğinizden eminseniz, 
-                      <span style={{fontSize:"18px",fontWeight:"bold",color:"#FA896B",margin: "0 5px"}}>Silmek</span> düğmesine tıklayın.
-                    </DialogContentText>
+            Eğer silerseniz, geri almanın bir yolu yoktur.
+            Kaydı silmek istediğinizden eminseniz,
+            <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
           {/* **Tooltip برای دکمه "İptal et"** */}
@@ -117,7 +117,7 @@ const DeleteSystemRole = ({ openModal, rowIdToDelete, onClose, onDeleteSuccess, 
             >
               {loading ? (
                 <>
-                   <BoltIcon color="inherit" sx={{ mr: 1,fontSize:20 }} /> Beklemek....
+                  <BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....
                 </>
               ) : (
                 'Silmek'

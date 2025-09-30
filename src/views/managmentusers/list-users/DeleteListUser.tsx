@@ -62,13 +62,13 @@ const DeleteListUser = ({ openModal, userIdToDelete, onClose, onDeleteSuccess, s
         showAlert(response.data.message || 'Kullanıcı silinirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.error("Error deleting user:", e);
-      const errorMessage = e.response?.data?.message || 'Kullanıcı silinirken bir hata oluştu, lütfen tekrar deneyin.';
-      showAlert(errorMessage, 'error');
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
     } finally {
       setLoading(false);

@@ -67,8 +67,8 @@ const DeleteWorkhouseDetail = ({ openModal, itemToDelete, onClose, onDeleteSucce
             }
         } catch (e: any) {
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenWorkhouseDetailInUseModal(true);
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

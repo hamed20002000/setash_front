@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
+    Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
     Dialog, DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
     TableSortLabel, useMediaQuery
@@ -35,6 +38,15 @@ import {
     ReceiptType
 } from './types';
 import BlankCard from 'src/components/shared/BlankCard';
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 // Table Style and Functions
 type SortableReceiptKeys = 'code' | 'docDate' | 'warehouseId';
@@ -97,7 +109,7 @@ const ListReceipts = () => {
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedReceiptForMenu, setSelectedReceiptForMenu] = useState<ReceiptType | null>(null);
-    const openMenu = Boolean(anchorEl);
+    // const openMenu = Boolean(anchorEl);
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<ProcessedReceiptItem[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -311,7 +323,14 @@ const ListReceipts = () => {
                 getReceipts();
             } else { showAlert(response.data.message || 'Fiş güncellenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem('authToken'); navigate("/"); showAlert('Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.', 'error'); }
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            }
             else { showAlert('Fiş güncellenirken bir hata oluştu.', 'error'); }
         }
     };
@@ -335,7 +354,7 @@ const ListReceipts = () => {
                 description: detail.description,
                 invoiceDetailId: Number(detail.invoiceDetail.id),
                 providerId: Number(detail.provider?.id || 0),
-                providerName: detail.provider?.name || 'N/A',
+                providerName: detail.provider?.name || '',
                 firm: detail.firm,
                 recordStatus: detail.recordStatus
             };
@@ -352,13 +371,13 @@ const ListReceipts = () => {
             id: Number(detail.id),
             item: detail.item.id,
             itemName: detail.item.name,
-            invoiceNo: detail.invoiceDetail?.invoiceHeader?.invoiceNo || 'N/A',
+            invoiceNo: detail.invoiceDetail?.invoiceHeader?.invoiceNo || '',
             unit: detail.item.unit,
             quantity: Number(detail.quantity),
             description: detail.description,
             invoiceDetailId: Number(detail.invoiceDetail?.id),
             providerId: Number(detail.provider?.id || 0),
-            providerName: detail.provider?.name || 'N/A',
+            providerName: detail.provider?.name || '',
             firm: detail.firm,
             recordStatus: detail.recordStatus
         }));
@@ -437,17 +456,17 @@ const ListReceipts = () => {
         doc.text(title, pageWidth / 2, startY, { align: 'center' });
         doc.setFontSize(10);
         doc.setFont('Times', 'bold');
-        doc.text(`Tarih:`, 15, startY + 10);
+        doc.text(`Rapor Tarih:`, 15, startY + 10);
         doc.setFont('Times', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, startY + 10);
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, startY + 10);
         doc.addImage(logoImg, 'PNG', pageWidth - 60, startY + 5, 50, 25);
 
         if (isFiltered) {
             let filterInfo = '';
             if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
             if (startDate || endDate) {
-                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                 filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
             }
             if (filterInfo) {
@@ -544,9 +563,9 @@ const ListReceipts = () => {
                 doc.text('Fiş Detay Raporu', pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
                 doc.setFont('Times', 'bold');
-                doc.text(`Tarih:`, 15, 25);
+                doc.text(`Rapor Tarih:`, 15, 25);
                 doc.setFont('Times', 'normal');
-                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
                 const logoImg = new Image();
                 logoImg.src = logoSrc;
                 doc.addImage(logoImg, 'PNG', pageWidth - 60, 20, 50, 25);
@@ -1121,81 +1140,93 @@ const ListReceipts = () => {
                 ) : (
                     <TableContainer component={Paper}>
                         <Table aria-label="receipt table">
-                            <TableHead>
+                            <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel active={orderBy === 'code'} direction={orderBy === 'code' ? order : 'asc'} onClick={() => handleRequestSort('code')}>
                                             <Typography variant="h6">Fiş Kodu</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel active={orderBy === 'warehouseId'} direction={orderBy === 'warehouseId' ? order : 'asc'} onClick={() => handleRequestSort('warehouseId')}>
                                             <Typography variant="h6">Depo</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
                                             <Typography variant="h6">Tarih</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell><Typography variant="h6">Ürün Detayları</Typography></TableCell>
-                                    <TableCell align="right"></TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Ürün Detayları</Typography></StyledTableCell>
+                                    <StyledTableCell align="right"></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {paginatedReceipts.length > 0 ? (
                                     paginatedReceipts.map((row) => (
                                         <TableRow key={row.id}>
-                                            <TableCell><Typography variant="h6">{row.code || '-'}</Typography></TableCell>
-                                            <TableCell>
-                                                <Typography variant="h6">
+                                            <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">
                                                     {row.warehouse?.name || '-'}
                                                 </Typography>
-                                            </TableCell>
-                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell>
                                                 <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.receiptDetails)}>
                                                     Görünüm
                                                 </Button>
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined}
-                                                    aria-haspopup="true" aria-expanded={openMenu && selectedReceiptForMenu?.id === row.id ? 'true' : undefined}
-                                                    onClick={(event) => handleClickMenu(event, row)}>
+                                            </StyledTableCell>
+                                            <StyledTableCell align="right">
+                                                <IconButton
+                                                    id={`basic-button-${row.id}`}
+                                                    aria-controls={Boolean(anchorEl) ? 'basic-menu' : undefined}
+                                                    aria-haspopup="true"
+                                                    aria-expanded={Boolean(anchorEl) ? 'true' : undefined}
+                                                    onClick={(event) => handleClickMenu(event, row)}
+                                                >
                                                     <IconDots size={20} />
                                                 </IconButton>
                                                 <Menu
-                                                    id="basic-menu" anchorEl={anchorEl}
-                                                    open={openMenu && selectedReceiptForMenu?.id === row.id}
-                                                    onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
+                                                    id="basic-menu"
+                                                    anchorEl={anchorEl}
+                                                    open={Boolean(anchorEl) && selectedReceiptForMenu?.id === row.id}
+                                                    onClose={handleCloseMenu}
+                                                    MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
                                                     {hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi PDF olarak indirin" : ""}>
-                                                            <MenuItem onClick={() => handleDownloadReceiptDetailsClicked(row)}>
+                                                            <MuiMenuItem onClick={() => handleDownloadReceiptDetailsClicked(row)}>
                                                                 <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Detayları İndir
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi düzenleyin" : ""}>
-                                                            <MenuItem onClick={() => handleEditClick(row)}>
+                                                            <MuiMenuItem onClick={() => handleEditClick(row)}>
                                                                 <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi silin" : ""}>
-                                                            <MenuItem onClick={() => handleClickOpenDeleteModal(row.id)}>
+                                                            <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id)}>
                                                                 <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>
-                                            </TableCell>
+                                            </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><TableCell colSpan={6} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç Fiş bulunamadı.</Typography></TableCell></TableRow>
+                                    <TableRow>
+                                        <StyledTableCell colSpan={5} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Hiç Fiş bulunamadı.
+                                            </Typography>
+                                        </StyledTableCell>
+                                    </TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -1209,31 +1240,41 @@ const ListReceipts = () => {
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
                 <DialogContent dividers>
-                    <TableContainer>
-                        <Table size="small">
-                            <TableHead>
+                    <TableContainer component={Paper}>
+                        <Table size="small" aria-label="Ürün detayları tablosu">
+                            <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell>Fatura No</TableCell>
-                                    <TableCell>Tedarikçi</TableCell>
-                                    <TableCell>Firma</TableCell>
-                                    <TableCell>Ürün Adı</TableCell>
-                                    <TableCell>Miktar</TableCell>
-                                    <TableCell>Birim</TableCell>
-                                    <TableCell>Açıklama</TableCell>
+                                    <StyledTableCell><Typography variant="h6">Fatura No</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Tedarikçi</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Firma</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Ürün Adı</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {modalDetails.map((detail, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>{detail.invoiceNo || '-'}</TableCell>
-                                        <TableCell>{detail.providerName || '-'}</TableCell>
-                                        <TableCell>{detail.firm ? 'Şirket İçi' : 'Şirket Dışı'}</TableCell>
-                                        <TableCell>{detail.itemName || '-'}</TableCell>
-                                        <TableCell>{detail.quantity}</TableCell>
-                                        <TableCell>{detail.unit?.title || '-'}</TableCell>
-                                        <TableCell>{detail.description}</TableCell>
+                                {modalDetails.length > 0 ? (
+                                    modalDetails.map((detail, index) => (
+                                        <TableRow key={detail.id || index}>
+                                            <StyledTableCell><Typography variant="body1">{detail.invoiceNo || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.providerName || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.firm ? 'Şirket İçi' : 'Şirket Dışı'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.itemName || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.quantity}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.unit?.title || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <StyledTableCell colSpan={7} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Hiç ürün detayı bulunamadı.
+                                            </Typography>
+                                        </StyledTableCell>
                                     </TableRow>
-                                ))}
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>

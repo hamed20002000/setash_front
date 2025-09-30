@@ -61,11 +61,9 @@ const DeleteStoreReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelete,
                 onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting receipt:", e);
-
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenReceiptInUseModal(true);
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

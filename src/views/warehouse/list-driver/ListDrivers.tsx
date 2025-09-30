@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
+    Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -47,6 +50,16 @@ const formatDateDisplay = (dateString: string | null): string => {
         return "Geçersiz Tarih";
     }
 };
+
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
@@ -389,12 +402,17 @@ const ListDrivers = () => {
                 showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            } else {
+                showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
             }
-            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -542,15 +560,15 @@ const ListDrivers = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
 
         const header = () => {
-            doc.setFont('Arial', 'bold');
+            doc.setFont('Arial', 'normal');
             doc.setFontSize(14);
             const title = isFiltered ? 'Filtrelenmiş Şoförler Raporu' : 'Tüm Şoförler Raporu';
             doc.text(title, pageWidth / 2, 15, { align: 'center' });
             doc.setFontSize(10);
-            doc.setFont('Times', 'bold');
-            doc.text(`Tarih:`, 15, 25);
             doc.setFont('Times', 'normal');
-            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+            doc.text(`Rapor Tarih:`, 15, 25);
+            doc.setFont('Times', 'normal');
+            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
             doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
 
             if (isFiltered) {
@@ -558,8 +576,8 @@ const ListDrivers = () => {
                 if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
                 if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
                 if (startDate || endDate) {
-                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                     filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
                 }
                 if (filterInfo) {
@@ -707,7 +725,7 @@ const ListDrivers = () => {
             }
             worksheet.mergeCells('A1:G1');
 
-            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.addRow([`Rapor Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
             const dateRow = worksheet.lastRow;
             if (dateRow) {
                 dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
@@ -720,8 +738,8 @@ const ListDrivers = () => {
                 if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
                 if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
                 if (startDate || endDate) {
-                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                     filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
                 }
             }
@@ -843,9 +861,9 @@ const ListDrivers = () => {
                 doc.text(title, pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
                 doc.setFont('Times', 'bold');
-                doc.text(`Tarih:`, 15, 25);
+                doc.text(`Rapor Tarih:`, 15, 25);
                 doc.setFont('Times', 'normal');
-                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
 
                 if (isFiltered) {
@@ -853,8 +871,8 @@ const ListDrivers = () => {
                     if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
                     if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
                     if (startDate || endDate) {
-                        const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                        const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                        const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+                        const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                         filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
                     }
                     if (filterInfo) {
@@ -1022,7 +1040,7 @@ const ListDrivers = () => {
             }
             worksheet.mergeCells('A1:D1');
 
-            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.addRow([`Rapor Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
             const dateRow = worksheet.lastRow;
             if (dateRow) {
                 dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
@@ -1035,8 +1053,8 @@ const ListDrivers = () => {
                 if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
                 if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
                 if (startDate || endDate) {
-                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                    const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+                    const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                     filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
                 }
             }
@@ -1149,9 +1167,9 @@ const ListDrivers = () => {
                 doc.text('Sürücü Detay Raporu', pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
                 doc.setFont('Times', 'bold');
-                doc.text(`Tarih:`, 15, 25);
+                doc.text(`Rapor Tarih:`, 15, 25);
                 doc.setFont('Times', 'normal');
-                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
             };
 
@@ -1644,42 +1662,63 @@ const ListDrivers = () => {
                 ) : (
                     <TableContainer>
                         <Table aria-label="Sürücü tablosu">
-                            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                            <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell><TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} style={{ color: "#171c23" }}><Typography variant="h6">Adı</Typography></TableSortLabel></TableCell>
-                                    <TableCell><TableSortLabel active={orderBy === 'family'} direction={orderBy === 'family' ? order : 'asc'} onClick={() => handleRequestSort('family')} style={{ color: "#171c23" }}><Typography variant="h6">Soyadı</Typography></TableSortLabel></TableCell>
-                                    {!isSmallScreen && <TableCell><Typography variant="h6">Doğum Tarihi</Typography></TableCell>}
-                                    {!isSmallScreen && <TableCell><Typography variant="h6">Baba Adı</Typography></TableCell>}
-                                    <TableCell><TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} style={{ color: "#171c23" }}><Typography variant="h6">TC</Typography></TableSortLabel></TableCell>
-                                    {!isMediumScreen && <TableCell><Typography variant="h6">Şoförler Tipi</Typography></TableCell>}
-                                    <TableCell><TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel></TableCell>
-                                    <TableCell></TableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} sx={{ color: "#171c23" }}>
+                                            <Typography variant="h6">Adı</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel active={orderBy === 'family'} direction={orderBy === 'family' ? order : 'asc'} onClick={() => handleRequestSort('family')} sx={{ color: "#171c23" }}>
+                                            <Typography variant="h6">Soyadı</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    {!isSmallScreen && <StyledTableCell><Typography variant="h6">Doğum Tarihi</Typography></StyledTableCell>}
+                                    {!isSmallScreen && <StyledTableCell><Typography variant="h6">Baba Adı</Typography></StyledTableCell>}
+                                    <StyledTableCell>
+                                        <TableSortLabel active={orderBy === 'identityNo'} direction={orderBy === 'identityNo' ? order : 'asc'} onClick={() => handleRequestSort('identityNo')} sx={{ color: "#171c23" }}>
+                                            <Typography variant="h6">TC</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    {!isMediumScreen && <StyledTableCell><Typography variant="h6">Şoförler Tipi</Typography></StyledTableCell>}
+                                    <StyledTableCell>
+                                        <TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} sx={{ color: "#171c23" }}>
+                                            <Typography variant="h6">Durum</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {paginatedDrivers.length > 0 ? (
                                     paginatedDrivers.map((row) => (
                                         <TableRow key={row.id}>
-                                            <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{row.family}</Typography></TableCell>
-                                            {!isSmallScreen && <TableCell><Typography variant="h6">{formatDateDisplay(row.birthdate)}</Typography></TableCell>}
-                                            {!isSmallScreen && <TableCell><Typography variant="h6">{row.fatherName}</Typography></TableCell>}
-                                            <TableCell><Typography variant="h6">{row.identityNo}</Typography></TableCell>
-                                            {!isMediumScreen && <TableCell>
-                                                <Chip
-                                                    label={row.internal === '1' ? 'Şirket İçi(Setaş)' : 'Şirket Dışı'}
-                                                    color={row.internal === '1' ? 'primary' : 'secondary'}
-                                                />
-                                            </TableCell>}
-                                            <TableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.name}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.family}</Typography></StyledTableCell>
+                                            {!isSmallScreen && <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.birthdate)}</Typography></StyledTableCell>}
+                                            {!isSmallScreen && <StyledTableCell><Typography variant="body1">{row.fatherName}</Typography></StyledTableCell>}
+                                            <StyledTableCell><Typography variant="body1">{row.identityNo}</Typography></StyledTableCell>
+                                            {!isMediumScreen && (
+                                                <StyledTableCell>
+                                                    <Chip label={row.internal === '1' ? 'Şirket İçi (Setaş)' : 'Şirket Dışı'} color={row.internal === '1' ? 'primary' : 'secondary'} />
+                                                </StyledTableCell>
+                                            )}
+                                            <StyledTableCell>
                                                 <Chip
                                                     label={row.status}
                                                     sx={{ backgroundColor: row.recordStatus === 0 ? 'success.light' : 'error.light', color: row.recordStatus === 0 ? 'success.main' : 'error.main' }}
                                                 />
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                    <IconButton id={`basic-button-${row.id}`} aria-controls={Boolean(anchorEl) ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={Boolean(anchorEl) ? 'true' : undefined} onClick={(event) => handleClickMenu(event, row)}>
+                                                    <IconButton
+                                                        id={`basic-button-${row.id}`}
+                                                        aria-controls={Boolean(anchorEl) ? 'basic-menu' : undefined}
+                                                        aria-haspopup="true"
+                                                        aria-expanded={Boolean(anchorEl) ? 'true' : undefined}
+                                                        onClick={(event) => handleClickMenu(event, row)}
+                                                    >
                                                         <IconDots width={18} />
                                                     </IconButton>
                                                 </CustomTooltip>
@@ -1692,54 +1731,54 @@ const ListDrivers = () => {
                                                 >
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sürücü için araç detaylarını kaydet" : ""}>
-                                                            <MenuItem onClick={() => {
-                                                                handleClickOpenCarDetailsModal(selectedRowForMenu!);
-                                                                handleCloseMenu();
-                                                            }}>
+                                                            <MuiMenuItem onClick={() => { handleClickOpenCarDetailsModal(selectedRowForMenu!); handleCloseMenu(); }}>
                                                                 <ListItemIcon><IconPlus width={18} /></ListItemIcon>Ayrıntıları Kaydet
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-
                                                     {hasDownloadPermission && (
-                                                        <MenuItem onClick={() => {
-                                                            setSelectedDriver(selectedRowForMenu);
-                                                            setOpenDriverDetailsDownloadModal(true);
-                                                            handleCloseMenu();
-                                                        }}>
+                                                        <MuiMenuItem onClick={() => { setSelectedDriver(selectedRowForMenu); setOpenDriverDetailsDownloadModal(true); handleCloseMenu(); }}>
                                                             <ListItemIcon><IconFileDescription width={18} /></ListItemIcon>
                                                             Detayları İndir
-                                                        </MenuItem>
-                                                    )}
-                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü pasif yap" : ""}>
-                                                            <MenuItem onClick={handleSetInactive}><ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>Pasif Yap</MenuItem>
-                                                        </CustomTooltip>
-                                                    )}
-                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü aktif yap" : ""}>
-                                                            <MenuItem onClick={handleSetActive}><ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>Aktif Yap</MenuItem>
-                                                        </CustomTooltip>
+                                                        </MuiMenuItem>
                                                     )}
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü düzenle" : ""}>
-                                                            <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>
+                                                            <MuiMenuItem onClick={handleEditClick}>
+                                                                <ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü sil" : ""}>
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>
+                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
+                                                                <ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü pasif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetInactive}>
+                                                                <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>Pasif Yap
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sürücüyü aktif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetActive}>
+                                                                <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>Aktif Yap
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>
-                                            </TableCell>
+                                            </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={isSmallScreen ? 5 : isMediumScreen ? 7 : 8} align="center">
+                                        <StyledTableCell colSpan={isSmallScreen ? 5 : isMediumScreen ? 7 : 8} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">Hiç sürücü bulunamadı.</Typography>
-                                        </TableCell>
+                                        </StyledTableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

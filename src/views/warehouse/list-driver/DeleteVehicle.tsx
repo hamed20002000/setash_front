@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import server from 'src/assets/address.json';
+import { useNavigate } from 'react-router';
 
 interface DeleteVehicleProps {
     openModal: boolean;
@@ -23,6 +24,7 @@ const DeleteVehicle: React.FC<DeleteVehicleProps> = ({
 }) => {
     const [loading, setLoading] = useState(false);
 
+    const navigate = useNavigate();
     const handleDelete = async () => {
         if (!vehicleIdToDelete) {
             showAlert('Hata: Silinecek araç ID\'si bulunamadı.', 'error');
@@ -57,8 +59,18 @@ const DeleteVehicle: React.FC<DeleteVehicleProps> = ({
                 onClose(false);
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            onClose(false);
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+                showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                onClose(false);
+            }
+
         } finally {
             setLoading(false);
         }

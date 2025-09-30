@@ -67,13 +67,12 @@ const DeleteCategory = ({ openModal, categoryIdToDelete, onClose, onDeleteSucces
 
       // ✅ CHECK FOR 500 STATUS CODE
       if (e.response && e.response.status === 500) {
-        onClose(); // Close the current delete confirmation modal
-        setOpenCategoryInUseModal(true); // Open the specific "category in use" modal
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
       } else if (e.response && e.response.status === 401) {
-        // Handle unauthorized
         localStorage.removeItem('authToken');
         showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-        navigate("/"); // Redirect to login
+        navigate("/");
       } else {
         // General error handling for other network or API errors
         const errorMessage = e.response?.data?.message || 'Kategori silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';

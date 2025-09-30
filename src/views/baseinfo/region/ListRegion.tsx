@@ -8,12 +8,12 @@ import {
     Table,
     TableHead,
     TableRow,
-    TableCell,
     TableBody,
     Typography,
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
     Chip,
     Menu,
-    MenuItem,
     IconButton,
     ListItemIcon,
     Box,
@@ -66,6 +66,14 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
 
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
@@ -536,10 +544,13 @@ const ListRegion = () => {
             }
 
         } catch (e: any) {
-            if (axios.isAxiosError(e) && e.response?.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
                 console.error("Bölge güncellenirken hata:", e);
                 showAlert('Bölge güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
@@ -1181,8 +1192,7 @@ const ListRegion = () => {
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
-                </Box>
-                <TableContainer>
+                </Box><TableContainer>
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                             <CircularProgress />
@@ -1192,7 +1202,7 @@ const ListRegion = () => {
                         <Table aria-label="region table">
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'name'}
                                             direction={orderBy === 'name' ? order : 'asc'}
@@ -1201,8 +1211,8 @@ const ListRegion = () => {
                                         >
                                             <Typography variant="h6">İsim</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'createAt'}
                                             direction={orderBy === 'createAt' ? order : 'asc'}
@@ -1211,8 +1221,8 @@ const ListRegion = () => {
                                         >
                                             <Typography variant="h6">Oluşturulma Tarihi</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'status'}
                                             direction={orderBy === 'status' ? order : 'asc'}
@@ -1221,33 +1231,24 @@ const ListRegion = () => {
                                         >
                                             <Typography variant="h6">Durum</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell
-                                        style={{ color: "#171c23" }}>
+                                    </StyledTableCell>
+                                    <StyledTableCell style={{ color: "#171c23" }}>
                                         <Typography variant="h6">Şehirler</Typography>
-                                    </TableCell>
-                                    <TableCell></TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {paginatedRegions.length > 0 ? (
                                     paginatedRegions.map((row) => (
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={2}>
-                                                    <Box>
-                                                        <Typography variant="h6">{row.name}</Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={2}>
-                                                    <Box>
-                                                        <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{row.name}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <Chip
                                                     label={row.status}
                                                     sx={{
@@ -1265,10 +1266,9 @@ const ListRegion = () => {
                                                                     : (theme) => theme.palette.success.main,
                                                     }}
                                                 />
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.name}" için şehir ekle/gör` : ""}>
-
                                                     {(findRegionById(rawApiRegions, row.id)?.regions || []).length > 0 ? (
                                                         <Button
                                                             variant="outlined"
@@ -1289,8 +1289,8 @@ const ListRegion = () => {
                                                         </Button>
                                                     )}
                                                 </CustomTooltip>
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                                                     <IconButton
                                                         id={`basic-button-${row.id}`}
@@ -1311,63 +1311,57 @@ const ListRegion = () => {
                                                         'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                     }}
                                                 >
-
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu bölgeyi pasif yap" : ""}>
-                                                            <MenuItem onClick={handleSetInactive}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu bölgeyi pasif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetInactive}>
                                                                 <ListItemIcon>
                                                                     <DoNotDisturbOnRoundedIcon width={18} />
                                                                 </ListItemIcon>
                                                                 Pasif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
-
                                                     )}
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu bölgeyi aktif yap" : ""}>
-                                                            <MenuItem onClick={handleSetActive}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu bölgeyi aktif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetActive}>
                                                                 <ListItemIcon>
                                                                     <DoneRoundedIcon width={18} />
                                                                 </ListItemIcon>
                                                                 Aktif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasEditPermission && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu bölgeyi düzenle" : ""}>
-                                                            <MenuItem onClick={handleEditClick}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu bölgeyi düzenle" : ""}>
+                                                            <MuiMenuItem onClick={handleEditClick}>
                                                                 <ListItemIcon>
                                                                     <IconEdit width={18} />
                                                                 </ListItemIcon>
                                                                 Düzenlemek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu bölgeyi sil" : ""}>
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu bölgeyi sil" : ""}>
+                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                                 <ListItemIcon>
                                                                     <IconTrash width={18} />
                                                                 </ListItemIcon>
                                                                 Silmek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>
-                                            </TableCell>
+                                            </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} align="center">
+                                        <StyledTableCell colSpan={5} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">
                                                 Hiç bölge bulunamadı.
                                             </Typography>
-                                        </TableCell>
+                                        </StyledTableCell>
                                     </TableRow>
                                 )}
                             </TableBody>

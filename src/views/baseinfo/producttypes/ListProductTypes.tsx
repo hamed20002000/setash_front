@@ -4,8 +4,11 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+    Typography, Chip, Menu, IconButton, ListItemIcon, Box,
+
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, Radio, RadioGroup, FormControlLabel, CircularProgress,
@@ -29,7 +32,6 @@ import { format } from 'date-fns';
 
 import { useAuth } from 'src/context/AuthContext';
 
-
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -38,6 +40,16 @@ import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
+
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -67,7 +79,7 @@ interface ProductTypesType {
     createAt: string;
     recordStatus?: number;
     status: string;
-    type: number; // New field for type
+    type: number;
 }
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -140,7 +152,7 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 const ListProductTypes = () => {
     const navigate = useNavigate();
     const [name, setName] = useState<string>('');
-    const [productType, setProductType] = useState<number>(0); // New state for type: 0 (Trafo) or 1 (Direk)
+    const [productType, setProductType] = useState<number>(0);
     const [ProductTypesList, setProductTypesList] = useState<ProductTypesType[]>(MOCK_UNITS);
     const [editingId, setEditingId] = useState<number | null>(null);
     const [originalName, setOriginalName] = useState<string>('');
@@ -163,7 +175,7 @@ const ListProductTypes = () => {
     const ProductTypesNameInputRef = useRef<HTMLInputElement>(null);
     const [nameError, setNameError] = useState<boolean>(false);
     const [nameHelperText, setNameHelperText] = useState<string>('');
-    const [openDownloadModal, setOpenDownloadModal] = useState(false); // New state for download modal
+    const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
@@ -239,7 +251,7 @@ const ListProductTypes = () => {
             setName(selectedRowForMenu.name);
             setOriginalName(selectedRowForMenu.name);
             setEditingId(selectedRowForMenu.id);
-            setProductType(selectedRowForMenu.type); // Set the type
+            setProductType(selectedRowForMenu.type);
             setNameError(false);
             setNameHelperText('');
             setTimeout(() => {
@@ -371,12 +383,18 @@ const ListProductTypes = () => {
                 showAlert(response.data.message || 'Ürün türü güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            showAlert(e.response?.data?.message || 'Ürün türü güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            else {
+                showAlert(e.response?.data?.message || 'Ürün türü güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
+            }
         } finally {
             setLoadingButton(false);
         }
@@ -463,7 +481,7 @@ const ListProductTypes = () => {
                     name: item.name,
                     recordStatus: item.recordStatus,
                     createAt: item.createAt,
-                    type: item.type, // Get the type from API
+                    type: item.type,
                     status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
                 }));
                 setProductTypesList(formattedData as ProductTypesType[]);
@@ -534,7 +552,6 @@ const ListProductTypes = () => {
         const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
-            // Add fonts
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -544,7 +561,7 @@ const ListProductTypes = () => {
 
             const rows = sortedAndFilteredProductTypes.map(type => [
                 type.name,
-                type.type === 0 ? 'Trafo' : 'Direk',
+                type.type === 0 ? 'Trafo' : type.type === 1 ? 'Direk (Beton)' : 'Direk (Demir)',
                 formatDateDisplay(type.createAt),
                 type.status
             ]);
@@ -568,6 +585,7 @@ const ListProductTypes = () => {
                     fontSize: 9,
                 },
                 didDrawPage: () => {
+                    const docAny = doc as any;
                     // --- Header Section ---
                     doc.setFont('Arial', 'bold');
                     doc.setFontSize(14);
@@ -593,8 +611,8 @@ const ListProductTypes = () => {
                         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
                         footerY += 4;
                     });
-                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                    const pageCount = (doc as any).internal.getNumberOfPages();
+                    const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
+                    const pageCount = docAny.internal.getNumberOfPages();
                     doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
                     doc.setFont('NotoSans', 'normal');
                     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
@@ -613,7 +631,7 @@ const ListProductTypes = () => {
     };
 
     const addCompanyInfo = (worksheet: Excel.Worksheet) => {
-        worksheet.addRow([]); // یک سطر خالی برای فاصله
+        worksheet.addRow([]);
         const companyInfo = [
             'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
             'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -664,7 +682,6 @@ const ListProductTypes = () => {
                 font: font
             } as Partial<Excel.Style>;
 
-            // Report Header
             worksheet.addRow(['', '', '']);
             const titleRow = worksheet.addRow(['Tüm Ürün Tipleri Raporu']);
             if (titleRow) {
@@ -681,18 +698,16 @@ const ListProductTypes = () => {
             }
             worksheet.addRow([]);
 
-            // Table Headers
             const tableHeaders = ['İsim', 'Tür', 'Oluşturulma Tarihi', 'Durum'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.eachCell((cell) => {
                 cell.style = fullHeaderStyle;
             });
 
-            // Add data
             sortedAndFilteredProductTypes.forEach(type => {
                 const row = worksheet.addRow([
                     type.name,
-                    type.type === 0 ? 'Trafo' : 'Direk',
+                    type.type === 0 ? 'Trafo' : type.type === 1 ? 'Direk (Beton)' : 'Direk (Demir)',
                     formatDateDisplay(type.createAt),
                     type.status
                 ]);
@@ -701,7 +716,6 @@ const ListProductTypes = () => {
                 });
             });
 
-            // Adjust column widths
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column.eachCell) {
@@ -715,7 +729,6 @@ const ListProductTypes = () => {
                 column.width = Math.min(Math.max(maxLength + 2, 12), 50);
             });
             addCompanyInfo(worksheet);
-            // Save file
             const buffer = await workbook.xlsx.writeBuffer();
             const fileName = `Tüm_Urun_Tipleri_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`;
             saveAs(new Blob([buffer]), fileName);
@@ -763,7 +776,7 @@ const ListProductTypes = () => {
                                     color="primary"
                                     onClick={() => setIsFormVisible(true)}
                                     isBlinking={isBlinking}
-                                    fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                                    fullWidth={false}
                                 >
                                     Yeni Direk veya Trafo Kaydet
                                 </BlinkingButton>
@@ -775,7 +788,7 @@ const ListProductTypes = () => {
                                     variant="contained"
                                     color="error"
                                     onClick={resetFormAndState}
-                                    // disabled={loadingButton}
+                                    disabled={loadingButton}
                                     fullWidth={false}
                                     startIcon={<IconX size={20} />}
                                 >
@@ -795,7 +808,7 @@ const ListProductTypes = () => {
                                 İsim
                             </CustomFormLabel>
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={3}>
                             <CustomTextField
                                 id="ProductTypes-name"
                                 placeholder="Direk veya Trafo ismi"
@@ -813,7 +826,7 @@ const ListProductTypes = () => {
                                 helperText={nameHelperText}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={4} display="flex" alignItems="center" justifyContent="center">
+                        <Grid item xs={12} sm={5} display="flex" alignItems="center" justifyContent="center">
                             <CustomFormLabel htmlFor="product-type-radio-group" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 Tür
                             </CustomFormLabel>
@@ -826,7 +839,8 @@ const ListProductTypes = () => {
                                 style={{ marginLeft: "10px" }}
                             >
                                 <FormControlLabel value="0" control={<Radio />} label="Trafo" />
-                                <FormControlLabel value="1" control={<Radio />} label="Direk" />
+                                <FormControlLabel value="1" control={<Radio />} label="Direk (Beton)" />
+                                <FormControlLabel value="2" control={<Radio />} label="Direk (Demir)" />
                             </RadioGroup>
                         </Grid>
                         <Grid item xs={12} sm={3}>
@@ -852,7 +866,6 @@ const ListProductTypes = () => {
                                         </CustomTooltip>
                                     </>
                                 ) : (
-
                                     <>
                                         {hasCreatePermission && (
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni bir Direk ekle" : ""}>
@@ -952,17 +965,17 @@ const ListProductTypes = () => {
                         </Grid>
                     </Grid>
                 </Box>
-                {loadingData ? (
-                    <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
-                        <CircularProgress />
-                        <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Yükleniyor...</Typography>
-                    </Stack>
-                ) : (
-                    <TableContainer>
+                <TableContainer>
+                    {loadingData ? (
+                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                            <CircularProgress />
+                            <Typography variant="h6" sx={{ ml: 2 }}>Ürün Tipleri yükleniyor...</Typography>
+                        </Box>
+                    ) : (
                         <Table aria-label="ProductTypes table">
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'name'}
                                             direction={orderBy === 'name' ? order : 'asc'}
@@ -971,8 +984,8 @@ const ListProductTypes = () => {
                                         >
                                             <Typography variant="h6">İsim</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'type'}
                                             direction={orderBy === 'type' ? order : 'asc'}
@@ -981,8 +994,8 @@ const ListProductTypes = () => {
                                         >
                                             <Typography variant="h6">Tür</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'createAt'}
                                             direction={orderBy === 'createAt' ? order : 'asc'}
@@ -991,8 +1004,8 @@ const ListProductTypes = () => {
                                         >
                                             <Typography variant="h6">Oluşturulma Tarihi</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <TableSortLabel
                                             active={orderBy === 'status'}
                                             direction={orderBy === 'status' ? order : 'asc'}
@@ -1001,34 +1014,26 @@ const ListProductTypes = () => {
                                         >
                                             <Typography variant="h6">Durum</Typography>
                                         </TableSortLabel>
-                                    </TableCell>
-                                    <TableCell></TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {paginatedProductTypes.length > 0 ? (
                                     paginatedProductTypes.map((row) => (
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={2}>
-                                                    <Box>
-                                                        <Typography variant="h6">{row.name}</Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="h6">
-                                                    {row.type === 0 ? 'Trafo' : 'Direk'}
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{row.name}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">
+                                                    {row.type === 0 ? 'Trafo' : row.type === 1 ? 'Direk (Beton)' : 'Direk (Demir)'}
                                                 </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Stack direction="row" alignItems="center" spacing={2}>
-                                                    <Box>
-                                                        <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <Chip
                                                     label={row.status}
                                                     sx={{
@@ -1046,8 +1051,8 @@ const ListProductTypes = () => {
                                                                     : (theme) => theme.palette.success.main,
                                                     }}
                                                 />
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                                                     <IconButton
                                                         id={`basic-button-${row.id}`}
@@ -1068,69 +1073,63 @@ const ListProductTypes = () => {
                                                         'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                     }}
                                                 >
-
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu Direki pasif yap" : ""}>
-                                                            <MenuItem onClick={handleSetInactive}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ürün tipini pasif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetInactive}>
                                                                 <ListItemIcon>
                                                                     <DoNotDisturbOnRoundedIcon width={18} />
                                                                 </ListItemIcon>
                                                                 Pasif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
-
                                                     )}
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu Direki aktif yap" : ""}>
-                                                            <MenuItem onClick={handleSetActive}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ürün tipini aktif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetActive}>
                                                                 <ListItemIcon>
                                                                     <DoneRoundedIcon width={18} />
                                                                 </ListItemIcon>
                                                                 Aktif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasEditPermission && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu Direki düzenle" : ""}>
-                                                            <MenuItem onClick={handleEditClick}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ürün tipini düzenle" : ""}>
+                                                            <MuiMenuItem onClick={handleEditClick}>
                                                                 <ListItemIcon>
                                                                     <IconEdit width={18} />
                                                                 </ListItemIcon>
-                                                                Düzenle
-                                                            </MenuItem>
+                                                                Düzenlemek
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu Direki sil" : ""}>
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ürün tipini sil" : ""}>
+                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                                 <ListItemIcon>
                                                                     <IconTrash width={18} />
                                                                 </ListItemIcon>
                                                                 Silmek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>
-                                            </TableCell>
+                                            </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={5} align="center">
+                                        <StyledTableCell colSpan={5} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">
-                                                Hiç Direk bulunamadı.
+                                                Hiç ürün tipi bulunamadı.
                                             </Typography>
-                                        </TableCell>
+                                        </StyledTableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
                         </Table>
-                    </TableContainer>
-                )}
+                    )}
+                </TableContainer>
                 <TablePagination
                     rowsPerPageOptions={[5, 10, 25]}
                     component="div"
@@ -1152,7 +1151,6 @@ const ListProductTypes = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download Modal */}
             <Dialog
                 open={openDownloadModal}
                 onClose={() => setOpenDownloadModal(false)}
@@ -1164,7 +1162,7 @@ const ListProductTypes = () => {
                             variant="contained"
                             color="primary"
                             startIcon={<IconFileDownload />}
-                            onClick={handleDownloadAllProductTypesPDF} // Call the PDF download function
+                            onClick={handleDownloadAllProductTypesPDF}
                         >
                             PDF Olarak İndir
                         </Button>
@@ -1172,7 +1170,7 @@ const ListProductTypes = () => {
                             variant="contained"
                             color="success"
                             startIcon={<IconFileDownload />}
-                            onClick={handleExportExcel} // Call the Excel download function
+                            onClick={handleExportExcel}
                         >
                             Excel Olarak İndir
                         </Button>

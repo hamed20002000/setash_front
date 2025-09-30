@@ -2,8 +2,10 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
+    Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     Chip, Autocomplete,
@@ -17,7 +19,10 @@ import {
     DialogActions
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus, IconArrowRight, IconEye, IconX, IconCheck, IconInfoCircle } from '@tabler/icons-react';
+import {
+    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus, IconArrowRight, IconEye, IconX, IconCheck, IconInfoCircle,
+    IconFileSpreadsheet, IconFileText, IconReload
+} from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
@@ -36,6 +41,19 @@ import DeleteStoreDispatch from "./DeleteStoreDispatch";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
+// ✨ NEW imports for Excel
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 // === Type Definitions ===
 interface DispatchDetailType {
@@ -129,6 +147,8 @@ interface FormDispatchDetail {
     itemId: number | null;
     quantity: number | string;
     description: string;
+    item?: ItemWithBalanceType;
+    balance?: number;
 }
 
 interface ApiResponse<T> {
@@ -166,7 +186,6 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
-// === Styled Components ===
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -191,19 +210,99 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 
+// =====================================================================================
+// توابع کمکی برای ساختار گزارش‌دهی PDF و Excel
+// =====================================================================================
+
+// const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
+//     const pageWidth = doc.internal.pageSize.getWidth();
+//     const docAny = doc as any;
+//     docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+//     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+//     doc.setFont('NotoSans');
+
+//     docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
+//     doc.setFontSize(14);
+//     doc.text(title, pageWidth / 2, 35, { align: 'center' });
+
+//     doc.setFontSize(10);
+//     doc.text(`Rapor Tarihi:`, 15, 45);
+//     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
+
+//     if (subtitle) {
+//         doc.text(subtitle, pageWidth - 15, 47, { align: 'right' });
+//     }
+// };
+
+// const addPdfFooter = (doc: jsPDF) => {
+//     const pageWidth = doc.internal.pageSize.getWidth();
+//     const pageHeight = doc.internal.pageSize.getHeight();
+//     doc.setFontSize(8);
+//     doc.setFont('NotoSans', 'normal');
+//     const companyInfo = [
+//         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+//         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+//         'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+//     ];
+//     let footerY = pageHeight - 30;
+//     companyInfo.forEach(line => {
+//         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+//         footerY += 4;
+//     });
+//     doc.setFontSize(10);
+//     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+//     doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+//     const docAny = doc as any;
+//     const pageCount = docAny.internal.getNumberOfPages();
+//     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+// };
+
+const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
+    worksheet.views = [{ rightToLeft: false }];
+    const titleRow = worksheet.addRow([title]);
+    titleRow.font = { name: 'NotoSans', size: 14, bold: true };
+    worksheet.mergeCells(titleRow.number, 1, titleRow.number, columnsLength);
+    titleRow.getCell(1).alignment = { horizontal: 'center' };
+    const dateRow = worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+    dateRow.font = { name: 'NotoSans', size: 10, bold: false };
+    dateRow.getCell(1).alignment = { horizontal: 'left' };
+    worksheet.mergeCells(dateRow.number, 1, dateRow.number, columnsLength);
+    worksheet.addRow([]);
+};
+
+const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+    ];
+    let rowNum = startRow;
+    companyInfo.forEach(line => {
+        const row = worksheet.getRow(rowNum);
+        row.getCell(1).value = line;
+        row.getCell(1).alignment = { horizontal: 'center', readingOrder: 'ltr' };
+        row.getCell(1).font = { name: 'NotoSans', size: 8, bold: false };
+        worksheet.mergeCells(`A${rowNum}:${String.fromCharCode(65 + columnsLength - 1)}${rowNum}`);
+        rowNum++;
+    });
+};
+
 // === Main Component ===
 const ListStoreDispatch = () => {
     const { storeId } = useParams<{ storeId: string }>();
     const navigate = useNavigate();
-    // const authToken = localStorage.getItem('authToken');
+    const authToken = localStorage.getItem('authToken');
 
     // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
-    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null); // Updated state for projectId
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
     const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
     const [dispatchDetails, setDispatchDetails] = useState<FormDispatchDetail[]>([]);
+    const [initialDispatchDetails, setInitialDispatchDetails] = useState<FormDispatchDetail[]>([]);
+    const [removedDispatchDetails, setRemovedDispatchDetails] = useState<any[]>([]);
+
     const [dispatchList, setDispatchList] = useState<DispatchType[]>([]);
     const [displayedDispatches, setDisplayedDispatches] = useState<DispatchType[]>([]);
     const [loadingData, setLoadingData] = useState(true);
@@ -220,18 +319,17 @@ const ListStoreDispatch = () => {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<DispatchType | null>(null);
-    const openMenu = Boolean(anchorEl);
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingCode, setEditingCode] = useState<string | null>(null);
 
     const [docDateError, setDocDateError] = useState<boolean>(false);
     const [driverIdError, setDriverIdError] = useState<boolean>(false);
-    const [projectIdError, setProjectIdError] = useState<boolean>(false); // Updated state for projectId
+    const [projectIdError, setProjectIdError] = useState<boolean>(false);
     const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
-    const [projects, setProjects] = useState<ProjectType[]>([]); // Updated state for projects
+    const [projects, setProjects] = useState<ProjectType[]>([]);
     const [itemsWithBalance, setItemsWithBalance] = useState<ItemWithBalanceType[]>([]);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -239,10 +337,10 @@ const ListStoreDispatch = () => {
     const [dispatchCodeToDelete, setDispatchCodeToDelete] = useState<string>('');
 
     const [vehiclesList, setVehiclesList] = useState<VehicleType[]>([]);
-    const [selectedVehicle, setSelectedVehicle] = useState<number | null>(null);
+    // const [selectedVehicle, setSelectedVehicle] = useState<number | null>(null);
     const [selectedVehicleName, setSelectedVehicleName] = useState<string | null>(null);
     const [openVehicleModal, setOpenVehicleModal] = useState(false);
-    // const [tempSelectedVehicle, setTempSelectedVehicle] = useState<number | null>(null);
+    const [tempSelectedVehicle, setTempSelectedVehicle] = useState<number | null>(null);
 
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
     const [detailsToShow, setDetailsToShow] = useState<DispatchDetailType[]>([]);
@@ -251,15 +349,20 @@ const ListStoreDispatch = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
-    // const [removedDispatchDetails, setRemovedDispatchDetails] = useState<any[]>([]);
-    const [isFormVisible, setIsFormVisible] = useState(false);
-    const [isBlinking, setIsBlinking] = useState(true);
-
     const [openStatusUpdateModal, setOpenStatusUpdateModal] = useState(false);
     const [updateModalData, setUpdateModalData] = useState<{ id: string | null; status: number; description: string }>({ id: null, status: 0, description: '' });
 
     const [openStatusDescriptionModal, setOpenStatusDescriptionModal] = useState(false);
     const [readOnlyDescription, setReadOnlyDescription] = useState<string>('');
+
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
+
+    const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
+    const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
+    const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
+    const [selectedDispatchForDownload, setSelectedDispatchForDownload] = useState<DispatchType | null>(null);
+
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -279,8 +382,6 @@ const ListStoreDispatch = () => {
 
     const fetchVehicles = useCallback(async (driverId: string) => {
         setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
-
         if (!authToken) {
             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
             setLoadingData(false);
@@ -304,7 +405,7 @@ const ListStoreDispatch = () => {
 
                 if (activeVehicles.length > 1) {
                     setOpenVehicleModal(true);
-                    // setTempSelectedVehicle(activeVehicles[0].id);
+                    setTempSelectedVehicle(activeVehicles[0].id); // این خط اولین گزینه را انتخاب می‌کند
                 } else if (activeVehicles.length === 1) {
                     setSelectedVehicleId(activeVehicles[0].id);
                     setSelectedVehicleName(`${activeVehicles[0].name} (${activeVehicles[0].plaque})`);
@@ -314,52 +415,43 @@ const ListStoreDispatch = () => {
                 }
             } else {
                 setVehiclesList([]);
-                setSelectedVehicle(null);
+                // setSelectedVehicle(null);
                 setSelectedVehicleName(null);
                 showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             console.error("Failed to fetch vehicles:", e);
             setVehiclesList([]);
-            setSelectedVehicle(null);
+            // setSelectedVehicle(null);
             setSelectedVehicleName(null);
             showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
-    }, [showAlert]);
+    }, [showAlert, authToken]);
 
-    // const fetchProjects = useCallback(async () => {
-    //     setLoadingData(true);
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) { navigate("/"); setLoadingData(false); return; }
-    //     try {
-    //         const response = await axios.get(server.baseurl + server.warehouse + "get-project", {
-    //             headers: { "Authorization": `Bearer ${authToken}` }
-    //         });
-    //         if (response.data.httpStatusCode === 200) {
-    //             const projects = response.data.data.map((item: any) => ({
-    //                 ...item,
-    //                 recordStatus: item.recordStatus,
-    //                 status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
-    //             }));
-    //             setProjects(projects);
-    //         } else {
-    //             showAlert(response.data.message || 'Projeler yüklenirken bir hata oluştu.', 'error');
-    //         }
-    //     } catch (e: any) {
-    //         showAlert('Projeler yüklenirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // }, [navigate, showAlert]);
+    // ✨ NEW: Fetch all store items balance
+    const fetchStoreItems = useCallback(async () => {
+        if (!authToken) { navigate("/"); return; }
+        try {
+            const response = await axios.get(
+                `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
+                { headers: { Authorization: `Bearer ${authToken}` } }
+            );
+            if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
+                setItemsWithBalance(response.data.data);
+            } else {
+                setItemsWithBalance([]);
+            }
+        } catch (e: any) {
+            setItemsWithBalance([]);
+            showAlert('Mevcut stok bilgileri yüklenirken bir hata oluştu.', 'error');
+        }
+    }, [navigate, storeId, showAlert, authToken]);
 
-    // === API Calls ===
-
-
+    // API Calls
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             navigate("/");
             setLoadingData(false);
@@ -367,23 +459,21 @@ const ListStoreDispatch = () => {
         }
 
         try {
-            const [driversRes, projectsRes, dispatchesRes,
-                //  itemsBalanceRes
-            ] = await Promise.all([
+            const [driversRes, projectsRes, dispatchesRes, itemsBalanceRes] = await Promise.all([
                 axios.get<ApiResponse<DriverType[]>>(server.baseurl + server.warehouse + "get-drivers", { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<ApiResponse<ProjectType[]>>(server.baseurl + server.warehouse + "get-project", { headers: { "Authorization": `Bearer ${authToken}` } }), // Updated API
-                axios.get<ApiResponse<DispatchType[]>>(server.baseurl + server.warehouse + `get-store-dispatches/${Number(storeId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }), // Updated API
-                // axios.get<ApiResponse<ItemWithBalanceType[]>>(server.baseurl + server.warehouse + `get-store-all-items-balance/${Number(storeId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<ProjectType[]>>(server.baseurl + server.warehouse + "get-project", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<DispatchType[]>>(server.baseurl + server.warehouse + `get-store-dispatches/${Number(storeId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<ItemWithBalanceType[]>>(server.baseurl + server.warehouse + `get-store-all-items-balance/${Number(storeId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
             ]);
 
             setDrivers(driversRes.data?.data?.filter(d => d.recordStatus === 0).map(d => ({ ...d, id: Number(d.id) })) || []);
-            setProjects(projectsRes.data?.data?.filter(p => p.recordStatus === 0).map(p => ({ ...p, id: Number(p.id) })) || []); // Updated state and mapping
+            setProjects(projectsRes.data?.data?.filter(p => p.recordStatus === 0).map(p => ({ ...p, id: Number(p.id) })) || []);
 
-            // if (itemsBalanceRes.data?.httpStatusCode === 200) {
-            //     setItemsWithBalance(itemsBalanceRes.data.data);
-            // } else {
-            //     showAlert('Stok bilgileri yüklenirken bir hata oluştu.', 'error');
-            // }
+            if (itemsBalanceRes.data?.httpStatusCode === 200) {
+                setItemsWithBalance(itemsBalanceRes.data.data);
+            } else {
+                showAlert('Stok bilgileri yüklenirken bir hata oluştu.', 'error');
+            }
 
             if (dispatchesRes.data?.httpStatusCode === 200) {
                 const allDispatches = dispatchesRes.data.data;
@@ -421,18 +511,19 @@ const ListStoreDispatch = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, storeId, showAlert]);
+    }, [navigate, storeId, showAlert, authToken]);
 
     useEffect(() => {
         fetchInitialData();
-    }, [fetchInitialData]);
+        fetchStoreItems();
+    }, [fetchInitialData, fetchStoreItems]);
 
     useEffect(() => {
         let filteredDispatches = dispatchList.filter(d => {
             const matchesSearch = d.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (d.driver?.name && d.driver.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (d.driver?.family && d.driver.family.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (d.project?.title && d.project.title.toLowerCase().includes(searchTerm.toLowerCase())); // Updated search field
+                (d.project?.title && d.project.title.toLowerCase().includes(searchTerm.toLowerCase()));
 
             const matchesStatus = statusFilter === 'all' ||
                 (statusFilter === 'active' && d.status === 1) ||
@@ -450,11 +541,11 @@ const ListStoreDispatch = () => {
     }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
 
     useEffect(() => {
-        const isValid = !!selectedDriverId && !!selectedProjectId && // Updated validation field
+        const isValid = !!selectedDriverId && !!selectedProjectId &&
             !!docDate && dispatchDetails.length > 0 &&
             dispatchDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
         setIsFormValid(isValid);
-    }, [selectedDriverId, selectedProjectId, docDate, dispatchDetails]); // Updated dependencies
+    }, [selectedDriverId, selectedProjectId, docDate, dispatchDetails]);
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
@@ -488,33 +579,66 @@ const ListStoreDispatch = () => {
         };
     }, [isFormValid, loadingButton]);
 
+    // ✨ NEW: Updated validation logic to consider edit mode
     const validateForm = (): boolean => {
         let isValid = true;
         if (!selectedDriverId) { setDriverIdError(true); isValid = false; } else { setDriverIdError(false); }
-        if (!selectedProjectId) { setProjectIdError(true); isValid = false; } else { setProjectIdError(false); } // Updated validation field
+        if (!selectedProjectId) { setProjectIdError(true); isValid = false; } else { setProjectIdError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
-        if (dispatchDetails.length === 0 || dispatchDetails.some(d => !d.itemId || !d.quantity)) {
-            setDispatchDetailsError(true); isValid = false;
+        if (dispatchDetails.length === 0) {
+            setDispatchDetailsError(true);
+            isValid = false;
         } else {
-            setDispatchDetailsError(false);
+            const isDetailsValid = dispatchDetails.every((detail) => {
+                const numQuantity = Number(detail.quantity);
+
+                if (isNaN(numQuantity) || numQuantity <= 0) {
+                    return false;
+                }
+
+                const currentItemBalance = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
+                const currentStockBalance = currentItemBalance ? Number(currentItemBalance.balance) : 0;
+
+                let maxAllowedQuantity = currentStockBalance;
+
+                if (editingId) {
+                    const originalDetail = initialDispatchDetails.find(d => Number(d.itemId) === Number(detail.itemId));
+                    const originalQuantity = originalDetail ? Number(originalDetail.quantity) : 0;
+                    maxAllowedQuantity = currentStockBalance + originalQuantity;
+                }
+
+                if (numQuantity > maxAllowedQuantity) {
+                    return false;
+                }
+
+                return true;
+            });
+
+            if (!isDetailsValid) {
+                setDispatchDetailsError(true);
+                isValid = false;
+            } else {
+                setDispatchDetailsError(false);
+            }
         }
-        if (!isValid) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
+        if (!isValid) {
+            showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
+        }
         return isValid;
     };
 
+
     const resetFormAndState = () => {
-        setItemsWithBalance([])
-
-
-
         setDocDate(new Date());
         setSelectedDriverId(null);
-        setSelectedProjectId(null); // Updated state reset
+        setSelectedProjectId(null);
         setDispatchDetails([]);
+        setInitialDispatchDetails([]);
+        setRemovedDispatchDetails([]);
         setEditingId(null);
         setDocDateError(false);
         setDriverIdError(false);
-        setProjectIdError(false); // Updated state reset
+        setProjectIdError(false);
         setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
@@ -525,18 +649,17 @@ const ListStoreDispatch = () => {
     const insertDispatch = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); return; }
+        if (!authToken) { navigate("/"); }
         try {
             const payload: NewDispatchData = {
                 docDate: docDate?.toISOString() || new Date().toISOString(),
                 storeId: Number(storeId),
                 driverId: Number(selectedDriverId),
                 driverVehicleId: Number(selectedVehicleId),
-                projectId: Number(selectedProjectId), // Updated payload field
+                projectId: Number(selectedProjectId),
                 dispatchDetails: dispatchDetails.map(d => ({ itemId: Number(d.itemId), quantity: Number(d.quantity), description: d.description }))
             };
-            const response = await axios.post(server.baseurl + server.warehouse + "create-store-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } }); // Updated API
+            const response = await axios.post(server.baseurl + server.warehouse + "create-store-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni sevk belgesi başarıyla eklendi!', 'success');
                 resetFormAndState();
@@ -554,7 +677,6 @@ const ListStoreDispatch = () => {
     const editDispatch = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         const payload: EditDispatchData = {
             id: Number(editingId),
@@ -563,15 +685,16 @@ const ListStoreDispatch = () => {
             storeId: Number(storeId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
-            projectId: Number(selectedProjectId), // Updated payload field
+            projectId: Number(selectedProjectId),
             dispatchDetails: dispatchDetails.map(d => ({
                 itemId: Number(d.itemId),
                 quantity: Number(d.quantity),
                 description: d.description
             }))
         };
+        debugger
         try {
-            const response = await axios.put(server.baseurl + server.warehouse + "update-store-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } }); // Updated API
+            const response = await axios.put(server.baseurl + server.warehouse + "update-store-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 200) {
                 showAlert('Sevk belgesi başarıyla güncellendi!', 'success');
                 resetFormAndState();
@@ -580,7 +703,17 @@ const ListStoreDispatch = () => {
                 showAlert(response.data.message || 'Sevk belgesi güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Sevk belgesi güncellenirken bir hata oluştu.', 'error');
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+                showAlert(e.response?.data?.message || 'Sevk belgesi güncellenirken bir hata oluştu.', 'error');
+
+            }
         } finally {
             setLoadingButton(false);
         }
@@ -588,7 +721,6 @@ const ListStoreDispatch = () => {
 
     const updateDispatchStatus = async () => {
         setLoadingButton(true);
-        const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         try {
             const payload = {
@@ -596,7 +728,7 @@ const ListStoreDispatch = () => {
                 status: updateModalData.status,
                 description: updateModalData.description
             };
-            const url = `${server.baseurl}${server.warehouse}update-store-dispatch-status`; // Updated API
+            const url = `${server.baseurl}${server.warehouse}update-store-dispatch-status`;
             const response = await axios.put(url, payload, { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200) {
                 showAlert('Sevk belgesi durumu başarıyla güncellendi.', 'success');
@@ -627,6 +759,7 @@ const ListStoreDispatch = () => {
     const handleOpenReadOnlyDescriptionModal = (description: string) => {
         setReadOnlyDescription(description);
         setOpenStatusDescriptionModal(true);
+        handleCloseMenu();
     };
 
     const handleCloseMenu = () => {
@@ -636,23 +769,43 @@ const ListStoreDispatch = () => {
 
     const handleEditClick = () => {
         if (selectedRowForMenu) {
-            setEditingId(selectedRowForMenu.id);
-            setDocDate(new Date(selectedRowForMenu.docDate));
-            setEditingCode(selectedRowForMenu.code);
-            setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
-            setSelectedProjectId(Number(selectedRowForMenu.project?.id)); // Updated field name
-            if (selectedRowForMenu.driverVehicle) {
-                setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
-                setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
-            }
-            const formattedDetails: FormDispatchDetail[] = (selectedRowForMenu.storeDispatchDetails || []).map(d => ({
-                itemId: Number(d.item?.id),
-                quantity: d.quantity,
-                description: d.description,
-            }));
-            setDispatchDetails(formattedDetails);
-            setIsFormVisible(true);
-            handleCloseMenu();
+            setLoadingData(true);
+            fetchStoreItems().then(() => {
+                const formattedDetails: FormDispatchDetail[] = (selectedRowForMenu.storeDispatchDetails || []).map(d => {
+                    const itemBalance = itemsWithBalance.find(item => Number(item.itemId) === Number(d.item?.id));
+
+                    return {
+                        itemId: Number(d.item?.id),
+                        quantity: d.quantity,
+                        description: d.description,
+                        // اطمینان از اینکه شی item با نوع ItemWithBalanceType مطابقت دارد
+                        item: d.item ? {
+                            itemId: d.item.id,
+                            name: d.item.name,
+                            code: d.item.abbreviation,
+                            balance: itemBalance?.balance || '0', // از موجودی فعلی استفاده شود
+                            unit: d.item.unit
+                        } : undefined,
+                        balance: itemBalance ? Number(itemBalance.balance) : 0,
+                    };
+                });
+
+                setDispatchDetails(formattedDetails);
+                setInitialDispatchDetails(formattedDetails);  // Store original data for validation
+
+                setEditingId(selectedRowForMenu.id);
+                setDocDate(new Date(selectedRowForMenu.docDate));
+                setEditingCode(selectedRowForMenu.code);
+                setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
+                setSelectedProjectId(Number(selectedRowForMenu.project?.id));
+                if (selectedRowForMenu.driverVehicle) {
+                    setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
+                    setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
+                }
+                setIsFormVisible(true);
+                handleCloseMenu();
+                setLoadingData(false);
+            });
         }
     };
 
@@ -673,8 +826,10 @@ const ListStoreDispatch = () => {
         setOpenDeleteModal(false);
         setDispatchIdToDelete(null);
         setDispatchCodeToDelete('');
+        fetchInitialData();
     };
 
+    // ✨ NEW: Handle adding new empty item row
     const handleAddDispatchDetail = () => {
         if (dispatchDetails.length > 0) {
             const lastDetail = dispatchDetails[dispatchDetails.length - 1];
@@ -686,28 +841,61 @@ const ListStoreDispatch = () => {
         setDispatchDetails(prev => [...prev, { itemId: null, quantity: '', description: '' }]);
     };
 
+    // ✨ NEW: Handle removing an item row
     const handleRemoveDispatchDetail = (index: number) => {
-        setDispatchDetails(prev => prev.filter((_, i) => i !== index));
+        setDispatchDetails(prev => {
+            const removedItem = prev[index];
+            if (removedItem) {
+                setRemovedDispatchDetails(oldRemoved => [...oldRemoved, removedItem]);
+            }
+            return prev.filter((_, i) => i !== index);
+        });
     };
 
+    const handleRestoreDispatchDetail = (indexToRestore: number) => {
+        const itemToRestore = removedDispatchDetails[indexToRestore];
+        if (itemToRestore) {
+            setDispatchDetails(prev => [...prev, itemToRestore]);
+            setRemovedDispatchDetails(prev => prev.filter((_, i) => i !== indexToRestore));
+        }
+    };
+
+
+    // ✨ NEW: Handle item change and validation
     const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
         setDispatchDetails(prev => {
             const newDetails = [...prev];
             const updatedDetail = { ...newDetails[index] };
 
-            if (field === 'quantity') {
+            if (field === 'itemId') {
+                const selectedItem = itemsWithBalance.find(item => Number(item.itemId) === value);
+                updatedDetail.itemId = value;
+                if (selectedItem) {
+                    updatedDetail.item = selectedItem as any;
+                    updatedDetail.balance = Number(selectedItem.balance);
+                }
+            } else if (field === 'quantity') {
                 const numValue = Number(value);
-                const selectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(updatedDetail.itemId));
-                const maxBalance = selectedItem ? Math.max(0, Number(selectedItem.balance)) : Infinity;
 
-                if (numValue < 0) {
-                    showAlert('Miktar negatif olamaz!', 'warning');
+                const currentItemBalance = itemsWithBalance.find(item => Number(item.itemId) === Number(updatedDetail.itemId));
+                const currentStockBalance = currentItemBalance ? Number(currentItemBalance.balance) : 0;
+
+                let maxAllowedQuantity = currentStockBalance;
+
+                if (editingId) {
+                    const originalDetail = initialDispatchDetails.find(d => Number(d.itemId) === Number(updatedDetail.itemId));
+                    const originalQuantity = originalDetail ? Number(originalDetail.quantity) : 0;
+                    maxAllowedQuantity = currentStockBalance + originalQuantity;
+                }
+
+                if (isNaN(numValue) || numValue < 0) {
+                    showAlert('Miktar negatif olamaz veya geçersiz bir değer içeremez!', 'warning');
                     updatedDetail.quantity = 0;
-                } else if (numValue > maxBalance) {
-                    showAlert(`Girdiğiniz miktar stoktan fazla! Maksimum: ${maxBalance}`, 'warning');
-                    updatedDetail.quantity = maxBalance;
+                } else if (numValue > maxAllowedQuantity) {
+                    showAlert(`Girdiğiniz miktar stoktan fazla! Maksimum: ${maxAllowedQuantity}`, 'warning');
+                    updatedDetail.quantity = maxAllowedQuantity;
                 } else {
-                    updatedDetail.quantity = value;
+                    updatedDetail.quantity = numValue;
                 }
             } else {
                 (updatedDetail as any)[field] = value;
@@ -716,12 +904,12 @@ const ListStoreDispatch = () => {
             newDetails[index] = updatedDetail;
             return newDetails;
         });
-    }, [itemsWithBalance, showAlert]);
+    }, [itemsWithBalance, showAlert, editingId, initialDispatchDetails]);
 
     const handleEditVehicleSelection = () => {
         if (vehiclesList.length > 1) {
             setOpenVehicleModal(true);
-            // setTempSelectedVehicle(selectedVehicle);
+            setTempSelectedVehicle(vehiclesList[0].id);
         } else {
             showAlert('Bu şoförün tek bir aracı bulunmaktadır.', 'info');
         }
@@ -732,33 +920,60 @@ const ListStoreDispatch = () => {
         setEndDate(null);
     };
 
-    // PDF Generation Handlers (Updated to reflect "store" and "project")
-    const handleDownloadAllDispatchesPDF = () => {
-        if (!dispatchList || dispatchList.length === 0) {
+    // ✨ NEW: Consolidated PDF export function
+    const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: string) => {
+        if (!data || data.length === 0) {
             showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
             return;
         }
 
+        showAlert('PDF oluşturuluyor...', 'info');
+
         const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        let yPos = 50;
+        const docAny = doc as any;
+        let yPos = 55;
 
-        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
+        // Header and Footer functions should be defined before use
+        const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const docAny = doc as any;
+            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
 
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Mağaza Sevk Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
+            // Logo on the right side
+            docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
+
+            // Report title in the center
+            doc.setFontSize(14);
+            doc.text(title, pageWidth / 2, 35, { align: 'center' });
+
+            // Report date and filter subtitle on the left
+            doc.setFontSize(10);
+            doc.text(`Rapor Tarihi:`, 15, 45);
+            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
+
+            if (subtitle) {
+                doc.text(subtitle, 70, 52); // Moved subtitle below the report date to avoid overlap
+            }
         };
 
-        const footer = () => {
+        const addPdfFooter = (doc: jsPDF) => {
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            doc.setFontSize(8);
+            doc.setFont('NotoSans', 'normal');
+            const companyInfo = [
+                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            ];
+            let footerY = pageHeight - 30;
+            companyInfo.forEach(line => {
+                doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                footerY += 4;
+            });
             doc.setFontSize(10);
-            doc.setTextColor(0);
             doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
             doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
             const docAny = doc as any;
@@ -766,32 +981,23 @@ const ListStoreDispatch = () => {
             doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
-        dispatchList.forEach((dispatch) => {
-            if (yPos + 60 > doc.internal.pageSize.getHeight()) {
+        data.forEach((dispatch, index) => {
+            if (index > 0) {
                 doc.addPage();
-                yPos = 50;
+                yPos = 55;
             }
 
-            doc.setFontSize(14);
-            doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Mağaza: ${dispatch.store?.name || '-'}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Proje: ${dispatch.project?.title || '-'}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
-            yPos += 7;
-            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-            yPos += 7;
-            if (dispatch.statusDescription) {
-                doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
-                yPos += 7;
-            }
-            yPos += 10;
+            const pageTitle = `${title}`;
+            addPdfHeader(doc, pageTitle, subtitle);
+
+            doc.setFontSize(10);
+            doc.text(`Şantiyenin Depo: ${dispatch.store?.name || '-'}`, 15, yPos);
+            doc.text(`Proje: ${dispatch.project?.title || '-'}`, 15, yPos + 5);
+            doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos + 10);
+            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`, 15, yPos + 15);
+            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)})`, 15, yPos + 20);
+
+            yPos += 25;
 
             const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
                 d.item?.name || '-',
@@ -800,218 +1006,136 @@ const ListStoreDispatch = () => {
                 d.description || '-'
             ]);
 
-            autoTable(doc, {
+            const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
+            const totalQuantity = (dispatch.storeDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
+
+            autoTable(docAny, {
                 startY: yPos,
-                head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
+                head: [columns],
                 body: detailsRows,
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                pageBreak: 'auto',
-                didDrawCell: (data: any) => {
-                    if (data.cell.section === 'body') {
-                        yPos = (data.cell.y + data.cell.height);
+                headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                didDrawPage: (hookData: any) => {
+                    // Ensure the header is drawn on all pages, but only once per page
+                    if (hookData.pageNumber > 1) {
+                        addPdfHeader(doc, pageTitle, subtitle);
                     }
-                },
-                didDrawPage: () => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+                    addPdfFooter(doc);
+                }
             });
-            yPos += 15;
+
+            const finalY = docAny.lastAutoTable.finalY || yPos;
+            doc.setFontSize(10);
+            doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
+            yPos = finalY + 10;
         });
 
-        doc.save('Mağaza_Sevk_Belgeleri_Detayli_Rapor.pdf');
-        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        doc.save(`${title.replace(/ /g, '_')}.pdf`);
+        showAlert('PDF başarıyla oluşturuldu.', 'success');
     };
-
-    const handleDownloadFilteredAllPDF = () => {
-        if (!displayedDispatches || displayedDispatches.length === 0) {
-            showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
+    // ✨ NEW: Consolidated Excel export function
+    const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
+        if (!data || data.length === 0) {
+            showAlert('Excel oluşturulacak sevk belgesi bulunamadı.', 'warning');
             return;
         }
+        showAlert('Excel oluşturuluyor...', 'info');
+        const workbook = new Excel.Workbook();
 
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        let yPos = 50;
+        data.forEach(dispatch => {
+            const worksheetTitle = `Sevk_${dispatch.code}`.replace(/[\\/*?:[\]]/g, '_');
+            const worksheet = workbook.addWorksheet(worksheetTitle);
 
-        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('Noto-Sans');
+            const detailsColumns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
+            const totalColumns = detailsColumns.length;
 
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Mağaza Sevk Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : null)}`, pageWidth - 15, 40, { align: 'right' });
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 47, { align: 'right' });
-        };
+            addExcelHeader(worksheet, title, totalColumns);
 
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
+            worksheet.addRow([`Sevk Belgesi Kodu:`, dispatch.code]);
+            worksheet.addRow([`Şantiyenin Depo:`, dispatch.store?.name || '-']);
+            worksheet.addRow([`Proje:`, dispatch.project?.title || '-']);
+            worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
+            worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
+            worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
+            worksheet.addRow([`Durum:`, dispatch.statusText || '-']);
+            worksheet.addRow([`Açıklama:`, dispatch.statusDescription || '-']);
+            worksheet.addRow([]);
 
-        displayedDispatches.forEach((dispatch) => {
-            if (yPos + 60 > doc.internal.pageSize.getHeight()) {
-                doc.addPage();
-                yPos = 50;
-            }
+            const headerRow = worksheet.addRow(detailsColumns);
+            headerRow.font = { name: 'NotoSans', bold: true };
+            headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
 
-            doc.setFontSize(14);
-            doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Mağaza: ${dispatch.store?.name || '-'}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Proje: ${dispatch.project?.title || '-'}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
-            yPos += 7;
-            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-            yPos += 7;
-            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-            yPos += 7;
-            if (dispatch.statusDescription) {
-                doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
-                yPos += 7;
-            }
-            yPos += 10;
-
-            const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
-                d.item?.name || '-',
-                d.quantity,
-                d.item?.unit?.title || '-',
-                d.description || '-'
-            ]);
-
-            autoTable(doc, {
-                startY: yPos,
-                head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
-                body: detailsRows,
-                theme: 'grid',
-                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                pageBreak: 'auto',
-                didDrawCell: (data: any) => {
-                    if (data.cell.section === 'body') {
-                        yPos = (data.cell.y + data.cell.height);
-                    }
-                },
-                didDrawPage: () => {
-                    header();
-                    footer();
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 20 }
+            (dispatch.storeDispatchDetails || []).forEach(d => {
+                worksheet.addRow([
+                    d.item?.name || '-',
+                    d.quantity,
+                    d.item?.unit?.title || '-',
+                    d.description || '-'
+                ]);
             });
-            yPos += 15;
+
+            const totalQuantity = (dispatch.storeDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
+            const totalRow = worksheet.addRow([`Toplam Miktar`, totalQuantity, '', '']);
+            totalRow.font = { name: 'NotoSans', bold: true };
+            totalRow.getCell(2).numFmt = '0';
+
+            worksheet.addRow([]);
+            addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, totalColumns);
         });
 
-        doc.save('Mağaza_Sevk_Belgeleri_Filtre_Rapor.pdf');
-        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-    };
-
-    const handleDownloadSingleDispatchPDF = (dispatch: DispatchType) => {
-        if (!dispatch) {
-            showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
-            return;
-        }
-
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        let yPos = 50;
-
-        (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
-        const header = () => {
-            doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-            doc.setFontSize(18);
-            doc.text('Sevk Belgesi Raporu', pageWidth - 15, 30, { align: 'right' });
-            doc.setFontSize(12);
-            doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-        };
-
-        const footer = () => {
-            doc.setFontSize(10);
-            doc.setTextColor(0);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        header();
-        footer();
-
-        doc.setFontSize(14);
-        doc.text(`Sevk Belgesi Kodu: ${dispatch.code}`, 15, yPos);
-        yPos += 7;
-        doc.text(`Mağaza: ${dispatch.store?.name || '-'}`, 15, yPos);
-        yPos += 7;
-        doc.text(`Proje: ${dispatch.project?.title || '-'}`, 15, yPos);
-        yPos += 7;
-        doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
-        yPos += 7;
-        doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos);
-        yPos += 7;
-        doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
-        yPos += 7;
-        doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-        yPos += 7;
-        if (dispatch.statusDescription) {
-            doc.text(`Açıklama: ${dispatch.statusDescription}`, 15, yPos);
-            yPos += 7;
-        }
-        yPos += 10;
-
-        const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
-            d.item?.name || '-',
-            d.quantity,
-            d.item?.unit?.title || '-',
-            d.description || '-'
-        ]);
-
-        autoTable(doc, {
-            startY: yPos,
-            head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
-            body: detailsRows,
-            theme: 'grid',
-            styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-            pageBreak: 'auto',
-            didDrawPage: () => {
-                header();
-                footer();
-            },
-            showHead: 'everyPage',
-            margin: { top: 50, bottom: 20 }
+        const fileName = `${title.replace(/ /g, '_')}.xlsx`;
+        workbook.xlsx.writeBuffer().then(buffer => {
+            saveAs(new Blob([buffer]), fileName);
+            showAlert('Excel başarıyla oluşturuldu.', 'success');
         });
-
-        doc.save(`Sevk_Belgesi_${dispatch.code}.pdf`);
-        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
-    const selectedItemIds = useMemo(() => dispatchDetails.map(d => d.itemId).filter(id => id !== null), [dispatchDetails]);
+
+    // ✨ NEW: Unified download handler for all/filtered data
+    const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
+        const dataToDownload = isFiltered ? displayedDispatches : dispatchList;
+        const title = isFiltered ? 'Filtrelenmiş Şantiyenin Depo Sevk Raporu' : 'Tüm Şantiyenin Depo Sevk Raporu';
+        const subtitle = isFiltered ? `Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : new Date().toISOString())}` : undefined;
+
+        if (format === 'pdf') {
+            exportDispatchesToPdf(dataToDownload, title, subtitle);
+        } else {
+            exportDispatchesToExcel(dataToDownload, title);
+        }
+    };
+
+    // ✨ NEW: Handle opening download modals
+    const handleOpenRowDownloadModal = (dispatch: DispatchType) => {
+        setSelectedDispatchForDownload(dispatch);
+        setOpenRowDownloadModal(true);
+        handleCloseMenu();
+    };
+
+    const handleCloseRowDownloadModal = () => {
+        setSelectedDispatchForDownload(null);
+        setOpenRowDownloadModal(false);
+    };
+
+    const handleDownloadSingleDispatch = (format: 'pdf' | 'excel') => {
+        if (!selectedDispatchForDownload) return;
+        const data = [selectedDispatchForDownload];
+        const title = `Sevk Belgesi Detayları: ${selectedDispatchForDownload.code}`;
+
+        if (format === 'pdf') {
+            exportDispatchesToPdf(data, title);
+        } else {
+            exportDispatchesToExcel(data, title);
+        }
+        handleCloseRowDownloadModal();
+    };
+
+    // const selectedItemIds = useMemo(() => dispatchDetails.map(d => d.itemId).filter(id => id !== null), [dispatchDetails]);
 
     // === UI ===
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                <Typography variant="h5">Mağaza Sevk İşlemleri</Typography>
+                <Typography variant="h5">Şantiyenin Depo Sevk İşlemleri</Typography>
 
                 <Stack
                     direction={{ xs: 'column', md: 'row' }}
@@ -1063,7 +1187,7 @@ const ListStoreDispatch = () => {
             </Stack>
             {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                    <Typography variant="h5" mb={2}>{editingId ? 'Mağaza Sevk Belgesini Düzenle' : 'Yeni Mağaza Sevk Belgesi'}</Typography>
+                    <Typography variant="h5" mb={2}>{editingId ? 'Şantiyenin Depo Sevk Belgesini Düzenle' : 'Yeni Şantiyenin Depo Sevk Belgesi'}</Typography>
                     <Grid container spacing={2}>
                         <Grid item xs={12} sm={4}>
                             <CustomFormLabel required>Şoför</CustomFormLabel>
@@ -1077,7 +1201,7 @@ const ListStoreDispatch = () => {
                                     if (newValue) {
                                         fetchVehicles(String(newValue.id));
                                     } else {
-                                        setSelectedVehicle(null);
+                                        // setSelectedVehicle(null);
                                         setSelectedVehicleName(null);
                                         setVehiclesList([]);
                                     }
@@ -1154,6 +1278,30 @@ const ListStoreDispatch = () => {
                             </LocalizationProvider>
                         </Grid>
                     </Grid>
+                    {removedDispatchDetails.length > 0 && (
+                        <Box sx={{
+                            border: '1px dashed',
+                            borderColor: "error.main",
+                            p: 2,
+                            mb: 2,
+                            mt: 2,
+                            borderRadius: 1,
+                            backgroundColor: 'rgba(255, 0, 0, 0.05)'
+                        }}>
+                            <Typography variant="subtitle1" color="error" mb={1}>Silinen Ürünler</Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                                {removedDispatchDetails.map((detail, index) => (
+                                    <Chip
+                                        key={index}
+                                        label={`${detail?.item?.name || 'Undefined'} (${detail.quantity})`}
+                                        color="error"
+                                        onDelete={() => handleRestoreDispatchDetail(index)}
+                                        deleteIcon={<IconReload size={18} />}
+                                    />
+                                ))}
+                            </Stack>
+                        </Box>
+                    )}
                     <Box mt={4}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                             <Typography variant="h6">Sevk Detayları</Typography>
@@ -1161,12 +1309,18 @@ const ListStoreDispatch = () => {
                         </Stack>
                         <Grid container spacing={2}>
                             {dispatchDetails.map((detail, index) => {
-                                const availableItems = itemsWithBalance.filter(item =>
-                                    !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
-                                );
                                 const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
-                                const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
-                                const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
+
+                                // Calculate Max Allowed Quantity
+                                const currentStockBalance = currentSelectedItem ? Number(currentSelectedItem.balance) : 0;
+                                let maxAllowedQuantity = currentStockBalance;
+                                if (editingId) {
+                                    const originalDetail = initialDispatchDetails.find(d => Number(d.itemId) === Number(detail.itemId));
+                                    const originalQuantity = originalDetail ? Number(originalDetail.quantity) : 0;
+                                    maxAllowedQuantity = currentStockBalance + originalQuantity;
+                                }
+
+                                const displayBalance = currentSelectedItem ? `(Maksimum: ${maxAllowedQuantity})` : '';
 
                                 return (
                                     <Grid item xs={12} key={index}>
@@ -1174,28 +1328,24 @@ const ListStoreDispatch = () => {
                                             <Autocomplete
                                                 fullWidth
                                                 size="small"
-                                                options={availableItems}
-                                                getOptionLabel={(option) => `${option.name} ${option.itemId ? displayBalance : ''}`}
+                                                options={itemsWithBalance}
+                                                getOptionLabel={(option) => `${option.name}`}
                                                 value={currentSelectedItem || null}
                                                 onChange={(_, newValue) => {
-                                                    const newQuantity = newValue ? Math.max(0, Number(itemsWithBalance.find(i => i.itemId === newValue.itemId)?.balance || 0)) : '';
+                                                    const newQuantity = newValue ? Number(newValue.balance) : '';
                                                     handleDispatchDetailChange(index, 'itemId', newValue ? Number(newValue.itemId) : null);
                                                     handleDispatchDetailChange(index, 'quantity', newQuantity);
                                                 }}
                                                 isOptionEqualToValue={(option, value) => option.itemId === value.itemId}
                                                 renderInput={(params) => <TextField {...params} label="Malzeme Seçin" />}
                                             />
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                {currentSelectedItem?.unit?.title && (
-                                                    <Chip label={currentSelectedItem.unit.title} color="secondary" variant="outlined" />
-                                                )}
-                                            </Box>
                                             <CustomTextField
                                                 type="number"
                                                 placeholder="Miktar"
                                                 value={detail.quantity}
                                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
                                                 fullWidth
+                                                InputProps={{ endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment> }}
                                             />
                                             <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
                                             <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
@@ -1248,12 +1398,12 @@ const ListStoreDispatch = () => {
                                 <BlinkingButton
                                     variant="contained"
                                     color="secondary"
-                                    onClick={handleDownloadFilteredAllPDF}
+                                    onClick={() => setOpenDownloadFilteredModal(true)}
                                     startIcon={<IconFileDownload />}
                                     isBlinking={true}
                                     disabled={loadingData || displayedDispatches.length === 0}
                                 >
-                                    Filtrelenmişi İndir (PDF)
+                                    Filtrelenmişi İndir
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -1261,11 +1411,11 @@ const ListStoreDispatch = () => {
                             <Button
                                 variant="contained"
                                 color="primary"
-                                onClick={handleDownloadAllDispatchesPDF}
+                                onClick={() => setOpenDownloadAllModal(true)}
                                 startIcon={<IconFileDownload />}
                                 disabled={loadingData || dispatchList.length === 0}
                             >
-                                Tümünü İndir (PDF)
+                                Tümünü İndir
                             </Button>
                         )}
                     </Stack>
@@ -1287,14 +1437,12 @@ const ListStoreDispatch = () => {
                                         <DatePicker
                                             label="Başlangıç Tarihi"
                                             value={startDate}
-                                            inputFormat="dd/MM/yyyy"
                                             onChange={(newValue) => setStartDate(newValue)}
                                             renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                         />
                                         <DatePicker
                                             label="Bitiş Tarihi"
                                             value={endDate}
-                                            inputFormat="dd/MM/yyyy"
                                             onChange={(newValue) => setEndDate(newValue)}
                                             renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                         />
@@ -1321,35 +1469,35 @@ const ListStoreDispatch = () => {
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                             <CircularProgress />
-                            <Typography variant="h6" sx={{ ml: 2 }}>Mağaza sevk belgeleri yükleniyor...</Typography>
+                            <Typography variant="h6" sx={{ ml: 2 }}>Şantiyenin Depo sevk belgeleri yükleniyor...</Typography>
                         </Box>
                     ) : (
-                        <TableContainer>
-                            <Table>
-                                <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                        <TableContainer component={Paper}>
+                            <Table size="small" aria-label="Sevk belgesi tablosu">
+                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
-                                        <TableCell><Typography variant="h6">Kod</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Mağaza</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Şoför</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Araç</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Proje</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Belge Tarihi</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Durum</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Sevk Detayları</Typography></TableCell>
-                                        <TableCell></TableCell>
+                                        <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Şantiyenin Depo</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Proje</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
+                                        <StyledTableCell></StyledTableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {displayedDispatches.length > 0 ? (
                                         displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
                                             <TableRow key={row.id}>
-                                                <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.store?.name || '-'}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.project?.title || '-'}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                                <TableCell>
+                                                <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{row.project?.title || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                                <StyledTableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <Chip label={row.statusText} color={row.statusColor} />
                                                         {row.statusDescription && (
@@ -1360,11 +1508,13 @@ const ListStoreDispatch = () => {
                                                             </CustomTooltip>
                                                         )}
                                                     </Stack>
-                                                </TableCell>
-                                                <TableCell>
+                                                </StyledTableCell>
+                                                <StyledTableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
-                                                            <Button variant="outlined" startIcon={<IconEye />}
+                                                            <Button
+                                                                variant="outlined"
+                                                                startIcon={<IconEye />}
                                                                 onClick={() => {
                                                                     setDetailsToShow(row.storeDispatchDetails || []);
                                                                     setOpenDetailsModal(true);
@@ -1374,55 +1524,57 @@ const ListStoreDispatch = () => {
                                                             </Button>
                                                         </CustomTooltip>
                                                     </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <IconButton onClick={(e) => {
-                                                        setSelectedRowForMenu(row);
-                                                        setAnchorEl(e.currentTarget);
-                                                    }}><IconDots width={18} /></IconButton>
-                                                    <Menu anchorEl={anchorEl}
-                                                        open={openMenu && selectedRowForMenu?.id === row.id}
-                                                        onClose={handleCloseMenu}>
+                                                </StyledTableCell>
+                                                <StyledTableCell>
+                                                    <IconButton
+                                                        onClick={(e) => {
+                                                            setSelectedRowForMenu(row);
+                                                            setAnchorEl(e.currentTarget);
+                                                        }}
+                                                    >
+                                                        <IconDots width={18} />
+                                                    </IconButton>
+                                                    <Menu
+                                                        anchorEl={anchorEl}
+                                                        open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
+                                                        onClose={handleCloseMenu}
+                                                    >
                                                         {hasDownloadPermission && (
-                                                            <MenuItem onClick={() => {
-                                                                handleDownloadSingleDispatchPDF(selectedRowForMenu!);
-                                                                handleCloseMenu();
-                                                            }}>
+                                                            <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                Bu satırı indir(PDF)
-                                                            </MenuItem>
+                                                                Bu satırı indir
+                                                            </MuiMenuItem>
                                                         )}
-                                                        {hasEditPermission && selectedRowForMenu?.status === 0 && (
-                                                            <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>
-                                                        )}
-                                                        {hasDeletePermission &&
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
                                                         {hasEditPermission && selectedRowForMenu?.status === 0 && (
                                                             <>
-                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
-                                                                    <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
-                                                                </MenuItem>
-                                                                <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
-                                                                    <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
-                                                                </MenuItem>
+                                                                <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(1)}><ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla</MuiMenuItem>
+                                                                <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}><ListItemIcon><IconX width={18} /></ListItemIcon>Reddet</MuiMenuItem>
                                                             </>
                                                         )}
                                                         {hasEditPermission && selectedRowForMenu?.status === 1 && (
-                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
-                                                                <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
-                                                            </MenuItem>
+                                                            <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}><ListItemIcon><IconX width={18} /></ListItemIcon>Reddet</MuiMenuItem>
                                                         )}
                                                         {hasEditPermission && selectedRowForMenu?.status === 2 && (
-                                                            <MenuItem onClick={() => handleOpenStatusUpdateModal(1)}>
-                                                                <ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla
-                                                            </MenuItem>
+                                                            <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(1)}><ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla</MuiMenuItem>
+                                                        )}
+                                                        {hasEditPermission && selectedRowForMenu?.status === 0 && (
+                                                            <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>
+                                                        )}
+                                                        {hasDeletePermission && (
+                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
                                                         )}
                                                     </Menu>
-                                                </TableCell>
+                                                </StyledTableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={9} align="center"><Typography>Hiç sevk belgesi bulunamadı.</Typography></TableCell></TableRow>
+                                        <TableRow>
+                                            <StyledTableCell colSpan={9} align="center">
+                                                <Typography variant="subtitle1" color="textSecondary">
+                                                    Hiç sevk belgesi bulunamadı.
+                                                </Typography>
+                                            </StyledTableCell>
+                                        </TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -1448,8 +1600,8 @@ const ListStoreDispatch = () => {
                         <RadioGroup
                             aria-label="vehicle"
                             name="vehicle-radio-group"
-                            value={selectedVehicle}
-                            onChange={(event) => setSelectedVehicle(Number(event.target.value))}
+                            value={tempSelectedVehicle} // اینجا از tempSelectedVehicle استفاده کنید
+                            onChange={(event) => setTempSelectedVehicle(Number(event.target.value))}
                         >
                             {vehiclesList.map((vehicle) => (
                                 <FormControlLabel
@@ -1464,7 +1616,7 @@ const ListStoreDispatch = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => {
-                        const selected = vehiclesList.find(v => v.id === selectedVehicle);
+                        const selected = vehiclesList.find(v => v.id === tempSelectedVehicle); // اینجا نیز از tempSelectedVehicle استفاده کنید
                         if (selected) {
                             setSelectedVehicleId(selected.id);
                             setSelectedVehicleName(`${selected.name} (${selected.plaque})`);
@@ -1484,24 +1636,44 @@ const ListStoreDispatch = () => {
                 <DialogContent>
                     {detailsToShow.length > 0 ? (
                         <TableContainer component={Paper}>
-                            <Table>
-                                <TableHead>
+                            <Table aria-label="Ürün detayları tablosu">
+                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
-                                        <TableCell><Typography variant="h6">Malzeme</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Miktar</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Birim</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
+                                        <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {detailsToShow.map((detail, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{detail.item?.name || '-'}</TableCell>
-                                            <TableCell>{detail.quantity}</TableCell>
-                                            <TableCell>{detail.item?.unit?.title}</TableCell>
-                                            <TableCell>{detail.description || '-'}</TableCell>
+                                    {detailsToShow.length > 0 ? (
+                                        <>
+                                            {detailsToShow.map((detail, index) => (
+                                                <TableRow key={detail.id || index}>
+                                                    <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
+                                                    <StyledTableCell><Typography variant="body1">{detail.quantity || '-'}</Typography></StyledTableCell>
+                                                    <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
+                                                    <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                                                </TableRow>
+                                            ))}
+                                            <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
+                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>Toplam Miktar:</StyledTableCell>
+                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>
+                                                    {detailsToShow.reduce((sum, detail) => sum + Number(detail.quantity), 0)}
+                                                </StyledTableCell>
+                                                <StyledTableCell></StyledTableCell>
+                                                <StyledTableCell></StyledTableCell>
+                                            </TableRow>
+                                        </>
+                                    ) : (
+                                        <TableRow>
+                                            <StyledTableCell colSpan={4} align="center">
+                                                <Typography variant="subtitle1" color="textSecondary">
+                                                    Hiç detay bulunamadı.
+                                                </Typography>
+                                            </StyledTableCell>
                                         </TableRow>
-                                    ))}
+                                    )}
                                 </TableBody>
                             </Table>
                         </TableContainer>
@@ -1558,6 +1730,75 @@ const ListStoreDispatch = () => {
                 onDeleteSuccess={() => fetchInitialData()}
                 showAlert={showAlert}
             />
+            {/* Download Modals */}
+            <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
+                <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => { handleDownload('pdf', false); setOpenDownloadAllModal(false); }}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => { handleDownload('excel', false); setOpenDownloadAllModal(false); }}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
+                <DialogTitle>Filtrelenmiş Sevk Belgelerini İndir</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => { handleDownload('pdf', true); setOpenDownloadFilteredModal(false); }}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => { handleDownload('excel', true); setOpenDownloadFilteredModal(false); }}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
+                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => handleDownloadSingleDispatch('pdf')}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => handleDownloadSingleDispatch('excel')}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

@@ -4,11 +4,14 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react"; // useCallback را اضافه کنید
 import { useNavigate } from "react-router-dom";
 import {
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  TableContainer, Table, TableHead, TableRow, TableBody,
+  TableCell as MuiTableCell,
+  MenuItem as MuiMenuItem,
+  Typography, Chip, Menu, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup, ToggleButton as MuiToggleButton,
   TableSortLabel,
+  CircularProgress,
 } from '@mui/material';
 
 import { keyframes, styled } from '@mui/material/styles';
@@ -41,6 +44,16 @@ const formatDateDisplay = (dateString: string | null): string => {
     return "Geçersiz Tarih";
   }
 };
+
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1rem', // Masaüstünde daha büyük
+  },
+}));
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
@@ -182,6 +195,9 @@ const SystemRole = () => {
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
 
+
+  const [loadingData, setLoadingData] = useState<boolean>(true);
+
   const { allowedOperations } = useAuth();
   const hasCreatePermission = useMemo(() => {
     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
@@ -209,9 +225,11 @@ const SystemRole = () => {
   const getListRole = useCallback(() => {
     const authToken = localStorage.getItem('authToken');
 
+    setLoadingData(true);
     if (!authToken) {
       console.warn("No auth token found, redirecting to login.");
       navigate("/");
+      setLoadingData(false);
       return;
     }
 
@@ -232,6 +250,7 @@ const SystemRole = () => {
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
         setRolesList(formattedData as RowType[]);
+        setLoadingData(false);
       } else {
         showAlert(result.data.message || 'Rol listesi alınırken bir hata oluştu.', 'error');
       }
@@ -324,7 +343,7 @@ const SystemRole = () => {
     setNameHelperText('');
   }, [resetFormAndState, clearAlert]);
 
-  const insertRole = async () => { /* ... کد قبلی ... */
+  const insertRole = async () => {
     if (!name.trim()) {
       setNameError(true);
       setNameHelperText('Rol ismi boş bırakılamaz.');
@@ -376,7 +395,7 @@ const SystemRole = () => {
     }
   };
 
-  const editRole = async () => { /* ... کد قبلی ... */
+  const editRole = async () => {
     if (editingId === null) return;
     if (!name.trim()) {
       setNameError(true);
@@ -427,13 +446,18 @@ const SystemRole = () => {
         showAlert(response.data.message || 'Rol güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error updating Role:", e);
+        showAlert(e.response?.data?.message || 'Rol güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
       }
-      console.error("Error updating Role:", e);
-      showAlert(e.response?.data?.message || 'Rol güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -759,174 +783,162 @@ const SystemRole = () => {
           </Grid>
         </Box>
         <TableContainer>
-          <Table aria-label="simple table">
-            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
-              <TableRow>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'name'}
-                    direction={orderBy === 'name' ? order : 'asc'}
-                    onClick={() => handleRequestSort('name')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">İsim</Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'createAt'}
-                    direction={orderBy === 'createAt' ? order : 'asc'}
-                    onClick={() => handleRequestSort('createAt')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'status'}
-                    direction={orderBy === 'status' ? order : 'asc'}
-                    onClick={() => handleRequestSort('status')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">Durum</Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedRoles.length > 0 ? (
-                paginatedRoles.map((row) => (
-                  <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="h6">{row.name}</Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.status}
-                        sx={{
-                          backgroundColor:
-                            row.status === 'Silindi'
-                              ? (theme) => theme.palette.primary.light
-                              : row.status === 'Pasif'
-                                ? (theme) => theme.palette.error.light
-                                : (theme) => theme.palette.success.light,
-                          color:
-                            row.status === 'Silindi'
-                              ? (theme) => theme.palette.primary.main
-                              : row.status === 'Pasif'
-                                ? (theme) => theme.palette.error.main
-                                : (theme) => theme.palette.success.main,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                        <IconButton
-                          id={`basic-button-${row.id}`}
-                          aria-controls={openMenu ? 'basic-menu' : undefined}
-                          aria-haspopup="true"
-                          aria-expanded={openMenu ? 'true' : undefined}
-                          onClick={(event) => handleClickMenu(event, row)}
-                        >
-                          <IconDots width={18} />
-                        </IconButton>
-                      </CustomTooltip>
-                      <Menu
-                        id="basic-menu"
-                        anchorEl={anchorEl}
-                        open={openMenu}
-                        onClose={handleCloseMenu}
-                        MenuListProps={{
-                          'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
-                        }}
-                      >
-
-                        {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
-                            <MenuItem onClick={handleSetInactive}>
-                              <ListItemIcon>
-                                <DoNotDisturbOnRoundedIcon width={18} />
-                              </ListItemIcon>
-                              Pasif Yap
-                            </MenuItem>
-                          </CustomTooltip>
-
-                        )}
-                        {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
-                            <MenuItem onClick={handleSetActive}>
-                              <ListItemIcon>
-                                <DoneRoundedIcon width={18} />
-                              </ListItemIcon>
-                              Aktif Yap
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-
-                        {hasChangeOpPermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
-                            <MenuItem onClick={handleClickOpenOperationModal}>
-                              <ListItemIcon>
-                                <IconPlus width={18} />
-                              </ListItemIcon>
-                              Operasyon Seçin
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-
-                        {hasEditPermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
-                            <MenuItem onClick={handleEditClick}>
-                              <ListItemIcon>
-                                <IconEdit width={18} />
-                              </ListItemIcon>
-                              Düzenlemek
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-                        {hasDeletePermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
-                            <MenuItem onClick={handleClickOpenDeleteModal}>
-                              <ListItemIcon>
-                                <IconTrash width={18} />
-                              </ListItemIcon>
-                              Silmek
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-                      </Menu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          {loadingData ? (
+            <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+              <CircularProgress />
+              <Typography variant="h6" sx={{ ml: 2 }}>Roller yükleniyor...</Typography>
+            </Box>
+          ) : (
+            <Table aria-label="simple table">
+              <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
-                  <TableCell colSpan={4} align="center">
-                    <Typography variant="subtitle1" color="textSecondary">
-                      Hiç rol bulunamadı.
-                    </Typography>
-                  </TableCell>
+                  <StyledTableCell>
+                    <TableSortLabel
+                      active={orderBy === 'name'}
+                      direction={orderBy === 'name' ? order : 'asc'}
+                      onClick={() => handleRequestSort('name')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">İsim</Typography>
+                    </TableSortLabel>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <TableSortLabel
+                      active={orderBy === 'createAt'}
+                      direction={orderBy === 'createAt' ? order : 'asc'}
+                      onClick={() => handleRequestSort('createAt')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                    </TableSortLabel>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <TableSortLabel
+                      active={orderBy === 'status'}
+                      direction={orderBy === 'status' ? order : 'asc'}
+                      onClick={() => handleRequestSort('status')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Durum</Typography>
+                    </TableSortLabel>
+                  </StyledTableCell>
+                  <StyledTableCell></StyledTableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {paginatedRoles.length > 0 ? (
+                  paginatedRoles.map((row) => (
+                    <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <StyledTableCell>
+                        <Typography variant="body1">{row.name}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Chip
+                          label={row.status}
+                          sx={{
+                            backgroundColor:
+                              row.status === 'Silindi'
+                                ? (theme) => theme.palette.primary.light
+                                : row.status === 'Pasif'
+                                  ? (theme) => theme.palette.error.light
+                                  : (theme) => theme.palette.success.light,
+                            color:
+                              row.status === 'Silindi'
+                                ? (theme) => theme.palette.primary.main
+                                : row.status === 'Pasif'
+                                  ? (theme) => theme.palette.error.main
+                                  : (theme) => theme.palette.success.main,
+                          }}
+                        />
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                          <IconButton
+                            id={`basic-button-${row.id}`}
+                            aria-controls={openMenu ? 'basic-menu' : undefined}
+                            aria-haspopup="true"
+                            aria-expanded={openMenu ? 'true' : undefined}
+                            onClick={(event) => handleClickMenu(event, row)}
+                          >
+                            <IconDots width={18} />
+                          </IconButton>
+                        </CustomTooltip>
+                        <Menu
+                          id="basic-menu"
+                          anchorEl={anchorEl}
+                          open={openMenu}
+                          onClose={handleCloseMenu}
+                          MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
+                        >
+                          {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü pasif yap" : ""}>
+                              <MuiMenuItem onClick={handleSetInactive}>
+                                <ListItemIcon>
+                                  <DoNotDisturbOnRoundedIcon width={18} />
+                                </ListItemIcon>
+                                Pasif Yap
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü aktif yap" : ""}>
+                              <MuiMenuItem onClick={handleSetActive}>
+                                <ListItemIcon>
+                                  <DoneRoundedIcon width={18} />
+                                </ListItemIcon>
+                                Aktif Yap
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasChangeOpPermission && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolün operasyonlarını seçin" : ""}>
+                              <MuiMenuItem onClick={handleClickOpenOperationModal}>
+                                <ListItemIcon>
+                                  <IconPlus width={18} />
+                                </ListItemIcon>
+                                Operasyon Seçin
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasEditPermission && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü düzenle" : ""}>
+                              <MuiMenuItem onClick={handleEditClick}>
+                                <ListItemIcon>
+                                  <IconEdit width={18} />
+                                </ListItemIcon>
+                                Düzenlemek
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasDeletePermission && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu rolü sil" : ""}>
+                              <MuiMenuItem onClick={handleClickOpenDeleteModal}>
+                                <ListItemIcon>
+                                  <IconTrash width={18} />
+                                </ListItemIcon>
+                                Silmek
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                        </Menu>
+                      </StyledTableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <StyledTableCell colSpan={4} align="center">
+                      <Typography variant="subtitle1" color="textSecondary">
+                        Hiç rol bulunamadı.
+                      </Typography>
+                    </StyledTableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </TableContainer>
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}

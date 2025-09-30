@@ -4,8 +4,10 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  TableContainer, Table, TableHead, TableRow, TableBody,
+  TableCell as MuiTableCell,
+  MenuItem as MuiMenuItem,
+  Typography, Chip, Menu, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup, ToggleButton as MuiToggleButton, CircularProgress,
   TableSortLabel
@@ -29,7 +31,9 @@ import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import * as XLSX from 'xlsx';
+// import * as XLSX from 'xlsx';
+
+import Excel from 'exceljs';
 import AttachFileModal from './AttachFileModal';
 import DownloadAttachmentsModal from './DownloadAttachmentsModal';
 
@@ -59,6 +63,15 @@ const formatDateDisplay = (dateString: string | null): string => {
   }
 };
 
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1rem', // Masaüstünde daha büyük
+  },
+}));
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
@@ -277,12 +290,194 @@ const ListTender = () => {
     };
   }, [alertMessage]);
 
-  // ... داخل کامپوننت ListTender
+  const addPdfHeader = (doc: jsPDF, title: string) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const docAny = doc as any;
+
+    // تنظیمات فونت (فرض بر تعریف قبلی)
+    doc.setFont('NotoSans', 'normal');
+
+    const logoWidth = 40;
+    const logoHeight = 25;
+    const margin = 10;
+
+    // 👇🏻 [تغییر اصلی] لوگو در سمت راست قرار می‌گیرد
+    const logoX = pageWidth - logoWidth - margin;
+    const logoY = 10;
+
+    // اضافه کردن لوگو در بالا راست
+    docAny.addImage(Logo, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+    // اضافه کردن عنوان اصلی گزارش در وسط
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 20, { align: 'center' });
+
+    // 👇🏻 [تغییر اصلی] تاریخ گزارش در سمت چپ قرار می‌گیرد
+    doc.setFontSize(10);
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 35);
+
+    // خط جداکننده زیر هدر
+    doc.setDrawColor(150); // رنگ خاکستری
+    doc.line(10, 40, pageWidth - 10, 40);
+  };
+
+  const addPdfFooter = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const docAny = doc as any;
+
+    doc.setFontSize(8);
+    doc.setFont('NotoSans', 'normal');
+
+    const companyInfo = [
+      'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+      'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+      'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
+
+    doc.setDrawColor(150);
+    doc.line(10, pageHeight - 45, pageWidth - 10, pageHeight - 45);
+
+    let footerY = pageHeight - 40;
+    companyInfo.forEach(line => {
+      doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+      footerY += 4;
+    });
+
+    doc.setFontSize(10);
+    doc.setFont('NotoSans', 'normal');
+    const signatureY = pageHeight - 10;
+    doc.text('İmza', pageWidth - 15, signatureY, { align: 'right' });
+    doc.line(pageWidth - 65, signatureY - 5, pageWidth - 15, signatureY - 5);
+
+    // اضافه کردن شماره صفحه
+    const pageCount = docAny.internal.getNumberOfPages();
+    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, signatureY);
+  };
+
+  const addExcelHeader = (worksheet: any, title: string, columnsLength: number) => {
+    worksheet.views = [{ rightToLeft: false }];
+
+    const titleRow = worksheet.addRow([title]);
+    titleRow.font = { name: 'NotoSans', size: 14, bold: false };
+    worksheet.mergeCells(titleRow.number, 1, titleRow.number, columnsLength);
+    titleRow.getCell(1).alignment = { horizontal: 'center' };
+
+    const dateRow = worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+    dateRow.font = { name: 'NotoSans', size: 10, bold: false };
+    dateRow.getCell(1).alignment = { horizontal: 'left' };
+    worksheet.mergeCells(dateRow.number, 1, dateRow.number, columnsLength);
+    worksheet.addRow([]);
+  };
+
+  const addExcelCompanyInfo = (worksheet: any, startRow: number, columnsLength: number) => {
+    const companyInfo = [
+      'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+      'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+      'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+    ];
+    let rowNum = startRow;
+
+    companyInfo.forEach(line => {
+      const row = worksheet.getRow(rowNum);
+      row.getCell(1).value = line;
+      row.getCell(1).alignment = { horizontal: 'center', readingOrder: 'ltr' };
+      row.getCell(1).font = { name: 'NotoSans', size: 8, bold: false };
+      worksheet.mergeCells(`A${rowNum}:${String.fromCharCode(65 + columnsLength - 1)}${rowNum}`);
+      rowNum++;
+    });
+  };
+
+  // const downloadExcelForPurchase = async (tender: TenderType) => {
+  //   debugger
+  //   // if (!selectedRowForMenu) return;
+
+  //   const tenderId = tender.id;
+  //   const tenderTitle = tender.title;
+  //   const authToken = localStorage.getItem('authToken');
+  //   if (!authToken) {
+  //     showAlert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.', 'warning');
+  //     navigate("/");
+  //     handleCloseMenu();
+  //     return;
+  //   }
+
+  //   showAlert('İhale verileri indiriliyor...', 'info');
+  //   handleCloseMenu();
+
+  //   try {
+  //     const response = await axios.get(
+  //       `${server.baseurl + server.initialoperations}get-tender-by-id/${tenderId}`,
+  //       {
+  //         headers: {
+  //           "Accept": "application/json",
+  //           "Authorization": `Bearer ${authToken}`
+  //         }
+  //       }
+  //     );
+  //     debugger
+  //     if (response.data.httpStatusCode === 200 && response.data.data) {
+  //       const tenderData = response.data.data;
+  //       const tenderCategories = tenderData.tenderCategories || [];
+
+  //       // ایجاد یک آرایه برای نگهداری داده‌های اکسل
+  //       const excelData: any[] = [];
+  //       debugger
+  //       // پردازش و فیلتر کردن داده‌ها
+  //       tenderCategories.forEach((category: any) => {
+  //         const tenderDetails = category.tenderDetails || [];
+  //         tenderDetails.forEach((detail: any) => {
+  //           // فیلتر بر اساس ourProcuredItemQuantities
+  //           const quantity = parseFloat(detail.ourProcuredItemQuantities);
+  //           if (!isNaN(quantity) && quantity > 0) {
+  //             excelData.push({
+  //               'Ürün': detail.item?.name || '-',
+  //               'Ölçü': detail.item?.unit?.title || '-',
+  //               'Miktar': quantity,
+  //               'Açıklama': '', // توضیحات خالی
+  //               'Fiyat': ''    // قیمت خالی
+  //             });
+  //           }
+  //         });
+  //       });
+
+  //       // بررسی اینکه آیا داده‌ای برای اکسل وجود دارد یا خیر
+  //       if (excelData.length === 0) {
+  //         showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
+  //         return;
+  //       }
+
+  //       // ساخت و دانلود فایل اکسل
+  //       const worksheet = XLSX.utils.json_to_sheet(excelData);
+  //       const workbook = XLSX.utils.book_new();
+  //       XLSX.utils.book_append_sheet(workbook, worksheet, 'Satın Alma Listesi');
+
+  //       const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  //       const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+  //       saveAs(data, `${tenderTitle}-SatınAlma.xlsx`);
+
+  //       showAlert('İhale verileri başarıyla indirildi!', 'success');
+
+  //     } else {
+  //       showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
+  //     }
+  //   } catch (e: any) {
+  //     console.error("Download failed:", e);
+  //     if (e.response && e.response.status === 401) {
+  //       localStorage.removeItem('authToken');
+  //       navigate("/");
+  //       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+  //     } else {
+  //       showAlert('İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+  //     }
+  //   }
+
+  //   setOpenDownloadOptionsModal(false);
+  // };
 
   const downloadExcelForPurchase = async (tender: TenderType) => {
-    debugger
-    // if (!selectedRowForMenu) return;
-
+    // حذف debugger
     const tenderId = tender.id;
     const tenderTitle = tender.title;
     const authToken = localStorage.getItem('authToken');
@@ -306,19 +501,16 @@ const ListTender = () => {
           }
         }
       );
-      debugger
+      // حذف debugger
       if (response.data.httpStatusCode === 200 && response.data.data) {
         const tenderData = response.data.data;
         const tenderCategories = tenderData.tenderCategories || [];
 
-        // ایجاد یک آرایه برای نگهداری داده‌های اکسل
         const excelData: any[] = [];
-        debugger
-        // پردازش و فیلتر کردن داده‌ها
+        let totalQuantity = 0;
         tenderCategories.forEach((category: any) => {
           const tenderDetails = category.tenderDetails || [];
           tenderDetails.forEach((detail: any) => {
-            // فیلتر بر اساس ourProcuredItemQuantities
             const quantity = parseFloat(detail.ourProcuredItemQuantities);
             if (!isNaN(quantity) && quantity > 0) {
               excelData.push({
@@ -326,28 +518,79 @@ const ListTender = () => {
                 'Ölçü': detail.item?.unit?.title || '-',
                 'Miktar': quantity,
                 'Açıklama': '', // توضیحات خالی
-                'Fiyat': ''    // قیمت خالی
+                'Fiyat': ''    // قیمت خالی
               });
+              totalQuantity += quantity; // جمع کردن مقادیر
             }
           });
         });
 
-        // بررسی اینکه آیا داده‌ای برای اکسل وجود دارد یا خیر
         if (excelData.length === 0) {
           showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
           return;
         }
 
-        // ساخت و دانلود فایل اکسل
-        const worksheet = XLSX.utils.json_to_sheet(excelData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Satın Alma Listesi');
+        const workbook = new Excel.Workbook(); // استفاده از exceljs برای ساختاردهی بهتر
+        const worksheet = workbook.addWorksheet('Satın Alma Listesi');
+        const tableColumns = ['Ürün', 'Ölçü', 'Miktar', 'Açıklama', 'Fiyat'];
+        const totalColumns = tableColumns.length;
+        // let currentRow = 1;
 
-        const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-        saveAs(data, `${tenderTitle}-SatınAlma.xlsx`);
+        addExcelHeader(worksheet, `Satın Alma İhtiyaç Raporu - ${tenderData.title}`, totalColumns);
 
-        showAlert('İhale verileri başarıyla indirildi!', 'success');
+        // currentRow = worksheet.lastRow!.number + 1;
+
+        worksheet.addRow([`İhale ID:`, tender.id]).font = { bold: true, name: 'NotoSans' };
+        worksheet.addRow([`Tarih:`, formatDateDisplay(tenderData.createAt)]).font = { bold: true, name: 'NotoSans' };
+        worksheet.addRow([`Onay Durumu:`, tender.approvedTenderText]).font = { bold: true, name: 'NotoSans' };
+        worksheet.addRow([]);
+        // currentRow = worksheet.lastRow!.number + 1;
+
+
+        // 2. اضافه کردن هدر جدول
+        const headerRow = worksheet.addRow(tableColumns);
+        headerRow.font = { name: 'NotoSans', bold: true };
+        headerRow.eachCell(cell => {
+          // فرض بر وجود پالت رنگی
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
+
+        // 3. اضافه کردن ردیف‌های داده
+        excelData.forEach(row => {
+          const dataRow = worksheet.addRow([
+            row['Ürün'],
+            row['Ölçü'],
+            row['Miktar'], // این فیلد باید عدد باشد
+            row['Açıklama'],
+            row['Fiyat']
+          ]);
+          dataRow.eachCell(cell => {
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+          });
+        });
+
+        // 4. اضافه کردن ردیف جمع کل به فوتر جدول
+        worksheet.addRow([]);
+        const totalRow = worksheet.addRow(['', 'Toplam Miktar:', totalQuantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }), '', '']);
+        totalRow.font = { name: 'NotoSans', bold: true };
+        totalRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }; });
+
+        // 5. تنظیم عرض ستون‌ها
+        worksheet.columns.forEach(column => { column.width = 20; });
+        worksheet.getColumn(1).width = 30; // Ürün Adı
+        worksheet.getColumn(4).width = 40; // Açıklama
+
+        // 6. اضافه کردن اطلاعات شرکت
+        worksheet.addRow([]);
+        addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 1, totalColumns);
+
+
+        // دانلود فایل
+        workbook.xlsx.writeBuffer().then(buffer => {
+          saveAs(new Blob([buffer]), `${tenderTitle}-SatınAlma.xlsx`);
+          showAlert('İhale verileri başarıyla indirildi!', 'success');
+        });
 
       } else {
         showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
@@ -365,136 +608,6 @@ const ListTender = () => {
 
     setOpenDownloadOptionsModal(false);
   };
-
-  // const downloadPdfForPurchase = async (tender: TenderType) => {
-  //   showAlert('PDF dosyası hazırlanıyor...', 'info');
-  //   try {
-  //     const authToken = localStorage.getItem('authToken');
-  //     if (!authToken) {
-  //       showAlert('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'warning');
-  //       navigate("/");
-  //       return;
-  //     }
-
-  //     // API'den ihale detaylarını alın
-  //     const response = await axios.get(
-  //       `${server.baseurl + server.initialoperations}get-tender-by-id/${tender.id}`,
-  //       {
-  //         headers: {
-  //           "Accept": "application/json",
-  //           "Authorization": `Bearer ${authToken}`
-  //         }
-  //       }
-  //     );
-
-  //     if (response.data.httpStatusCode === 200 && response.data.data) {
-  //       const tenderData = response.data.data;
-  //       const tenderCategories = tenderData.tenderCategories || [];
-
-  //       // Geçici bir HTML konteyneri oluşturun
-  //       const pdfContainer = document.createElement('div');
-  //       pdfContainer.style.width = '100%';
-  //       pdfContainer.style.padding = '20px';
-  //       pdfContainer.style.backgroundColor = 'white';
-
-  //       // Başlık ve genel bilgileri ekleyin
-  //       const title = document.createElement('h3');
-  //       title.innerText = `İhale Detayları - ${tenderData.title}`;
-  //       pdfContainer.appendChild(title);
-
-  //       const info = document.createElement('p');
-  //       info.innerHTML = `<strong>Tarih:</strong> ${formatDateDisplay(tenderData.createAt)}`;
-  //       pdfContainer.appendChild(info);
-
-  //       // Tüm kategoriler için verileri toplayın
-  //       const tableData: TableRowData[] = [];
-  //       tenderCategories.forEach((category: any) => {
-  //         const tenderDetails = category.tenderDetails || [];
-  //         tenderDetails.forEach((detail: any) => {
-  //           const quantity = parseFloat(detail.ourProcuredItemQuantities);
-  //           if (!isNaN(quantity) && quantity > 0) {
-  //             tableData.push({
-  //               itemName: detail.item?.name || '-',
-  //               quantity: quantity,
-  //               unit: detail.item?.unit?.title || '-',
-  //               description: stripHtml(detail.description),
-  //               price: '',
-  //             });
-  //           }
-  //         });
-  //       });
-
-  //       if (tableData.length === 0) {
-  //         showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
-  //         setOpenDownloadOptionsModal(false);
-  //         return;
-  //       }
-
-  //       // HTML tablosunu oluşturun
-  //       const table = document.createElement('table');
-  //       table.style.width = '100%';
-  //       table.style.borderCollapse = 'collapse';
-
-  //       // Tablo başlıklarını ekleyin
-  //       table.innerHTML = `
-  //               <thead>
-  //                   <tr>
-  //                       <th style="border: 1px solid black; padding: 8px;">Ürün Adı</th>
-  //                       <th style="border: 1px solid black; padding: 8px;">Miktar</th>
-  //                       <th style="border: 1px solid black; padding: 8px;">Birim</th>
-  //                       <th style="border: 1px solid black; padding: 8px;">Açıklama</th>
-  //                       <th style="border: 1px solid black; padding: 8px;">Fiyat</th>
-  //                   </tr>
-  //               </thead>
-  //               <tbody>
-  //                   ${tableData.map(row => `
-  //                       <tr>
-  //                           <td style="border: 1px solid black; padding: 8px;">${row.itemName}</td>
-  //                           <td style="border: 1px solid black; padding: 8px;">${row.quantity}</td>
-  //                           <td style="border: 1px solid black; padding: 8px;">${row.unit}</td>
-  //                           <td style="border: 1px solid black; padding: 8px;">${row.description}</td>
-  //                           <td style="border: 1px solid black; padding: 8px;">${row.price}</td>
-  //                       </tr>
-  //                   `).join('')}
-  //               </tbody>
-  //           `;
-
-  //       pdfContainer.appendChild(table);
-
-  //       // Geçici konteyneri DOM'a ekleyin
-  //       document.body.appendChild(pdfContainer);
-
-  //       // Konteyneri PDF'e dönüştürün
-  //       html2canvas(pdfContainer, { scale: 2 }).then(canvas => {
-  //         const imgData = canvas.toDataURL('image/png');
-  //         const pdf = new jsPDF('p', 'mm', 'a4');
-  //         const imgProps = pdf.getImageProperties(imgData);
-  //         const pdfWidth = pdf.internal.pageSize.getWidth();
-  //         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-
-  //         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-  //         pdf.save(`${tender.title}-SatınAlma.pdf`);
-
-  //         // Geçici konteyneri DOM'dan kaldırın
-  //         document.body.removeChild(pdfContainer);
-  //         showAlert('PDF dosyası başarıyla indirildi!', 'success');
-  //       });
-  //     } else {
-  //       showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
-  //     }
-  //   } catch (e: any) {
-  //     console.error("PDF oluşturma başarısız oldu:", e);
-  //     if (e.response && e.response.status === 401) {
-  //       localStorage.removeItem('authToken');
-  //       navigate("/");
-  //       showAlert('Oturum süreniz doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     } else {
-  //       showAlert(e.response?.data?.message || 'İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-  //     }
-  //   } finally {
-  //     setOpenDownloadOptionsModal(false);
-  //   }
-  // };;
 
   const downloadPdfForPurchase = async (tender: TenderType) => {
     showAlert('PDF dosyası hazırlanıyor...', 'info');
@@ -522,33 +635,28 @@ const ListTender = () => {
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
+        // const pageHeight = doc.internal.pageSize.getHeight(); // Not strictly needed here
 
-        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        // Add fonts (assuming necessary utility function is available)
+        const docAny = doc as any;
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.setFont('NotoSans');
 
-        const header = () => {
-
-          doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-          doc.setFontSize(18);
-          doc.text(`İhale Detayları`, pageWidth - 15, 30, { align: 'right' });
+        // --- اطلاعات اصلی مناقصه (درست زیر هدر) ---
+        const printTenderInfo = () => {
+          doc.setFontSize(14);
+          // لوگو و عنوان اصلی توسط addPdfHeader هندل می‌شود
           doc.setFontSize(12);
-          doc.text(`İhale Adı: ${tenderData.title || '-'}`, pageWidth - 15, 40, { align: 'right' });
-          doc.text(`Tarih: ${formatDateDisplay(tenderData.createAt)}`, pageWidth - 15, 47, { align: 'right' });
-        };
-
-        const footer = () => {
-          doc.setFontSize(10);
-          doc.setTextColor(0);
-          doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-          const docAny = doc as any;
-          const pageCount = docAny.internal.getNumberOfPages();
-          doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+          doc.text(`İhale Adı: ${tenderData.title || '-'}`, 15, 60);
+          doc.text(`İhale ID: ${tender.id}`, pageWidth - 15, 60, { align: 'right' });
+          doc.text(`Tarih: ${formatDateDisplay(tenderData.createAt)}`, 15, 67);
+          doc.text(`Rapor Oluşturma Tarihi: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 67, { align: 'right' });
         };
 
         const tableData: TableRowData[] = [];
+        let totalQuantity = 0; // محاسبه جمع کل مقدار
+
         tenderCategories.forEach((category: any) => {
           const tenderDetails = category.tenderDetails || [];
           tenderDetails.forEach((detail: any) => {
@@ -561,6 +669,7 @@ const ListTender = () => {
                 description: stripHtml(detail.description),
                 price: '',
               });
+              totalQuantity += quantity; // جمع کردن مقادیر
             }
           });
         });
@@ -573,14 +682,14 @@ const ListTender = () => {
 
         const rows = tableData.map(row => [
           row.itemName,
-          row.quantity,
+          row.quantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }), // Format quantity
           row.unit,
           row.description,
           row.price
         ]);
 
         autoTable(doc, {
-          startY: 60,
+          startY: 75, // شروع جدول بعد از اطلاعات مناقصه
           head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
           body: rows,
           theme: 'grid',
@@ -594,26 +703,46 @@ const ListTender = () => {
           headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
           columnStyles: {
             0: { cellWidth: 50 },
-            1: { cellWidth: 20 },
-            2: { cellWidth: 20 },
+            1: { cellWidth: 20, halign: 'center' }, // Miktar ortada
+            2: { cellWidth: 20, halign: 'center' },
             3: { cellWidth: 50 },
-            4: { cellWidth: 'auto' },
+            4: { cellWidth: 'auto', halign: 'right' },
           },
-          didDrawPage: () => {
-            header();
-            footer();
+          // 🎉 اضافه کردن ردیف جمع کل به فوتر جدول
+          foot: [
+            ['', 'Toplam Miktar:', totalQuantity.toLocaleString('tr-TR', { minimumFractionDigits: 2 }), '', '']
+          ],
+          footStyles: {
+            font: 'NotoSans',
+            fillColor: [230, 230, 230],
+            textColor: [0, 0, 0],
+            halign: 'right',
+            fontStyle: 'bold'
+          },
+          didDrawPage: (dataHook) => {
+            // فراخوانی هدر و فوتر استاندارد در هر صفحه
+            addPdfHeader(doc, 'Satın Alma İhtiyaç Raporu'); // عنوان گزارش
+            addPdfFooter(doc); // شامل شماره صفحه، امضا و اطلاعات شرکت
+
+            // چاپ اطلاعات مناقصه در شروع هر صفحه (Start Y باید درست تنظیم شود)
+            if (dataHook.pageNumber === 1) {
+              // اطلاعات اصلی فقط در صفحه اول چاپ شود
+              printTenderInfo();
+            }
           },
           showHead: 'everyPage',
-          margin: { top: 50, bottom: 20 }
+          margin: { top: 55, bottom: 45 } // مارجین بالا برای هدر
         });
 
         doc.save(`${tenderData.title}-SatınAlma.pdf`);
         showAlert('PDF dosyası başarıyla indirildi!', 'success');
+
       } else {
         showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
       console.error("PDF oluşturma başarısız oldu:", e);
+      // ... (Error handling remains the same)
       if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
@@ -625,6 +754,138 @@ const ListTender = () => {
       setOpenDownloadOptionsModal(false);
     }
   };
+
+  // const downloadPdfForPurchase = async (tender: TenderType) => {
+  //   showAlert('PDF dosyası hazırlanıyor...', 'info');
+  //   try {
+  //     const authToken = localStorage.getItem('authToken');
+  //     if (!authToken) {
+  //       showAlert('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'warning');
+  //       navigate("/");
+  //       return;
+  //     }
+
+  //     const response = await axios.get(
+  //       `${server.baseurl + server.initialoperations}get-tender-by-id/${tender.id}`,
+  //       {
+  //         headers: {
+  //           "Accept": "application/json",
+  //           "Authorization": `Bearer ${authToken}`
+  //         }
+  //       }
+  //     );
+
+  //     if (response.data.httpStatusCode === 200 && response.data.data) {
+  //       const tenderData = response.data.data;
+  //       const tenderCategories = tenderData.tenderCategories || [];
+
+  //       const doc = new jsPDF();
+  //       const pageWidth = doc.internal.pageSize.getWidth();
+  //       const pageHeight = doc.internal.pageSize.getHeight();
+
+  //       doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+  //       doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+  //       doc.setFont('NotoSans');
+
+  //       const header = () => {
+
+  //         doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
+  //         doc.setFontSize(18);
+  //         doc.text(`İhale Detayları`, pageWidth - 15, 30, { align: 'right' });
+  //         doc.setFontSize(12);
+  //         doc.text(`İhale Adı: ${tenderData.title || '-'}`, pageWidth - 15, 40, { align: 'right' });
+  //         doc.text(`Tarih: ${formatDateDisplay(tenderData.createAt)}`, pageWidth - 15, 47, { align: 'right' });
+  //       };
+
+  //       const footer = () => {
+  //         doc.setFontSize(10);
+  //         doc.setTextColor(0);
+  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+  //         const docAny = doc as any;
+  //         const pageCount = docAny.internal.getNumberOfPages();
+  //         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+  //       };
+
+  //       const tableData: TableRowData[] = [];
+  //       tenderCategories.forEach((category: any) => {
+  //         const tenderDetails = category.tenderDetails || [];
+  //         tenderDetails.forEach((detail: any) => {
+  //           const quantity = parseFloat(detail.ourProcuredItemQuantities);
+  //           if (!isNaN(quantity) && quantity > 0) {
+  //             tableData.push({
+  //               itemName: detail.item?.name || '-',
+  //               quantity: quantity,
+  //               unit: detail.item?.unit?.title || '-',
+  //               description: stripHtml(detail.description),
+  //               price: '',
+  //             });
+  //           }
+  //         });
+  //       });
+
+  //       if (tableData.length === 0) {
+  //         showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
+  //         setOpenDownloadOptionsModal(false);
+  //         return;
+  //       }
+
+  //       const rows = tableData.map(row => [
+  //         row.itemName,
+  //         row.quantity,
+  //         row.unit,
+  //         row.description,
+  //         row.price
+  //       ]);
+
+  //       autoTable(doc, {
+  //         startY: 60,
+  //         head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
+  //         body: rows,
+  //         theme: 'grid',
+  //         styles: {
+  //           font: 'NotoSans',
+  //           fontStyle: 'normal',
+  //           fontSize: 10,
+  //           cellPadding: 2,
+  //           overflow: 'linebreak'
+  //         },
+  //         headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+  //         columnStyles: {
+  //           0: { cellWidth: 50 },
+  //           1: { cellWidth: 20 },
+  //           2: { cellWidth: 20 },
+  //           3: { cellWidth: 50 },
+  //           4: { cellWidth: 'auto' },
+  //         },
+  //         didDrawPage: () => {
+  //           header();
+  //           footer();
+  //         },
+  //         showHead: 'everyPage',
+  //         margin: { top: 50, bottom: 20 }
+  //       });
+
+  //       doc.save(`${tenderData.title}-SatınAlma.pdf`);
+  //       showAlert('PDF dosyası başarıyla indirildi!', 'success');
+  //     } else {
+  //       showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
+  //     }
+  //   } catch (e: any) {
+  //     console.error("PDF oluşturma başarısız oldu:", e);
+  //     if (e.response && e.response.status === 401) {
+  //       localStorage.removeItem('authToken');
+  //       navigate("/");
+  //       showAlert('Oturum süreniz doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+  //     } else {
+  //       showAlert(e.response?.data?.message || 'İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+  //     }
+  //   } finally {
+  //     setOpenDownloadOptionsModal(false);
+  //   }
+  // };
+
+
   const handleDownloadTenderForPurchase = () => {
     if (!selectedRowForMenu) return;
     setSelectedTenderForDownload(selectedRowForMenu);
@@ -745,12 +1006,17 @@ const ListTender = () => {
         showAlert(response.data.message || 'İhale güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        showAlert(e.response?.data?.message || 'İhale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
       }
-      showAlert(e.response?.data?.message || 'İhale güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -780,12 +1046,17 @@ const ListTender = () => {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
       }
-      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
     }
@@ -837,12 +1108,18 @@ const ListTender = () => {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       }
-      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      else {
+        showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
+      }
     } finally {
       handleCloseMenu();
     }
@@ -873,12 +1150,17 @@ const ListTender = () => {
         showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
       }
-      showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       handleCloseMenu();
     }
@@ -1250,111 +1532,103 @@ const ListTender = () => {
             </Grid>
           </Grid>
         </Box>
-        {loadingData ? (
-          <Stack sx={{ width: '100%', height: '300px', justifyContent: 'center', alignItems: 'center' }}>
-            <CircularProgress />
-            <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>Yükleniyor...</Typography>
-          </Stack>
-        ) : (
-          <TableContainer>
+        <TableContainer>
+          {loadingData ? (
+            <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+              <CircularProgress />
+              <Typography variant="h6" sx={{ ml: 2 }}>İhaleler yükleniyor...</Typography>
+            </Box>
+          ) : (
             <Table aria-label="ihale tablosu">
-              <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+              <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
-                  <TableCell>
+                  {/* Sütun Başlıkları */}
+                  <StyledTableCell sx={{ color: "#171c23" }}>
                     <TableSortLabel
                       active={orderBy === 'title'}
                       direction={orderBy === 'title' ? order : 'asc'}
                       onClick={() => handleRequestSort('title')}
-                      style={{ color: "#171c23" }}
+                      sx={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Başlık</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
+                  </StyledTableCell>
+                  <StyledTableCell sx={{ color: "#171c23" }}>
                     <TableSortLabel
                       active={orderBy === 'createAt'}
                       direction={orderBy === 'createAt' ? order : 'asc'}
                       onClick={() => handleRequestSort('createAt')}
-                      style={{ color: "#171c23" }}
+                      sx={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Oluşturulma Tarihi</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
+                  </StyledTableCell>
+                  <StyledTableCell sx={{ color: "#171c23" }}>
                     <TableSortLabel
                       active={orderBy === 'approvedTenderText'}
                       direction={orderBy === 'approvedTenderText' ? order : 'asc'}
                       onClick={() => handleRequestSort('approvedTenderText')}
-                      style={{ color: "#171c23" }}
+                      sx={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Onaylanan İhale</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
+                  </StyledTableCell>
+                  <StyledTableCell sx={{ color: "#171c23" }}>
                     <TableSortLabel
                       active={orderBy === 'approvedTenderDate'}
                       direction={orderBy === 'approvedTenderDate' ? order : 'asc'}
                       onClick={() => handleRequestSort('approvedTenderDate')}
-                      style={{ color: "#171c23" }}
+                      sx={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Onay/Red Tarihi</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
+                  </StyledTableCell>
+                  <StyledTableCell sx={{ color: "#171c23" }}>
                     <TableSortLabel
                       active={orderBy === 'status'}
                       direction={orderBy === 'status' ? order : 'asc'}
                       onClick={() => handleRequestSort('status')}
-                      style={{ color: "#171c23" }}
+                      sx={{ color: "#171c23" }}
                     >
                       <Typography variant="h6">Durum (Kayıt)</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell
-                    style={{ color: "#171c23" }}>
+                  </StyledTableCell>
+                  <StyledTableCell sx={{ color: "#171c23" }}>
                     <Typography variant="h6">Detaylar</Typography>
-                  </TableCell>
-                  <TableCell></TableCell>
+                  </StyledTableCell>
+                  <StyledTableCell></StyledTableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paginatedTenders.length > 0 ? (
                   paginatedTenders.map((row) => (
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                            {row.attachments && row.attachments.length > 0 && (
-                              <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale ek dosya içeriyor." : ""}>
-                                <IconPaperclip size={20} color="#01c4ffff" />
-                              </CustomTooltip>
-                            )}
-                            <Typography variant="h6" sx={{ paddingLeft: "5px" }}>
-                              {row.title}
-                            </Typography>
-                          </Box>
-
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                          <Box>
-                            <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                          </Box>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={1}>
+                      {/* سلول‌های اطلاعاتی */}
+                      <StyledTableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {row.attachments && row.attachments.length > 0 && (
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale ek dosya içeriyor." : ""}>
+                              <IconPaperclip size={20} color="#01c4ffff" />
+                            </CustomTooltip>
+                          )}
+                          <Typography variant="body1">{row.title}</Typography>
+                        </Box>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           {row.showApprovedIcon && <CheckCircleOutlineIcon color="success" fontSize="small" />}
                           {row.showRejectedIcon && <HighlightOffIcon color="error" fontSize="small" />}
                           {row.showPendingIcon && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
-                          <Typography variant="h6">{row.approvedTenderText}</Typography>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="h6">{formatDateDisplay(row.approvedTenderDate || null)}</Typography>
-                      </TableCell>
-                      <TableCell>
+                          <Typography variant="body1">{row.approvedTenderText}</Typography>
+                        </Box>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body1">{formatDateDisplay(row.approvedTenderDate || null)}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
                         <Chip
                           label={row.status}
                           sx={{
@@ -1372,8 +1646,8 @@ const ListTender = () => {
                                   : (theme) => theme.palette.success.main,
                           }}
                         />
-                      </TableCell>
-                      <TableCell>
+                      </StyledTableCell>
+                      <StyledTableCell>
                         <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.title}" detaylarını kaydet/gör` : ""}>
                           <Button
                             variant="outlined"
@@ -1384,8 +1658,8 @@ const ListTender = () => {
                             Detaylar
                           </Button>
                         </CustomTooltip>
-                      </TableCell>
-                      <TableCell>
+                      </StyledTableCell>
+                      <StyledTableCell>
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                           <IconButton
                             id={`basic-button-${row.id}`}
@@ -1402,156 +1676,142 @@ const ListTender = () => {
                           anchorEl={anchorEl}
                           open={openMenu}
                           onClose={handleCloseMenu}
-                          MenuListProps={{
-                            'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
-                          }}
+                          MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                         >
                           {hasDownloadPermission && selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Ek dosyaları indir" : ""}>
-                              <MenuItem onClick={handleDownloadAttachments}>
+                              <MuiMenuItem onClick={handleDownloadAttachments}>
                                 <ListItemIcon>
                                   <IconDownload size={18} />
                                 </ListItemIcon>
                                 Ek Dosyaları İndir ({selectedRowForMenu.attachments.length})
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                           {hasDownloadPermission && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Satın alma için ihale verilerini indir" : ""}>
-                              <MenuItem onClick={handleDownloadTenderForPurchase}>
+                              <MuiMenuItem onClick={handleDownloadTenderForPurchase}>
                                 <ListItemIcon>
-                                  <IconDownload size={18} /> {/* از آیکون مناسب استفاده کن */}
+                                  <IconDownload size={18} />
                                 </ListItemIcon>
                                 Satın Alma İçin İndir
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                           {hasStatusPermission && selectedRowForMenu?.tenderStatus === 0 && (
                             <>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
-                                <MenuItem onClick={handleSetActiveTender}>
+                                <MuiMenuItem onClick={handleSetActiveTender}>
                                   <ListItemIcon>
                                     <ThumbUpAltIcon fontSize="small" />
                                   </ListItemIcon>
                                   İhaleyi Onayla
-                                </MenuItem>
+                                </MuiMenuItem>
                               </CustomTooltip>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
-                                <MenuItem onClick={handleSetInactiveTender}>
+                                <MuiMenuItem onClick={handleSetInactiveTender}>
                                   <ListItemIcon>
                                     <ThumbDownAltIcon fontSize="small" />
                                   </ListItemIcon>
                                   İhaleyi Reddet
-                                </MenuItem>
+                                </MuiMenuItem>
                               </CustomTooltip>
                             </>
-
                           )}
-
                           {hasStatusPermission && selectedRowForMenu?.tenderStatus === 2 && (
-                            <>
-                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
-                                <MenuItem onClick={handleSetActiveTender}>
-                                  <ListItemIcon>
-                                    <ThumbUpAltIcon fontSize="small" />
-                                  </ListItemIcon>
-                                  İhaleyi Onayla
-                                </MenuItem>
-                              </CustomTooltip>
-                            </>
-
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi onayla" : ""}>
+                              <MuiMenuItem onClick={handleSetActiveTender}>
+                                <ListItemIcon>
+                                  <ThumbUpAltIcon fontSize="small" />
+                                </ListItemIcon>
+                                İhaleyi Onayla
+                              </MuiMenuItem>
+                            </CustomTooltip>
                           )}
-
                           {hasStatusPermission && selectedRowForMenu?.tenderStatus === 1 && (
                             <>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi reddet" : ""}>
-                                <MenuItem onClick={handleSetInactiveTender}>
+                                <MuiMenuItem onClick={handleSetInactiveTender}>
                                   <ListItemIcon>
                                     <ThumbDownAltIcon fontSize="small" />
                                   </ListItemIcon>
                                   İhaleyi Reddet
-                                </MenuItem>
+                                </MuiMenuItem>
                               </CustomTooltip>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İş tanımla" : ""}>
-                                <MenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
+                                <MuiMenuItem onClick={() => handleDefineWork(selectedRowForMenu.id)}>
                                   <ListItemIcon>
                                     <AssignmentTurnedInIcon fontSize="small" />
                                   </ListItemIcon>
                                   İş Tanımla
-                                </MenuItem>
+                                </MuiMenuItem>
                               </CustomTooltip>
                               <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "İhaleye ek dosyalar ekle" : ""}>
-                                <MenuItem onClick={handleClickOpenAttachModal}>
+                                <MuiMenuItem onClick={handleClickOpenAttachModal}>
                                   <ListItemIcon>
                                     <IconPaperclip size={18} />
                                   </ListItemIcon>
                                   Ek Dosya Ekle
-                                </MenuItem>
+                                </MuiMenuItem>
                               </CustomTooltip>
                             </>
                           )}
-
                           {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu ihaleyi pasif yap" : ""}>
-                              <MenuItem onClick={handleSetInactive}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi pasif yap" : ""}>
+                              <MuiMenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
                                 </ListItemIcon>
                                 Pasif Yap
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           ) : (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu ihaleyi aktif yap" : ""}>
-                              <MenuItem onClick={handleSetActive}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi aktif yap" : ""}>
+                              <MuiMenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
                                 </ListItemIcon>
                                 Aktif Yap
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                           {hasEditPermission && (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu ihaleyi düzenle" : ""}>
-                              <MenuItem onClick={handleEditClick}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi düzenle" : ""}>
+                              <MuiMenuItem onClick={handleEditClick}>
                                 <ListItemIcon>
                                   <IconEdit width={18} />
                                 </ListItemIcon>
                                 Düzenlemek
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
-
                           )}
                           {hasDeletePermission && (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu ihaleyi sil" : ""}>
-                              <MenuItem onClick={handleClickOpenDeleteModal}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ihaleyi sil" : ""}>
+                              <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                 <ListItemIcon>
                                   <IconTrash width={18} />
                                 </ListItemIcon>
                                 Silmek
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                         </Menu>
-                      </TableCell>
+                      </StyledTableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <StyledTableCell colSpan={7} align="center">
                       <Typography variant="subtitle1" color="textSecondary">
                         Hiç ihale bulunamadı.
                       </Typography>
-                    </TableCell>
+                    </StyledTableCell>
                   </TableRow>
                 )}
               </TableBody>
             </Table>
-          </TableContainer>
-        )}
+          )}
+        </TableContainer>
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}
           component="div"

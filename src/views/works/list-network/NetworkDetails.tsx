@@ -1364,10 +1364,13 @@ const NetworkDetails = () => {
                 showAlert(response.data.message || 'Kayıtlar sunucuya gönderilirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (axios.isAxiosError(e) && e.response?.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
                 showAlert(e.response?.data?.message || 'Kayıtlar sunucuya gönderilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }

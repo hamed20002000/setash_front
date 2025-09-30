@@ -55,10 +55,9 @@ const DeleteBetweenwarehouseDispatch = ({ openModal, dispatchIdToDelete, dispatc
                 showAlert(response.data.message || 'Depolar arası sevk belgesi silinirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("Error deleting between warehouse dispatch:", e);
-
             if (e.response && e.response.status === 500) {
-                showAlert('Bu depolar arası sevk belgesi şu anda başka bir yerde kullanıldığı için silinemez.', 'error');
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

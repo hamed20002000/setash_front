@@ -4,11 +4,14 @@
 import React, { useEffect, useState, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  TableContainer, Table, TableHead, TableRow, TableBody,
+  Typography, Chip, Menu, IconButton, ListItemIcon, Box,
+  TableCell as MuiTableCell,
+  MenuItem as MuiMenuItem,
   Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
   ToggleButtonGroup, ToggleButton as MuiToggleButton,
-  TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions
+  TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions,
+  CircularProgress
 } from '@mui/material';
 
 import { keyframes, styled } from '@mui/material/styles';
@@ -85,6 +88,14 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 }));
 
 
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1rem', // Masaüstünde daha büyük
+  },
+}));
 interface UnitType {
   id: number;
   name: string;
@@ -185,6 +196,9 @@ const ListUnit = () => {
 
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
+
+
+  const [loadingData, setLoadingData] = useState<boolean>(true);
 
   const { allowedOperations } = useAuth();
   const hasCreatePermission = useMemo(() => {
@@ -381,13 +395,18 @@ const ListUnit = () => {
         showAlert(response.data.message || 'Ölçü güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        console.error("Error updating unit:", e);
+        showAlert(e.response?.data?.message || 'Ölçü güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
       }
-      console.error("Error updating unit:", e);
-      showAlert(e.response?.data?.message || 'Ölçü güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
     } finally {
       setLoadingButton(false);
     }
@@ -463,9 +482,11 @@ const ListUnit = () => {
   function getListUnit() {
     const authToken = localStorage.getItem('authToken');
 
+    setLoadingData(true);
     if (!authToken) {
       console.warn("No auth token found, redirecting to login.");
       navigate("/");
+      setLoadingData(false);
       return;
     }
 
@@ -486,6 +507,8 @@ const ListUnit = () => {
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
         setUnitsList(formattedData as UnitType[]);
+
+        setLoadingData(false);
       } else {
         showAlert(result.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
       }
@@ -976,7 +999,7 @@ const ListUnit = () => {
           <Table aria-label="unit table">
             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
-                <TableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
@@ -985,8 +1008,8 @@ const ListUnit = () => {
                   >
                     <Typography variant="h6">İsim</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
@@ -995,8 +1018,8 @@ const ListUnit = () => {
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
@@ -1005,29 +1028,30 @@ const ListUnit = () => {
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell></TableCell>
+                </StyledTableCell>
+                <StyledTableCell></StyledTableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedUnits.length > 0 ? (
+              {loadingData ? (
+                <TableRow>
+                  <StyledTableCell colSpan={4} align="center">
+                    <CircularProgress />
+                    <Typography variant="subtitle1" color="textSecondary">
+                      Ölçüler yükleniyor...
+                    </Typography>
+                  </StyledTableCell>
+                </TableRow>
+              ) : paginatedUnits.length > 0 ? (
                 paginatedUnits.map((row) => (
                   <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="h6">{row.name}</Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box>
-                          <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                        </Box>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
+                    <StyledTableCell>
+                      <Typography variant="body1">{row.name}</Typography>
+                    </StyledTableCell>
+                    <StyledTableCell>
+                      <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                    </StyledTableCell>
+                    <StyledTableCell>
                       <Chip
                         label={row.status}
                         sx={{
@@ -1045,8 +1069,8 @@ const ListUnit = () => {
                                 : (theme) => theme.palette.success.main,
                         }}
                       />
-                    </TableCell>
-                    <TableCell>
+                    </StyledTableCell>
+                    <StyledTableCell>
                       <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                         <IconButton
                           id={`basic-button-${row.id}`}
@@ -1068,61 +1092,56 @@ const ListUnit = () => {
                         }}
                       >
                         {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu Ölçüi pasif yap" : ""}>
-                            <MenuItem onClick={handleSetInactive}>
+                          <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ölçüyü pasif yap" : ""}>
+                            <MuiMenuItem onClick={handleSetInactive}>
                               <ListItemIcon>
                                 <DoNotDisturbOnRoundedIcon width={18} />
                               </ListItemIcon>
                               Pasif Yap
-                            </MenuItem>
+                            </MuiMenuItem>
                           </CustomTooltip>
-
                         )}
                         {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu Ölçüi aktif yap" : ""}>
-                            <MenuItem onClick={handleSetActive}>
+                          <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ölçüyü aktif yap" : ""}>
+                            <MuiMenuItem onClick={handleSetActive}>
                               <ListItemIcon>
                                 <DoneRoundedIcon width={18} />
                               </ListItemIcon>
                               Aktif Yap
-                            </MenuItem>
+                            </MuiMenuItem>
                           </CustomTooltip>
                         )}
                         {hasEditPermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu Ölçüi düzenle" : ""}>
-                            <MenuItem onClick={handleEditClick}>
+                          <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ölçüyü düzenle" : ""}>
+                            <MuiMenuItem onClick={handleEditClick}>
                               <ListItemIcon>
                                 <IconEdit width={18} />
                               </ListItemIcon>
                               Düzenlemek
-                            </MenuItem>
+                            </MuiMenuItem>
                           </CustomTooltip>
                         )}
                         {hasDeletePermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Bu Ölçüi sil" : ""}>
-                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                          <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu ölçüyü sil" : ""}>
+                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                               <ListItemIcon>
                                 <IconTrash width={18} />
                               </ListItemIcon>
                               Silmek
-                            </MenuItem>
+                            </MuiMenuItem>
                           </CustomTooltip>
                         )}
                       </Menu>
-                    </TableCell>
+                    </StyledTableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} align="center">
+                  <StyledTableCell colSpan={4} align="center">
                     <Typography variant="subtitle1" color="textSecondary">
-                      Hiç Ölçü bulunamadı.
+                      Hiç ölçü bulunamadı.
                     </Typography>
-                  </TableCell>
+                  </StyledTableCell>
                 </TableRow>
               )}
             </TableBody>

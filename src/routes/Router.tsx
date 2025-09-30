@@ -1,108 +1,4 @@
-// // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// // @ts-ignore
-// import React, { lazy } from 'react';
-// import { Navigate } from 'react-router-dom';
-// import Loadable from '../layouts/full/shared/loadable/Loadable';
 
-
-
-// const FullLayout = Loadable(lazy(() => import('../layouts/full/FullLayout')));
-// const BlankLayout = Loadable(lazy(() => import('../layouts/blank/BlankLayout')));
-// const ModernDash = Loadable(lazy(() => import('../views/dashboard/Modern')));
-// const SystemOperation = Loadable(lazy(() => import('../views/managmentusers/system-operation/SystemOperation')));
-// const ListRoles = Loadable(lazy(() => import('../views/managmentusers/list-roles/ListRoles')));
-// const ListUsers = Loadable(lazy(() => import('../views/managmentusers/list-users/ListUsers')));
-// const ListCategory = Loadable(lazy(() => import('../views/baseinfo/category/ListCategory')));
-// const ListUnit = Loadable(lazy(() => import('../views/baseinfo/unit/ListUnit')));
-// const ListItem = Loadable(lazy(() => import('../views/baseinfo/item/ListItem')));
-// const ListAuction = Loadable(lazy(() => import('../views/tender/ListTender')));
-// const AuctionDetails = Loadable(lazy(() => import('../views/tender/TenderDetails')));
-// const ListWorks = Loadable(lazy(() => import('../views/works/list-work/ListWorks')));
-// const ListNetworks = Loadable(lazy(() => import('../views/works/list-network/ListNetworks')));
-// const NetworkDetails = Loadable(lazy(() => import('../views/works/list-network/NetworkDetails')));
-// const ListWorkHouse = Loadable(lazy(() => import('../views/works/list-workhouse/ListWorkhouses')));
-// const WorkHouseDetails = Loadable(lazy(() => import('../views/works/list-workhouse/WorkhouseDetails')));
-// const ListProductTypes = Loadable(lazy(() => import('../views/baseinfo/producttypes/ListProductTypes')));
-// const ListTransmission = Loadable(lazy(() => import('../views/works/transmission/ListTransmission')));
-// const ListRegion = Loadable(lazy(() => import('../views/baseinfo/region/ListRegion')));
-// const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListWarehouses')));
-// const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
-// const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/ListDrivers')));
-// const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
-// const ListInvoices = Loadable(lazy(() => import('../views/warehouse/list-invoice/ListInvoices')));
-// const ListReceipt = Loadable(lazy(() => import('../views/warehouse/list-receipt/ListReceipt')));
-
-
-// const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
-// const Login2 = Loadable(lazy(() => import('../views/authentication/auth2/Login2')));
-// const Register = Loadable(lazy(() => import('../views/authentication/auth1/Register')));
-// const Register2 = Loadable(lazy(() => import('../views/authentication/auth2/Register2')));
-// const ForgotPassword = Loadable(lazy(() => import('../views/authentication/auth1/ForgotPassword')));
-// const ForgotPassword2 = Loadable(lazy(() => import('../views/authentication/auth2/ForgotPassword2')));
-// const TwoSteps = Loadable(lazy(() => import('../views/authentication/auth1/TwoSteps')));
-// const TwoSteps2 = Loadable(lazy(() => import('../views/authentication/auth2/TwoSteps2')));
-// const Error = Loadable(lazy(() => import('../views/authentication/Error')));
-// const Maintenance = Loadable(lazy(() => import('../views/authentication/Maintenance')));
-// const ResetPassword = Loadable(lazy(() => import('../views/authentication/auth1/ResetPassword')));
-
-// // Landingpage
-// const Landingpage = Loadable(lazy(() => import('../views/pages/landingpage/Landingpage')));
-
-// const Router = [
-//   {
-//     path: '/',
-//     element: <FullLayout />,
-//     children: [
-//       { path: '/', element: <Navigate to="/auth/login" /> },
-//       { path: '/dashboards/dashboard', exact: true, element: <ModernDash /> },
-//       { path: '/managmentusers/system-operation', element: <SystemOperation /> },
-//       { path: '/managmentusers/list-roles', element: <ListRoles /> },
-//       { path: '/managmentusers/list-users', element: <ListUsers /> },
-//       { path: '/baseinfo/list-categories', element: <ListCategory /> },
-//       { path: '/baseinfo/list-units', element: <ListUnit /> },
-//       { path: '/baseinfo/list-items', element: <ListItem /> },
-//       { path: '/tender/list-tender', element: <ListAuction /> },
-//       { path: '/tender/tender-details/:tenderId', element: <AuctionDetails /> },
-//       { path: '/tender/define-work/', element: <ListWorks /> },
-//       { path: '/work/:workId/networks', element: <ListNetworks /> },
-//       { path: '/network/:networkId/details', element: <NetworkDetails /> },
-//       { path: '/workhouse/list-workhouse/:workId', element: <ListWorkHouse /> },
-//       { path: '/workhouse/workhousedetails/:workhouseId', element: <WorkHouseDetails /> },
-//       { path: '/product-type/list-product-types/', element: <ListProductTypes /> },
-//       { path: '/transmission/list-transmission/:networkId', element: <ListTransmission /> },
-//       { path: '/region/list-regions/', element: <ListRegion /> },
-//       { path: '/warehouse/list-warehouse/', element: <ListWarehouses /> },
-//       { path: '/order/list-order/', element: <ListOrders /> },
-//       { path: '/driver/list-driver/', element: <ListDrivers /> },
-//       { path: '/provider/list-provider/', element: <ListProviders /> },
-//       { path: '/invoice/list-invoice/', element: <ListInvoices /> },
-//       { path: '/receipt/list-receipt/', element: <ListReceipt /> },
-
-//       { path: '*', element: <Navigate to="/auth/404" /> },
-//     ],
-//   },
-//   {
-//     path: '/',
-//     element: <BlankLayout />,
-//     children: [
-//       { path: '/auth/404', element: <Error /> },
-//       { path: '/auth/login', element: <Login /> },
-//       { path: '/auth/login2', element: <Login2 /> },
-//       { path: '/auth/register', element: <Register /> },
-//       { path: '/auth/register2', element: <Register2 /> },
-//       { path: '/auth/forgot-password', element: <ForgotPassword /> },
-//       { path: '/auth/forgot-password2', element: <ForgotPassword2 /> },
-//       { path: '/auth/two-steps', element: <TwoSteps /> },
-//       { path: '/auth/two-steps2', element: <TwoSteps2 /> },
-//       { path: '/auth/maintenance', element: <Maintenance /> },
-//       { path: '/auth/reset-password', element: <ResetPassword /> },
-//       { path: '/landingpage', element: <Landingpage /> },
-//       { path: '*', element: <Navigate to="/auth/404" /> },
-//     ],
-//   },
-// ];
-
-// export default Router;
 
 
 
@@ -137,15 +33,22 @@ const ListWarehousesDistpach = Loadable(lazy(() => import('../views/warehouse/li
 const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
 const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/ListDrivers')));
 const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
+const ListForceMajors = Loadable(lazy(() => import('../views/baseinfo/forcemajor/ListForceMajors')));
 const ListInvoices = Loadable(lazy(() => import('../views/warehouse/list-invoice/ListInvoices')));
 const ListReceipt = Loadable(lazy(() => import('../views/warehouse/list-receipt/ListReceipt')));
 const ListStores = Loadable(lazy(() => import('../views/works/store/ListStores')));
 const ListStoreReceipts = Loadable(lazy(() => import('../views/works/StoreReceipt/ListStoreReceipt')));
+const ListStoreReceiptInvoice = Loadable(lazy(() => import('../views/works/store-receipt-invoice/ListStoreReceiptInvoice')));
+const ListBetweenStoreReceipt = Loadable(lazy(() => import('../views/works/list-between-store-receipt/ListBetweenStoreReceipt')));
 const ListBetweenWarehouseDispatch = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListBetweenWarehouseDispatch')));
 const ListBetweenReceipt = Loadable(lazy(() => import('../views/warehouse/list-between-receipt/ListBetweenReceipt')));
 const ListProjects = Loadable(lazy(() => import('../views/project/list-projects/ListProjects')));
 const ListBetweenStoreDispatch = Loadable(lazy(() => import('../views/works/store/ListBetweenStoreDispatch')));
 const ListStoreDispatch = Loadable(lazy(() => import('../views/works/store/ListStoreDistpach')));
+const ListStoreDispatchToCenter = Loadable(lazy(() => import('../views/works/storedispatchtocenter/ListStoreDispatchToCenter')));
+const ListStoreDispatchReturnToCenter = Loadable(lazy(() => import('../views/works/storedispatchreturntocenter/ListStoreDispatchReturnToCenter')));
+const ListProjectPlanning = Loadable(lazy(() => import('../views/project/list-project-planing/ListProjectPlaning')));
+const ListProjectPlanningImplementation = Loadable(lazy(() => import('../views/project/list-project-planning-implementation/ListProjectPlanningImplementation')));
 
 
 
@@ -232,6 +135,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListItem />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/baseinfo/list-forcemajor',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListForceMajors />
           </PermissionGuard>
         )
       },
@@ -412,10 +323,50 @@ const Router = [
         )
       },
       {
+        path: '/store/list-between-store-receipt/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListBetweenStoreReceipt />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-store-receipt/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreReceipts />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-store-receipt-invoice/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreReceiptInvoice />
+          </PermissionGuard>
+        )
+      },
+      {
         path: '/store/list-store-receipt/:storeId',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListStoreReceipts />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-store-dispatch-to-center/:storeId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreDispatchToCenter />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-store-dispatch-return-to-center/:storeId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreDispatchReturnToCenter />
           </PermissionGuard>
         )
       },
@@ -428,10 +379,34 @@ const Router = [
         )
       },
       {
-        path: '/project/-projects/',
+        path: '/project/list-projects/',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListProjects />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/project/project-planing/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListProjectPlanning />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/project/project-planing/:projectId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListProjectPlanning />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/project/project-planing-implementation/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListProjectPlanningImplementation />
           </PermissionGuard>
         )
       },

@@ -66,19 +66,14 @@ const DeleteUnit = ({ openModal, unitIdToDelete, onClose, onDeleteSuccess, showA
         onClose(); // Close the modal even if it's a business error
       }
     } catch (e: any) {
-      console.error("Error deleting unit:", e);
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
 
-      // Check for 500 status code (Unit in Use scenario)
-      if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
-        onClose(); // Close the main delete confirmation modal
-        setOpenUnitInUseModal(true); // Open the specific "unit in use" modal
       } else if (e.response && e.response.status === 401) {
-        // Handle unauthorized
         localStorage.removeItem('authToken');
         showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-        navigate("/"); // Redirect to login
+        navigate("/");
       } else {
-        // General error handling for other network or API errors
         const errorMessage = e.response?.data?.message || 'Birim silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
         showAlert(errorMessage, 'error');
         onClose(); // Close the modal for general errors too

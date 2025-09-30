@@ -57,10 +57,9 @@ const DeleteBetweenReceipt = ({ openModal, receiptIdToDelete, receiptCodeToDelet
                 showAlert(response.data.message || 'Fiş silinirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("Error deleting receipt:", e);
-
             if (e.response && e.response.status === 500) {
-                showAlert('Bu fiş şu anda başka bir yerde kullanıldığı için silinemez.', 'error');
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

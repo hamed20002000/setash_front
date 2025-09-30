@@ -58,12 +58,12 @@ const DeleteNetwork = ({ openModal, networkIdToDelete, networkTitleToDelete, onC
             }
         } catch (e: any) {
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenNetworkInUseModal(true);
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             } else {
                 const errorMessage = e.response?.data?.message || 'Şebekeler silinirken bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');

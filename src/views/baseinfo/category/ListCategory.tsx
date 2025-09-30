@@ -8,12 +8,12 @@ import {
   Table,
   TableHead,
   TableRow,
-  TableCell,
+  TableCell as MuiTableCell,
+  MenuItem as MuiMenuItem,
   TableBody,
   Typography,
   Chip,
   Menu,
-  MenuItem,
   IconButton,
   ListItemIcon,
   Box,
@@ -75,10 +75,18 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
   transition: 'transform 0.3s ease-in-out',
 }));
 
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1rem', // Masaüstünde daha büyük
+  },
+}));
+
 interface ApiCategoryType {
   id: string;
   name: string;
-  // code: string; // 🔴 حذف شد: فیلد code از اینترفیس ApiCategoryType
   depth: number;
   recordStatus: number;
   createAt: string;
@@ -550,10 +558,13 @@ const ListCategory = () => {
       }
 
     } catch (e: any) {
-      if (axios.isAxiosError(e) && e.response?.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.error("Kategori güncellenirken hata:", e);
         showAlert('Kategori güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
@@ -1340,8 +1351,7 @@ const ListCategory = () => {
             <Table aria-label="category table">
               <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
-                  <TableCell>
-                    {/* Sortable Column: İsim (Name) */}
+                  <StyledTableCell>
                     <TableSortLabel
                       active={orderBy === 'name'}
                       direction={orderBy === 'name' ? order : 'asc'}
@@ -1350,9 +1360,8 @@ const ListCategory = () => {
                     >
                       <Typography variant="h6">İsim</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
-                    {/* Sortable Column: Oluşturulma Tarihi (Creation Date) */}
+                  </StyledTableCell>
+                  <StyledTableCell>
                     <TableSortLabel
                       active={orderBy === 'createAt'}
                       direction={orderBy === 'createAt' ? order : 'asc'}
@@ -1361,9 +1370,8 @@ const ListCategory = () => {
                     >
                       <Typography variant="h6">Oluşturulma Tarihi</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell>
-                    {/* Sortable Column: Durum (Status) */}
+                  </StyledTableCell>
+                  <StyledTableCell>
                     <TableSortLabel
                       active={orderBy === 'status'}
                       direction={orderBy === 'status' ? order : 'asc'}
@@ -1372,33 +1380,27 @@ const ListCategory = () => {
                     >
                       <Typography variant="h6">Durum</Typography>
                     </TableSortLabel>
-                  </TableCell>
-                  <TableCell
-                    style={{ color: "#171c23" }}>
+                  </StyledTableCell>
+                  <StyledTableCell style={{ color: "#171c23" }}>
                     <Typography variant="h6">Alt Kategori</Typography>
-                  </TableCell>
-                  <TableCell></TableCell>
+                  </StyledTableCell>
+                  <StyledTableCell></StyledTableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {paginatedCategories.length > 0 ? (
                   paginatedCategories.map((row) => (
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                          <Box>
-                            <Typography variant="h6">{row.name}</Typography>
-                          </Box>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
-                        <Stack direction="row" alignItems="center" spacing={2}>
-                          <Box>
-                            <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                          </Box>
-                        </Stack>
-                      </TableCell>
-                      <TableCell>
+                      <StyledTableCell>
+                        {/* بخش اول: نام */}
+                        <Typography variant="body1">{row.name}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        {/* بخش دوم: تاریخ */}
+                        <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        {/* بخش سوم: چیپ وضعیت */}
                         <Chip
                           label={row.status}
                           sx={{
@@ -1416,10 +1418,10 @@ const ListCategory = () => {
                                   : (theme) => theme.palette.success.main,
                           }}
                         />
-                      </TableCell>
-                      <TableCell>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        {/* بخش چهارم: دکمه زیردسته */}
                         <CustomTooltip title={isTooltipGloballyEnabled ? `"${row.name}" için alt kategori ekle/gör` : ""}>
-
                           {(findCategoryById(rawApiCategories, row.id)?.categories || []).length > 0 ? (
                             <Button
                               variant="outlined"
@@ -1440,8 +1442,9 @@ const ListCategory = () => {
                             </Button>
                           )}
                         </CustomTooltip>
-                      </TableCell>
-                      <TableCell>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        {/* بخش پنجم: دکمه منو */}
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                           <IconButton
                             id={`basic-button-${row.id}`}
@@ -1462,63 +1465,57 @@ const ListCategory = () => {
                             'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                           }}
                         >
-
                           {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu kategoriyi pasif yap" : ""}>
-                              <MenuItem onClick={handleSetInactive}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi pasif yap" : ""}>
+                              <MuiMenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
                                   <DoNotDisturbOnRoundedIcon width={18} />
                                 </ListItemIcon>
                                 Pasif Yap
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
-
                           )}
                           {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu kategoriyi aktif yap" : ""}>
-                              <MenuItem onClick={handleSetActive}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi aktif yap" : ""}>
+                              <MuiMenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
                                   <DoneRoundedIcon width={18} />
                                 </ListItemIcon>
                                 Aktif Yap
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                           {hasEditPermission && (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
-                              <MenuItem onClick={handleEditClick}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
+                              <MuiMenuItem onClick={handleEditClick}>
                                 <ListItemIcon>
                                   <IconEdit width={18} />
                                 </ListItemIcon>
                                 Düzenlemek
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                           {hasDeletePermission && (
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
-                              <MenuItem onClick={handleClickOpenDeleteModal}>
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
+                              <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                 <ListItemIcon>
                                   <IconTrash width={18} />
                                 </ListItemIcon>
                                 Silmek
-                              </MenuItem>
+                              </MuiMenuItem>
                             </CustomTooltip>
                           )}
                         </Menu>
-                      </TableCell>
+                      </StyledTableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} align="center"> {/* 🔴 colSpan را به 5 تغییر دادم (چون ستون کد حذف شد) */}
+                    <StyledTableCell colSpan={5} align="center">
                       <Typography variant="subtitle1" color="textSecondary">
                         Hiç kategori bulunamadı.
                       </Typography>
-                    </TableCell>
+                    </StyledTableCell>
                   </TableRow>
                 )}
               </TableBody>

@@ -47,7 +47,7 @@ const DeleteProject = ({ openModal, projectIdToDelete, projectTitleToDelete, onC
         setLoading(true);
         try {
             const response = await axios.delete(
-                server.baseurl + server.initialoperations + `delete-project/${projectIdToDelete}`,
+                server.baseurl + server.warehouse + `delete-project/${projectIdToDelete}`,
                 {
                     headers: {
                         "Accept": "text/plain",
@@ -65,13 +65,13 @@ const DeleteProject = ({ openModal, projectIdToDelete, projectTitleToDelete, onC
                 showAlert(response.data.message || 'Proje silinirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            const errorMessage = e.response?.data?.message || 'Proje silinirken bir hata oluştu, lütfen tekrar deneyin.';
-            showAlert(errorMessage, 'error');
-            onClose();
-            if (e.response && e.response.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
         } finally {
             setLoading(false);

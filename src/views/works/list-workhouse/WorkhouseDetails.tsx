@@ -1,21 +1,25 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+
+
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     Typography, Box, Stack, Grid, Button, Alert, TextField,
     CircularProgress, Paper, Chip, IconButton,
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody, MenuItem, Menu, ListItemIcon,
+    TableContainer, Table, TableHead, TableRow, TableBody, Menu, ListItemIcon,
+    TablePagination,
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
     Dialog,
     DialogTitle,
     DialogActions,
     DialogContent,
 } from '@mui/material';
-import { keyframes, styled, useTheme } from '@mui/material/styles';
+import { keyframes, styled } from '@mui/material/styles';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 
 import BoltIcon from '@mui/icons-material/Bolt';
-import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
@@ -47,6 +51,14 @@ const formatDateDisplay = (dateString: string | null): string => {
 };
 
 
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem',
+    },
+}));
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -76,7 +88,6 @@ const cleanAndFormatPrice = (priceInput: string | number | null | undefined): st
 };
 
 
-// --- Interfaces for API responses and internal use ---
 interface WorkhouseType {
     id: number;
     name: string;
@@ -101,17 +112,15 @@ interface WorkhouseType {
     } | null;
 }
 
-// INTERFACE اصلاح‌شده
 interface SubscriptionItem {
     no: string;
     owner: string;
     title: string;
 }
 
-// INTERFACE اصلاح‌شده
 interface WorkhouseSubmittedDetail {
     id: string;
-    owner: string; // این فیلد در API ممکن است وجود داشته باشد اما در فرم جدید استفاده نمی‌شود
+    owner: string;
     rentStartDate: string;
     rentEndDate: string;
     price: string;
@@ -130,10 +139,9 @@ interface Attachment {
 const WorkhouseDetails = () => {
     const { workhouseId } = useParams<{ workhouseId: string }>();
     const navigate = useNavigate();
-    const theme = useTheme();
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    const [owner, setOwner] = useState<string>(''); // این فیلد برای فرم اصلی هنوز لازم است
+    const [owner, setOwner] = useState<string>('');
     const [price, setPrice] = useState<number | ''>('');
     const [description, setDescription] = useState<string>('');
     const [attachments, setAttachments] = useState<string[]>([]);
@@ -172,16 +180,17 @@ const WorkhouseDetails = () => {
 
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
 
-
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
     const [isEditing, setIsEditing] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<any | null>(null);
 
-    // STATE اصلاح‌شده
     const [subscriptions, setSubscriptions] = useState<SubscriptionItem[]>([]);
 
+    // State های جدید برای صفحه بندی
+    const [page, setPage] = useState(0);
+    const [rowsPerPage, setRowsPerPage] = useState(5);
 
     const handleOpenDescriptionModal = (description: string) => {
         setFullDescription(description);
@@ -337,7 +346,6 @@ const WorkhouseDetails = () => {
         setSubscriptions([]);
     };
     const createWorkhouseDetail = async () => {
-        debugger
         if (!validateForm() || !workhouseId) return;
 
         setLoadingButton(true);
@@ -372,14 +380,13 @@ const WorkhouseDetails = () => {
                 }
             }
 
-            // PAYLOAD اصلاح‌شده
             const payload = {
                 workhouseId: Number(workhouseId),
                 owner,
                 rentStartDate: rentStartDate ? rentStartDate.toISOString() : null,
                 rentEndDate: rentEndDate ? rentEndDate.toISOString() : null,
                 price: Number(price),
-                subscriptions: subscriptions, // آرایه subscriptions مستقیماً ارسال می‌شود
+                subscriptions: subscriptions,
                 description,
                 attachments: attachmentsPayload,
             };
@@ -453,7 +460,6 @@ const WorkhouseDetails = () => {
 
             const finalAttachments = [...keptExistingAttachments, ...newAttachmentsPayload];
 
-            // PAYLOAD اصلاح‌شده
             const payload = {
                 id: Number(itemToEdit.id),
                 workhouseId: Number(workhouseId),
@@ -461,7 +467,7 @@ const WorkhouseDetails = () => {
                 rentStartDate: rentStartDate ? rentStartDate.toISOString() : null,
                 rentEndDate: rentEndDate ? rentEndDate.toISOString() : null,
                 price: Number(price),
-                subscriptions: subscriptions, // آرایه subscriptions مستقیماً ارسال می‌شود
+                subscriptions: subscriptions,
                 description,
                 attachments: finalAttachments,
             };
@@ -480,13 +486,22 @@ const WorkhouseDetails = () => {
                 showAlert(response.data.message || 'Şantiye detayı güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Şantiye detayı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+                showAlert(e.response?.data?.message || 'Şantiye detayı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
+            }
         } finally {
             setLoadingButton(false);
         }
     };
 
-    // تابع مدیریت ذخیره داده از مودال اشتراک
     const handleSaveSubscription = (newSubscriptions: SubscriptionItem[]) => {
         setSubscriptions(newSubscriptions);
         setOpenSubscriptionModal(false);
@@ -510,7 +525,6 @@ const WorkhouseDetails = () => {
         setAttachments(prev => prev.filter(file => file !== fileToRemove));
     };
 
-    // تابع نمایش چیپ‌های اشتراک اصلاح‌شده
     const renderSubscriptionChips = (subscriptionsArray: SubscriptionItem[]) => {
         return subscriptionsArray.map((sub, index) => (
             <Chip
@@ -549,11 +563,9 @@ const WorkhouseDetails = () => {
         }
     };
 
-    // تابع ویرایش اصلاح‌شده
     const handleEditClick = (row: WorkhouseSubmittedDetail) => {
         setIsEditing(true);
         setItemToEdit(row);
-        // پر کردن فیلدهای فرم اصلی
         setOwner(row.owner);
         setDescription(row.description);
         setRentStartDate(row.rentStartDate ? new Date(row.rentStartDate) : null);
@@ -565,11 +577,8 @@ const WorkhouseDetails = () => {
         } else {
             setPrice('');
         }
-
-        // پر کردن آرایه subscriptions برای مودال
         setSubscriptions(row.subscription || []);
 
-        // پر کردن آرایه attachments
         if (row.attachments && row.attachments.length > 0) {
             const fileNames = row.attachments.map(att => att.fileUrl.split('/').pop() || '');
             setAttachments(fileNames);
@@ -591,6 +600,21 @@ const WorkhouseDetails = () => {
         window.open(url, '_blank');
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
+
+    // توابع مدیریت صفحه بندی جدید
+    const handleChangePage = (_event: unknown, newPage: number) => {
+        setPage(newPage);
+    };
+    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
+
+    // برش لیست داده ها بر اساس صفحه بندی
+    const paginatedDetailsList = useMemo(() => {
+        return submittedDetailsList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    }, [submittedDetailsList, page, rowsPerPage]);
+
 
     if (loadingData) {
         return (
@@ -634,7 +658,6 @@ const WorkhouseDetails = () => {
                                 variant="contained"
                                 color="error"
                                 onClick={resetForm}
-                                // disabled={loadingButton}
                                 fullWidth={false}
                                 startIcon={<IconX size={20} />}
                             >
@@ -664,7 +687,6 @@ const WorkhouseDetails = () => {
                                 <CustomTextField
                                     id="workhouse-owner"
                                     placeholder="Sahip Adı"
-
                                     size="small"
                                     sx={{ width: '100%' }}
                                     value={owner}
@@ -680,7 +702,6 @@ const WorkhouseDetails = () => {
                                 <CustomTextField
                                     id="workhouse-price"
                                     placeholder="Kirası"
-
                                     size="small"
                                     sx={{ width: '100%' }}
                                     type="number"
@@ -715,7 +736,6 @@ const WorkhouseDetails = () => {
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
-
                                                 size="small"
                                                 sx={{ width: '100%' }}
                                                 error={startDateError}
@@ -749,7 +769,6 @@ const WorkhouseDetails = () => {
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
-
                                                 size="small"
                                                 sx={{ width: '100%' }}
                                                 error={endDateError}
@@ -857,105 +876,166 @@ const WorkhouseDetails = () => {
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                 </Stack>
             )}
-
-            <BlankCard>
-                <TableContainer component={Box} sx={{ mt: 2 }}>
-                    <Table>
-                        <TableHead style={{ background: theme.palette.grey[200] }}>
+            <TableContainer>
+                {loadingData ? (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                        <CircularProgress />
+                        <Typography variant="h6" sx={{ ml: 2 }}>Veriler yükleniyor...</Typography>
+                    </Box>
+                ) : (
+                    <Table aria-label="Kira tablosu">
+                        <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                <TableCell><Typography variant="h6">Sahibi</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Kirası</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Kira Başlangıç</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Kira Bitiş</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Abonelik</Typography></TableCell>
-                                <TableCell><Typography variant="h6">Ekler</Typography></TableCell>
-                                <TableCell></TableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Sahibi</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Kirası</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Açıklama</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Kira Başlangıç</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Kira Bitiş</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Abonelik</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <Typography variant="h6">Ekler</Typography>
+                                </StyledTableCell>
+                                <StyledTableCell></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {submittedDetailsList.length > 0 ? (
-                                submittedDetailsList.map((entry, index) => (
+                            {paginatedDetailsList.length > 0 ? (
+                                paginatedDetailsList.map((entry, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <TableCell><Typography variant="h6">{entry.owner}</Typography></TableCell>
-                                        <TableCell>
-                                            <Typography variant="h6">
+                                        <StyledTableCell>
+                                            <Typography variant="body1">{entry.owner}</Typography>
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Typography variant="body1">
                                                 {cleanAndFormatPrice(entry.price)}
                                             </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography variant="h6" sx={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {entry.description}
-                                            </Typography>
-                                            {entry.description.length > 20 && (
-                                                <Button variant="text" size="small" onClick={() => {
-                                                    handleOpenDescriptionModal(entry.description)
-                                                }}>
-                                                    Devamını Oku
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                        <TableCell><Typography variant="h6">{formatDateDisplay(entry.rentStartDate)}</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">{formatDateDisplay(entry.rentEndDate)}</Typography></TableCell>
-                                        <TableCell>
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
-                                                {/* نمایش اشتراک‌ها اصلاح شد */}
-                                                {entry.subscription?.map((sub: SubscriptionItem, subIndex: number) => (
-                                                    <Chip key={subIndex} label={`${sub.title}: ${sub.no} (${sub.owner})`} size="small" color="primary" sx={{ mr: 1, mb: 1 }} />
-                                                )) || <Typography variant="body2" color="textSecondary">-</Typography>}
+                                        </StyledTableCell>
+                                        <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                            <Box sx={{
+                                                maxHeight: '5em',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 3,
+                                                WebkitBoxOrient: 'vertical',
+                                            }}>
+                                                <Typography variant="body1">{entry.description}</Typography>
                                             </Box>
-                                        </TableCell>
-                                        <TableCell>
+                                            {entry.description && entry.description.length > 50 && (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                    <Button
+                                                        variant="text"
+                                                        size="small"
+                                                        sx={{ fontSize: "10px", padding: "2px 5px" }}
+                                                        onClick={() => handleOpenDescriptionModal(entry.description)}
+                                                    >
+                                                        Devamını Oku
+                                                    </Button>
+                                                </CustomTooltip>
+                                            )}
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Typography variant="body1">{formatDateDisplay(entry.rentStartDate)}</Typography>
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Typography variant="body1">{formatDateDisplay(entry.rentEndDate)}</Typography>
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap' }}>
+                                                {entry.subscription?.length > 0 ? (
+                                                    entry.subscription.map((sub: SubscriptionItem, subIndex: number) => (
+                                                        <Chip key={subIndex} label={`${sub.title}: ${sub.no} (${sub.owner})`} size="small" color="primary" sx={{ mr: 1, mb: 1 }} />
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="body2" color="textSecondary">-</Typography>
+                                                )}
+                                            </Box>
+                                        </StyledTableCell>
+                                        <StyledTableCell>
                                             {entry.attachments && entry.attachments.length > 0 ? (
-                                                <IconButton onClick={() => handleOpenAttachmentsModal(entry.attachments)}>
-                                                    <IconLink size={18} />
-                                                </IconButton>
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Ekleri görüntüle" : ""}>
+                                                    <IconButton onClick={() => handleOpenAttachmentsModal(entry.attachments)}>
+                                                        <IconLink size={18} />
+                                                    </IconButton>
+                                                </CustomTooltip>
                                             ) : (
                                                 <Typography variant="body2" color="textSecondary">-</Typography>
                                             )}
-                                        </TableCell>
-                                        <TableCell>
+                                        </StyledTableCell>
+                                        <StyledTableCell>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                <IconButton id={`basic-button-${entry.id}`} aria-controls={openMenu ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={openMenu ? 'true' : undefined} onClick={(event) => handleClickMenu(event, entry)}>
+                                                <IconButton
+                                                    id={`basic-button-${entry.id}`}
+                                                    aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                    aria-haspopup="true"
+                                                    aria-expanded={openMenu ? 'true' : undefined}
+                                                    onClick={(event) => handleClickMenu(event, entry)}
+                                                >
                                                     <IconDots width={18} />
                                                 </IconButton>
                                             </CustomTooltip>
                                             <Menu
                                                 id="basic-menu"
                                                 anchorEl={anchorEl}
-                                                open={openMenu}
+                                                open={openMenu && selectedRowForMenu?.id === entry.id}
                                                 onClose={handleCloseMenu}
                                                 MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                             >
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
-                                                    <MenuItem onClick={() => handleEditClick(selectedRowForMenu)}>
+                                                    <MuiMenuItem onClick={() => handleEditClick(selectedRowForMenu)}>
                                                         <ListItemIcon><IconEdit width={18} /></ListItemIcon>
                                                         Düzenle
-                                                    </MenuItem>
+                                                    </MuiMenuItem>
                                                 </CustomTooltip>
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı sil" : ""}>
-                                                    <MenuItem onClick={() => handleClickOpenDeleteModal(selectedRowForMenu)}>
+                                                    <MuiMenuItem onClick={() => handleClickOpenDeleteModal(selectedRowForMenu)}>
                                                         <ListItemIcon><IconTrash width={18} /></ListItemIcon>
                                                         Silmek
-                                                    </MenuItem>
+                                                    </MuiMenuItem>
                                                 </CustomTooltip>
                                             </Menu>
-                                        </TableCell>
+                                        </StyledTableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={8} align="center">
+                                    <StyledTableCell colSpan={8} align="center">
                                         <Typography variant="subtitle1" color="textSecondary">
                                             Henüz kayıtlı bir giriş bulunamadı.
                                         </Typography>
-                                    </TableCell>
+                                    </StyledTableCell>
                                 </TableRow>
                             )}
                         </TableBody>
                     </Table>
-                </TableContainer>
-            </BlankCard>
+                )}
+            </TableContainer>
+
+            {/* کامپوننت TablePagination */}
+            <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={submittedDetailsList.length}
+                rowsPerPage={rowsPerPage}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                labelRowsPerPage="Satır başına düşen:"
+                labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
+            />
+            {/* بقیه کامپوننت ها و مودال ها دست نخورده باقی می مانند */}
             <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="sm" fullWidth>
                 <DialogTitle>Açıklamanın Tamamı</DialogTitle>
                 <DialogContent dividers>
@@ -983,7 +1063,7 @@ const WorkhouseDetails = () => {
                 open={openSubscriptionModal}
                 onClose={handleCancelSubscription}
                 onSave={handleSaveSubscription}
-                initialSubscriptions={subscriptions} // پراپ اصلاح‌شده
+                initialSubscriptions={subscriptions}
             />
             <DeleteWorkhouseDetail
                 openModal={openDeleteModal}

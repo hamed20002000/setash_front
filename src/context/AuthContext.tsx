@@ -181,7 +181,8 @@ import {
   IconInfoCircle, IconClipboardList, IconProgressCheck, IconGlobe, IconMap,
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
   IconBuildingFactory, IconFileInvoice, IconSitemap, IconHelmet, IconBuildingStore,
-  IconArrowsExchange, IconFolders, IconBulb
+  IconArrowsExchange, IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar,
+  IconFileDollar
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
@@ -292,9 +293,9 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconInfoCircle, IconClipboardList, IconProgressCheck, IconGlobe, IconMap,
   IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
   IconBuildingFactory, IconFileInvoice,
-  IconSitemap: IconSitemap,
+  IconSitemap: IconSitemap, IconFileDollar,
   IconHelmet: IconHelmet, IconBuildingStore: IconBuildingStore, IconArrowsExchange,
-  IconFolders, IconBulb
+  IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;

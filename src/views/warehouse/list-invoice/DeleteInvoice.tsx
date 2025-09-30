@@ -76,7 +76,7 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
         } catch (e: any) {
             console.error("Error deleting invoice:", e);
             if (e.response && e.response.status === 500) {
-                showAlert('Bu fatura şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.', 'error');
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
 
                 onClose();
             } else if (e.response && e.response.status === 401) {

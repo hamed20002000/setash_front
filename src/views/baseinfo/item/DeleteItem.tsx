@@ -69,10 +69,9 @@ const DeleteItem = ({ openModal, itemIdToDelete, onClose, onDeleteSuccess, showA
     } catch (e: any) {
       console.error("Error deleting item:", e);
 
-      // Check for 500 status code (Item in Use scenario)
-      if (e.response && e.response.status === 500) { // 🟢 Check for 500 status
-        onClose(); // Close the main delete confirmation modal
-        setOpenItemInUseModal(true); // Open the specific "item in use" modal
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
       } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
         showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

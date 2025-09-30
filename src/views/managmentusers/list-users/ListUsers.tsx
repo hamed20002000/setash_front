@@ -5,8 +5,10 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  Typography, Chip, Menu, MenuItem, IconButton, ListItemIcon, Box,
+  TableContainer, Table, TableHead, TableRow, TableBody,
+  TableCell as MuiTableCell,
+  MenuItem as MuiMenuItem,
+  Typography, Chip, Menu, IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
   TextField,
   FormControl, InputLabel, Select, OutlinedInput,
@@ -14,10 +16,14 @@ import {
   ToggleButton as MuiToggleButton,
   ToggleButtonGroup,
   TableSortLabel,
+  CircularProgress,
   SelectChangeEvent
 } from '@mui/material';
 
-import { keyframes, styled, useTheme } from '@mui/material/styles';
+import {
+  keyframes, styled
+  // , useTheme 
+} from '@mui/material/styles';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
@@ -57,6 +63,14 @@ const formatDateDisplay = (dateString: string | null): string => {
 };
 
 
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1rem', // Masaüstünde daha büyük
+  },
+}));
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -165,7 +179,7 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 
 const ListUsers = () => {
   const navigate = useNavigate();
-  const theme = useTheme();
+  // const theme = useTheme();
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
@@ -213,6 +227,9 @@ const ListUsers = () => {
   const [confirmPasswordHelperText, setConfirmPasswordHelperText] = useState<string>('');
 
 
+  const [loadingData, setLoadingData] = useState<boolean>(true);
+
+
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
 
@@ -249,8 +266,11 @@ const ListUsers = () => {
 
   const getListUsers = useCallback(() => {
     const authToken = localStorage.getItem('authToken');
+
+    setLoadingData(true);
     if (!authToken) {
       navigate("/");
+      setLoadingData(false);
       return;
     }
 
@@ -273,6 +293,7 @@ const ListUsers = () => {
           })),
         }));
         setUsersList(formattedData as UserType[]);
+        setLoadingData(false);
       } else {
         showAlert(result.data.message || 'Kullanıcı listesi alınırken bir hata oluştu.', 'error');
       }
@@ -694,15 +715,20 @@ const ListUsers = () => {
         showAlert(response.data.message || 'Kullanıcı güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+      } else {
+        showAlert(
+          (e.response?.data?.message === "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
+            (e.response?.data?.message === "Some roles not found" ? "Rol seçilmedi." : e.response?.data?.message)) ||
+          'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
       }
-      showAlert(
-        (e.response?.data?.message === "username must be longer than or equal to 5 characters" ? "Kullanıcı adı en az 5 karakter olmalıdır." :
-          (e.response?.data?.message === "Some roles not found" ? "Rol seçilmedi." : e.response?.data?.message)) ||
-        'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
     } finally {
       setLoadingButton(false);
     }
@@ -1056,10 +1082,10 @@ const ListUsers = () => {
                             {allRoles
                               .filter(role => role.recordStatus === 0)
                               .map((role) => (
-                                <MenuItem key={role.id} value={role.id}>
+                                <MuiMenuItem key={role.id} value={role.id}>
                                   <Checkbox checked={selectedRoles.indexOf(role.id) > -1} />
                                   <ListItemText primary={role.name} />
-                                </MenuItem>
+                                </MuiMenuItem>
                               ))}
                           </Select>
                           {roleHelperText && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>{roleHelperText}</Typography>}
@@ -1173,11 +1199,11 @@ const ListUsers = () => {
                   label="Rol Fİltrele"
                   onChange={handleRoleFilterChange}
                 >
-                  <MenuItem value="all">Tümü</MenuItem>
+                  <MuiMenuItem value="all">Tümü</MuiMenuItem>
                   {allRoles.filter(role => role.recordStatus === 0).map(role => (
-                    <MenuItem key={role.id} value={role.id}> {/* role.id is string */}
+                    <MuiMenuItem key={role.id} value={role.id}> {/* role.id is string */}
                       {role.name}
-                    </MenuItem>
+                    </MuiMenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -1213,250 +1239,220 @@ const ListUsers = () => {
           </Grid>
         </Box>
         <TableContainer>
-          <Table aria-label="user table">
-            <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
-              <TableRow>
-                <TableCell
-                  style={{ color: "#171c23" }}>
-                  <Typography variant="h6">Resim</Typography>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'username'}
-                    direction={orderBy === 'username' ? order : 'asc'}
-                    onClick={() => handleRequestSort('username')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">Kullanıcı Adı</Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell
-                  style={{ color: "#171c23" }}>
-                  <Typography variant="h6">Rolleri</Typography>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'createAt'}
-                    direction={orderBy === 'createAt' ? order : 'asc'}
-                    onClick={() => handleRequestSort('createAt')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">Oluşturulma Tarihi</Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'status'}
-                    direction={orderBy === 'status' ? order : 'asc'}
-                    onClick={() => handleRequestSort('status')}
-                    style={{ color: "#171c23" }}
-                  >
-                    <Typography variant="h6">Durum</Typography>
-                  </TableSortLabel>
-                </TableCell>
-                <TableCell></TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {paginatedUsers.length > 0 ? (
-                paginatedUsers.map((row) => (
-                  <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                    <TableCell>
-                      <CardMedia
-                        component="img"
-                        sx={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
-                        image={row.imageUrl || DEFAULT_IMAGE_URL}
-                        alt="User Picture"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="h6">{row.username}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" flexWrap="wrap" spacing={0.5}>
-                        {row.roles && row.roles.length > 0 ? (
-                          row.roles.map((role, index) => {
-                            const isRoleInactive = role.recordStatus === 1;
-
-                            const chipSx = {
-                              mr: 0.5,
-                              mb: 0.5,
-                              backgroundColor: isRoleInactive ? theme.palette.error.light : undefined,
-                              color: isRoleInactive ? theme.palette.error.main : undefined,
-                              border: isRoleInactive ? `1px solid ${theme.palette.error.main}` : 'none',
-                              opacity: isRoleInactive ? 0.7 : 1,
-                            };
-
-                            const tooltipTitle = isRoleInactive
-                              ? `Bu rol (${role.name}) şu anda aktif değil.`
-                              : "";
-
-                            return (
-                              <CustomTooltip
-                                key={role.id || index}
-                                title={tooltipTitle}
-                                disableHoverListener={!isRoleInactive && !isTooltipGloballyEnabled}
-                              >
-                                <Chip
-                                  label={role.name}
-                                  size="small"
-                                  sx={chipSx}
-                                />
-                              </CustomTooltip>
-                            );
-                          })
-                        ) : (
-                          <Chip
-                            label="Rol Yok"
-                            size="small"
-                            sx={{
-                              mr: 0.5, mb: 0.5,
-                              backgroundColor: (theme) => theme.palette.grey[300],
-                              color: (theme) => theme.palette.text.secondary
-                            }}
-                          />
-                        )}
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.status}
-                        sx={{
-                          backgroundColor:
-                            row.recordStatus === 2
-                              ? (theme) => theme.palette.primary.light
-                              : row.recordStatus === 1
-                                ? (theme) => theme.palette.error.light
-                                : (theme) => theme.palette.success.light,
-                          color:
-                            row.recordStatus === 2
-                              ? (theme) => theme.palette.primary.main
-                              : row.recordStatus === 1
-                                ? (theme) => theme.palette.error.main
-                                : (theme) => theme.palette.success.main,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                        <IconButton
-                          id={`basic-button-${row.id}`}
-                          aria-controls={openMenu ? 'basic-menu' : undefined}
-                          aria-haspopup="true"
-                          aria-expanded={openMenu ? 'true' : undefined}
-                          onClick={(event) => handleClickMenu(event, row)}
-                        >
-                          <IconDots width={18} />
-                        </IconButton>
-                      </CustomTooltip>
-                      <Menu
-                        id="basic-menu"
-                        anchorEl={anchorEl}
-                        open={openMenu}
-                        onClose={handleCloseMenu}
-                        MenuListProps={{
-                          'aria-labelledby': `basic-button-${selectedUserForMenu?.id}`,
-                        }}
-                      >
-                        {hasEditPermission && selectedUserForMenu?.recordStatus === 0 && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
-                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
-                              <ListItemIcon>
-                                <DoNotDisturbOnRoundedIcon width={18} />
-                              </ListItemIcon>
-                              Pasif Yap
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-                        {hasEditPermission && selectedUserForMenu?.recordStatus === 1 && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
-                            <MenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
-                              <ListItemIcon>
-                                <DoneRoundedIcon width={18} />
-                              </ListItemIcon>
-                              Aktif Yap
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-
-                        {hasChangePassPermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Kullanıcının şifresini değiştir" : ""}>
-                            <MenuItem onClick={handleClickOpenChangePasswordModal}>
-                              <ListItemIcon>
-                                <IconKey width={18} />
-                              </ListItemIcon>
-                              Şifre Değiştir
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-
-                        {hasChangeRoleOpPermission && (
-                          <>
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Kullanıcının rollerini yönet" : ""}>
-                              <MenuItem onClick={handleClickOpenRoleModal}>
-                                <ListItemIcon>
-                                  <IconUsersGroup width={18} />
-                                </ListItemIcon>
-                                Rolleri Seç
-                              </MenuItem>
-                            </CustomTooltip>
-
-                            <CustomTooltip placement="left"
-                              title={isTooltipGloballyEnabled ? "Kullanıcının operasyonlarını yönet" : ""}>
-                              <MenuItem onClick={handleClickOpenOperationsModal}>
-                                <ListItemIcon>
-                                  <IconLock width={18} />
-                                </ListItemIcon>
-                                Operasyonları Seç
-                              </MenuItem>
-                            </CustomTooltip>
-
-                          </>
-                        )}
-                        {hasEditPermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Kullanıcı bilgilerini düzenle" : ""}>
-                            <MenuItem onClick={handleEditItemClick} disabled={!hasEditPermission}>
-                              <ListItemIcon>
-                                <IconEdit width={18} />
-                              </ListItemIcon>
-                              Düzenlemek
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-                        {hasDeletePermission && (
-                          <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Kullanıcıyı sil" : ""}>
-                            <MenuItem onClick={handleClickOpenDeleteModal} disabled={!hasDeletePermission}>
-                              <ListItemIcon>
-                                <IconTrash width={18} />
-                              </ListItemIcon>
-                              Silmek
-                            </MenuItem>
-                          </CustomTooltip>
-                        )}
-                      </Menu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          {loadingData ? (
+            <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+              <CircularProgress />
+              <Typography variant="h6" sx={{ ml: 2 }}>Kullanıcılar yükleniyor...</Typography>
+            </Box>
+          ) : (
+            <Table aria-label="user table">
+              <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
-                    <Typography variant="subtitle1" color="textSecondary">
-                      Hiç kullanıcı bulunamadı.
-                    </Typography>
-                  </TableCell>
+                  <StyledTableCell style={{ color: "#171c23" }}>
+                    <Typography variant="h6">Resim</Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <TableSortLabel
+                      active={orderBy === 'username'}
+                      direction={orderBy === 'username' ? order : 'asc'}
+                      onClick={() => handleRequestSort('username')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Kullanıcı Adı</Typography>
+                    </TableSortLabel>
+                  </StyledTableCell>
+                  <StyledTableCell style={{ color: "#171c23" }}>
+                    <Typography variant="h6">Rolleri</Typography>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <TableSortLabel
+                      active={orderBy === 'createAt'}
+                      direction={orderBy === 'createAt' ? order : 'asc'}
+                      onClick={() => handleRequestSort('createAt')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                    </TableSortLabel>
+                  </StyledTableCell>
+                  <StyledTableCell>
+                    <TableSortLabel
+                      active={orderBy === 'status'}
+                      direction={orderBy === 'status' ? order : 'asc'}
+                      onClick={() => handleRequestSort('status')}
+                      style={{ color: "#171c23" }}
+                    >
+                      <Typography variant="h6">Durum</Typography>
+                    </TableSortLabel>
+                  </StyledTableCell>
+                  <StyledTableCell></StyledTableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {paginatedUsers.length > 0 ? (
+                  paginatedUsers.map((row) => (
+                    <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                      <StyledTableCell>
+                        <CardMedia
+                          component="img"
+                          sx={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                          image={row.imageUrl || DEFAULT_IMAGE_URL}
+                          alt="User Picture"
+                        />
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body1">{row.username}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {row.roles && row.roles.length > 0 ? (
+                            row.roles.map((role, index) => {
+                              const isRoleInactive = role.recordStatus === 1;
+                              const chipColor = isRoleInactive ? 'error' : 'default';
+
+                              return (
+                                <CustomTooltip
+                                  key={role.id || index}
+                                  title={isRoleInactive ? `Bu rol (${role.name}) şu anda aktif değil.` : isTooltipGloballyEnabled ? role.name : ""}
+                                  disableHoverListener={!isRoleInactive && !isTooltipGloballyEnabled}
+                                >
+                                  <Chip
+                                    label={role.name}
+                                    size="small"
+                                    color={chipColor}
+                                    variant={isRoleInactive ? 'outlined' : 'filled'}
+                                    sx={{
+                                      opacity: isRoleInactive ? 0.7 : 1,
+                                      borderColor: isRoleInactive ? 'error.main' : undefined,
+                                    }}
+                                  />
+                                </CustomTooltip>
+                              );
+                            })
+                          ) : (
+                            <Chip
+                              label="Rol Yok"
+                              size="small"
+                              sx={{
+                                backgroundColor: (theme) => theme.palette.grey[300],
+                                color: (theme) => theme.palette.text.secondary
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <Chip
+                          label={row.status}
+                          sx={{
+                            backgroundColor:
+                              row.recordStatus === 2
+                                ? (theme) => theme.palette.primary.light
+                                : row.recordStatus === 1
+                                  ? (theme) => theme.palette.error.light
+                                  : (theme) => theme.palette.success.light,
+                            color:
+                              row.recordStatus === 2
+                                ? (theme) => theme.palette.primary.main
+                                : row.recordStatus === 1
+                                  ? (theme) => theme.palette.error.main
+                                  : (theme) => theme.palette.success.main,
+                          }}
+                        />
+                      </StyledTableCell>
+                      <StyledTableCell>
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
+                          <IconButton
+                            id={`basic-button-${row.id}`}
+                            aria-controls={openMenu ? 'basic-menu' : undefined}
+                            aria-haspopup="true"
+                            aria-expanded={openMenu ? 'true' : undefined}
+                            onClick={(event) => handleClickMenu(event, row)}
+                          >
+                            <IconDots width={18} />
+                          </IconButton>
+                        </CustomTooltip>
+                        <Menu
+                          id="basic-menu"
+                          anchorEl={anchorEl}
+                          open={openMenu}
+                          onClose={handleCloseMenu}
+                          MenuListProps={{ 'aria-labelledby': `basic-button-${selectedUserForMenu?.id}` }}
+                        >
+                          {hasEditPermission && selectedUserForMenu?.recordStatus === 0 && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcıyı pasif yap" : ""}>
+                              <MuiMenuItem onClick={() => sendStatusUpdate(selectedUserForMenu.id, 1)}>
+                                <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>
+                                Pasif Yap
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasEditPermission && selectedUserForMenu?.recordStatus === 1 && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcıyı aktif yap" : ""}>
+                              <MuiMenuItem onClick={() => sendStatusUpdate(selectedUserForMenu!.id, 0)}>
+                                <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>
+                                Aktif Yap
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasChangePassPermission && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcının şifresini değiştir" : ""}>
+                              <MuiMenuItem onClick={handleClickOpenChangePasswordModal}>
+                                <ListItemIcon><IconKey width={18} /></ListItemIcon>
+                                Şifre Değiştir
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasChangeRoleOpPermission && (
+                            <>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcının rollerini yönet" : ""}>
+                                <MuiMenuItem onClick={handleClickOpenRoleModal}>
+                                  <ListItemIcon><IconUsersGroup width={18} /></ListItemIcon>
+                                  Rolleri Seç
+                                </MuiMenuItem>
+                              </CustomTooltip>
+                              <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcının operasyonlarını yönet" : ""}>
+                                <MuiMenuItem onClick={handleClickOpenOperationsModal}>
+                                  <ListItemIcon><IconLock width={18} /></ListItemIcon>
+                                  Operasyonları Seç
+                                </MuiMenuItem>
+                              </CustomTooltip>
+                            </>
+                          )}
+                          {hasEditPermission && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcı bilgilerini düzenle" : ""}>
+                              <MuiMenuItem onClick={handleEditItemClick}>
+                                <ListItemIcon><IconEdit width={18} /></ListItemIcon>
+                                Düzenlemek
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                          {hasDeletePermission && (
+                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kullanıcıyı sil" : ""}>
+                              <MuiMenuItem onClick={handleClickOpenDeleteModal}>
+                                <ListItemIcon><IconTrash width={18} /></ListItemIcon>
+                                Silmek
+                              </MuiMenuItem>
+                            </CustomTooltip>
+                          )}
+                        </Menu>
+                      </StyledTableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <StyledTableCell colSpan={6} align="center">
+                      <Typography variant="subtitle1" color="textSecondary">
+                        Hiç kullanıcı bulunamadı.
+                      </Typography>
+                    </StyledTableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </TableContainer>
         <TablePagination
           rowsPerPageOptions={[5, 10, 25]}

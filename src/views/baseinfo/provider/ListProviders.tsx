@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
+    Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, FormControl, InputLabel, Select, ListItemText,
@@ -52,6 +54,14 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
@@ -577,12 +587,17 @@ const ListProviders = () => {
                 showAlert(response.data.message || 'Tedarikçi güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            } else {
+                showAlert(e.response?.data?.message || 'Tedarikçi güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
             }
-            showAlert(e.response?.data?.message || 'Tedarikçi güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -690,7 +705,7 @@ const ListProviders = () => {
 
             return (
                 <React.Fragment key={node.id}>
-                    <MenuItem
+                    <MuiMenuItem
                         value={node.id}
                         onClick={handleSelectClick}
                         sx={{
@@ -717,7 +732,7 @@ const ListProviders = () => {
                                 )}
 
                         </Stack>
-                    </MenuItem>
+                    </MuiMenuItem>
                     {isExpanded && hasChildren && renderRegionTree(node.children, depth + 1)}
                 </React.Fragment>
             );
@@ -1058,13 +1073,13 @@ const ListProviders = () => {
                                         MenuProps={{ sx: { maxHeight: 400 } }}
                                     >
                                         {loadingData ? (
-                                            <MenuItem disabled>
+                                            <MuiMenuItem disabled>
                                                 <CircularProgress size={20} /> Yükleniyor...
-                                            </MenuItem>
+                                            </MuiMenuItem>
                                         ) : regionTree.length > 0 ? (
                                             renderRegionTree(regionTree)
                                         ) : (
-                                            <MenuItem disabled>Hiç bölge bulunamadı.</MenuItem>
+                                            <MuiMenuItem disabled>Hiç bölge bulunamadı.</MuiMenuItem>
                                         )}
                                     </Select>
                                     {regionIdError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bölge seçimi zorunludur!</Typography>}
@@ -1183,66 +1198,125 @@ const ListProviders = () => {
                         </Grid>
                     </Grid>
                 </Box>
-                {loadingData ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-                        <CircularProgress />
-                        <Typography variant="h6" sx={{ ml: 2 }}>Sağlayıcılar yükleniyor...</Typography>
-                    </Box>
-                ) : (
-                    <TableContainer>
+                <TableContainer>
+                    {loadingData ? (
+                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                            <CircularProgress />
+                            <Typography variant="h6" sx={{ ml: 2 }}>Sağlayıcılar yükleniyor...</Typography>
+                        </Box>
+                    ) : (
                         <Table aria-label="Provider table">
                             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} style={{ color: "#171c23" }}><Typography variant="h6">İsim</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'phoneNumber'} direction={orderBy === 'phoneNumber' ? order : 'asc'} onClick={() => handleRequestSort('phoneNumber')} style={{ color: "#171c23" }}><Typography variant="h6">Telefon Numarası</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'address'} direction={orderBy === 'address' ? order : 'asc'} onClick={() => handleRequestSort('address')} style={{ color: "#171c23" }}><Typography variant="h6">Adres</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'firm'} direction={orderBy === 'firm' ? order : 'asc'} onClick={() => handleRequestSort('firm')} style={{ color: "#171c23" }}><Typography variant="h6">Firma</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'name'}
+                                            direction={orderBy === 'name' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('name')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">İsim</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'phoneNumber'}
+                                            direction={orderBy === 'phoneNumber' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('phoneNumber')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Telefon Numarası</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'address'}
+                                            direction={orderBy === 'address' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('address')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Adres</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'firm'}
+                                            direction={orderBy === 'firm' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('firm')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Firma</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
                                         <Typography variant="h6">Bölge</Typography>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} style={{ color: "#171c23" }}><Typography variant="h6">Oluşturulma Tarihi</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell>
-                                        <TableSortLabel active={orderBy === 'recordStatus'} direction={orderBy === 'recordStatus' ? order : 'asc'} onClick={() => handleRequestSort('recordStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel>
-                                    </TableCell>
-                                    <TableCell></TableCell>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'createAt'}
+                                            direction={orderBy === 'createAt' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('createAt')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Oluşturulma Tarihi</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'recordStatus'}
+                                            direction={orderBy === 'recordStatus' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('recordStatus')}
+                                            style={{ color: "#171c23" }}
+                                        >
+                                            <Typography variant="h6">Durum</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                    <StyledTableCell></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {paginatedProviders.length > 0 ? (
                                     paginatedProviders.map((row) => (
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                            <TableCell><Typography variant="h6">{row.name}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{row.phoneNumber}</Typography></TableCell>
-                                            <TableCell>
-                                                <Typography variant="h6" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {row.address.length > 50 ? `${row.address.substring(0, 50)}...` : row.address}
-                                                </Typography>
-                                                {row.address.length > 50 && (
-                                                    <Button variant="text" size="small" onClick={() => {
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{row.name}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{row.phoneNumber}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                                <Box sx={{
+                                                    maxHeight: '5em',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: 'vertical',
+                                                }}>
+                                                    <Typography variant="body1">{row.address}</Typography>
+                                                </Box>
+                                                {row.address && row.address.length > 50 && (
+                                                    <Button variant="text" size="small" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                         setSelectedAddress(row.address);
                                                         setOpenAddressModal(true);
                                                     }}>
                                                         Devamını Oku
                                                     </Button>
                                                 )}
-                                            </TableCell>
-                                            <TableCell><Chip
-                                                label={row.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı'}
-                                                color={row.firm === '1' ? 'primary' : 'secondary'}
-                                            /></TableCell>
-                                            <TableCell><Typography variant="h6">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></TableCell>
-                                            <TableCell><Typography variant="h6">{formatDateDisplay(row.createAt)}</Typography></TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Chip
+                                                    label={row.firm === '1' ? 'Şirket İçi' : 'Şirket Dışı'}
+                                                    color={row.firm === '1' ? 'primary' : 'secondary'}
+                                                />
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <Chip
                                                     label={row.status}
                                                     sx={{
@@ -1260,10 +1334,16 @@ const ListProviders = () => {
                                                                     : (theme) => theme.palette.success.main,
                                                     }}
                                                 />
-                                            </TableCell>
-                                            <TableCell>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                    <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={openMenu ? 'true' : undefined} onClick={(event) => handleClickMenu(event, row)}>
+                                                    <IconButton
+                                                        id={`basic-button-${row.id}`}
+                                                        aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                        aria-haspopup="true"
+                                                        aria-expanded={openMenu ? 'true' : undefined}
+                                                        onClick={(event) => handleClickMenu(event, row)}
+                                                    >
                                                         <IconDots width={18} />
                                                     </IconButton>
                                                 </CustomTooltip>
@@ -1275,61 +1355,54 @@ const ListProviders = () => {
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı pasif yap" : ""}>
-                                                            <MenuItem onClick={handleSetInactive}>
-                                                                <ListItemIcon>
-                                                                    <DoNotDisturbOnRoundedIcon width={18} />
-                                                                </ListItemIcon>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı pasif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetInactive}>
+                                                                <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>
                                                                 Pasif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
-
                                                     )}
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
-                                                        <CustomTooltip placement="left"
-                                                            title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı aktif yap" : ""}>
-                                                            <MenuItem onClick={handleSetActive}>
-                                                                <ListItemIcon>
-                                                                    <DoneRoundedIcon width={18} />
-                                                                </ListItemIcon>
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı aktif yap" : ""}>
+                                                            <MuiMenuItem onClick={handleSetActive}>
+                                                                <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>
                                                                 Aktif Yap
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı düzenle" : ""}>
-                                                            <MenuItem onClick={handleEditClick}>
+                                                            <MuiMenuItem onClick={handleEditClick}>
                                                                 <ListItemIcon><IconEdit width={18} /></ListItemIcon>
                                                                 Düzenlemek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu sağlayıcıyı sil" : ""}>
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}>
+                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                                 <ListItemIcon><IconTrash width={18} /></ListItemIcon>
                                                                 Silmek
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>
-                                            </TableCell>
+                                            </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={8} align="center">
+                                        <StyledTableCell colSpan={8} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">
-                                                Bu işe ait hiç Tedarikçi bulunamadı.
+                                                Hiç sağlayıcı bulunamadı.
                                             </Typography>
-                                        </TableCell>
+                                        </StyledTableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
                         </Table>
-                    </TableContainer>
-                )}
+                    )}
+                </TableContainer>
                 <TablePagination
                     rowsPerPageOptions={[5, 10, 25]}
                     component="div"

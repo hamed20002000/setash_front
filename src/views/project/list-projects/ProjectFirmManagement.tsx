@@ -153,10 +153,21 @@ const ProjectFirmManagement: React.FC<ProjectFirmManagementProps> = ({ open, onC
                 fetchFirms();
                 onFirmChange();
             } else {
+
                 showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'İşlem sırasında bir hata oluştu.', 'error');
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+                showAlert(e.response?.data?.message || 'İşlem sırasında bir hata oluştu.', 'error');
+
+            }
         }
     };
 

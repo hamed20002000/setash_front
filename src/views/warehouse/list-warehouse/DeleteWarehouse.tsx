@@ -63,11 +63,9 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
                 onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting Warehouse:", e);
-
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenWarehouseInUseModal(true); // ✅ تغییر نام modal
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

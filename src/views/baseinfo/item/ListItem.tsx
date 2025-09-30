@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
+  TableContainer, Table, TableHead, TableRow, TableCell as MuiTableCell, TableBody,
   Typography, Chip, Menu,
   IconButton, ListItemIcon, Box,
   Stack, Grid, Button, Alert, Checkbox, InputAdornment, TablePagination,
@@ -16,6 +16,7 @@ import {
   ListItemText,
   TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
+
 import { keyframes, styled } from '@mui/material/styles';
 
 import ReactQuill from 'react-quill';
@@ -79,6 +80,15 @@ const blinkAnimation = keyframes`
 const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
   animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
   transition: 'transform 0.3s ease-in-out',
+}));
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  [theme.breakpoints.up('md')]: {
+    fontSize: '1rem', // Masaüstünde daha büyük
+  },
 }));
 
 interface ItemType {
@@ -808,10 +818,13 @@ const ListItemComponent = () => {
       }
 
     } catch (e: any) {
-      if (e.response && e.response.status === 401) {
+      if (e.response && e.response.status === 500) {
+        showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+      } else if (e.response && e.response.status === 401) {
         localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
         navigate("/");
-        showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
         console.log("Error inserting item:", e);
         showAlert(e.response?.data?.message || 'Ürün güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
@@ -2002,8 +2015,8 @@ const ListItemComponent = () => {
           <Table aria-label="item table">
             <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
               <TableRow>
-                <TableCell >
-                  {/* Sortable Column: Ürün Adı */}
+                {/* Başlık hücrelerinde Typography'i koruyoruz ve StyledTableCell kullanıyoruz */}
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'name'}
                     direction={orderBy === 'name' ? order : 'asc'}
@@ -2012,31 +2025,28 @@ const ListItemComponent = () => {
                   >
                     <Typography variant="h6">Ürün Adı</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  {/* Sortable Column: Ölçü */}
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
-                    active={orderBy === 'unit.title'} // Sorting by nested property 'unit.title'
+                    active={orderBy === 'unit.title'}
                     direction={orderBy === 'unit.title' ? order : 'asc'}
                     onClick={() => handleRequestSort('unit.title')}
                     style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Ölçü</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  {/* Sortable Column: Kategori */}
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
-                    active={orderBy === 'category.name'} // Sorting by nested property 'category.name'
+                    active={orderBy === 'category.name'}
                     direction={orderBy === 'category.name' ? order : 'asc'}
                     onClick={() => handleRequestSort('category.name')}
                     style={{ color: "#171c23" }}
                   >
                     <Typography variant="h6">Kategori</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  {/* Sortable Column: Kısaltma */}
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'abbreviation'}
                     direction={orderBy === 'abbreviation' ? order : 'asc'}
@@ -2045,9 +2055,8 @@ const ListItemComponent = () => {
                   >
                     <Typography variant="h6">Kısaltma</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  {/* ✅ اضافه شده: ستون وزن */}
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'weight'}
                     direction={orderBy === 'weight' ? order : 'asc'}
@@ -2056,13 +2065,11 @@ const ListItemComponent = () => {
                   >
                     <Typography variant="h6">Ağırlık</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell
-                  style={{ color: "#171c23" }}>
-                  <Typography variant="h6">Açıklama</Typography> {/* Description is not easily sortable */}
-                </TableCell>
-                <TableCell>
-                  {/* Sortable Column: Oluşturulma Tarihi */}
+                </StyledTableCell>
+                <StyledTableCell style={{ color: "#171c23" }}>
+                  <Typography variant="h6">Açıklama</Typography>
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'createAt'}
                     direction={orderBy === 'createAt' ? order : 'asc'}
@@ -2071,9 +2078,8 @@ const ListItemComponent = () => {
                   >
                     <Typography variant="h6">Oluşturulma Tarihi</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell>
-                  {/* Sortable Column: Durum */}
+                </StyledTableCell>
+                <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'status'}
                     direction={orderBy === 'status' ? order : 'asc'}
@@ -2082,42 +2088,29 @@ const ListItemComponent = () => {
                   >
                     <Typography variant="h6">Durum</Typography>
                   </TableSortLabel>
-                </TableCell>
-                <TableCell></TableCell>
+                </StyledTableCell>
+                <StyledTableCell></StyledTableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loadingItems ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <StyledTableCell colSpan={9} align="center">
                     <CircularProgress />
                     <Typography variant="subtitle1" color="textSecondary">
                       Ürünler yükleniyor...
                     </Typography>
-                  </TableCell>
+                  </StyledTableCell>
                 </TableRow>
               ) : paginatedItems.length > 0 ? (
                 paginatedItems.map((row) => (
                   <TableRow key={row.id} sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell>
-                      <Typography variant="h6">{row.name}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body1">{row.unit.title}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body1">{row.category.name}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body1">{row.abbreviation}</Typography>
-                    </TableCell>
-                    {/* ✅ اضافه شده: نمایش وزن */}
-                    <TableCell>
-                      <Typography variant="body1">
-                        {row.weight || ''}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                    <StyledTableCell><Typography variant="body1">{row.name}</Typography></StyledTableCell>
+                    <StyledTableCell><Typography variant="body1">{row.unit.title}</Typography></StyledTableCell>
+                    <StyledTableCell><Typography variant="body1">{row.category.name}</Typography></StyledTableCell>
+                    <StyledTableCell><Typography variant="body1">{row.abbreviation}</Typography></StyledTableCell>
+                    <StyledTableCell><Typography variant="body1">{row.weight || ''}</Typography></StyledTableCell>
+                    <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                       <Box sx={{
                         maxHeight: '5em',
                         overflow: 'hidden',
@@ -2130,20 +2123,16 @@ const ListItemComponent = () => {
                       </Box>
                       {row.description.length > 50 && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-
                           <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                             handleOpenDescriptionModal(row.description);
-
                           }}>
                             Devamını Oku
                           </Button>
                         </CustomTooltip>
                       )}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography>
-                    </TableCell>
-                    <TableCell>
+                    </StyledTableCell>
+                    <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography></StyledTableCell>
+                    <StyledTableCell>
                       <Chip
                         label={row.status}
                         sx={{
@@ -2161,8 +2150,9 @@ const ListItemComponent = () => {
                                 : (theme) => theme.palette.success.main,
                         }}
                       />
-                    </TableCell>
-                    <TableCell>
+                    </StyledTableCell>
+                    {/* Menü kodu burada bitiyor */}
+                    <StyledTableCell>
                       <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                         <IconButton
                           id={`basic-button-${row.id}`}
@@ -2230,16 +2220,16 @@ const ListItemComponent = () => {
                           </CustomTooltip>
                         )}
                       </Menu>
-                    </TableCell>
+                    </StyledTableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={9} align="center">
+                  <StyledTableCell colSpan={9} align="center">
                     <Typography variant="subtitle1" color="textSecondary">
                       Hiç ürün bulunamadı.
                     </Typography>
-                  </TableCell>
+                  </StyledTableCell>
                 </TableRow>
               )}
             </TableBody>

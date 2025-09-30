@@ -3,8 +3,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-    TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-    Typography, Menu, MenuItem, IconButton, ListItemIcon, Box,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+
+    TableCell as MuiTableCell,
+    MenuItem as MuiMenuItem,
+    Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     Chip, Autocomplete,
@@ -37,7 +40,15 @@ import DeleteBetweenReceipt from "./DeleteBetweenReceipt";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
-// === Type Definitions ===
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
+    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
+    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    [theme.breakpoints.up('md')]: {
+        fontSize: '1rem', // Masaüstünde daha büyük
+    },
+}));
 
 interface ApiResponse<T> {
     success: boolean;
@@ -220,7 +231,7 @@ const ListBetweenReceipt = () => {
 
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<BetweenReceiptType | null>(null);
-    const openMenu = Boolean(anchorEl);
+    // const openMenu = Boolean(anchorEl);
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingCode, setEditingCode] = useState<string | null>(null);
@@ -292,11 +303,40 @@ const ListBetweenReceipt = () => {
         setReceiptDetails(prev => {
             const newDetails = [...prev];
             const updatedDetail = { ...newDetails[index] };
-            (updatedDetail as any)[field] = value;
+
+            // Convert value to number for quantity validation
+            const numValue = Number(value);
+
+            // Apply validation only to the 'quantity' field
+            if (field === 'quantity') {
+                // Find the dispatch detail from the original dispatch document
+                const dispatchId = selectedDispatchId;
+                const selectedDispatch = dispatchesForCombo.find(d => d.id === dispatchId);
+                const originalDispatchDetail = selectedDispatch?.warehouseDispatchDetails.find(d => Number(d.id) === updatedDetail.originWarehouseDispatchDeatailId);
+
+                const maxQuantity = originalDispatchDetail ? Number(originalDispatchDetail.quantity) : 0;
+
+                if (numValue < 0 || isNaN(numValue)) {
+                    // Prevent negative or invalid values
+                    showAlert('Miktar negatif olamaz veya geçersiz bir değer içeremez!', 'warning');
+                    updatedDetail.quantity = updatedDetail.quantity; // Keep the old value
+                } else if (numValue > maxQuantity) {
+                    // Prevent entering a value greater than the dispatch quantity
+                    showAlert(`Girdiğiniz miktar sevk belgesindeki miktardan fazla! Maksimum: ${maxQuantity}`, 'warning');
+                    updatedDetail.quantity = maxQuantity; // Set the value to the max allowed
+                } else {
+                    // Value is valid
+                    updatedDetail.quantity = numValue;
+                }
+            } else {
+                // For other fields like 'description'
+                (updatedDetail as any)[field] = value;
+            }
+
             newDetails[index] = updatedDetail;
             return newDetails;
         });
-    }, []);
+    }, [showAlert, selectedDispatchId, dispatchesForCombo]);
 
     const handleRemoveReceiptDetail = (index: number) => {
         setReceiptDetails(prev => {
@@ -515,7 +555,17 @@ const ListBetweenReceipt = () => {
                 showAlert(response.data.message || 'Fiş güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Fiş güncellenirken bir hata oluştu.', 'error');
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+                showAlert(e.response?.data?.message || 'Fiş güncellenirken bir hata oluştu.', 'error');
+
+            }
         } finally {
             setLoadingButton(false);
         }
@@ -528,38 +578,97 @@ const ListBetweenReceipt = () => {
         setSelectedRowForMenu(null);
     };
 
-    const handleEditClick = async () => {
-        if (selectedRowForMenu) {
-            setEditingId(selectedRowForMenu.id);
-            setEditingCode(selectedRowForMenu.code);
-            setDocDate(new Date(selectedRowForMenu.docDate));
-            setSelectedWarehouseId(selectedRowForMenu.warehouse.id);
+    // const handleEditClick = async () => {
+    //     if (selectedRowForMenu) {
+    //         setEditingId(selectedRowForMenu.id);
+    //         setEditingCode(selectedRowForMenu.code);
+    //         setDocDate(new Date(selectedRowForMenu.docDate));
+    //         setSelectedWarehouseId(selectedRowForMenu.warehouse.id);
 
-            await fetchDispatchesForCombo(selectedRowForMenu.warehouse.id);
+    //         await fetchDispatchesForCombo(selectedRowForMenu.warehouse.id);
 
-            const originDispatchDetailId = selectedRowForMenu.receiptDetails?.[0]?.originWarehouseDispatchDeatailId?.toString();
-            if (originDispatchDetailId) {
-                setSelectedDispatchId(originDispatchDetailId);
-            }
+    //         // const originDispatchDetailId = selectedRowForMenu.receiptDetails?.[0]?.originWarehouseDispatchDeatailId?.toString();
+    //         // if (originDispatchDetailId) {
+    //         //     setSelectedDispatchId(originDispatchDetailId);
+    //         // }
+    //         const originDispatchDetailId = selectedRowForMenu.receiptDetails?.[0]?.originWarehouseDispatchDeatailId?.toString();
+    //         if (originDispatchDetailId) {
+    //             // 1. fetch dispatch details
+    //             await fetchDispatchDetails(originDispatchDetailId);
+    //             // 2. then set the dispatch ID
+    //             setSelectedDispatchId(originDispatchDetailId);
+    //         }
 
-            const formattedDetails: FormReceiptDetail[] = (selectedRowForMenu.receiptDetails || []).map(d => ({
-                itemId: Number(d.item.id),
-                quantity: d.quantity,
-                description: d.description,
-                originWarehouseDispatchDeatailId: d.originWarehouseDispatchDeatailId,
-                item: {
-                    name: d.item.name,
-                    unit: {
-                        title: d.item.unit?.title || ''
-                    }
-                }
-            }));
-            setReceiptDetails(formattedDetails);
+    //         // const formattedDetails: FormReceiptDetail[] = (selectedRowForMenu.receiptDetails || []).map(d => ({
+    //         //     itemId: Number(d.item.id),
+    //         //     quantity: d.quantity,
+    //         //     description: d.description,
+    //         //     originWarehouseDispatchDeatailId: d.originWarehouseDispatchDeatailId,
+    //         //     item: {
+    //         //         name: d.item.name,
+    //         //         unit: {
+    //         //             title: d.item.unit?.title || ''
+    //         //         }
+    //         //     }
+    //         // }));
+    //         const formattedDetails: FormReceiptDetail[] = (selectedRowForMenu.receiptDetails || []).map(d => ({
+    //             itemId: Number(d.item.id),
+    //             quantity: d.quantity,
+    //             description: d.description,
+    //             originWarehouseDispatchDeatailId: d.originWarehouseDispatchDeatailId,
+    //             item: {
+    //                 name: d.item.name,
+    //                 unit: {
+    //                     title: d.item.unit?.title || ''
+    //                 }
+    //             }
+    //         }));
+    //         setReceiptDetails(formattedDetails);
 
-            setIsFormVisible(true);
-            handleCloseMenu();
+    //         setIsFormVisible(true);
+    //         handleCloseMenu();
+    //     }
+    // };
+
+    const handleEditClick = useCallback(async () => {
+        if (!selectedRowForMenu) return;
+
+        // Set the state for editing
+        setEditingId(selectedRowForMenu.id);
+        setEditingCode(selectedRowForMenu.code);
+        setDocDate(new Date(selectedRowForMenu.docDate));
+        setSelectedWarehouseId(selectedRowForMenu.warehouse.id);
+        setIsFormVisible(true);
+        handleCloseMenu();
+
+        // Asynchronously fetch dispatch list based on the selected warehouse
+        await fetchDispatchesForCombo(selectedRowForMenu.warehouse.id);
+
+        // After the dispatch list is loaded, find the dispatch detail
+        const originDispatchDetail = selectedRowForMenu.receiptDetails?.[0]?.originWarehouseDispatchDeatail;
+
+        // Now that the dispatchesForCombo state is populated, we can safely set the selected ID
+        if (originDispatchDetail?.warehouseDispatchHeaders?.id) {
+            setSelectedDispatchId(originDispatchDetail.warehouseDispatchHeaders.id);
         }
-    };
+
+        // Now, format the receipt details for the form
+        const formattedDetails = (selectedRowForMenu.receiptDetails || []).map(d => ({
+            itemId: Number(d.item.id),
+            quantity: d.quantity,
+            description: d.description,
+            originWarehouseDispatchDeatailId: Number(d.originWarehouseDispatchDeatailId),
+            item: {
+                name: d.item.name,
+                unit: {
+                    title: d.item.unit?.title || ''
+                }
+            }
+        }));
+        setReceiptDetails(formattedDetails);
+
+    }, [selectedRowForMenu, fetchDispatchesForCombo, handleCloseMenu]);
+
 
     const handleCancelEdit = () => {
         resetFormAndState();
@@ -610,8 +719,8 @@ const ListBetweenReceipt = () => {
             let filterInfo = '';
             if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
             if (startDate || endDate) {
-                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : 'Belirtilmedi';
-                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : 'Belirtilmedi';
+                const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+                const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                 filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
             }
             if (filterInfo) {
@@ -996,7 +1105,7 @@ const ListBetweenReceipt = () => {
                                     onClick={() => setIsFormVisible(true)}
                                     fullWidth={false}
                                 >
-                                    Yeni Depolar Arası Fişler
+                                    Yeni Depolar Arası Fişleri Kaydet
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -1105,37 +1214,7 @@ const ListBetweenReceipt = () => {
                         </Grid>
                         <Box mt={4}>
                             <Typography variant="h6">Fiş Detayları</Typography>
-                            <Grid container spacing={2}>
-                                {receiptDetails.length > 0 ? (
-                                    receiptDetails.map((detail, index) => {
-                                        const displayItemName = detail.item?.name || 'Item not found';
-                                        const displayUnitTitle = detail.item?.unit?.title || '';
-                                        return (
-                                            <Grid item xs={12} key={index}>
-                                                <Stack direction="row" spacing={2} alignItems="center">
-                                                    <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
-                                                        <Typography variant="body1" noWrap>{displayItemName}</Typography>
-                                                        {displayUnitTitle && <Chip label={displayUnitTitle} color="secondary" variant="outlined" sx={{ ml: 1 }} />}
-                                                    </Box>
-                                                    <CustomTextField
-                                                        type="number"
-                                                        placeholder="Miktar"
-                                                        value={detail.quantity}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
-                                                        fullWidth
-                                                    />
-                                                    <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'description', e.target.value)} fullWidth />
-                                                    <IconButton color="error" onClick={() => handleRemoveReceiptDetail(index)}><IconTrash /></IconButton>
-                                                </Stack>
-                                            </Grid>
-                                        );
-                                    })
-                                ) : (
-                                    <Grid item xs={12}>
-                                        <Typography color="error" sx={{ mt: 1.5, ml: 1.5 }}>Lütfen bir sevk belgesi seçerek detayları doldurun.</Typography>
-                                    </Grid>
-                                )}
-                            </Grid>
+
                             {removedReceiptDetails.length > 0 && (
                                 <Box sx={{
                                     border: '1px dashed',
@@ -1159,6 +1238,57 @@ const ListBetweenReceipt = () => {
                                     </Stack>
                                 </Box>
                             )}
+                            <Grid container spacing={2} mt={2}>
+                                {receiptDetails.length > 0 ? (
+                                    receiptDetails.map((detail, index) => {
+                                        const displayItemName = detail.item?.name || 'Item not found';
+                                        const displayUnitTitle = detail.item?.unit?.title || '';
+                                        return (
+                                            <Grid container spacing={2} alignItems="center" key={index} sx={{ mb: 2 }}>
+                                                {/* Item Name and Unit */}
+                                                <Grid item xs={12} sm={4}>
+                                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                                        <Typography variant="body1" noWrap>{displayItemName}</Typography>
+                                                        <Chip label={displayUnitTitle} color="secondary" size="small" />
+                                                    </Stack>
+                                                </Grid>
+
+                                                {/* Quantity Input */}
+                                                <Grid item xs={12} sm={3}>
+                                                    <CustomTextField
+                                                        type="number"
+                                                        placeholder="Miktar"
+                                                        value={detail.quantity}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
+                                                        fullWidth
+                                                    />
+                                                </Grid>
+
+                                                {/* Description Input */}
+                                                <Grid item xs={12} sm={4}>
+                                                    <CustomTextField
+                                                        placeholder="Açıklama"
+                                                        value={detail.description}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'description', e.target.value)}
+                                                        fullWidth
+                                                    />
+                                                </Grid>
+
+                                                {/* Delete Button */}
+                                                <Grid item xs={12} sm={1}>
+                                                    <IconButton color="error" onClick={() => handleRemoveReceiptDetail(index)}>
+                                                        <IconTrash />
+                                                    </IconButton>
+                                                </Grid>
+                                            </Grid>
+                                        );
+                                    })
+                                ) : (
+                                    <Grid item xs={12}>
+                                        {/* <Typography color="error" sx={{ mt: 1.5, ml: 1.5 }}>Lütfen bir sevk belgesi seçerek detayları doldurun.</Typography> */}
+                                    </Grid>
+                                )}
+                            </Grid>
                         </Box>
                         <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
                             {editingId ? (
@@ -1272,31 +1402,33 @@ const ListBetweenReceipt = () => {
                         </Box>
                     ) : (
                         <TableContainer>
-                            <Table>
-                                <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                            <Table aria-label="receipt table">
+                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
-                                        <TableCell><Typography variant="h6">Kod</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Depo</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Belge Tarihi</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Durum</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Fiş Detayları</Typography></TableCell>
-                                        <TableCell></TableCell>
+                                        <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Fiş Detayları</Typography></StyledTableCell>
+                                        <StyledTableCell></StyledTableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {displayedReceipts.length > 0 ? (
                                         displayedReceipts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
                                             <TableRow key={row.id}>
-                                                <TableCell><Typography variant="h6">{row.code}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{row.warehouse?.name || '-'}</Typography></TableCell>
-                                                <TableCell><Typography variant="h6">{formatDateDisplay(row.docDate)}</Typography></TableCell>
-                                                <TableCell>
+                                                <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                                <StyledTableCell>
                                                     <Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} />
-                                                </TableCell>
-                                                <TableCell>
+                                                </StyledTableCell>
+                                                <StyledTableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
-                                                            <Button variant="outlined" startIcon={<IconEye />}
+                                                            <Button
+                                                                variant="outlined"
+                                                                startIcon={<IconEye />}
                                                                 onClick={() => {
                                                                     setDetailsToShow(row.receiptDetails || []);
                                                                     setOpenDetailsModal(true);
@@ -1306,33 +1438,41 @@ const ListBetweenReceipt = () => {
                                                             </Button>
                                                         </CustomTooltip>
                                                     </Stack>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <IconButton onClick={(e) => {
-                                                        setSelectedRowForMenu(row);
-                                                        setAnchorEl(e.currentTarget);
-                                                    }}><IconDots width={18} /></IconButton>
-                                                    <Menu anchorEl={anchorEl}
-                                                        open={openMenu && selectedRowForMenu?.id === row.id}
-                                                        onClose={handleCloseMenu}>
+                                                </StyledTableCell>
+                                                <StyledTableCell>
+                                                    <IconButton
+                                                        onClick={(e) => {
+                                                            setSelectedRowForMenu(row);
+                                                            setAnchorEl(e.currentTarget);
+                                                        }}
+                                                    >
+                                                        <IconDots width={18} />
+                                                    </IconButton>
+                                                    <Menu
+                                                        anchorEl={anchorEl}
+                                                        open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
+                                                        onClose={handleCloseMenu}
+                                                    >
                                                         {hasDownloadPermission && (
-                                                            <MenuItem onClick={() => {
-                                                                handleCloseMenu();
-                                                                handleDownloadSingleReceiptClicked(selectedRowForMenu!);
-                                                            }}>
+                                                            <MuiMenuItem onClick={() => { handleCloseMenu(); handleDownloadSingleReceiptClicked(selectedRowForMenu!); }}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
                                                                 Bu satırı indir
-                                                            </MenuItem>
+                                                            </MuiMenuItem>
                                                         )}
-                                                        {hasEditPermission && <MenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MenuItem>}
-                                                        {hasDeletePermission &&
-                                                            <MenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MenuItem>}
+                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
+                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
                                                     </Menu>
-                                                </TableCell>
+                                                </StyledTableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={6} align="center"><Typography>Hiç fiş bulunamadı.</Typography></TableCell></TableRow>
+                                        <TableRow>
+                                            <StyledTableCell colSpan={6} align="center">
+                                                <Typography variant="subtitle1" color="textSecondary">
+                                                    Hiç fiş bulunamadı.
+                                                </Typography>
+                                            </StyledTableCell>
+                                        </TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -1355,24 +1495,34 @@ const ListBetweenReceipt = () => {
                 <DialogContent>
                     {detailsToShow.length > 0 ? (
                         <TableContainer component={Paper}>
-                            <Table>
-                                <TableHead>
+                            <Table aria-label="Ürün detayları tablosu">
+                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
-                                        <TableCell><Typography variant="h6">Malzeme</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Miktar</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Birim</Typography></TableCell>
-                                        <TableCell><Typography variant="h6">Açıklama</Typography></TableCell>
+                                        <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {detailsToShow.map((detail, index) => (
-                                        <TableRow key={index}>
-                                            <TableCell>{detail.item?.name || '-'}</TableCell>
-                                            <TableCell>{detail.quantity}</TableCell>
-                                            <TableCell>{detail.item?.unit?.title}</TableCell>
-                                            <TableCell>{detail.description || '-'}</TableCell>
+                                    {detailsToShow.length > 0 ? (
+                                        detailsToShow.map((detail, index) => (
+                                            <TableRow key={detail.id || index}>
+                                                <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.quantity || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <StyledTableCell colSpan={4} align="center">
+                                                <Typography variant="subtitle1" color="textSecondary">
+                                                    Hiç detay bulunamadı.
+                                                </Typography>
+                                            </StyledTableCell>
                                         </TableRow>
-                                    ))}
+                                    )}
                                 </TableBody>
                             </Table>
                         </TableContainer>

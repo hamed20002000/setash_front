@@ -62,11 +62,9 @@ const DeleteStore = ({ openModal, storeIdToDelete, storeNameToDelete, onClose, o
                 onClose();
             }
         } catch (e: any) {
-            console.error("Error deleting store:", e);
-
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenStoreInUseModal(true); // ✅ تغییر نام modal
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');

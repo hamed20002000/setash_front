@@ -59,8 +59,8 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
             }
         } catch (e: any) {
             if (e.response && e.response.status === 500) {
-                onClose();
-                setOpenProductTypeInUseModal(true);
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
