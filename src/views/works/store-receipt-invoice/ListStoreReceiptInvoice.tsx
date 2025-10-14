@@ -130,6 +130,8 @@ interface FormReceiptDetail {
     item?: ItemType;
 }
 
+
+
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
@@ -1052,43 +1054,51 @@ const ListStoreReceiptInvoice = () => {
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                {/* Malzeme Adı ve Birimi */}
-                                                <Box sx={{ display: 'flex', alignItems: 'center', width: '30%', minWidth: '150px' }}>
-                                                    <Typography variant="body1" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {relatedInvoiceDetail?.item?.name || 'Aradığınız şey bulunamadı.'}
-                                                    </Typography>
-                                                    {relatedInvoiceDetail?.item?.unit?.title && (
-                                                        <Chip label={relatedInvoiceDetail.item.unit.title} color="secondary" variant="outlined" sx={{ ml: 1 }} />
-                                                    )}
-                                                </Box>
-
-                                                {/* Miktar */}
-                                                <CustomTextField
-                                                    type="number"
-                                                    placeholder="Miktar"
-                                                    value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                    sx={{ width: '35%' }}
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                    }}
-                                                />
-                                                {/* Açıklama */}
-                                                <CustomTextField
-                                                    placeholder="Açıklama"
-                                                    value={detail.description}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'description', e.target.value)}
-                                                    fullWidth
-                                                    sx={{ width: '25%' }}
-                                                />
-
-                                                {/* Silme Butonu */}
-                                                <IconButton color="error" onClick={() => handleRemoveReceiptDetail(index)}>
-                                                    <IconTrash />
-                                                </IconButton>
-                                            </Stack>
+                                            <Grid container spacing={1.5} alignItems="center">
+                                                <Grid item xs={12} md={4}>
+                                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                                                        <Typography variant="body1" sx={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                            {relatedInvoiceDetail?.item?.name || 'Aradığınız şey bulunamadı.'}
+                                                        </Typography>
+                                                        {relatedInvoiceDetail?.item?.unit?.title && (
+                                                            <Chip label={relatedInvoiceDetail.item.unit.title} color="secondary" variant="outlined" size="small" />
+                                                        )}
+                                                    </Stack>
+                                                </Grid>
+                                                <Grid item xs={6} md={3}>
+                                                    <CustomTextField
+                                                        type="number"
+                                                        placeholder="Miktar"
+                                                        value={detail.quantity}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
+                                                        fullWidth
+                                                        // حذف sx={{ width: '35%' }}
+                                                        size="small"
+                                                        InputProps={{
+                                                            endAdornment: (
+                                                                <InputAdornment position="end" sx={{ display: { xs: 'none', sm: 'flex' } }}>
+                                                                    {displayBalance}
+                                                                </InputAdornment>
+                                                            )
+                                                        }}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={5} md={4}>
+                                                    <CustomTextField
+                                                        placeholder="Açıklama"
+                                                        value={detail.description}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'description', e.target.value)}
+                                                        fullWidth
+                                                        // حذف sx={{ width: '25%' }}
+                                                        size="small"
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={1} md={1} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <IconButton color="error" onClick={() => handleRemoveReceiptDetail(index)}>
+                                                        <IconTrash />
+                                                    </IconButton>
+                                                </Grid>
+                                            </Grid>
                                         </Grid>
                                     );
                                 })}
@@ -1182,12 +1192,14 @@ const ListStoreReceiptInvoice = () => {
                                         <DatePicker
                                             label="Başlangıç Tarihi"
                                             value={startDate}
+                                            inputFormat="dd/MM/yyyy"
                                             onChange={(newValue) => setStartDate(newValue)}
                                             renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                         />
                                         <DatePicker
                                             label="Bitiş Tarihi"
                                             value={endDate}
+                                            inputFormat="dd/MM/yyyy"
                                             onChange={(newValue) => setEndDate(newValue)}
                                             renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                         />

@@ -1,4 +1,4 @@
-// src/components/project/ListProjectPlanningImplementationDate/DeleteProjectPlanningImplementation.tsx
+// DeleteSetProjectPlanningImplementation.tsx
 import { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import {
@@ -11,29 +11,34 @@ import {
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from 'src/assets/address.json'; // فرض بر این است که مسیر صحیح است
+import server from '../../../assets/address.json';
 
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 type Props = {
     openModal: boolean;
-    // تغییر نام prop برای انعکاس بهتر داده‌های تاریخ
-    implementationDateIdToDelete: string | null;
+    // Değişiklik: implementationIdToDelete olarak yeniden adlandırıldı
+    implementationIdToDelete: number | null;
     onClose: () => void;
-    onDeleteSuccess: () => void; // تابعی برای رفرش کردن لیست اصلی
+    onDeleteSuccess: () => void; // Tabii ki listeyi yenilemek için
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// تغییر نام کامپوننت
-const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteSetProjectPlanningImplementation = ({
+    openModal,
+    implementationIdToDelete,
+    onClose,
+    onDeleteSuccess,
+    showAlert
+}: Props) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // تغییر نام تابع
-    const handleDeleteImplementationDate = async () => {
-        if (implementationDateIdToDelete === null) {
-            showAlert('Silinecek uygulama tarihi kaydı seçilmedi.', 'warning');
+    const handleDeleteImplementation = async () => {
+        // Kontrol: Silinecek ID'nin varlığı
+        if (implementationIdToDelete === null) {
+            showAlert('Silinecek uygulama kaydı seçilmedi.', 'warning');
             onClose();
             return;
         }
@@ -48,7 +53,8 @@ const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdTo
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.warehouse}delete-project-planning-implementation-dates/${Number(implementationDateIdToDelete)}`,
+                // Değişiklik: Yeni API endpoint'i kullanıldı
+                `${server.baseurl}${server.warehouse}delete-project-planning-implementation/${implementationIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -58,11 +64,11 @@ const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdTo
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Uygulama tarihi kaydı başarıyla silindi!', 'success');
+                showAlert('Uygulama kaydı başarıyla silindi!', 'success');
                 onDeleteSuccess();
                 onClose();
             } else {
-                showAlert(response.data.message || 'Uygulama tarihi kaydı silinirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Uygulama silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
@@ -74,7 +80,7 @@ const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdTo
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Uygulama tarihi kaydı silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Uygulama silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
                 onClose();
             }
@@ -87,14 +93,14 @@ const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdTo
         <Dialog
             open={openModal}
             onClose={onClose}
-            aria-labelledby="alert-dialog-title"
-            aria-describedby="alert-dialog-description">
-            <DialogTitle id="alert-dialog-title">
-                {"Bu proje uygulama tarihi kaydını silmek istediğinizden emin misiniz?"}
+            aria-labelledby="delete-implementation-title"
+            aria-describedby="delete-implementation-description">
+            <DialogTitle id="delete-implementation-title">
+                {"Bu uygulama kaydını silmek istediğinizden emin misiniz?"}
             </DialogTitle>
             <DialogContent>
-                <DialogContentText id="alert-dialog-description">
-                    Eğer silerseniz, geri almanın bir yolu yoktur.
+                <DialogContentText id="delete-implementation-description">
+                    Eğer silerseniz, bu uygulama kaydına ait verileri geri almanın bir yolu yoktur.
                     Kaydı silmek istediğinizden eminseniz,
                     <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                 </DialogContentText>
@@ -103,11 +109,11 @@ const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdTo
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                     <Button onClick={onClose} disabled={loading}>İptal et</Button>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen uygulama tarihi kaydını sil" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen uygulama kaydını sil" : ""}>
                     <Button
                         color="error"
                         variant="contained"
-                        onClick={handleDeleteImplementationDate}
+                        onClick={handleDeleteImplementation}
                         autoFocus
                         disabled={loading}
                     >
@@ -125,4 +131,4 @@ const DeleteProjectPlanningImplementation = ({ openModal, implementationDateIdTo
     );
 }
 
-export default DeleteProjectPlanningImplementation;
+export default DeleteSetProjectPlanningImplementation;

@@ -6,6 +6,7 @@
     "user": "users/",
     "baseinfo": "baseinfo/",
     "warehouse": "warehouse/",
+    "hr": "hr/",
     "initialoperations": "initial-operations/",
     "company": "Setash"
 }

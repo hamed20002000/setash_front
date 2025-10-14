@@ -16,7 +16,8 @@ import {
   IconMap, IconBoxSeam, IconBuildingWarehouse, IconReceipt, IconShoppingCart, IconCar,
   IconBuildingFactory, IconFileInvoice, IconNetwork, IconHelmet, IconBuildingStore,
   IconArrowsExchange, IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar,
-  IconFileDollar
+  IconFileDollar, IconTimeline, IconHierarchy, IconFileExport, IconFileOff, IconReportAnalytics,
+  IconUsersGroup, IconCalendarTime
 } from '@tabler/icons-react';
 
 import server from '../../../../assets/address.json';
@@ -56,43 +57,28 @@ interface ApiMenuItem {
 }
 
 const IconComponents: { [key: string]: React.ElementType } = {
-  'IconDashboard': IconDashboard,
-  'IconApps': IconApps,
-  'IconUserCircle': IconUserCircle,
-  'IconCircles': IconCircles,
-  'IconCategory': IconCategory,
-  'IconBuilding': IconBuilding,
-  'IconPackage': IconPackage,
-  'IconUsers': IconUsers,
-  'IconInfoCircle': IconInfoCircle,
-  'IconGavel': IconGavel,
-  'IconBriefcase': IconBriefcase,
-  'IconClipboardText': IconClipboardText,
-  'IconChecklist': IconChecklist,
-  'IconRoute': IconRoute,
-  'IconUserCog': IconUserCog,
-  'IconClipboardList': IconClipboardList,
-  'IconProgressCheck': IconProgressCheck,
-  'IconPlus': IconPlus,
-  'IconGlobe': IconGlobe,
-  'IconMap': IconMap,
-  'IconBoxSeam': IconBoxSeam,
-  'IconBuildingWarehouse': IconBuildingWarehouse,
-  'IconShoppingCart': IconShoppingCart,
-  'IconReceipt': IconReceipt,
-  'IconCar': IconCar,
-  'IconBuildingFactory': IconBuildingFactory,
-  'IconFileInvoice': IconFileInvoice,
-  'IconNetwork': IconNetwork,
-  'IconHelmet': IconHelmet,
-  'IconBuildingStore': IconBuildingStore,
-  'IconArrowsExchange': IconArrowsExchange,
-  'IconFolders': IconFolders,
-  'IconBulb': IconBulb,
-  'IconTornado': IconTornado,
-  'IconListCheck0': IconListCheck,
-  'IconCalendar': IconCalendar,
-  'IconFileDollar': IconFileDollar
+  'IconDashboard': IconDashboard, 'IconApps': IconApps,
+  'IconUserCircle': IconUserCircle, 'IconCircles': IconCircles,
+  'IconCategory': IconCategory, 'IconBuilding': IconBuilding,
+  'IconPackage': IconPackage, 'IconUsers': IconUsers,
+  'IconInfoCircle': IconInfoCircle, 'IconGavel': IconGavel,
+  'IconBriefcase': IconBriefcase, 'IconClipboardText': IconClipboardText,
+  'IconChecklist': IconChecklist, 'IconRoute': IconRoute,
+  'IconUserCog': IconUserCog, 'IconClipboardList': IconClipboardList,
+  'IconProgressCheck': IconProgressCheck, 'IconPlus': IconPlus,
+  'IconGlobe': IconGlobe, 'IconMap': IconMap,
+  'IconBoxSeam': IconBoxSeam, 'IconBuildingWarehouse': IconBuildingWarehouse,
+  'IconShoppingCart': IconShoppingCart, 'IconReceipt': IconReceipt,
+  'IconCar': IconCar, 'IconBuildingFactory': IconBuildingFactory,
+  'IconFileInvoice': IconFileInvoice, 'IconNetwork': IconNetwork,
+  'IconHelmet': IconHelmet, 'IconBuildingStore': IconBuildingStore,
+  'IconArrowsExchange': IconArrowsExchange, 'IconFolders': IconFolders,
+  'IconBulb': IconBulb, 'IconTornado': IconTornado,
+  'IconListCheck0': IconListCheck, 'IconCalendar': IconCalendar,
+  'IconFileDollar': IconFileDollar, 'IconTimeline': IconTimeline,
+  'IconHierarchy': IconHierarchy, 'IconFileExport': IconFileExport,
+  'IconFileOff': IconFileOff, 'IconReportAnalytics': IconReportAnalytics,
+  'IconUsersGroup': IconUsersGroup, 'IconCalendarTime': IconCalendarTime
 };
 
 const getIconComponent = (iconIdentifier: string | undefined): React.ElementType => {

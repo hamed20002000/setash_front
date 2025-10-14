@@ -1141,7 +1141,6 @@ const ListStores = () => {
     const handleStoreDispatchReturnToCenterClick = () => {
         if (selectedRowForMenu) {
             const storeId = selectedRowForMenu.id;
-            // مسیر جدید مورد نظر شما
             navigate(`/store/list-store-dispatch-return-to-center/${storeId}`);
         }
         handleCloseMenu();
@@ -1629,7 +1628,7 @@ const ListStores = () => {
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo'dan geri gönderme Sevk İşlemi" : ""}>
                                                         <MuiMenuItem onClick={handleStoreDispatchReturnToCenterClick}>
                                                             <ListItemIcon><IconRotate2 width={18} /></ListItemIcon>
-                                                            Geri Gönderme Sevk Et
+                                                            İmha Edilecek Ürünleri Sevk Et
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
 

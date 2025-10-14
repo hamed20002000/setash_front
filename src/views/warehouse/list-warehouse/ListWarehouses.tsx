@@ -22,7 +22,8 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch, IconChevronRight, IconChevronDown,
     IconFileDownload, IconBoxSeam, IconPackage,
     IconX,
-    IconArrowsLeftRight
+    IconArrowsLeftRight,
+    IconRotate2
 } from '@tabler/icons-react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import DeleteWarehouse from './DeleteWarehouse';
@@ -312,7 +313,7 @@ const ListWarehouses = () => {
     const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
 
     const [WarehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
-    const [displayedWarehouses, setDisplayedWarehouses] = useState<WarehouseType[]>([]);
+    // const [displayedWarehouses, setDisplayedWarehouses] = useState<WarehouseType[]>([]);
     const [editingId, setEditingId] = useState<number | null>(null);
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -462,26 +463,26 @@ const ListWarehouses = () => {
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
     }, [searchTerm, statusFilter, startDate, endDate]);
 
-    useEffect(() => {
-        const filteredByAllCriteria = WarehousesList.filter(wh => {
-            const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesStatus =
-                statusFilter === 'all' ||
-                (statusFilter === 'active' && wh.recordStatus === 0) ||
-                (statusFilter === 'inactive' && wh.recordStatus === 1);
+    // useEffect(() => {
+    //     const filteredByAllCriteria = WarehousesList.filter(wh => {
+    //         const matchesSearch = wh.name.toLowerCase().includes(searchTerm.toLowerCase()) || wh.code.toLowerCase().includes(searchTerm.toLowerCase());
+    //         const matchesStatus =
+    //             statusFilter === 'all' ||
+    //             (statusFilter === 'active' && wh.recordStatus === 0) ||
+    //             (statusFilter === 'inactive' && wh.recordStatus === 1);
 
-            const warehouseCreateDate = new Date(wh.createAt);
-            const isWithinDateRange =
-                (!startDate || warehouseCreateDate >= startDate) &&
-                (!endDate || warehouseCreateDate <= endDate);
+    //         const warehouseCreateDate = new Date(wh.createAt);
+    //         const isWithinDateRange =
+    //             (!startDate || warehouseCreateDate >= startDate) &&
+    //             (!endDate || warehouseCreateDate <= endDate);
 
-            return matchesSearch && matchesStatus && isWithinDateRange;
-        });
+    //         return matchesSearch && matchesStatus && isWithinDateRange;
+    //     });
 
-        const sortedData = stableSort(filteredByAllCriteria, getComparator(order, orderBy));
-        setDisplayedWarehouses(sortedData);
-        setPage(0);
-    }, [WarehousesList, searchTerm, statusFilter, startDate, endDate, order, orderBy]);
+    //     // const sortedData = stableSort(filteredByAllCriteria, getComparator(order, orderBy));
+    //     // setDisplayedWarehouses(sortedData);
+    //     setPage(0);
+    // }, [WarehousesList, searchTerm, statusFilter, startDate, endDate, order, orderBy]);
 
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -727,12 +728,16 @@ const ListWarehouses = () => {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+            } else {
+                showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
             }
-            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             handleCloseMenu();
         }
@@ -1405,7 +1410,14 @@ const ListWarehouses = () => {
         setEndDate(null);
     };
 
-    console.log(displayedWarehouses)
+
+    const handleDepoDispatchReturnToCenterClick = () => {
+        if (selectedRowForMenu) {
+            const warehouseId = selectedRowForMenu.id;
+            navigate(`/warehouse/list-warehouse-dispatch-return-to-center/${warehouseId}`);
+        }
+        handleCloseMenu();
+    };
 
     return (
         <Box mt={2}>
@@ -1838,6 +1850,13 @@ const ListWarehouses = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
+
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo'dan geri gönderme Sevk İşlemi" : ""}>
+                                                        <MuiMenuItem onClick={handleDepoDispatchReturnToCenterClick}>
+                                                            <ListItemIcon><IconRotate2 width={18} /></ListItemIcon>
+                                                            İmha Edilecek Ürünleri Sevk Et
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Depo Sevk İşlemi" : ""}>
                                                             <MuiMenuItem onClick={handleDispatchClick}>

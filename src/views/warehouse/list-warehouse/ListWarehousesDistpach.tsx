@@ -1282,12 +1282,14 @@ const ListWarehouseDispatch = () => {
                                     <DatePicker
                                         label="Başlangıç Tarihi"
                                         value={startDate}
+                                        inputFormat="dd/MM/yyyy"
                                         onChange={(newValue) => setStartDate(newValue)}
                                         renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                     />
                                     <DatePicker
                                         label="Bitiş Tarihi"
                                         value={endDate}
+                                        inputFormat="dd/MM/yyyy"
                                         onChange={(newValue) => setEndDate(newValue)}
                                         renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                     />

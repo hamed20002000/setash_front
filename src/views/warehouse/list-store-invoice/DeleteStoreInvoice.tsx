@@ -1,4 +1,4 @@
-// src/views/Warehouse/DeleteInvoiceModal.tsx
+// src/views/Warehouse/DeleteStoreInvoiceModal.tsx
 import React from 'react';
 import {
     Dialog,
@@ -15,7 +15,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 
 // --- Props interface ---
-interface DeleteInvoiceModalProps {
+interface DeleteStoreInvoiceModalProps {
     openModal: boolean;
     onClose: () => void;
     invoiceIdToDelete: number | null;
@@ -24,7 +24,7 @@ interface DeleteInvoiceModalProps {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 }
 
-const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
+const DeleteStoreInvoiceModal: React.FC<DeleteStoreInvoiceModalProps> = ({
     openModal,
     onClose,
     invoiceIdToDelete,
@@ -163,4 +163,4 @@ const DeleteInvoiceModal: React.FC<DeleteInvoiceModalProps> = ({
     );
 };
 
-export default DeleteInvoiceModal;
+export default DeleteStoreInvoiceModal;

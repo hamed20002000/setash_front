@@ -989,48 +989,57 @@ const ListBetweenStoreReceipt = () => {
                                         const maxQuantity = detail.maxDispatchQuantity;
                                         const itemLabel = detail.item?.name || 'Ürün Adı Bulunamadı';
                                         const unitLabel = detail.item?.unit?.title || 'Birim';
-                                        const dispatchCode = detail.dispatchCode || 'N/A';
                                         const balanceDisplay = `Max: ${maxQuantity} ${unitLabel}`;
 
                                         return (
                                             <Grid item xs={12} key={index}>
-                                                <Stack direction="row" spacing={2} alignItems="center">
+                                                <Grid container spacing={{ xs: 1, sm: 2 }} alignItems="center">
+                                                    <Grid item xs={12} sm={4}>
+                                                        <Box>
+                                                            <Typography variant="subtitle2" component="div" sx={{ fontWeight: 'bold' }}>
+                                                                {itemLabel}
+                                                            </Typography>
 
-                                                    <Box sx={{ flexGrow: 1, minWidth: '200px', maxWidth: '350px' }}>
-                                                        <Typography variant="subtitle2" component="span">
-                                                            {itemLabel}
-                                                        </Typography>
-                                                        <Typography variant="caption" display="block" color="textSecondary">
-                                                            (Sevk Kodu: {dispatchCode})
-                                                        </Typography>
-                                                    </Box>
+                                                        </Box>
+                                                    </Grid>
 
-                                                    <CustomTextField
-                                                        type="number"
-                                                        placeholder="Miktar"
-                                                        value={detail.quantity}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                        fullWidth
-                                                        InputProps={{
-                                                            endAdornment: <InputAdornment position="end">{balanceDisplay}</InputAdornment>
-                                                        }}
-                                                        error={receiptDetailsError && (Number(detail.quantity) <= 0 || Number(detail.quantity) > Number(maxQuantity))}
-                                                        helperText={receiptDetailsError && (Number(detail.quantity) <= 0 || Number(detail.quantity) > Number(maxQuantity)) ? `Geçerli bir miktar girin! (0 - ${maxQuantity})` : ""}
-                                                    />
+                                                    <Grid item xs={6} sm={3} md={3}>
+                                                        <CustomTextField
+                                                            type="number"
+                                                            label={`Miktar (Max: ${maxQuantity})`}
+                                                            placeholder="Miktar"
+                                                            value={detail.quantity}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                            fullWidth
+                                                            size="small"
+                                                            InputProps={{
+                                                                endAdornment: (
+                                                                    <InputAdornment position="end">
+                                                                        {balanceDisplay}
+                                                                    </InputAdornment>
+                                                                ),
+                                                                inputProps: { min: 0 }
+                                                            }}
+                                                            error={receiptDetailsError && (Number(detail.quantity) <= 0 || Number(detail.quantity) > Number(maxQuantity))}
+                                                            helperText={receiptDetailsError && (Number(detail.quantity) <= 0 || Number(detail.quantity) > Number(maxQuantity)) ? `Max: ${maxQuantity}` : ""}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={6} sm={5} md={4}>
+                                                        <CustomTextField
+                                                            label="Açıklama (Opsiyonel)"
+                                                            placeholder="Açıklama"
+                                                            value={detail.description}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                            fullWidth
+                                                            size="small"
+                                                        />
+                                                    </Grid>
 
-                                                    <CustomTextField
-                                                        placeholder="Açıklama"
-                                                        value={detail.description}
-                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
-                                                        fullWidth
-                                                    />
-
-                                                </Stack>
+                                                </Grid>
                                             </Grid>
                                         );
                                     })
                                 )}
-                                {!selectedStoreId && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>Lütfen önce Giriş Depo'yu seçin.</Typography>}
                             </Grid>
                         )}
                         {receiptDetailsError && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>Lütfen مقادیر معتبر را برای تمامی ردیف ها وارد کنید.</Typography>}

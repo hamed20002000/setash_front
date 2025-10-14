@@ -77,6 +77,8 @@ interface DispatchDetailType {
     description: string;
     item?: ItemType;
     itemId?: number;
+    name?: string;
+    balance?: string;
 }
 
 interface StoreType {
@@ -145,9 +147,9 @@ interface FormDispatchDetail {
     itemId: number | null;
     quantity: number | string;
     description: string;
-    item?: ItemType;
+    item?: string;          // تغییر ItemType به string
     balance?: number;
-    unit?: ItemUnitType;
+    unit?: string;
 }
 
 // === Utility Functions (Unchanged) ===
@@ -343,22 +345,24 @@ const ListStoreDispatchReturnToCenter = () => {
         setLoadingButton(true);
         try {
             const response = await axios.get<any>(
-                `${server.baseurl}${server.warehouse}get-store-dispatches-return-by-center-id/${selectedDestinationWarehouseId}`,
+                `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
+            if (response.data.httpStatusCode === 200) {
+                // const itemDetails: DispatchDetailType[] = response.data.data || [];
+                const itemBalances: ItemBalanceType[] = response.data.data || [];
 
-            if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data) && response.data.data.length > 0) {
-                const itemDetails: DispatchDetailType[] = response.data.data[0].storeDispatchDetails || [];
 
-                const formattedDetails: FormDispatchDetail[] = itemDetails.map((d: DispatchDetailType) => {
-                    const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.item?.id));
+                const formattedDetails: FormDispatchDetail[] = itemBalances.map((d: ItemBalanceType) => {
+                    const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
+
                     return {
-                        itemId: Number(d.item?.id),
-                        quantity: Number(d.quantity) > 0 ? Number(d.quantity) : 0,
-                        description: d.description || '',
-                        item: d.item,
+                        itemId: Number(d.itemId),
+                        quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
+                        description: '',
+                        item: d.name as any,
                         balance: itemBalance ? Number(itemBalance.balance) : 0,
-                        unit: d.item?.unit,
+                        unit: '' as any,
                     };
                 });
 
@@ -366,7 +370,7 @@ const ListStoreDispatchReturnToCenter = () => {
                 showAlert('Sevk detayları başarıyla yüklendi. Lütfen miktarları stok durumuna göre kontrol ediniz.', 'success');
             } else {
                 setDispatchDetails([]);
-                showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı. Lütfen elle ekleyiniz.', 'warning');
+                showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
             }
         } catch (e: any) {
             showAlert('Sevk detayları yüklenirken bir hata oluştu.', 'error');
@@ -385,8 +389,10 @@ const ListStoreDispatchReturnToCenter = () => {
             );
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 setStoreItems(response.data.data);
+                return response.data.data as ItemBalanceType[];
             } else {
                 setStoreItems([]);
+                return [];
             }
         } catch (e: any) {
             setStoreItems([]);
@@ -413,6 +419,7 @@ const ListStoreDispatchReturnToCenter = () => {
             setWarehouses(storesRes.data?.data?.filter((w: any) => w.recordStatus === 0).map((w: any) => ({ ...w, id: String(w.id) })) || []);
 
             if (dispatchesRes.data?.httpStatusCode === 200) {
+                debugger
                 const allDispatches: StoreDispatchReturnToCenterType[] = dispatchesRes.data.data;
                 setDispatchList(allDispatches);
             } else {
@@ -464,6 +471,16 @@ const ListStoreDispatchReturnToCenter = () => {
         const hasDateFilter = startDate !== null || endDate !== null;
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
     }, [searchTerm, statusFilter, startDate, endDate]);
+
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsBlinking(false);
+        }, 5000);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, []);
 
 
     const validateForm = (): boolean => {
@@ -520,7 +537,7 @@ const ListStoreDispatchReturnToCenter = () => {
         setSelectedVehicleName(null);
         setRemovedDispatchDetails([]);
         setInitialDispatchDetails([]);
-        setIsBlinking(true);
+        setIsBlinking(false);
     };
 
     // **CREATE**: Insert Dispatch Return
@@ -613,26 +630,79 @@ const ListStoreDispatchReturnToCenter = () => {
         setSelectedRowForMenu(null);
     };
 
+    // const handleEditClick = async () => {
+    //     if (selectedRowForMenu) {
+    //         setLoadingData(true);
+    //         handleCloseMenu();
+    //         await fetchStoreItems();
+
+    //         const formattedDetails: FormDispatchDetail[] = (selectedRowForMenu.storeDispatchDetails || []).map(d => {
+    //             const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
+    //             return {
+    //                 itemId: Number(d.itemId),
+    //                 quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
+    //                 description: '',
+    //                 item: d.name,
+    //                 balance: itemBalance ? Number(itemBalance.balance) : 0,
+    //                 unit: '',
+    //             };
+    //         });
+
+    //         setDispatchDetails(formattedDetails);
+    //         setInitialDispatchDetails(formattedDetails);
+
+    //         setEditingId(selectedRowForMenu.id);
+    //         setEditingCode(selectedRowForMenu.code);
+    //         setDocDate(new Date(selectedRowForMenu.docDate));
+    //         setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
+    //         setSelectedDestinationWarehouseId(Number(selectedRowForMenu.destinationWarehouse?.id));
+
+    //         if (selectedRowForMenu.driverVehicle) {
+    //             setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
+    //             setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
+    //         } else {
+    //             setSelectedVehicleId(null);
+    //             setSelectedVehicleName(null);
+    //         }
+
+    //         setIsFormVisible(true);
+    //         setLoadingData(false);
+    //     }
+    // };
+
+    // در ListStoreDispatchReturnToCenter.tsx
+
     const handleEditClick = async () => {
         if (selectedRowForMenu) {
             setLoadingData(true);
             handleCloseMenu();
-            await fetchStoreItems();
-
+            const latestStoreItems = await fetchStoreItems();
             const formattedDetails: FormDispatchDetail[] = (selectedRowForMenu.storeDispatchDetails || []).map(d => {
-                const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.item?.id));
+                const itemId = Number(d.item?.id) || Number(d.itemId);
+
+                const itemBalance = latestStoreItems!.find(item =>
+                    Number(item.itemId) === Number(d.item?.id)
+                );
+
+                const currentStockBalance = itemBalance ? Number(itemBalance.balance) : 0;
+
+                const initialQuantity = Number(d.quantity) || 0;
+
                 return {
-                    itemId: Number(d.item?.id),
-                    quantity: Number(d.quantity),
+                    itemId: itemId,
+                    quantity: initialQuantity,
                     description: d.description || '',
-                    item: d.item,
-                    balance: itemBalance ? Number(itemBalance.balance) : 0,
-                    unit: d.item?.unit,
+
+                    item: d.item?.name || '',
+
+                    balance: currentStockBalance,
+                    unit: d.item?.unit?.title || '',
                 };
             });
 
             setDispatchDetails(formattedDetails);
             setInitialDispatchDetails(formattedDetails);
+
 
             setEditingId(selectedRowForMenu.id);
             setEditingCode(selectedRowForMenu.code);
@@ -681,7 +751,10 @@ const ListStoreDispatchReturnToCenter = () => {
             const removedItem = prev[index];
             if (removedItem) {
                 setRemovedDispatchDetails(oldRemoved => [...oldRemoved, removedItem]);
-                showAlert(`Ürün silindi: ${removedItem.item?.name || ''}. Geri almak için silinen ürünler listesine tıklayın.`, 'warning');
+
+                const itemName = removedItem.item || '';
+
+                showAlert(`Ürün silindi: ${itemName}. Geri almak için silinen ürünler listesine tıklayın.`, 'warning');
             }
             return newDetails;
         });
@@ -957,7 +1030,7 @@ const ListStoreDispatchReturnToCenter = () => {
                     flexWrap="wrap"
                 >
                     <Typography variant="h5" sx={{ mb: { xs: 2, md: 0 } }}>
-                        Merkez Depoya İade Sevk İşlemleri
+                        Merkez Depoya İmha Edilecek Ürünlerin Sevk İşlemleri
                     </Typography>
 
                     <Stack
@@ -968,7 +1041,7 @@ const ListStoreDispatchReturnToCenter = () => {
                         justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                     >
                         {!isFormVisible && hasCreatePermission && (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Merkez Depoya İade Sevk Belgesi kaydetmek için tıklayınız" : ""}>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Merkez Depoya İmha Edilecek Ürünlerin Sevk İşlemleri kaydetmek için tıklayınız" : ""}>
                                 <BlinkingButton
                                     variant="contained"
                                     color="primary"
@@ -1144,7 +1217,7 @@ const ListStoreDispatchReturnToCenter = () => {
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
-                                {!editingId && ( // فقط در حالت ثبت جدید نمایش داده شود
+                                {!editingId && (
                                     <CustomTooltip title="İade edilecek ürünleri merkez deposundan önceden tanımlanmış listeye göre yükleyin.">
                                         <Button
                                             variant="outlined"
@@ -1169,27 +1242,56 @@ const ListStoreDispatchReturnToCenter = () => {
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                <Box sx={{ flexGrow: 1, minWidth: '200px', maxWidth: '300px' }}>
-                                                    <Typography variant="body1" component="span" sx={{ mr: 1 }}>
+                                            <Stack
+                                                direction={{ xs: 'column', sm: 'row' }}
+                                                spacing={1}
+                                                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                                sx={{ borderBottom: '1px solid #eee', pb: 1 }}
+                                            >
+                                                <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: '200px' } }}>
+                                                    <Typography variant="body1" component="span" sx={{ fontWeight: 'bold' }}>
                                                         {selectedItem?.name || 'Ürün Adı Bulunamadı'}
                                                     </Typography>
                                                 </Box>
 
-                                                <CustomTextField
-                                                    type="number"
-                                                    placeholder="Miktar"
-                                                    value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                    }}
-                                                    error={dispatchDetailsError && isQuantityInvalid}
-                                                    helperText={dispatchDetailsError && isQuantityInvalid ? `Geçerli bir miktar girin! (0 - ${maxAllowedQuantity})` : ""}
-                                                />
-                                                <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
-                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
+                                                <Stack
+                                                    direction={{ xs: 'column', md: 'row' }}
+                                                    spacing={1}
+                                                    alignItems="stretch"
+                                                    sx={{ flexGrow: 2, width: { xs: '100%', sm: 'auto' } }}
+                                                >
+                                                    <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                                                        <CustomTextField
+                                                            type="number"
+                                                            placeholder="Miktar"
+                                                            value={detail.quantity}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                            fullWidth
+                                                            InputProps={{
+                                                                endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
+                                                            }}
+                                                            error={dispatchDetailsError && isQuantityInvalid}
+                                                            helperText={dispatchDetailsError && isQuantityInvalid ? `Geçerli bir miktar girin! (0 - ${maxAllowedQuantity})` : ""}
+                                                        />
+                                                    </Box>
+
+                                                    <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                                                        <CustomTextField
+                                                            placeholder="Açıklama"
+                                                            value={detail.description}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                            fullWidth
+                                                        />
+                                                    </Box>
+                                                </Stack>
+
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() => handleRemoveDispatchDetail(index)}
+                                                    sx={{ flexShrink: 0, alignSelf: { xs: 'flex-end', sm: 'center' } }} // در موبایل به راست می‌چسبد
+                                                >
+                                                    <IconTrash />
+                                                </IconButton>
                                             </Stack>
                                         </Grid>
                                     )
@@ -1520,7 +1622,7 @@ const ListStoreDispatchReturnToCenter = () => {
                     {detailsToShow.length > 0 && (
                         <Box sx={{ mt: 2, p: 1, borderTop: '1px solid #eee' }}>
                             <Typography variant="h6" align="right">
-                                **Toplam Miktar:** {totalQuantityInDetailsModal.toFixed(2)}
+                                Toplam Miktar: {totalQuantityInDetailsModal.toFixed(2)}
                             </Typography>
                         </Box>
                     )}

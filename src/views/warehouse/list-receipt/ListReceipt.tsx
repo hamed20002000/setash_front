@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
-
     TableCell as MuiTableCell,
     MenuItem as MuiMenuItem,
     Typography, Menu, IconButton, ListItemIcon, Box,
@@ -35,22 +34,19 @@ import {
     WarehouseType,
     ReceiptItem,
     ProcessedReceiptItem,
-    ReceiptType
+    ReceiptType,
+    InvoiceType
 } from './types';
 import BlankCard from 'src/components/shared/BlankCard';
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
-
-// Table Style and Functions
 type SortableReceiptKeys = 'code' | 'docDate' | 'warehouseId';
-
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -86,12 +82,10 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-
 const ListReceipts = () => {
     const navigate = useNavigate();
     const theme = useTheme();
     const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
-
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
     const [warehouse, setWarehouse] = useState<number | null>(null);
     const [code, setCode] = useState('');
@@ -109,7 +103,6 @@ const ListReceipts = () => {
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedReceiptForMenu, setSelectedReceiptForMenu] = useState<ReceiptType | null>(null);
-    // const openMenu = Boolean(anchorEl);
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<ProcessedReceiptItem[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -118,19 +111,20 @@ const ListReceipts = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedWarehouse, setSelectedWarehouse] = useState<WarehouseType | null>(null);
-
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
     const [isFilterActive, setIsFilterActive] = useState(false);
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
-
-    // 👇 State for new download modals
     const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
     const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
     const [openReceiptDetailsDownloadModal, setOpenReceiptDetailsDownloadModal] = useState(false);
-
-
+    const [isInvoiceComboDisabled, setIsInvoiceComboDisabled] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState<InvoiceType | null>(null);
+    const [openIsEndModal, setOpenIsEndModal] = useState(false);
+    const [selectedInvoiceForEnd, setSelectedInvoiceForEnd] = useState<{ id: number; invoiceNo: string } | null>(null);
+    const [endedInvoiceIds, setEndedInvoiceIds] = useState<number[]>([]);
+    const [endedInvoiceReceiptMap, setEndedInvoiceReceiptMap] = useState<Record<number, number>>({});
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
@@ -146,19 +140,16 @@ const ListReceipts = () => {
             return "Geçersiz Tarih";
         }
     };
-
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
     };
     const clearAlert = () => { setAlertMessage(null); };
-
     useEffect(() => {
         let timer: NodeJS.Timeout;
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
-
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -195,18 +186,32 @@ const ListReceipts = () => {
             const response = await axios.get(server.baseurl + server.warehouse + "get-receipt",
                 { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200) {
-                setReceiptsList(response.data.data as ReceiptType[]);
+                const receipts = response.data.data as ReceiptType[];
+                setReceiptsList(receipts);
+                const endedMap: Record<number, number> = {};
+                receipts
+                    .filter(receipt => receipt.isEnd === true)
+                    .forEach(receipt => {
+                        receipt.receiptDetails
+                            .filter(detail => detail.invoiceDetail?.invoiceHeader?.id)
+                            .forEach(detail => {
+                                const invoiceId = Number(detail.invoiceDetail.invoiceHeader.id);
+                                if (!endedMap[invoiceId]) {
+                                    endedMap[invoiceId] = receipt.id;
+                                }
+                            });
+                    });
+                setEndedInvoiceReceiptMap(endedMap);
+                setEndedInvoiceIds(Object.keys(endedMap).map(Number)); // لیست ID فاکتورها برای فیلتر کردن
             } else { showAlert(response.data.message || 'Fişlar yüklenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
             showAlert('Fişlar yüklenirken bir hata oluştu.', 'error');
         } finally { setLoadingData(false); }
     }, [navigate, showAlert]);
-
     useEffect(() => {
         getReceipts();
         fetchWarehouses();
     }, []);
-
     useEffect(() => {
         const timer = setTimeout(() => {
             setIsBlinking(false);
@@ -215,7 +220,6 @@ const ListReceipts = () => {
             clearTimeout(timer);
         };
     }, []);
-
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
         const hasDateFilter = startDate !== null || endDate !== null;
@@ -226,12 +230,10 @@ const ListReceipts = () => {
         setReceiptItems(items);
         setHasUnsavedChanges(true);
     };
-
     const handleReceiptItemsDelete = (item: ProcessedReceiptItem) => {
         setDeletedItems(prev => [...prev, item]);
         setHasUnsavedChanges(true);
     };
-
     const handleRestoreItem = (id: number) => {
         const itemToRestore = deletedItems.find(item => item.id === id);
         if (itemToRestore) {
@@ -240,35 +242,84 @@ const ListReceipts = () => {
             setHasUnsavedChanges(true);
         }
     };
-
     const validateForm = (): boolean => {
         if (!docDate || !warehouse) {
             showAlert('Lütfen tüm zorunlu alanları (Depo, Tarih) doldurun.', 'warning');
             return false;
         }
-        if (receiptItems.length === 0 || receiptItems.some(item => !item.item || Number(item.quantity) <= 0 || isNaN(Number(item.quantity)) || !item.invoiceDetailId)) {
+        if (receiptItems.length === 0 || receiptItems.some(item =>
+            !item.item || Number(item.quantity) <= 0 || isNaN(Number(item.quantity))
+        )) {
             showAlert('Lütfen en az bir ürün ekleyin ve tüm ürün alanlarını doğru şekilde doldurun.', 'warning');
             return false;
         }
+        if (!editingReceiptId && !selectedInvoice) {
+            showAlert('Lütfen bir Fatura seçin.', 'warning');
+            return false;
+        }
+
         return true;
     };
-
     const resetForm = () => {
         setHasUnsavedChanges(false);
         setCode('');
-        setWarehouse(null);
+        setWarehouse(null); // مقدار ID انبار
         setDocDate(new Date());
         setReceiptItems([]);
         setDeletedItems([]);
         setEditingReceiptId(null);
         setIsFormVisible(false);
+        setSelectedInvoice(null);
+        setSelectedWarehouse(null);
+        setIsInvoiceComboDisabled(false);
         clearAlert();
     };
 
-    const handleSaveReceipt = async () => {
+    const handleInitialSaveClick = () => {
+        if (!validateForm()) return;
+        if (selectedInvoice) {
+            setSelectedInvoiceForEnd({ id: Number(selectedInvoice.id), invoiceNo: selectedInvoice.invoiceNo });
+            setOpenIsEndModal(true);
+        } else {
+            handleFinalSaveReceipt(false);
+        }
+    };
+    const findNewReceiptId = (newItems: ProcessedReceiptItem[], allReceipts: ReceiptType[]): number | null => {
+        const latestReceipt = allReceipts.sort((a, b) => new Date(b.createAt).getTime() - new Date(a.createAt).getTime())[0];
+        if (latestReceipt) {
+            const isMatch = latestReceipt.receiptDetails.some(detail =>
+                newItems.some(newItem =>
+                    Number(newItem.invoiceDetailId) === Number(detail.invoiceDetail.id) &&
+                    Number(newItem.item) === Number(detail.item.id)
+                )
+            );
+            if (isMatch) {
+                return latestReceipt.id;
+            }
+        }
+        return null;
+    };
+    const handleUpdateReceiptStatus = async (receiptId: number) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { return; }
+        debugger
+        try {
+            const updateData = { id: Number(receiptId), isEnd: true };
+            const url = server.baseurl + server.warehouse + "update-receipt-is-end";
+            const response = await axios.put(url, updateData, { headers: { "Authorization": `Bearer ${authToken}` } });
+            if (response.data.httpStatusCode === 200) {
+                showAlert(`Fiş (Fatura No: ${selectedInvoiceForEnd!.invoiceNo}) başarıyla sonlandırıldı.`, 'info');
+            } else {
+                showAlert(response.data.message || 'Fiş durumu güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert('Fiş durumu güncellenirken bir hata oluştu.', 'error');
+        }
+    };
+    const handleFinalSaveReceipt = async (shouldEndInvoice: boolean) => {
+        setOpenIsEndModal(false);
         if (!validateForm()) return;
         const finalReceiptItems = [...receiptItems, ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))];
-
         const receiptData = {
             docDate: docDate?.toISOString(),
             warehouseId: Number(warehouse),
@@ -284,18 +335,28 @@ const ListReceipts = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); setLoadingData(false); return; }
         try {
-            const response = await axios.post(server.baseurl + server.warehouse + "create-receipt", receiptData, { headers: { "Authorization": `Bearer ${authToken}` } });
-            if (response.data.httpStatusCode === 201) {
-                resetForm();
-                getReceipts();
-                showAlert('Fiş başarıyla kaydedildi!', 'success');
-            } else { showAlert(response.data.message || 'Fiş kaydedilirken bir hata oluştu.', 'error'); }
+            await axios.post(server.baseurl + server.warehouse + "create-receipt", receiptData, { headers: { "Authorization": `Bearer ${authToken}` } });
+            showAlert('Fiş başarıyla kaydedildi! Yeni fiş ID aranıyor...', 'info');
+            await getReceipts();
+            const recheckResponse = await axios.get(server.baseurl + server.warehouse + "get-receipt",
+                { headers: { "Authorization": `Bearer ${authToken}` } });
+            if (recheckResponse.data.httpStatusCode === 200) {
+                const updatedReceipts = recheckResponse.data.data as ReceiptType[];
+                const newReceiptId = findNewReceiptId(finalReceiptItems as ProcessedReceiptItem[], updatedReceipts);
+                if (shouldEndInvoice && newReceiptId) {
+                    await handleUpdateReceiptStatus(newReceiptId);
+                }
+            } else {
+                showAlert('Yeni fiş ID alınırken hata oluştu. Fiş sonlandırılamadı.', 'warning');
+            }
+            resetForm();
+            getReceipts(); // فراخوانی مجدد برای اطمینان از رفرش کامل UI
+            showAlert('Fiş işlemleri tamamlandı.', 'success');
         } catch (e: any) {
             if (e.response?.status === 401) { localStorage.removeItem('authToken'); navigate("/"); showAlert('Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.', 'error'); }
             else { showAlert('Fiş kaydedilirken bir hata oluştu.', 'error'); }
         }
     };
-
     const handleUpdateReceipt = async () => {
         if (!validateForm() || !editingReceiptId) return;
         const finalReceiptItems = [...receiptItems, ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))];
@@ -325,7 +386,6 @@ const ListReceipts = () => {
         } catch (e: any) {
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
-
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
@@ -334,7 +394,6 @@ const ListReceipts = () => {
             else { showAlert('Fiş güncellenirken bir hata oluştu.', 'error'); }
         }
     };
-
     const handleEditClick = (row: ReceiptType) => {
         setEditingReceiptId(row.id);
         setCode(row.code);
@@ -361,11 +420,18 @@ const ListReceipts = () => {
         });
         setReceiptItems(processedItems.filter(item => item.recordStatus === 0));
         setDeletedItems(processedItems.filter(item => item.recordStatus === 1));
+        const currentInvoiceId = Number(row.receiptDetails[0]?.invoiceDetail?.invoiceHeader?.id);
+        const currentInvoice = {
+            id: currentInvoiceId,
+            invoiceNo: row.receiptDetails[0]?.invoiceDetail?.invoiceHeader?.invoiceNo || '',
+            docDate: row.receiptDetails[0]?.invoiceDetail?.invoiceHeader?.docDate || new Date().toISOString(),
+        } as InvoiceType;
+        setSelectedInvoice(currentInvoice);
+        setIsInvoiceComboDisabled(true);
         handleCloseMenu();
         setIsFormVisible(true);
         clearAlert();
     };
-
     const handleOpenModal = (details: ReceiptItem[]) => {
         const processedDetails: ProcessedReceiptItem[] = details.map(detail => ({
             id: Number(detail.id),
@@ -412,10 +478,9 @@ const ListReceipts = () => {
     };
     const isFormComplete = useMemo(() => {
         const hasValidItems = receiptItems.length > 0 && !receiptItems.some(item => !item.item || Number(item.quantity) <= 0 || isNaN(Number(item.quantity)) || !item.invoiceDetailId);
-        const isMainFormComplete = docDate && warehouse;
+        const isMainFormComplete = docDate && warehouse && selectedInvoice; // Added selectedInvoice check
         return isMainFormComplete && hasValidItems;
-    }, [docDate, warehouse, receiptItems]);
-
+    }, [docDate, warehouse, receiptItems, selectedInvoice]);
     const filteredReceipts = useMemo(() => {
         return receiptsList.filter(receipt => {
             const matchesSearch = receipt.code.toLowerCase().includes(searchTerm.toLowerCase());
@@ -426,17 +491,12 @@ const ListReceipts = () => {
             return matchesSearch && matchesDate;
         });
     }, [receiptsList, searchTerm, startDate, endDate]);
-
     const sortedAndFilteredReceipts = stableSort(filteredReceipts, getComparator(order, orderBy));
     const paginatedReceipts = sortedAndFilteredReceipts.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-
     const handleClearDateFilters = () => {
         setStartDate(null);
         setEndDate(null);
     };
-
-    // --- توابع کمکی برای دانلود PDF و Excel (با ساختار دقیق نمونه شما) ---
-
     const getDocFonts = (doc: jsPDF) => {
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -445,12 +505,10 @@ const ListReceipts = () => {
         doc.addFileToVFS('Arial.ttf', ArialFont);
         doc.addFont('Arial.ttf', 'Arial', 'normal');
     };
-
     const getPdfHeader = (doc: jsPDF, title: string, startY: number, isFiltered: boolean = false) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const logoImg = new Image();
         logoImg.src = logoSrc;
-
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
         doc.text(title, pageWidth / 2, startY, { align: 'center' });
@@ -460,7 +518,6 @@ const ListReceipts = () => {
         doc.setFont('Times', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, startY + 10);
         doc.addImage(logoImg, 'PNG', pageWidth - 60, startY + 5, 50, 25);
-
         if (isFiltered) {
             let filterInfo = '';
             if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
@@ -477,12 +534,10 @@ const ListReceipts = () => {
         }
         return isFiltered ? startY + 40 : startY + 30;
     };
-
     const getPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const docAny = doc as any;
-
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(0);
@@ -496,7 +551,6 @@ const ListReceipts = () => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
             footerY += 4;
         });
-
         const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
         const pageCount = docAny.internal.getNumberOfPages();
         doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
@@ -504,7 +558,6 @@ const ListReceipts = () => {
         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
     };
-
     const getExcelStyles = () => {
         const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
         const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
@@ -517,7 +570,6 @@ const ListReceipts = () => {
         const bodyStyle = { border, alignment: leftAlignment, font } as Partial<Excel.Style>;
         return { fullHeaderStyle, bodyStyle, thinBorder, border, headerFill, font, headerFont, centerAlignment, leftAlignment };
     };
-
     const addCompanyInfoToExcel = (ws: Excel.Worksheet, columnCount: number) => {
         ws.addRow([]);
         const companyInfo = [
@@ -533,9 +585,6 @@ const ListReceipts = () => {
             ws.mergeCells(`A${row.number}:${mergeRangeEndColumn}${row.number}`);
         });
     };
-
-    // --- توابع دانلود PDF ---
-
     const calculateTotalQuantity = (items: ReceiptItem[]): { [unit: string]: number } => {
         const totals: { [unit: string]: number } = {};
         items.forEach(item => {
@@ -545,8 +594,6 @@ const ListReceipts = () => {
         });
         return totals;
     };
-
-
     const handleDownloadReceiptDetailsPDF = async (receipt: ReceiptType) => {
         showAlert('Fiş detayları PDF oluşturuluyor...', 'info');
         setOpenReceiptDetailsDownloadModal(false);
@@ -556,7 +603,6 @@ const ListReceipts = () => {
             const pageHeight = doc.internal.pageSize.getHeight();
             getDocFonts(doc);
             doc.setFont('NotoSans');
-
             const header = () => {
                 doc.setFont('NotoSans', 'normal');
                 doc.setFontSize(14);
@@ -570,7 +616,6 @@ const ListReceipts = () => {
                 logoImg.src = logoSrc;
                 doc.addImage(logoImg, 'PNG', pageWidth - 60, 20, 50, 25);
             };
-
             const footer = () => {
                 doc.setFont('NotoSans', 'normal');
                 doc.setFontSize(8);
@@ -592,9 +637,7 @@ const ListReceipts = () => {
                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
             };
-
             header();
-
             let currentY = 50;
             doc.setFont('NotoSans', 'normal');
             doc.setFontSize(12);
@@ -608,13 +651,11 @@ const ListReceipts = () => {
             currentY += 6;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, currentY);
             currentY += 10;
-
             if (receipt.receiptDetails.length > 0) {
                 doc.setFont('NotoSans', 'bold');
                 doc.setFontSize(12);
                 doc.text('Ürün Detayları:', 15, currentY);
                 currentY += 5;
-
                 const rows = receipt.receiptDetails.map(item => [
                     item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
                     item.provider?.name || '-',
@@ -624,7 +665,6 @@ const ListReceipts = () => {
                     item.item.unit?.title || '-',
                     item.description,
                 ]);
-
                 const totals = calculateTotalQuantity(receipt.receiptDetails);
                 const totalRows = Object.entries(totals).map(([unit, total]) => [
                     { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
@@ -632,7 +672,6 @@ const ListReceipts = () => {
                     unit,
                     ''
                 ]);
-
                 autoTable(doc, {
                     startY: currentY,
                     head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
@@ -658,7 +697,6 @@ const ListReceipts = () => {
             } else {
                 doc.text('Bu fişe ait ürün bilgisi bulunamadı.', 15, currentY + 10);
             }
-
             footer();
             doc.save(`Fiş_Detay_${receipt.code}.pdf`);
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
@@ -667,27 +705,21 @@ const ListReceipts = () => {
             showAlert('Detay PDF oluşturulurken bir hata oluştu.', 'error');
         }
     };
-
     const handleDownloadAllOrFilteredPDF = (data: ReceiptType[], isFiltered: boolean) => {
         if (!data || data.length === 0) {
             showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning');
             return;
         }
-
         const doc = new jsPDF();
         getDocFonts(doc);
         doc.setFont('NotoSans');
-
         let yPos = 15;
-
         data.forEach((receipt, index) => {
             if (index > 0) {
                 doc.addPage();
                 yPos = 15;
             }
-
             yPos = getPdfHeader(doc, isFiltered ? 'Filtrelenmiş Fişler Raporu' : 'Tüm Fişler Raporu', yPos, isFiltered) + 10;
-
             doc.setFont('NotoSans', 'normal');
             doc.setFontSize(12);
             doc.text(`Fiş Kodu: ${receipt.code || '-'}`, 15, yPos);
@@ -696,7 +728,6 @@ const ListReceipts = () => {
             yPos += 6;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos);
             yPos += 10;
-
             if (receipt.receiptDetails.length > 0) {
                 const rows = receipt.receiptDetails.map(item => [
                     item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
@@ -707,7 +738,6 @@ const ListReceipts = () => {
                     item.item.unit?.title || '-',
                     item.description,
                 ]);
-
                 const totals = calculateTotalQuantity(receipt.receiptDetails);
                 const totalRows = Object.entries(totals).map(([unit, total]) => [
                     { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
@@ -715,7 +745,6 @@ const ListReceipts = () => {
                     unit,
                     ''
                 ]);
-
                 autoTable(doc, {
                     startY: yPos,
                     head: [['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama']],
@@ -742,13 +771,9 @@ const ListReceipts = () => {
                 doc.text('Bu fişe ait ürün bilgisi bulunamadı.', 15, yPos);
             }
         });
-
         doc.save(`${isFiltered ? 'Filtrelenmiş' : 'Tüm'}_Fişlerin_Detaylı_Raporu.pdf`);
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
     };
-
-    // --- توابع دانلود Excel ---
-
     const handleDownloadReceiptDetailsExcel = async (receipt: ReceiptType) => {
         showAlert('Fiş detayları Excel oluşturuluyor...', 'info');
         setOpenReceiptDetailsDownloadModal(false);
@@ -756,44 +781,36 @@ const ListReceipts = () => {
             const { fullHeaderStyle, bodyStyle } = getExcelStyles();
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet('Fiş Detayları', { views: [{ rightToLeft: false }] });
-
+            const itemHeaders = ['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama'];
+            const columnCount = itemHeaders.length;
             const titleRow = worksheet.addRow([`Fiş Detay Raporu - ${receipt.code}`]);
             titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
             titleRow.getCell(1).alignment = { horizontal: 'center' as const };
-            worksheet.mergeCells('A1:B1');
+            worksheet.mergeCells(`A1:${String.fromCharCode(65 + columnCount - 1)}1`);
             worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
-            worksheet.mergeCells('A2:B2');
+            worksheet.mergeCells(`A2:${String.fromCharCode(65 + columnCount - 1)}2`);
             worksheet.addRow([]);
-
             const infoHeaders = ['Fiş Kodu', 'Depo', 'Tarih'];
             const infoData = [receipt.code || '-', receipt.warehouse?.name || '-', formatDateDisplay(receipt.docDate)];
-
             const infoTitleRow = worksheet.addRow(['Fiş Bilgileri']);
             infoTitleRow.eachCell(c => {
                 Object.assign(c.style, fullHeaderStyle);
                 c.style.alignment = { ...c.style.alignment, horizontal: 'left' as const };
             });
-            worksheet.mergeCells(`A${infoTitleRow.number}:B${infoTitleRow.number}`);
-
+            worksheet.mergeCells('A4:B4');
             infoHeaders.forEach((header, index) => {
                 worksheet.addRow([header, infoData[index]]).eachCell(c => Object.assign(c.style, bodyStyle));
             });
             worksheet.addRow([]);
-
-            const itemHeaders = ['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama'];
-            const columnCount = itemHeaders.length;
-
             if (receipt.receiptDetails.length > 0) {
-                const infoTitleRow = worksheet.addRow(['Ürün Detayları']);
-                infoTitleRow.eachCell(c => {
+                const itemDetailsTitleRow = worksheet.addRow(['Ürün Detayları']);
+                itemDetailsTitleRow.eachCell(c => {
                     Object.assign(c.style, fullHeaderStyle);
                     c.style.alignment = { ...c.style.alignment, horizontal: 'left' as const };
                 });
-                worksheet.mergeCells(`A${infoTitleRow.number}:${String.fromCharCode(65 + columnCount - 1)}${infoTitleRow.number}`);
-
+                worksheet.mergeCells(`A${itemDetailsTitleRow.number}:${String.fromCharCode(65 + columnCount - 1)}${itemDetailsTitleRow.number}`);
                 const itemHeaderRow = worksheet.addRow(itemHeaders);
                 itemHeaderRow.eachCell(c => Object.assign(c.style, fullHeaderStyle));
-
                 receipt.receiptDetails.forEach(item => {
                     worksheet.addRow([
                         item.invoiceDetail?.invoiceHeader?.invoiceNo || '-',
@@ -805,7 +822,6 @@ const ListReceipts = () => {
                         item.description
                     ]).eachCell(c => Object.assign(c.style, bodyStyle));
                 });
-
                 const totals = calculateTotalQuantity(receipt.receiptDetails);
                 Object.entries(totals).forEach(([unit, total]) => {
                     const totalRow = worksheet.addRow([]);
@@ -821,14 +837,10 @@ const ListReceipts = () => {
             } else {
                 worksheet.addRow(['Bu fişe ait ürün bilgisi bulunamadı.']).eachCell(c => Object.assign(c.style, bodyStyle));
             }
-
-            // --- Corrected Block ---
-            // Move the company info and column width logic here
             addCompanyInfoToExcel(worksheet, columnCount);
             if (worksheet.columns) {
                 worksheet.columns.forEach(column => {
                     let maxLength = 0;
-                    // ✅ یک بررسی اضافی نیز برای اطمینان از تعریف column اضافه کنید
                     if (column && column.eachCell) {
                         column.eachCell({ includeEmpty: true }, cell => {
                             const columnLength = cell.value ? cell.value.toString().length : 10;
@@ -838,11 +850,10 @@ const ListReceipts = () => {
                     column.width = Math.min(Math.max(maxLength + 2, 12), 50);
                 });
             }
-            // --- End of Corrected Block ---
 
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Fiş_Detay_${receipt.code}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
-            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+            showAlert('Excel başarıyla oluşturuldu و indiriliyor.', 'success');
         } catch (error: any) {
             console.error("Excel oluşturulurken hata:", error);
             showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
@@ -860,23 +871,27 @@ const ListReceipts = () => {
             const { fullHeaderStyle, bodyStyle } = getExcelStyles();
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet('Fiş Raporu', { views: [{ rightToLeft: false }] });
+            const itemHeaders = ['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama'];
+            const columnCount = itemHeaders.length;
+
             const titleText = isFiltered ? 'Filtrelenmiş Fiş Raporu' : 'Tüm Fiş Raporu';
             worksheet.addRow([titleText]).eachCell(c => {
                 c.font = { name: 'Times New Roman', size: 12, bold: true };
                 c.alignment = { horizontal: 'center' as const };
             });
-            worksheet.mergeCells('A1:B1');
+            worksheet.mergeCells(`A1:${String.fromCharCode(65 + columnCount - 1)}1`);
             worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
-            worksheet.mergeCells('A2:B2');
+            worksheet.mergeCells(`A2:${String.fromCharCode(65 + columnCount - 1)}2`);
             worksheet.addRow([]);
-
-            const itemHeaders = ['Fatura No', 'Tedarikçi', 'Firma', 'Ürün Adı', 'Miktar', 'Birim', 'Açıklama'];
 
             data.forEach((receipt, index) => {
                 if (index > 0) worksheet.addRow([]); // Blank row for separation
 
                 const receiptInfoRow = worksheet.addRow([`Fiş Kodu: ${receipt.code || '-'}`, `Depo: ${receipt.warehouse?.name || '-'}`, `Tarih: ${formatDateDisplay(receipt.docDate)}`]);
-                receiptInfoRow.eachCell(c => Object.assign(c.style, bodyStyle));
+                receiptInfoRow.eachCell((c, colIndex) => {
+                    Object.assign(c.style, bodyStyle);
+                    if (colIndex === 1) worksheet.mergeCells(`A${receiptInfoRow.number}:B${receiptInfoRow.number}`);
+                });
 
                 worksheet.addRow([]);
                 const itemHeaderRow = worksheet.addRow(itemHeaders);
@@ -912,7 +927,6 @@ const ListReceipts = () => {
             if (worksheet.columns) {
                 worksheet.columns.forEach(column => {
                     let maxLength = 0;
-                    // ✅ یک بررسی اضافی نیز برای اطمینان از تعریف column اضافه کنید
                     if (column && column.eachCell) {
                         column.eachCell({ includeEmpty: true }, cell => {
                             const columnLength = cell.value ? cell.value.toString().length : 10;
@@ -926,7 +940,7 @@ const ListReceipts = () => {
             const buffer = await workbook.xlsx.writeBuffer();
             const fileNamePrefix = isFiltered ? 'Filtrelenmiş_Fişler' : 'Tüm_Fişler';
             saveAs(new Blob([buffer]), `${fileNamePrefix}_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
-            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+            showAlert('Excel başarıyla oluşturuldu و indiriliyor.', 'success');
         } catch (error: any) {
             console.error("Excel oluşturulurken hata:", error);
             showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
@@ -1030,6 +1044,12 @@ const ListReceipts = () => {
                             onItemDelete={handleReceiptItemsDelete}
                             onRestoreItem={handleRestoreItem}
                             showAlert={showAlert}
+                            onInvoiceSelect={setSelectedInvoice}
+                            endedInvoiceIds={endedInvoiceIds}
+                            getReceipts={getReceipts}
+                            endedInvoiceReceiptMap={endedInvoiceReceiptMap}
+
+                            isInvoiceComboDisabled={isInvoiceComboDisabled}
                         />
                         <Box mt={3} textAlign="right">
                             {editingReceiptId ? (
@@ -1047,7 +1067,7 @@ const ListReceipts = () => {
                                             <Button
                                                 variant="contained"
                                                 color="primary"
-                                                onClick={handleSaveReceipt}
+                                                onClick={handleInitialSaveClick}
                                                 disabled={!isFormComplete || !hasUnsavedChanges}
                                                 sx={{ animation: hasUnsavedChanges && isFormComplete ? `${blinkAnimation} 1.5s infinite` : 'none' }}
                                             >
@@ -1066,6 +1086,25 @@ const ListReceipts = () => {
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
                 </Stack>
             )}
+
+            {/* Modal for ending the Invoice Status (now updating Receipt status) */}
+            <Dialog open={openIsEndModal} onClose={() => setOpenIsEndModal(false)}>
+                <DialogTitle>Fatura Durumu Onayı</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Fişi kaydettikten sonra, bu faturanın Fişini Sonlandırmak (Fatura No: {selectedInvoiceForEnd?.invoiceNo || 'N/A'}) ister misiniz?
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                        (Bu, bu faturaya ait başka bir fiş belgesi oluşturulamayacağı anlamına gelir.)
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => handleFinalSaveReceipt(false)} color="error">Hayır (Sadece Fişi Kaydet)</Button>
+                    <Button onClick={() => handleFinalSaveReceipt(true)} color="primary" variant="contained" autoFocus>Evet (Kaydet ve Fişi Sonlandır)</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* ... (بقیه کدهای دانلود و جدول اصلی) ... */}
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -1197,7 +1236,7 @@ const ListReceipts = () => {
                                                     {hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi PDF olarak indirin" : ""}>
                                                             <MuiMenuItem onClick={() => handleDownloadReceiptDetailsClicked(row)}>
-                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Detayları İndir
+                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Bu satırı indir
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
@@ -1282,9 +1321,11 @@ const ListReceipts = () => {
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
             </Dialog>
             <DeleteReceiptModal
-                openModal={openDeleteModal} onClose={handleClickCloseDeleteModal}
+                openModal={openDeleteModal}
+                onClose={handleClickCloseDeleteModal}
                 receiptIdToDelete={receiptIdToDelete}
-                onDeleteSuccess={getReceipts} showAlert={showAlert}
+                onDeleteSuccess={getReceipts}
+                showAlert={showAlert}
             />
             <Dialog open={openAllDownloadModal} onClose={() => setOpenAllDownloadModal(false)}>
                 <DialogTitle>Tüm Fişler İçin Format Seçin</DialogTitle>

@@ -349,29 +349,30 @@ const ListStoreDispatchToCenter = () => {
         }
     }, [showAlert, authToken]);
 
-    // NEW: Fetch items by destination warehouse ID for the create form
     const fetchDispatchItemsByDestination = useCallback(async () => {
         if (!authToken || !selectedDestinationWarehouseId) return;
 
         setLoadingButton(true);
         try {
             const response = await axios.get<any>(
-                `${server.baseurl}${server.warehouse}get-store-dispatches-by-center-id/${selectedDestinationWarehouseId}`,
+                `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
+            if (response.data.httpStatusCode === 200) {
+                // const itemDetails: DispatchDetailType[] = response.data.data || [];
+                const itemBalances: ItemBalanceType[] = response.data.data || [];
 
-            if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data) && response.data.data.length > 0) {
-                const itemDetails: DispatchDetailType[] = response.data.data[0].storeDispatchDetails || [];
 
-                const formattedDetails: FormDispatchDetail[] = itemDetails.map((d: DispatchDetailType) => {
-                    const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.item?.id));
+                const formattedDetails: FormDispatchDetail[] = itemBalances.map((d: ItemBalanceType) => {
+                    const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
+
                     return {
-                        itemId: Number(d.item?.id),
-                        quantity: Number(d.quantity) > 0 ? Number(d.quantity) : 0,
-                        description: d.description || '',
-                        item: d.item,
+                        itemId: Number(d.itemId),
+                        quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
+                        description: '',
+                        item: d.name as any,
                         balance: itemBalance ? Number(itemBalance.balance) : 0,
-                        unit: d.item?.unit,
+                        unit: '' as any,
                     };
                 });
 
@@ -379,7 +380,7 @@ const ListStoreDispatchToCenter = () => {
                 showAlert('Sevk detayları başarıyla yüklendi. Lütfen miktarları stok durumuna göre kontrol ediniz.', 'success');
             } else {
                 setDispatchDetails([]);
-                showAlert('Bu merkez için önceden tanımlanmış sevk detayı bulunamadı. Lütfen elle ekleyiniz.', 'warning');
+                showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
             }
         } catch (e: any) {
             showAlert('Sevk detayları yüklenirken bir hata oluştu.', 'error');
@@ -1261,27 +1262,56 @@ const ListStoreDispatchToCenter = () => {
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                <Box sx={{ flexGrow: 1, minWidth: '200px', maxWidth: '300px' }}>
-                                                    <Typography variant="body1" component="span" sx={{ mr: 1 }}>
+                                            <Stack
+                                                direction={{ xs: 'column', sm: 'row' }}
+                                                spacing={1}
+                                                alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                                sx={{ borderBottom: '1px solid #eee', pb: 1 }}
+                                            >
+                                                <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: '200px' } }}>
+                                                    <Typography variant="body1" component="span" sx={{ fontWeight: 'bold' }}>
                                                         {selectedItem?.name || 'Ürün Adı Bulunamadı'}
                                                     </Typography>
                                                 </Box>
 
-                                                <CustomTextField
-                                                    type="number"
-                                                    placeholder="Miktar"
-                                                    value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                    }}
-                                                    error={dispatchDetailsError && isQuantityInvalid}
-                                                    helperText={dispatchDetailsError && isQuantityInvalid ? `Geçerli bir miktar girin! (0 - ${maxAllowedQuantity})` : ""}
-                                                />
-                                                <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
-                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
+                                                <Stack
+                                                    direction={{ xs: 'column', md: 'row' }}
+                                                    spacing={1}
+                                                    alignItems="stretch"
+                                                    sx={{ flexGrow: 2, width: { xs: '100%', sm: 'auto' } }}
+                                                >
+                                                    <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                                                        <CustomTextField
+                                                            type="number"
+                                                            placeholder="Miktar"
+                                                            value={detail.quantity}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                            fullWidth
+                                                            InputProps={{
+                                                                endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
+                                                            }}
+                                                            error={dispatchDetailsError && isQuantityInvalid}
+                                                            helperText={dispatchDetailsError && isQuantityInvalid ? `Geçerli bir miktar girin! (0 - ${maxAllowedQuantity})` : ""}
+                                                        />
+                                                    </Box>
+
+                                                    <Box sx={{ width: { xs: '100%', md: '300px' } }}>
+                                                        <CustomTextField
+                                                            placeholder="Açıklama"
+                                                            value={detail.description}
+                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                            fullWidth
+                                                        />
+                                                    </Box>
+                                                </Stack>
+
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() => handleRemoveDispatchDetail(index)}
+                                                    sx={{ flexShrink: 0, alignSelf: { xs: 'flex-end', sm: 'center' } }} // در موبایل به راست می‌چسبد
+                                                >
+                                                    <IconTrash />
+                                                </IconButton>
                                             </Stack>
                                         </Grid>
                                     )

@@ -1,71 +1,102 @@
+
 // ListProjectPlanningImplementation.tsx
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
-    Typography, Chip, Menu, IconButton, ListItemIcon, Box,
     TableCell as MuiTableCell,
     MenuItem as MuiMenuItem,
+    Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-    ToggleButtonGroup, ToggleButton as MuiToggleButton,
-    TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions,
-    CircularProgress, Autocomplete, RadioGroup, FormControlLabel, Radio,
-    Stepper, Step, StepLabel, Divider,
+    CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
+    Autocomplete, Chip, Checkbox, FormControlLabel,
+    Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
-
-import { LocalizationProvider } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-
 import { keyframes, styled } from '@mui/material/styles';
-import BlankCard from '../../../components/shared/BlankCard';
-import CustomFormLabel from '../../../components/forms/theme-elements/CustomFormLabel';
-import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
-    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX,
-    IconPlus, IconEye, IconChecks,
-    IconArrowRight
+    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
+    IconPlus, IconX, IconFileSpreadsheet, IconFileText, IconSettings
 } from '@tabler/icons-react';
-import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
-import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import DeleteProjectPlanningImplementation from './DeleteProjectPlanningImplementation';
-import axios from 'axios';
-import server from '../../../assets/address.json';
+import BoltIcon from '@mui/icons-material/Bolt';
+import BlankCard from 'src/components/shared/BlankCard';
+import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-import { tr } from 'date-fns/locale';
-import { format } from 'date-fns';
+import axios from 'axios';
+import server from 'src/assets/address.json';
 import { useAuth } from 'src/context/AuthContext';
-import { IconArrowBack } from "@tabler/icons-react";
+import { tr } from 'date-fns/locale';
+import { format, max as dateMax } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 
+import DeleteProjectPlanningImplementation from "./DeleteProjectPlanningImplementation";
 
-// =========================================================================
-// ************************* Styled Components & Types ***********************
-// =========================================================================
+/* ===== Interfaces ===== */
+interface ProjectType { id: string; title: string; code: string; }
+interface ProjectPlanningType { id: string; startDate: string; endDate: string; project: ProjectType; recordStatus: number; }
+interface ForceMajorType { id: string; title: string; recordStatus: number; }
 
-const blinkAnimation = keyframes`
-    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
-    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
-    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
-`;
-const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
-    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
-    transition: 'transform 0.3s ease-in-out',
+interface ImplementationDateType {
+    id: string;
+    projectPlanningId: number;
+    forceMajorId: number | null;
+    startDate: string;
+    endDate: string;
+    recordStatus: number;
+    status: 'Aktif' | 'Pasif';
+    projectPlanning?: ProjectPlanningType;
+    forceMajor?: ForceMajorType;
+}
+
+interface NewImplementationDateData {
+    projectPlanningId: number;
+    forceMajorId: number | null;
+    startDate: string;
+    endDate: string;
+}
+interface EditImplementationDateData extends NewImplementationDateData { id: number; }
+
+interface ApiResponse<T> {
+    success: boolean;
+    httpStatusCode: number;
+    message: string;
+    data: T;
+}
+
+/* پاسخ get-project-planning-by-id/{id} — فقط فیلدهای لازم */
+interface PlanningById {
+    id: string;
+    startDate: string;
+    endDate: string;
+    project: { id: string; title: string; code: string; };
+}
+
+const INITIAL_IMPLEMENTATION_DATE_STATE = {
+    projectPlanningId: null as number | null,
+    forceMajorId: null as number | null,
+    startDate: null as Date | null,
+    endDate: null as Date | null,
+};
+
+/* ===== Styles ===== */
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
+    [theme.breakpoints.up('md')]: { fontSize: '1rem' },
 }));
-const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+
+const StyledToggleButton = styled(MuiToggleButton)<{ value: 'all' | 'active' | 'inactive' }>(({ theme, value }) => ({
     '&.Mui-selected': {
         color: 'white',
-        ...(value === 'all' && selected && {
-            backgroundColor: theme.palette.primary.main,
-            '&:hover': { backgroundColor: theme.palette.primary.dark },
-        }),
-        ...(value === 'active' && selected && {
-            backgroundColor: theme.palette.success.main,
-            '&:hover': { backgroundColor: theme.palette.success.dark },
-        }),
-        ...(value === 'inactive' && selected && {
-            backgroundColor: theme.palette.error.main,
-            '&:hover': { backgroundColor: theme.palette.error.dark },
-        }),
+        ...(value === 'all' && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }),
+        ...(value === 'active' && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
+        ...(value === 'inactive' && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
     },
     '&:not(.Mui-selected)': {
         color: theme.palette.text.primary,
@@ -73,1326 +104,947 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
         '&:hover': { backgroundColor: theme.palette.action.hover },
     },
 }));
-const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans',
-    fontSize: '0.8rem',
-    [theme.breakpoints.up('md')]: {
-        fontSize: '1rem',
-    },
+
+const blinkAnimation = keyframes`
+  0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+  50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+  100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
 }));
 
-// Types & Interfaces
-interface PlanningType {
-    id: number;
-    // title: string; // این عنوان خود پلنینگ است
-    createAt: string;
-    recordStatus: number;
-    status: string;
-    startDate: string;
-    endDate: string;
-    // اضافه شدن ساختار پروژه مادر
-    project: {
-        id: string;
-        title: string; // نام پروژه مادر (مثلاً "fadak")
-    };
-    compositeTitle: string;
-}
+/* ===== Utils ===== */
+const isValidDate = (d: Date) => !isNaN(d.getTime());
+const toDateOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const sameDay = (a?: Date | null, b?: Date | null) => !!a && !!b && toDateOnly(a).getTime() === toDateOnly(b).getTime();
 
-interface ForceMajorType {
-    id: number;
-    title: string;
-    createAt: string;
-    recordStatus: number;
-    status: string;
-}
-
-interface ImplementationValue {
-    amount?: number;
-    item?: string;
-    from?: string;
-    to?: string;
-    lang?: string;
-    lat?: string;
-    attachment?: string;
-}
-
-interface ProjectPlanningImplementationType {
-    id: number;
-    projectPlanningId: number;
-    forceMajorId?: number;
-    startDate: string;
-    endDate: string;
-    description: string;
-    planningStatus: number;
-    projectPlanning: {
-        id: number;
-        title: string;
-        startDate?: string;
-        endDate?: string;
-    };
-    forceMajor?: {
-        id: number;
-        title: string;
-    };
-    kaziYapilanDirekSayisi?: ImplementationValue;
-    altMontajiYapilanDirekSayisi?: ImplementationValue;
-    betonAtilanDirekSayisi?: ImplementationValue;
-    ustMontajiOrulenDirekSayisi?: ImplementationValue;
-    ustMontajiKurulanDirekSayisi?: ImplementationValue;
-    dikilenBetonDirekSayisi?: ImplementationValue;
-    iletkenCekilenDirekSayisi?: ImplementationValue;
-    ayiriciTakilanDirekSayisi?: ImplementationValue;
-    dikilenAydinlatmaDirekSayisi?: ImplementationValue;
-    kabloKanali?: ImplementationValue;
-    cekilenKabloMiktari?: ImplementationValue;
-    transformator?: ImplementationValue;
-    dagitimPanosu?: ImplementationValue;
-    sahaDagTMKutusu?: ImplementationValue;
-    betonKosk?: ImplementationValue;
-    hucre?: ImplementationValue;
-}
-
-const IMPLEMENTATION_FIELDS: { key: keyof Omit<ProjectPlanningImplementationType, 'id' | 'projectPlanningId' | 'forceMajorId' | 'startDate' | 'endDate' | 'description' | 'planningStatus' | 'projectPlanning' | 'forceMajor'>, label: string }[] = [
-    { key: 'kaziYapilanDirekSayisi', label: 'Kazı Yapılan Direk Sayısı' },
-    { key: 'altMontajiYapilanDirekSayisi', label: 'Alt Montajı Yapılan Direk Sayısı' },
-    { key: 'betonAtilanDirekSayisi', label: 'Beton Atılan Direk Sayısı' },
-    { key: 'ustMontajiOrulenDirekSayisi', label: 'Üst Montajı Örülen Direk Sayısı' },
-    { key: 'ustMontajiKurulanDirekSayisi', label: 'Üst Montajı Kurulan Direk Sayısı' },
-    { key: 'dikilenBetonDirekSayisi', label: 'Dikilen Beton Direk Sayısı' },
-    { key: 'iletkenCekilenDirekSayisi', label: 'İletken Çekilen Direk Sayısı' },
-    { key: 'ayiriciTakilanDirekSayisi', label: 'Ayırıcı Takılan Direk Sayısı' },
-    { key: 'dikilenAydinlatmaDirekSayisi', label: 'Dikilen Aydınlatma Direk Sayısı' },
-    { key: 'kabloKanali', label: 'Kablo Kanalı' },
-    { key: 'cekilenKabloMiktari', label: 'Çekilen Kablo Miktarı' },
-    { key: 'transformator', label: 'Transformatör' },
-    { key: 'dagitimPanosu', label: 'Dağıtım Panosu' },
-    { key: 'sahaDagTMKutusu', label: 'Saha Dağ TM Kutusu' },
-    { key: 'betonKosk', label: 'Beton Köşk' },
-    { key: 'hucre', label: 'Hücre' },
-];
-
-const STEPS = ['Proje Planlama Seçimi', 'Zamanlama ve Ana Detaylar', 'Operasyonel Değer Girişi', 'İnceleme ve Onay'];
-
-// توابع مرتب‌سازی (بدون تغییر)
-const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
-    const valA = a[orderBy];
-    const valB = b[orderBy];
-    if (valB === undefined || valB === null) {
-        return valA === undefined || valA === null ? 0 : -1;
-    }
-    if (valA === undefined || valA === null) {
-        return 1;
-    }
-    if (typeof valB === 'string' && typeof valA === 'string') {
-        return valB.localeCompare(valA);
-    }
-    if (typeof valB === 'number' && typeof valA === 'number') {
-        return valB - valA;
-    }
-    if (String(valB) < String(valA)) {
-        return -1;
-    }
-    if (String(valB) > String(valA)) {
-        return 1;
-    }
-    return 0;
+/* خواندن id پلنینگ از ردیف چه projectPlanningId باشد چه projectPlanning.id */
+const getPlanningIdFromRow = (row: ImplementationDateType): number | null => {
+    const a = (row as any).projectPlanningId;
+    const b = (row as any).projectPlanning?.id;
+    const idStr = a ?? b ?? null;
+    return idStr != null ? Number(idStr) : null;
 };
 
-const getComparator = <Key extends keyof ProjectPlanningImplementationType>(order: 'asc' | 'desc', orderBy: Key): (a: ProjectPlanningImplementationType, b: ProjectPlanningImplementationType) => number => {
-    return order === 'desc'
-        ? (a, b) => descendingComparator(a, b, orderBy)
-        : (a, b) => -descendingComparator(a, b, orderBy);
+const formatDateDisplay = (dateValue: Date | string | null): string => {
+    if (!dateValue) return "N/A";
+    const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue;
+    if (!isValidDate(date)) return "Geçersiz Tarih";
+    try { return format(date, 'dd MMMM yyyy', { locale: tr }); } catch { return "Geçersiz Tarih"; }
 };
 
-const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
-    const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
-    stabilizedThis.sort((a, b) => {
-        const order = comparator(a[0], b[0]);
-        if (order !== 0) return order;
-        return a[1] - b[1];
+/* ===== PDF / Excel Helpers ===== */
+const addPdfHeader = (doc: jsPDF, title: string) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const docAny = doc as any;
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 35, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.text(`Rapor Tarihi:`, 15, 45);
+    doc.text(`${formatDateDisplay(new Date())}`, 45, 45);
+};
+
+const addPdfFooter = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setFont('NotoSans', 'normal');
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
+    let footerY = pageHeight - 30;
+    companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
+    doc.setFontSize(10);
+    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    const docAny = doc as any;
+    const pageCount = docAny.internal.getNumberOfPages();
+    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+};
+
+const exportImplementationDatesToPdf = (data: ImplementationDateType[], title: string, subtitle?: string) => {
+    if (!data || data.length === 0) throw new Error('PDF oluşturulacak kayıt bulunamadı.');
+    const doc = new jsPDF();
+    const docAny = doc as any;
+
+    addPdfHeader(doc, title);
+    if (subtitle) { doc.setFontSize(10); doc.text(subtitle, doc.internal.pageSize.getWidth() / 2, 52, { align: 'center' }); }
+
+    const tableHeaders = ['Proje Adı (Kod)', 'Mücbir Sebep', 'Tarih'];
+    const tableBody = data.map(item => [
+        `${item.projectPlanning?.project?.title || '-'} (${item.projectPlanning?.project?.code || item.projectPlanningId})`,
+        item.forceMajor?.title || '-',
+        formatDateDisplay(item.startDate), // تاریخ ثبت = startDate
+    ]);
+
+    autoTable(docAny, {
+        startY: 60,
+        head: [tableHeaders],
+        body: tableBody,
+        theme: 'grid',
+        styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+        headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+        didDrawPage: () => { addPdfFooter(doc); },
+        margin: { top: 55, bottom: 40 }
     });
-    return stabilizedThis.map((el) => el[0]);
+
+    doc.save(`${title.replace(/ /g, '_')}_Liste.pdf`);
 };
 
+const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
+    worksheet.views = [{ rightToLeft: false }];
+    const titleRow = worksheet.addRow([title]);
+    titleRow.font = { name: 'NotoSans', size: 14, bold: true };
+    worksheet.mergeCells(titleRow.number, 1, titleRow.number, columnsLength);
+    titleRow.getCell(1).alignment = { horizontal: 'center' };
+    const dateRow = worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date())}`]);
+    dateRow.font = { name: 'NotoSans', size: 10, bold: false };
+    worksheet.mergeCells(dateRow.number, 1, dateRow.number, columnsLength);
+    worksheet.addRow([]);
+};
 
-// =========================================================================
-// ****************************** Main Component *****************************
-// =========================================================================
+const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİم İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
+    let rowNum = startRow;
+    companyInfo.forEach(line => {
+        const row = worksheet.getRow(rowNum);
+        row.getCell(1).value = line;
+        row.getCell(1).alignment = { horizontal: 'center', readingOrder: 'ltr' };
+        row.getCell(1).font = { name: 'NotoSans', size: 8, bold: false };
+        worksheet.mergeCells(`A${rowNum}:${String.fromCharCode(65 + columnsLength - 1)}${rowNum}`);
+        rowNum++;
+    });
+};
 
+const exportImplementationDatesToExcel = async (data: ImplementationDateType[], title: string) => {
+    if (!data || data.length === 0) throw new Error('Excel oluşturulacak kayıt bulunamadı.');
+    const workbook = new Excel.Workbook();
+    const worksheet = workbook.addWorksheet(title.replace(/ /g, '_').substring(0, 31));
+
+    const tableHeaders = ['Proje Adı (Kod)', 'Mücbir Sebep', 'Tarih'];
+    const totalColumns = tableHeaders.length;
+
+    addExcelHeader(worksheet, title, totalColumns);
+
+    const headerRow = worksheet.addRow(tableHeaders);
+    headerRow.font = { name: 'NotoSans', bold: true };
+    headerRow.eachCell(cell => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+    });
+
+    data.forEach(item => {
+        worksheet.addRow([
+            `${item.projectPlanning?.project?.title || '-'} (${item.projectPlanning?.project?.code || item.projectPlanningId})`,
+            item.forceMajor?.title || '-',
+            formatDateDisplay(item.startDate),
+        ]);
+    });
+
+    worksheet.columns.forEach(column => { column.width = 22; });
+    worksheet.addRow([]);
+    addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 1, totalColumns);
+
+    const fileName = `${title.replace(/ /g, '_')}_Liste.xlsx`;
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), fileName);
+};
+
+/* ===== Component ===== */
 const ListProjectPlanningImplementation = () => {
     const navigate = useNavigate();
+    const authToken = localStorage.getItem('authToken');
 
-    // State Management
-    const [projectPlanningsList, setProjectPlanningsList] = useState<PlanningType[]>([]);
-    const [forceMajorsList, setForceMajorsList] = useState<ForceMajorType[]>([]);
-    const [implementationsList, setImplementationsList] = useState<ProjectPlanningImplementationType[]>([]);
+    // Form
+    const [formData, setFormData] = useState<typeof INITIAL_IMPLEMENTATION_DATE_STATE>(INITIAL_IMPLEMENTATION_DATE_STATE);
+    const [isForceMajorRequired, setIsForceMajorRequired] = useState(false);
 
-    const [selectedProjectPlanning, setSelectedProjectPlanning] = useState<PlanningType | null>(null);
-    const [selectedForceMajor, setSelectedForceMajor] = useState<ForceMajorType | null>(null);
-    const [startDate, setStartDate] = useState<Date | null>(null);
-    const [endDate, setEndDate] = useState<Date | null>(null);
-    const [description, setDescription] = useState<string>('');
-    // 0: Başladı, 1: Tamamlandı, 2: Durduruldu, 3: Devam Ediyor
-    const [planningStatus, setPlanningStatus] = useState<'0' | '1' | '2' | '3'>('3');
-
-    const [formData, setFormData] = useState<Record<string, ImplementationValue>>({});
-    const [filesToUpload, setFilesToUpload] = useState<Record<string, File | null>>({});
-
-    const [editingId, setEditingId] = useState<number | null>(null);
+    // Lists / UI
+    const [implementationDateList, setImplementationDateList] = useState<ImplementationDateType[]>([]);
+    const [displayedImplementationDates, setDisplayedImplementationDates] = useState<ImplementationDateType[]>([]);
+    const [projectPlannings, setProjectPlannings] = useState<ProjectPlanningType[]>([]);
+    const [forceMajors, setForceMajors] = useState<ForceMajorType[]>([]);
+    const [loadingData, setLoadingData] = useState(true);
+    const [loadingButton, setLoadingButton] = useState(false);
+    const [isFormValid, setIsFormValid] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // UI States
-    const [activeStep, setActiveStep] = useState(0);
-    const [isFormVisible, setIsFormVisible] = useState(false);
-    const [loadingButton, setLoadingButton] = useState<boolean>(false);
-    const [loadingData, setLoadingData] = useState<boolean>(true);
-    const [isBlinking, setIsBlinking] = useState(true);
-
-    // Table States
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [selectedRowForMenu, setSelectedRowForMenu] = useState<ProjectPlanningImplementationType | null>(null);
-    const [openDeleteModal, setOpenDeleteModal] = useState(false);
-    const [implementationIdToDelete, setImplementationIdToDelete] = useState<number | null>(null);
+    // Table/Filter/Menu
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(5);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [orderBy, setOrderBy] = useState<keyof ProjectPlanningImplementationType>('startDate');
-    const [order, setOrder] = useState<'asc' | 'desc'>('desc');
-    const [openDownloadModal, setOpenDownloadModal] = useState(false);
-    const [openDetailModal, setOpenDetailModal] = useState(false);
-    const [detailData, setDetailData] = useState<ProjectPlanningImplementationType | null>(null);
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<ImplementationDateType | null>(null);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
-    // Value Modal States
-    const [openValueModal, setOpenValueModal] = useState(false);
-    const [currentField, setCurrentField] = useState<string | null>(null);
-    const [currentValues, setCurrentValues] = useState<ImplementationValue>({ amount: 0, item: '', from: '', to: '', lang: '', lat: '', attachment: '' });
+    const [openDeleteModal, setOpenDeleteModal] = useState(false);
+    const [idToDelete, setIdToDelete] = useState<string | null>(null);
 
-    const openMenu = Boolean(anchorEl);
+    const [startDateFilter, setStartDateFilter] = useState<Date | null>(null);
+    const [endDateFilter, setEndDateFilter] = useState<Date | null>(null);
+    const [isFilterActive, setIsFilterActive] = useState(false);
+    const [isFormVisible, setIsFormVisible] = useState(false);
+    const [isBlinking, setIsBlinking] = useState(true);
 
-    // Auth & Tooltip
+    const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
+    const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
+    const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
+    const [selectedRowForDownload, setSelectedRowForDownload] = useState<ImplementationDateType | null>(null);
+
+    const [selectedPlanningInfo, setSelectedPlanningInfo] = useState<PlanningById | null>(null);
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
-    const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // Handlers
-    const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    const hasCreatePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Eklemek') ?? false, [allowedOperations]);
+    const hasEditPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Düzenlemek') ?? false, [allowedOperations]);
+    const hasDeletePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Silmek') ?? false, [allowedOperations]);
+    const hasDownloadPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak') ?? false, [allowedOperations]);
+
+    /* Alerts */
+    const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
-    };
-    const clearAlert = () => setAlertMessage(null);
-
-    const getStatusLabel = (status: number) => {
-        switch (status) {
-            case 0: return 'Başladı';
-            case 1: return 'Tamamlandı';
-            case 2: return 'Durduruldu';
-            case 3: return 'Devam Ediyor';
-            default: return 'Bilinmiyor';
-        }
-    };
-
-    const resetFormAndState = () => {
-        setSelectedProjectPlanning(null);
-        setSelectedForceMajor(null);
-        setStartDate(null);
-        setEndDate(null);
-        setDescription('');
-        setPlanningStatus('3'); // پیش‌فرض: Devam Ediyor
-        setFormData({});
-        setEditingId(null);
-        setActiveStep(0);
-        setIsFormVisible(false);
-        clearAlert();
-    };
-
-    // Stepper Handlers
-    const handleStepChange = (step: number) => {
-        if (step >= 0 && step < STEPS.length) {
-            setActiveStep(step);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-    };
-
-    const handleNext = () => {
-        clearAlert();
-        // Geliştirme Notu: Adım 0 ve Adım 1'deki kontroller yerinde kalır.
-
-        if (activeStep === 0) {
-            if (!selectedProjectPlanning) {
-                showAlert('Lütfen bir proje planlaması seçin.', 'warning');
-                return;
-            }
-        }
-
-        if (activeStep === 1) {
-            const minDate = selectedProjectPlanning ? new Date(selectedProjectPlanning.startDate) : null;
-            const maxDate = selectedProjectPlanning ? new Date(selectedProjectPlanning.endDate) : null;
-
-            if (!startDate || !endDate) {
-                showAlert('Lütfen Başlangıç ve Bitiş Tarihlerini girin.', 'warning');
-                return;
-            }
-            if (startDate > endDate || (minDate && startDate < minDate) || (maxDate && endDate > maxDate)) {
-                showAlert('Geçerli bir tarih aralığı seçin (Planlama sınırları içinde olmalıdır).', 'warning');
-                return;
-            }
-        }
-
-        // **Nokta 1: Operasyonel Değer Girişi (Adım 2) Kontrolü**
-        if (activeStep === 2) {
-            // بررسی می‌کنیم که آیا هر فیلد در لیست ثابت IMPLEMENTATION_FIELDS
-            // در formData وجود دارد و مقدار amount آن > 0 است.
-            const allFieldsMandatoryFilled = IMPLEMENTATION_FIELDS.every(field => {
-                const data = formData[field.key];
-                return data && data.amount !== undefined && data.amount > 0;
-            });
-
-            if (!allFieldsMandatoryFilled) {
-                showAlert('Devam etmek için listedeki **tüm** operasyonel maddelere (miktar > 0 olacak şekilde) değer girilmesi zorunludur.', 'error');
-                return;
-            }
-        }
-
-        handleStepChange(activeStep + 1);
-    };
-    const handleBack = () => {
-        handleStepChange(activeStep - 1);
-    };
-
-    // Value Modal Handlers
-    const handleOpenValueModal = (fieldKey: string) => {
-        setCurrentField(fieldKey);
-        // مقداردهی اولیه از formData در صورت وجود
-        const existingData = formData[fieldKey] || { amount: 0, item: '', from: '', to: '', lang: '', lat: '', attachment: '' };
-        // اطمینان از مقداردهی amount
-        if (existingData.amount === undefined) existingData.amount = 0;
-
-        setCurrentValues(existingData);
-        setOpenValueModal(true);
-    };
-    const handleCloseValueModal = () => {
-        setOpenValueModal(false);
-        setCurrentField(null);
-        setCurrentValues({ amount: 0, item: '', from: '', to: '', lang: '', lat: '', attachment: '' });
-    };
-    const handleSaveValue = () => {
-        if (currentField) {
-            const amount = Number(currentValues.amount);
-            if (isNaN(amount) || amount < 0) {
-                showAlert('Miktar negatif olamaz veya geçerli bir sayı olmalıdır.', 'error');
-                return;
-            }
-
-            // اگر مقدار صفر بود، فیلد را حذف کنید
-            if (amount === 0) {
-                // اگر مقدار صفر است: فیلد را از formData حذف کن و فایل را از filesToUpload پاک کن
-                setFormData(prev => {
-                    const newState = { ...prev };
-                    delete newState[currentField];
-                    return newState;
-                });
-                setFilesToUpload(prev => {
-                    const newState = { ...prev };
-                    delete newState[currentField];
-                    return newState;
-                });
-            } else {
-                setFormData(prev => ({ ...prev, [currentField]: { ...currentValues, amount } }));
-            }
-            handleCloseValueModal();
-        }
-    };
-
-
-    const getListPlannings = useCallback(async () => {
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); return; }
-        try {
-            const response = await axios.get(server.baseurl + server.warehouse + "get-project-plannings", {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-            if (response.data.httpStatusCode === 200) {
-                const formattedData = response.data.data.map((item: any) => {
-                    const projectTitle = item.project?.title || 'Projeye Ait Planlama';
-                    const startDateFormatted = item.startDate ? format(new Date(item.startDate), 'dd/MM/yyyy', { locale: tr }) : 'Tarih Belirtilmemiş';
-                    const endDateFormatted = item.endDate ? format(new Date(item.endDate), 'dd/MM/yyyy', { locale: tr }) : 'Tarih Belirtilmemiş';
-
-                    return {
-                        ...item,
-                        status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
-                        // ایجاد عنوان ترکیبی مورد نیاز شما
-                        compositeTitle: `${projectTitle} (Başlangıç: ${startDateFormatted} - Bitiş: ${endDateFormatted})`,
-                        startDate: item.startDate,
-                        endDate: item.endDate,
-                        project: item.project,
-                    };
-                });
-                setProjectPlanningsList(formattedData as PlanningType[]);
-            } else {
-                showAlert(response.data.message || 'Planlama listesi alınırken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert('Planlama listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            }
-        }
-    }, [navigate]);
-
-    const getListForceMajors = useCallback(async () => {
-        setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
-        try {
-            const response = await axios.get(server.baseurl + server.warehouse + "get-force-majors", {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-            if (response.data.httpStatusCode === 200) {
-                const formattedData = response.data.data
-                    .filter((item: any) => item.recordStatus === 0)
-                    .map((item: any) => ({
-                        id: item.id,
-                        title: item.title,
-                        recordStatus: item.recordStatus,
-                        createAt: item.createAt,
-                        status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
-                    }));
-                setForceMajorsList(formattedData as ForceMajorType[]);
-            } else {
-                showAlert(response.data.message || 'Operasyon listesi alınırken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert(e.response?.data?.message || 'Operasyon listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            }
-        } finally {
-            setLoadingData(false);
-        }
-    }, [navigate]);
-
-    const getListImplementations = useCallback(async () => {
-        setLoadingData(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
-        try {
-            const response = await axios.get(server.baseurl + server.warehouse + "get-project-planning-Implementation", {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-            if (response.data.httpStatusCode === 200) {
-                const formattedData = response.data.data.map((item: any) => ({
-                    ...item,
-                    status: item.planningStatus === 0 ? 'Aktif' : 'Pasif',
-                    projectPlanning: {
-                        ...item.projectPlanning,
-                        startDate: item.projectPlanning.startDate,
-                        endDate: item.projectPlanning.endDate,
-                    }
-                }));
-                setImplementationsList(formattedData as ProjectPlanningImplementationType[]);
-            } else {
-                showAlert(response.data.message || 'Uygulama listesi alınırken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert(e.response?.data?.message || 'Uygulama listesi alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            }
-        } finally {
-            setLoadingData(false);
-        }
-    }, [navigate]);
-
-    const uploadFilesHandler = async (): Promise<Record<string, string>> => {
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) return {}; // یا خطا پرتاب کند
-
-        const filesToUploadArray = [];
-        const fileKeys: string[] = []; // کلیدهای عملیاتی مربوط به فایل‌ها
-
-        // 1. فایل‌هایی که باید آپلود شوند را جمع‌آوری می‌کند.
-        for (const key in filesToUpload) {
-            const file = filesToUpload[key];
-            if (file) {
-                filesToUploadArray.push(file);
-                fileKeys.push(key);
-            }
-        }
-
-        if (filesToUploadArray.length === 0) {
-            return {};
-        }
-
-        const uploadFormData = new FormData();
-        filesToUploadArray.forEach(file => uploadFormData.append('files', file));
-
-        try {
-            const uploadResponse = await axios.post(
-                server.baseurl + server.baseinfo + "upload-files",
-                uploadFormData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                }
-            );
-
-            if (uploadResponse.data.httpStatusCode === 201) {
-                const fileUrls: string[] = uploadResponse.data.data.files;
-
-                // نگاشت URLهای برگشتی به کلیدهای عملیاتی
-                const uploadedFileUrlsMap: Record<string, string> = {};
-                fileUrls.forEach((url, index) => {
-                    uploadedFileUrlsMap[fileKeys[index]] = url;
-                });
-
-                return uploadedFileUrlsMap;
-
-            } else {
-                showAlert('Dosyalar yüklenirken bir hata oluştu: ' + (uploadResponse.data.message || 'Bilinmeyen Hata'), 'error');
-                throw new Error("Dosya yükleme başarısız.");
-            }
-        } catch (e: any) {
-            showAlert('Dosya yükleme sırasında bağlantı hatası: ' + (e.response?.data?.message || 'Lütfen tekrar deneyin.'), 'error');
-            throw new Error("Dosya yükleme sırasında bağlantı hatası.");
-        }
-    };
-
-    const buildFullPayload = (uploadedFilesMap: Record<string, string>) => {
-        const fullFormData = IMPLEMENTATION_FIELDS.reduce((acc, field) => {
-            const key = field.key;
-            const existingData = formData[key] || {};
-
-            // اگر فایل آپلود شده، از URL آن استفاده کن، در غیر این صورت از نام فایل موجود در existingData استفاده کن.
-            const attachmentUrl = uploadedFilesMap[key] || existingData.attachment || '';
-
-            acc[key] = {
-                amount: existingData.amount || 0,
-                item: existingData.item || '',
-                from: existingData.from || '',
-                to: existingData.to || '',
-                lang: existingData.lang || '',
-                lat: existingData.lat || '',
-                attachment: attachmentUrl,
-            };
-            return acc;
-        }, {} as Record<string, ImplementationValue>);
-
-        return fullFormData;
-    };
-
-    const insertImplementation = async () => {
-        if (!selectedProjectPlanning || !startDate || !endDate) {
-            showAlert('Lütfen tüm gerekli alanları doldurunuz!', 'warning');
-            return;
-        }
-
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); return; }
-        setLoadingButton(true);
-
-        try {
-            // 1. فایل‌ها را آپلود کرده و نگاشت URL را دریافت کن
-            const uploadedFileUrlsMap = await uploadFilesHandler();
-
-            // 2. Payload نهایی را با تمام فیلدها و URLهای فایل بساز
-            const finalFormData = buildFullPayload(uploadedFileUrlsMap);
-
-            const payload = {
-                projectPlanningId: Number(selectedProjectPlanning.id),
-                forceMajorId: selectedForceMajor ? Number(selectedForceMajor.id) : null,
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString(),
-                description: description,
-                planningStatus: Number(planningStatus),
-                ...finalFormData,
-            };
-            debugger
-            // 3. ارسال درخواست POST
-            const response = await axios.post(
-                server.baseurl + server.warehouse + "create-project-planning-implementation",
-                payload,
-                { headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` } }
-            );
-
-            if (response.data.httpStatusCode === 201) {
-                showAlert('Yeni uygulama kaydı başarıyla eklendi!', 'success');
-                resetFormAndState();
-                getListImplementations();
-            } else {
-                showAlert(response.data.message || 'Yeni uygulama kaydı eklenirken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            // خطا توسط uploadFilesHandler پرتاب شده یا خطای API اصلی است
-            if (!(e instanceof Error && e.message.includes("Dosya yükleme"))) {
-                showAlert(e.response?.data?.message || 'Uygulama kaydı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            }
-        } finally {
-            setLoadingButton(false);
-        }
-    };
-
-    const editImplementation = async () => {
-        if (!editingId || !selectedProjectPlanning || !startDate || !endDate) {
-            showAlert('Lütfen tüm gerekli alanları doldurunuz!', 'warning');
-            return;
-        }
-
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); return; }
-        setLoadingButton(true);
-
-        try {
-            // 1. فایل‌ها را آپلود کرده و نگاشت URL را دریافت کن
-            const uploadedFileUrlsMap = await uploadFilesHandler();
-
-            // 2. Payload نهایی را با تمام فیلدها و URLهای فایل بساز
-            const finalFormData = buildFullPayload(uploadedFileUrlsMap);
-
-            const payload = {
-                id: editingId,
-                projectPlanningId: Number(selectedProjectPlanning.id),
-                forceMajorId: selectedForceMajor ? Number(selectedForceMajor.id) : null,
-                startDate: startDate.toISOString(),
-                endDate: endDate.toISOString(),
-                description: description,
-                planningStatus: Number(planningStatus),
-                ...finalFormData,
-            };
-
-            // 3. ارسال درخواست PUT
-            const response = await axios.put(
-                server.baseurl + server.warehouse + "update-project-planning-implementation",
-                payload,
-                { headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` } }
-            );
-
-            if (response.data.httpStatusCode === 200) {
-                showAlert('Uygulama kaydı başarıyla güncellendi!', 'success');
-                resetFormAndState();
-                getListImplementations();
-            } else {
-                showAlert(response.data.message || 'Uygulama kaydı güncellenirken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            if (e.response && e.response.status === 500) {
-                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
-
-            } else if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-                navigate("/");
-            }
-            else if (!(e instanceof Error && e.message.includes("Dosya yükleme"))) {
-                showAlert(e.response?.data?.message || 'Uygulama kaydı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            }
-        } finally {
-            setLoadingButton(false);
-        }
-    };
-
-    const sendStatusUpdate = async (id: number, statusValue: number) => {
-        clearAlert();
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); navigate("/"); return; }
-        try {
-            const response = await axios.put(
-                server.baseurl + server.warehouse + "update-project-planning-implementation",
-                { id: Number(id), planningStatus: statusValue },
-                { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, 'Content-Type': 'application/json' } }
-            );
-            if (response.data.httpStatusCode === 200) {
-                const statusText = getStatusLabel(statusValue);
-                showAlert(`Uygulama kaydı başarıyla "${statusText}" olarak ayarlandı!`, 'success');
-                getListImplementations();
-            } else {
-                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-            }
-        } finally {
-            handleCloseMenu();
-        }
-    };
-
-    const handleEditClick = () => {
-        if (selectedRowForMenu) {
-
-            // 1. Planlama Objesini Bulma (تاریخ‌ها باید وجود داشته باشند)
-            const projectPlanningWithDates = projectPlanningsList.find(p => p.id === selectedRowForMenu.projectPlanningId) || selectedRowForMenu.projectPlanning;
-
-            // 2. Force Major'ı Güvenli Şekilde Ayarlama
-            // ForceMajorType yapısına tam olarak uyan bir obje oluşturulur.
-            const forceMajorData: ForceMajorType | null = selectedRowForMenu.forceMajor
-                ? {
-                    id: selectedRowForMenu.forceMajor.id,
-                    title: selectedRowForMenu.forceMajor.title,
-                    // فرض می‌شود که اگر آبجکت forceMajor موجود باشد، بقیه فیلدها را می‌توان با مقادیر پیش‌فرض یا جستجو پر کرد
-                    createAt: '',
-                    recordStatus: 0,
-                    status: 'Aktif'
-                }
-                : null;
-
-            setEditingId(selectedRowForMenu.id);
-            // setSelectProjectPlanning yapısını ProjectPlanningType olarak tanımlayınız.
-            setSelectedProjectPlanning(projectPlanningWithDates as PlanningType);
-            setSelectedForceMajor(forceMajorData); // <-- حالا از نوع صحیح است
-
-            // 3. تنظیم تاریخ‌ها و توضیحات (بدون تغییر)
-            setStartDate(new Date(selectedRowForMenu.startDate));
-            setEndDate(new Date(selectedRowForMenu.endDate));
-            setDescription(selectedRowForMenu.description);
-            setPlanningStatus(selectedRowForMenu.planningStatus.toString() as '0' | '1' | '2' | '3');
-
-            // 4. پر کردن formData (مطابق پاسخ‌های قبلی)
-            const newFormData = IMPLEMENTATION_FIELDS.reduce((acc, field) => {
-                const key = field.key;
-                if (selectedRowForMenu[key] && selectedRowForMenu[key]?.amount !== undefined && selectedRowForMenu[key]?.amount > 0) {
-                    acc[key] = selectedRowForMenu[key] as ImplementationValue;
-                }
-                return acc;
-            }, {} as Record<string, ImplementationValue>);
-            setFormData(newFormData);
-
-            setIsFormVisible(true);
-            setActiveStep(0);
-            setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 100);
-        }
-        handleCloseMenu();
-        clearAlert();
-    };
-    // ... سایر Handlers (Menu, Delete, Details, Download, Table pagination/sort) ...
-    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: ProjectPlanningImplementationType) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
-    const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
-    const handleClickOpenDeleteModal = () => {
-        if (selectedRowForMenu) {
-            setImplementationIdToDelete(selectedRowForMenu.id);
-            setOpenDeleteModal(true);
-        }
-        handleCloseMenu();
-    };
-    const handleClickCloseDeleteModal = () => { setOpenDeleteModal(false); setImplementationIdToDelete(null); getListImplementations(); };
-    const handleShowDetails = () => {
-        if (selectedRowForMenu) {
-            setDetailData(selectedRowForMenu);
-            setOpenDetailModal(true);
-        }
-        handleCloseMenu();
-    };
-    const handleCloseDetailModal = () => setOpenDetailModal(false);
-    const handleSetActive = () => { if (selectedRowForMenu) { sendStatusUpdate(selectedRowForMenu.id, 3); } }; // Devam Ediyor
-    const handleSetInactive = () => { if (selectedRowForMenu) { sendStatusUpdate(selectedRowForMenu.id, 2); } }; // Durduruldu
-    const handleDownloadPDF = (_data: ProjectPlanningImplementationType[]) => { showAlert("PDF İndiriliyor (Test)", "info"); };
-    const handleExportExcel = async (_data: ProjectPlanningImplementationType[]) => { showAlert("Excel İndiriliyor (Test)", "info"); };
-    const handleChangePage = (_event: unknown, newPage: number) => { setPage(newPage); };
-    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(event.target.value, 10)); setPage(0); };
-    const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => { setSearchTerm(event.target.value); setPage(0); };
-    const handleRequestSort = (property: keyof ProjectPlanningImplementationType) => {
-        const isAsc = orderBy === property && order === 'asc';
-        setOrder(isAsc ? 'desc' : 'asc');
-        setOrderBy(property);
-        setPage(0);
-    };
-
-    // Effects & Memoizations
-    useEffect(() => {
-        getListPlannings();
-        getListForceMajors();
-        getListImplementations();
-    }, [getListPlannings, getListForceMajors, getListImplementations]);
-
-    useEffect(() => {
-        let timer: NodeJS.Timeout;
-        if (alertMessage) { timer = setTimeout(() => clearAlert(), 5000); }
-        return () => clearTimeout(timer);
-    }, [alertMessage]);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setIsBlinking(false), 5000);
-        return () => clearTimeout(timer);
+        setTimeout(() => { setAlertMessage(null); }, 5000);
     }, []);
 
-    // Filter & Sort
-    const filteredImplementations = implementationsList.filter(implementation => {
-        const matchesSearch = implementation.projectPlanning?.title?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus =
-            statusFilter === 'all' ||
-            (statusFilter === 'active' && implementation.planningStatus !== 1) || // Aktif/Devam Ediyor/Başladı (0, 3)
-            (statusFilter === 'inactive' && (implementation.planningStatus === 1 || implementation.planningStatus === 2)); // Tamamlandı/Durduruldu (1, 2)
-        return matchesSearch && matchesStatus;
-    });
-    const sortedAndFilteredImplementations = stableSort(filteredImplementations, getComparator(order, orderBy));
-    const paginatedImplementations = sortedAndFilteredImplementations.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    const resetFormAndState = () => {
+        setFormData(INITIAL_IMPLEMENTATION_DATE_STATE);
+        setEditingId(null);
+        setIsFormVisible(false);
+        setIsForceMajorRequired(false);
+        setSelectedPlanningInfo(null);
+    };
 
+    const handleClearDateFilters = () => { setStartDateFilter(null); setEndDateFilter(null); };
 
-    const ImplementationValueChips = ({ values }: { values: ImplementationValue }) => (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: '3px', justifyContent: 'flex-start', alignItems: 'center' }}>
-            {values.amount !== undefined && values.amount > 0 && <Chip label={`Miktar: ${values.amount}`} color="success" size="small" />}
-            {values.item && <Chip label={`Öğe: ${values.item}`} color="primary" size="small" />}
-            {values.from && <Chip label={`Başlangıç: ${values.from}`} color="secondary" size="small" />}
-            {values.to && <Chip label={`Bitiş: ${values.to}`} color="secondary" size="small" />}
-            {values.lang && <Chip label={`Enlem: ${values.lang}`} color="info" size="small" />}
-            {values.lat && <Chip label={`Boylam: ${values.lat}`} color="info" size="small" />}
-            {values.attachment && <Chip label={`Ek: ${values.attachment}`} color="warning" size="small" />}
-        </Box>
-    );
+    /* Fetch data */
+    const fetchDropdownData = useCallback(async () => {
+        if (!authToken) { navigate("/"); return; }
+        setLoadingData(true);
+        try {
+            const [planningsRes, forceMajorsRes] = await Promise.all([
+                axios.get<ApiResponse<ProjectPlanningType[]>>(server.baseurl + server.warehouse + "get-project-plannings", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<ForceMajorType[]>>(server.baseurl + server.warehouse + "get-force-majors", { headers: { "Authorization": `Bearer ${authToken}` } }),
+            ]);
+            if (planningsRes.data?.httpStatusCode === 200) setProjectPlannings(planningsRes.data.data.filter(p => p.recordStatus === 0) || []);
+            if (forceMajorsRes.data?.httpStatusCode === 200) setForceMajors(forceMajorsRes.data.data.filter(f => f.recordStatus === 0) || []);
+        } catch {
+            showAlert('Gerekli veriler yüklenirken bir hata oluştu.', 'error');
+        } finally { setLoadingData(false); }
+    }, [navigate, showAlert, authToken]);
 
-    const renderStepContent = (step: number) => {
-        const selectedPlanning = selectedProjectPlanning;
+    const fetchImplementationDates = useCallback(async () => {
+        setLoadingData(true);
+        if (!authToken) { navigate("/"); return; }
+        try {
+            const response = await axios.get<ApiResponse<ImplementationDateType[]>>(
+                server.baseurl + server.warehouse + "get-project-planning-implementation-dates",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const formatted = response.data.data.map(i => ({ ...i, status: (i.recordStatus === 0 ? 'Aktif' : 'Pasif') as 'Aktif' | 'Pasif' }));
+                setImplementationDateList(formatted);
+            } else {
+                showAlert(response.data.message || 'Uygulama tarihi kayıtları yüklenirken bir hata oluştu.', 'error');
+            }
+        } catch {
+            showAlert('Uygulama tarihi kayıtları yüklenirken bir hata oluştu.', 'error');
+        } finally { setLoadingData(false); }
+    }, [navigate, showAlert, authToken]);
 
-        switch (step) {
-            case 0:
-                // Geliştirme Notu: Autocomplete'teki value={selectedPlanning} ve options={projectPlanningsList} ile isOptionEqualToValue ayarları, verilerin görünmesi için yeterlidir.
-                return (
-                    <Grid container spacing={3}>
-                        <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="project-planning-select" required>
-                                Seçilen Proje için Planlamayı Seçin
-                            </CustomFormLabel>
-                            <Autocomplete
-                                id="project-planning-select"
-                                options={projectPlanningsList.filter(p => p.recordStatus === 0)}
-                                // استفاده از عنوان ترکیبی جدید
-                                getOptionLabel={(option) => option.compositeTitle}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={selectedPlanning}
-                                onChange={(_event, newValue) => { setSelectedProjectPlanning(newValue); clearAlert(); }}
-                                renderInput={(params) => <TextField {...params} fullWidth placeholder="Proje Adı veya Tarih Aralığı Ara" size="small" />}
-                            />
-                        </Grid>
-                        {selectedPlanning && (
-                            <Grid item xs={12}>
-                                <Alert severity="info" variant="outlined">
-                                    <Typography variant="subtitle1">Ana Planlama Tarihleri:</Typography>
-                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={1}>
-                                        <Chip label={`Plan Başlangıcı: ${format(new Date(selectedPlanning.startDate), 'dd MMMM yyyy', { locale: tr })}`} color="primary" />
-                                        <Chip label={`Plan Bitişi: ${format(new Date(selectedPlanning.endDate), 'dd MMMM yyyy', { locale: tr })}`} color="primary" />
-                                    </Stack>
-                                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>Uygulama tarih aralığınız bu sınırlar içinde olmalıdır.</Typography>
-                                </Alert>
-                            </Grid>
-                        )}
-                    </Grid>
-                );
-            case 1:
-                return (
-                    <Grid container spacing={3}>
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="force-major-select">Mücbir Sebep (İsteğe Bağlı)</CustomFormLabel>
-                            <Autocomplete
-                                id="force-major-select"
-                                options={forceMajorsList.filter(fm => fm.recordStatus === 0)}
-                                getOptionLabel={(option) => option.title}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={selectedForceMajor}
-                                onChange={(_event, newValue) => { setSelectedForceMajor(newValue); }}
-                                renderInput={(params) => <TextField {...params} fullWidth placeholder="Mücbir Sebep Ara" size="small" />}
-                            />
-                        </Grid>
+    useEffect(() => { fetchImplementationDates(); fetchDropdownData(); }, [fetchImplementationDates, fetchDropdownData]);
 
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel>Uygulama Durumu</CustomFormLabel>
-                            <RadioGroup row value={planningStatus} onChange={(e) => setPlanningStatus(e.target.value as '0' | '1' | '2' | '3')}>
-                                <FormControlLabel value="3" control={<Radio />} label="Devam Ediyor" />
-                                <FormControlLabel value="0" control={<Radio />} label="Başladı" />
-                                <FormControlLabel value="1" control={<Radio />} label="Tamamlandı" />
-                                <FormControlLabel value="2" control={<Radio />} label="Durduruldu" />
-                            </RadioGroup>
-                        </Grid>
+    /* حداقل تاریخ مجاز برای ثبت: max( startDate پلنینگ , آخرین تاریخ ثبت شده برای همان پلنینگ ) */
+    const minSelectableDate: Date | null = useMemo(() => {
+        if (!formData.projectPlanningId) return null;
 
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="start-date" required>Uygulama Başlangıç Tarihi</CustomFormLabel>
-                            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
-                                <DatePicker
-                                    value={startDate}
-                                    onChange={(newValue) => setStartDate(newValue)}
-                                    inputFormat="dd/MM/yyyy"
-                                    minDate={selectedPlanning ? new Date(selectedPlanning.startDate) : undefined}
-                                    maxDate={selectedPlanning ? new Date(selectedPlanning.endDate) : undefined}
-                                    renderInput={(params) => (<TextField {...params} fullWidth size="small" />)}
-                                />
-                            </LocalizationProvider>
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel htmlFor="end-date" required>Uygulama Bitiş Tarihi</CustomFormLabel>
-                            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
-                                <DatePicker
-                                    value={endDate}
-                                    onChange={(newValue) => setEndDate(newValue)}
-                                    inputFormat="dd/MM/yyyy"
-                                    minDate={startDate || (selectedPlanning ? new Date(selectedPlanning.startDate) : undefined)}
-                                    maxDate={selectedPlanning ? new Date(selectedPlanning.endDate) : undefined}
-                                    renderInput={(params) => (<TextField {...params} fullWidth size="small" />)}
-                                />
-                            </LocalizationProvider>
-                        </Grid>
+        const planId = Number(formData.projectPlanningId);
+        const baseStart = selectedPlanningInfo?.startDate ? toDateOnly(new Date(selectedPlanningInfo.startDate)) : null;
 
-                        <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="description">Açıklama</CustomFormLabel>
-                            <CustomTextField id="description" value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} multiline rows={4} fullWidth />
-                        </Grid>
-                    </Grid>
-                );
-            case 2:
-                // Geliştirme Notu: Her bir Implementation Field bir kart olarak gösteriliyor.
-                return (
-                    <Grid container spacing={3}>
-                        {IMPLEMENTATION_FIELDS.map(field => {
-                            // const hasValue = formData[field.key] && formData[field.key].amount !== undefined && formData[field.key].amount > 0;
-                            const valueObject = formData[field.key];
-                            const hasValue = valueObject && valueObject.amount !== undefined && valueObject.amount > 0;
+        const records = implementationDateList.filter(r => getPlanningIdFromRow(r) === planId);
+        const lastRecorded = records.length
+            ? records
+                .map(r => toDateOnly(new Date(r.startDate))) // تاریخ ثبت = startDate
+                .filter(isValidDate)
+                .sort((a, b) => a.getTime() - b.getTime())
+                .at(-1)!
+            : null;
 
-                            return (
-                                <Grid item xs={12} sm={6} md={3} key={field.key}>
-                                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <CustomFormLabel sx={{ mb: hasValue ? 0 : 1 }}>{field.label}</CustomFormLabel>
+        if (baseStart && lastRecorded) {
+            return dateMax([baseStart, lastRecorded]);
+        }
+        return lastRecorded ?? baseStart ?? null;
+    }, [formData.projectPlanningId, selectedPlanningInfo, implementationDateList]);
 
-                                        <Stack direction="row" justifyContent="center" alignItems="center" sx={{ position: "relative", top: "12px" }}>
-                                            {hasValue && (
-                                                <IconButton onClick={(e) => { e.stopPropagation(); handleOpenValueModal(field.key); }} size="small">
-                                                    <IconEdit size={16} color="gray" />
-                                                </IconButton>
-                                            )}
-                                        </Stack>
-                                    </Box>
+    /* Validation */
+    const validateForm = useCallback((): boolean => {
+        if (!formData.projectPlanningId) { showAlert('Proje Planı seçimi zorunludur.', 'warning'); return false; }
+        if (isForceMajorRequired && !formData.forceMajorId) { showAlert('Mücbir Sebep zorunludur.', 'warning'); return false; }
+        if (!formData.startDate) { showAlert('Tarih zorunludur.', 'warning'); return false; }
 
-                                    <Box
-                                        onClick={() => handleOpenValueModal(field.key)}
-                                        sx={{
-                                            border: hasValue ? '2px solid rgba(1, 209, 95, 0.77)' : '2px dashed lightgray',
-                                            bgcolor: hasValue ? 'rgba(1, 209, 95, 0.1)' : 'transparent',
-                                            borderRadius: '8px',
-                                            p: 2,
-                                            minHeight: '120px',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.3s',
-                                            '&:hover': { boxShadow: '0px 0px 8px rgba(0,0,0,0.1)' }
-                                        }}
-                                    >
+        // قاعده: تاریخ انتخابی نباید قبل از minSelectableDate باشد
+        if (minSelectableDate && toDateOnly(formData.startDate).getTime() < toDateOnly(minSelectableDate).getTime()) {
+            showAlert(`Tarih en az ${formatDateDisplay(minSelectableDate)} olabilir.`, 'error');
+            return false;
+        }
+        // endDate باید برابر startDate باشد
+        if (!sameDay(formData.startDate, formData.endDate)) {
+            showAlert('Bitiş tarihi, başlangıç tarihi ile aynı olmalıdır.', 'error');
+            return false;
+        }
+        return true;
+    }, [formData, isForceMajorRequired, minSelectableDate, showAlert]);
 
-                                        {hasValue ? (
-                                            <ImplementationValueChips values={formData[field.key]} />
-                                        ) : (
-                                            <Stack alignItems="center" justifyContent="center" height="95px">
-                                                <IconPlus size={32} color="lightgray" />
-                                            </Stack>
-                                        )}
-                                    </Box>
-                                </Grid>
-                            );
-                        })}
-                    </Grid>
-                );
-            case 3:
-                const projectTitle = selectedPlanning?.project?.title || 'Proje Adı Bulunamadı';
-                const planningCompositeTitle = selectedPlanning?.compositeTitle || 'Planlama Detayı Bulunamadı';
+    useEffect(() => {
+        const baseRequiredOk =
+            !!formData.projectPlanningId &&
+            !!formData.startDate &&
+            (!isForceMajorRequired || !!formData.forceMajorId);
 
-                return (
-                    <BlankCard>
-                        <Box p={3}>
-                            <Typography variant="h6" gutterBottom>Uygulama Bilgileri Özeti</Typography>
-                            <Divider sx={{ mb: 2 }} />
-                            <Grid container spacing={2}>
-                                <Grid item xs={12}><Typography variant="subtitle1">Proje Adı: {projectTitle}</Typography></Grid>
-                                <Grid item xs={12}><Typography variant="subtitle1">Seçilen Planlama: {planningCompositeTitle}</Typography></Grid>
+        const ruleOk =
+            (!!formData.startDate && !!formData.endDate && sameDay(formData.startDate, formData.endDate)) &&
+            (!!minSelectableDate ? toDateOnly(formData.startDate!).getTime() >= toDateOnly(minSelectableDate).getTime() : false);
 
-                                <Grid item xs={12} sm={6}><Typography variant="body2">Başlangıç Tarihi: {startDate ? format(startDate, 'dd MMMM yyyy', { locale: tr }) : '-'}</Typography></Grid>
-                                <Grid item xs={12} sm={6}><Typography variant="body2">Bitiş Tarihi: {endDate ? format(endDate, 'dd MMMM yyyy', { locale: tr }) : '-'}</Typography></Grid>
-                                <Grid item xs={12} sm={6}><Typography variant="body2">Mücbir Sebep: {selectedForceMajor?.title || 'Yok'}</Typography></Grid>
-                                <Grid item xs={12} sm={6}><Typography variant="body2">Durum: {getStatusLabel(Number(planningStatus))}</Typography></Grid>
-                                <Grid item xs={12}><Typography variant="body2">Açıklama: {description || 'Yok'}</Typography></Grid>
+        // در حالت ادیت هم همان چک‌ها را نگه می‌داریم، چون تاریخ قفل است عملاً true می‌ماند
+        setIsFormValid(baseRequiredOk && ruleOk);
+    }, [formData, isForceMajorRequired, minSelectableDate]);
 
-                                <Grid item xs={12} sx={{ mt: 3 }}>
-                                    <Typography variant="h6" gutterBottom>Kaydedilen Operasyonel Değerler</Typography>
-                                    <Divider sx={{ mb: 2 }} />
-                                    {IMPLEMENTATION_FIELDS.map(field => {
-                                        const values = formData[field.key];
-                                        return values && values.amount !== undefined && values.amount > 0 && (
-                                            <Box key={field.key} mb={2} p={1} sx={{ borderLeft: '3px solid green', bgcolor: 'rgba(1, 209, 95, 0.05)' }}>
-                                                <Typography variant="subtitle2">{field.label}</Typography>
-                                                <ImplementationValueChips values={values} />
-                                            </Box>
-                                        );
-                                    })}
-                                    {Object.keys(formData).length === 0 && (
-                                        <Alert severity="warning">Henüz hiçbir operasyonel değer kaydedilmedi.</Alert>
-                                    )}
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </BlankCard>
-                );
-            default:
-                return null;
+    useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
+
+    /* Filter table (overlap) — بدون تغییر ساختار فیلترها */
+    useEffect(() => {
+        const hasSearch = searchTerm.trim() !== '';
+        const hasStatusFilter = statusFilter !== 'all';
+        const hasDateFilter = startDateFilter !== null || endDateFilter !== null;
+        setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
+
+        const from = startDateFilter ? toDateOnly(startDateFilter) : new Date(-8640000000000000);
+        const to = endDateFilter ? toDateOnly(endDateFilter) : new Date(8640000000000000);
+
+        const filtered = implementationDateList.filter(i => {
+            const title = i.projectPlanning?.project?.title?.toLowerCase() ?? '';
+            const code = i.projectPlanning?.project?.code?.toLowerCase() ?? '';
+            const fm = i.forceMajor?.title?.toLowerCase() ?? '';
+            const q = searchTerm.toLowerCase();
+
+            const matchesSearch = title.includes(q) || code.includes(q) || fm.includes(q);
+            const matchesStatus =
+                statusFilter === 'all' ||
+                (statusFilter === 'active' && i.recordStatus === 0) ||
+                (statusFilter === 'inactive' && i.recordStatus === 1);
+
+            const recDate = toDateOnly(new Date(i.startDate));
+            const matchesDate = recDate >= from && recDate <= to;
+
+            return matchesSearch && matchesStatus && matchesDate;
+        });
+
+        setDisplayedImplementationDates(filtered);
+        setPage(0);
+    }, [implementationDateList, searchTerm, statusFilter, startDateFilter, endDateFilter]);
+
+    /* CRUD */
+    const insertImplementationDate = async () => {
+        if (!validateForm()) return;
+        if (!authToken) { navigate("/"); return; }
+
+        // جلوگیری از رکورد تکراری (همان روز)
+        const planId = Number(formData.projectPlanningId);
+        const day = toDateOnly(formData.startDate!);
+        const dup = implementationDateList.some(r => {
+            const rid = getPlanningIdFromRow(r);
+            return rid === planId && sameDay(new Date(r.startDate), day);
+        });
+        if (dup) {
+            showAlert('Bu planlama için bu tarihte kayıt zaten var.', 'warning');
+            return;
+        }
+
+        setLoadingButton(true);
+        const finalForceMajorId = isForceMajorRequired ? (Number(formData.forceMajorId) || 0) : null;
+
+        const payload: NewImplementationDateData = {
+            projectPlanningId: planId,
+            forceMajorId: finalForceMajorId,
+            startDate: day.toISOString(),
+            endDate: day.toISOString(), // == startDate
+        };
+
+        try {
+            const response = await axios.post(
+                server.baseurl + server.warehouse + "create-project-planning-implementation-date",
+                payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } }
+            );
+            if (response.data.httpStatusCode === 201) {
+                showAlert('Yeni uygulama tarihi kaydı başarıyla eklendi!', 'success');
+                resetFormAndState();
+                fetchImplementationDates();
+            } else {
+                showAlert(response.data.message || 'Uygulama tarihi kaydı eklenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Uygulama tarihi kaydı eklenirken bir hata oluştu.', 'error');
+        } finally { setLoadingButton(false); }
+    };
+
+    const editImplementationDate = async () => {
+        if (!editingId || !validateForm()) return;
+        setLoadingButton(true);
+        if (!authToken) { navigate("/"); return; }
+
+        const day = toDateOnly(formData.startDate!);
+        const finalForceMajorId = isForceMajorRequired ? Number(formData.forceMajorId) : null;
+
+        const payload: EditImplementationDateData = {
+            id: Number(editingId),
+            projectPlanningId: Number(formData.projectPlanningId),
+            forceMajorId: finalForceMajorId,
+            startDate: day.toISOString(),
+            endDate: day.toISOString(), // == startDate
+        };
+
+        try {
+            const response = await axios.put(
+                server.baseurl + server.warehouse + "update-project-planning-implementation-dates",
+                payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } }
+            );
+            if (response.data.httpStatusCode === 200) {
+                showAlert('Uygulama tarihi kaydı başarıyla güncellendi!', 'success');
+                resetFormAndState();
+                fetchImplementationDates();
+            } else {
+                showAlert(response.data.message || 'Uygulama tarihi kaydı güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Uygulama tarihi kaydı güncellenirken bir hata oluştu.', 'error');
+        } finally { setLoadingButton(false); }
+    };
+
+    /* انتخاب پلنینگ: فچ و ست مقدارهای اولیه */
+    const handleSelectPlanning = async (newValue: ProjectPlanningType | null) => {
+        const idNum = newValue ? Number(newValue.id) : null;
+
+        setFormData(prev => ({ ...prev, projectPlanningId: idNum, startDate: null, endDate: null }));
+        setSelectedPlanningInfo(null);
+        if (!idNum) return;
+        if (!authToken) { navigate('/'); return; }
+
+        try {
+            const res = await axios.get<ApiResponse<PlanningById>>(
+                server.baseurl + server.warehouse + "get-project-planning-by-id/" + idNum,
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+
+            if (res.data?.httpStatusCode === 200 && res.data.data) {
+                setSelectedPlanningInfo(res.data.data);
+
+                // محاسبه minSelectableDate اولیه با داده‌های فعلی
+                const records = implementationDateList.filter(r => getPlanningIdFromRow(r) === idNum);
+                const baseStart = toDateOnly(new Date(res.data.data.startDate));
+                const lastRecorded = records.length
+                    ? records.map(r => toDateOnly(new Date(r.startDate))).filter(isValidDate).sort((a, b) => a.getTime() - b.getTime()).at(-1)!
+                    : null;
+
+                const initialMin = lastRecorded ? dateMax([baseStart, lastRecorded]) : baseStart;
+
+                // مقداردهی فرم با حداقل تاریخ مجاز (قابل تغییر توسط کاربر به تاریخ‌های بعد از آن)
+                setFormData(prev => ({
+                    ...prev,
+                    startDate: initialMin,
+                    endDate: initialMin, // == start
+                }));
+            } else {
+                showAlert(res.data?.message || 'Proje planı bilgisi alınamadı.', 'error');
+            }
+        } catch {
+            showAlert('Proje planı bilgisi alınırken bir hata oluştu.', 'error');
         }
     };
 
-    // =========================================================================
-    // ****************************** JSX Render *********************************
-    // =========================================================================
+    /* Menu handlers */
+    const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
+
+    const handleEditClick = () => {
+        if (!selectedRowForMenu) return;
+        handleCloseMenu();
+
+        const row = selectedRowForMenu;
+        setEditingId(row.id);
+
+        const initialForceMajorRequired = row.forceMajorId !== null && row.forceMajorId !== 0;
+        setIsForceMajorRequired(initialForceMajorRequired);
+
+        const planId = getPlanningIdFromRow(row);
+
+        setFormData({
+            projectPlanningId: planId ?? null,
+            forceMajorId: row.forceMajorId,
+            startDate: row.startDate ? new Date(row.startDate) : null,
+            endDate: row.endDate ? new Date(row.endDate) : null,
+        });
+
+        setIsFormVisible(true);
+    };
+
+    const handleClickOpenDeleteModal = () => {
+        if (selectedRowForMenu) { setIdToDelete(selectedRowForMenu.id); setOpenDeleteModal(true); }
+        handleCloseMenu();
+    };
+
+    /* Download */
+    const handleDownload = async (format: 'pdf' | 'excel', dataToUse: ImplementationDateType[], isFiltered: boolean = false) => {
+        if (dataToUse.length === 0) { showAlert('İndirilecek kayıt bulunamadı.', 'warning'); return; }
+
+        const title = 'Proje Planlama Uygulama Tarihleri Raporu';
+        let subtitle: string | undefined;
+        if (dataToUse.length === 1 && !isFiltered) subtitle = '';
+        else if (isFiltered) subtitle = `Filtreler: Aranılan: "${searchTerm}", Durum: ${statusFilter}, Tarih: ${formatDateDisplay(startDateFilter)} - ${formatDateDisplay(endDateFilter)}`;
+        else subtitle = 'Tüm Kayıtlar';
+
+        showAlert('Rapor oluşturuluyor...', 'info');
+        try {
+            if (format === 'pdf') exportImplementationDatesToPdf(dataToUse, title, subtitle);
+            else await exportImplementationDatesToExcel(dataToUse, title);
+        } catch (e: any) {
+            showAlert(e.message || 'Rapor oluşturulurken bir hata oluştu.', 'error'); return;
+        }
+
+        setOpenDownloadAllModal(false);
+        setOpenDownloadFilteredModal(false);
+        setOpenDownloadSingleModal(false);
+        setSelectedRowForDownload(null);
+    };
+
+    /* Form fields */
+    const renderMainFormFields = () => {
+        const projectRequiredError = isFormVisible && !formData.projectPlanningId;
+
+        return (
+            <Grid container spacing={2}>
+                {/* Project Planning */}
+                <Grid item xs={12} sm={6}>
+                    <CustomFormLabel required>Proje Planı</CustomFormLabel>
+                    <Autocomplete
+                        options={projectPlannings}
+                        getOptionLabel={(option) => `${option.project.title} (${formatDateDisplay(option.startDate)} - ${formatDateDisplay(option.endDate)})`}
+                        value={projectPlannings.find(p => Number(p.id) === formData.projectPlanningId) || null}
+                        onChange={(_, newValue) => handleSelectPlanning(newValue)}
+                        isOptionEqualToValue={(option, value) => option.id === value?.id}
+                        renderInput={(params) => (
+                            <TextField
+                                {...params}
+                                fullWidth
+                                size="small"
+                                placeholder="Proje Planı Seçin"
+                                error={projectRequiredError}
+                                helperText={projectRequiredError ? 'Bu alan zorunludur' : ''}
+                            />
+                        )}
+                        disabled={!!editingId}
+                    />
+                </Grid>
+
+                {/* Force Major */}
+                <Grid item xs={12} sm={6} container direction="row" alignItems="center" spacing={2}>
+                    <Grid item xs={12} sm={isForceMajorRequired ? 4 : 12}>
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={isForceMajorRequired}
+                                    onChange={(e) => {
+                                        const isChecked = e.target.checked;
+                                        setIsForceMajorRequired(isChecked);
+                                        if (!isChecked) setFormData(prev => ({ ...prev, forceMajorId: null }));
+                                    }}
+                                    color="primary"
+                                />
+                            }
+                            label="Mücbir Sebep Ekle?"
+                        />
+                    </Grid>
+                    {isForceMajorRequired && (
+                        <Grid item xs={12} sm={8}>
+                            <CustomFormLabel required>Mücbir Sebep Seçin</CustomFormLabel>
+                            <Autocomplete
+                                options={forceMajors}
+                                getOptionLabel={(option) => option.title}
+                                value={forceMajors.find(f => Number(f.id) === formData.forceMajorId) || null}
+                                onChange={(_, newValue) =>
+                                    setFormData(prev => ({ ...prev, forceMajorId: newValue ? Number(newValue.id) : null }))
+                                }
+                                isOptionEqualToValue={(option, value) => option.id === value?.id}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        placeholder="Mücbir Sebep"
+                                        error={isForceMajorRequired && isFormVisible && !formData.forceMajorId}
+                                        helperText={isForceMajorRequired && isFormVisible && !formData.forceMajorId ? 'Bu alan zorunludur' : ''}
+                                    />
+                                )}
+                            />
+                        </Grid>
+                    )}
+                </Grid>
+
+                {/* Single Date Picker: تاریخ ثبت (startDate) */}
+                <Grid item xs={12} sm={6}>
+                    <CustomFormLabel required>Tarih</CustomFormLabel>
+                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+                        <DatePicker
+                            label="Tarih Seçin"
+                            value={formData.startDate}
+                            onChange={(newValue) => {
+                                const day = newValue ? toDateOnly(newValue) : null;
+                                // اگر day قبل از minSelectableDate بود، اسنپ به minSelectableDate
+                                const finalDay =
+                                    day && minSelectableDate && day.getTime() < toDateOnly(minSelectableDate).getTime()
+                                        ? toDateOnly(minSelectableDate)
+                                        : day;
+
+                                setFormData(prev => ({
+                                    ...prev,
+                                    startDate: finalDay,
+                                    endDate: finalDay, // end == start
+                                }));
+                            }}
+                            inputFormat="dd/MM/yyyy"
+                            minDate={minSelectableDate ?? undefined}
+                            disabled={!!editingId}
+                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                        />
+                    </LocalizationProvider>
+                    {/* نکته: endDate نمایش داده نمی‌شود؛ برابر startDate است */}
+                </Grid>
+
+                {/* نمایش read-only برای اطمینان کاربر (اختیاری) */}
+                <Grid item xs={12} sm={6}>
+                    <CustomFormLabel>Bitiş Tarihi (Otomatik)</CustomFormLabel>
+                    <TextField
+                        value={formData.endDate ? formatDateDisplay(formData.endDate) : ''}
+                        size="small"
+                        fullWidth
+                        InputProps={{ readOnly: true }}
+                        placeholder="Başlangıç tarihi ile aynı"
+                    />
+                </Grid>
+            </Grid>
+        );
+    };
 
     return (
         <>
-            <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
-                    <Typography variant="h5">{editingId ? 'Proje Uygulamasını Düzenle' : 'Yeni Proje Uygulaması Kaydet'}</Typography>
+            <Box sx={{ p: 3 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                    <Typography variant="h5">Proje Planlama Uygulama Tarihleri Kayıtları</Typography>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
                         {!isFormVisible && hasCreatePermission && (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni proje uygulama kaydı kaydetmek için tıklayınız" : ""}>
-                                <BlinkingButton variant="contained" color="primary" onClick={() => setIsFormVisible(true)} isBlinking={isBlinking} fullWidth={false} startIcon={<IconPlus size={20} />}>
-                                    Yeni Uygulama Kaydı
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni uygulama tarihi kaydı oluşturmak için tıklayınız" : ""}>
+                                <BlinkingButton variant="contained" color="primary" onClick={() => setIsFormVisible(true)} isBlinking={isBlinking} startIcon={<IconPlus />}>
+                                    Yeni Kayıt Ekle
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
                         {isFormVisible && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
-                                <Button variant="contained" color="error" onClick={resetFormAndState} fullWidth={false} startIcon={<IconX size={20} />}>
-                                    Formu Gizle
-                                </Button>
+                                <Button variant="contained" color="error" onClick={resetFormAndState} startIcon={<IconX size={20} />}>Gizle</Button>
                             </CustomTooltip>
                         )}
                     </Stack>
                 </Stack>
 
+                {/* Form */}
+                {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
+                    <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+                        <Typography variant="h5" mb={2}>{editingId ? 'Uygulama Tarihini Düzenle' : 'Yeni Uygulama Tarihi Kaydı Oluştur'}</Typography>
+                        {renderMainFormFields()}
+                        <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
+                            {editingId ? (
+                                <>
+                                    <Button
+                                        variant="contained"
+                                        color="info"
+                                        onClick={editImplementationDate}
+                                        disabled={loadingButton || !isFormValid}
+                                    >
+                                        {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Düzenle'}
+                                    </Button>
+                                    <Button variant="outlined" color="secondary" onClick={resetFormAndState} disabled={loadingButton}>
+                                        İptal Et
+                                    </Button>
+                                </>
+                            ) : (
+                                hasCreatePermission && (
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm zorunlu alanları doldurarak kaydı yapın." : ""}>
+                                        <span>
+                                            <BlinkingButton
+                                                variant="contained" color="success"
+                                                onClick={insertImplementationDate}
+                                                disabled={!isFormValid || loadingButton}
+                                                isBlinking={isFormValid && !loadingButton}
+                                            >
+                                                {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Yeni Kayıt Ekle'}
+                                            </BlinkingButton>
+                                        </span>
+                                    </CustomTooltip>
+                                )
+                            )}
+                        </Stack>
+                    </Paper>
+                )}
+
                 {alertMessage && (
-                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                        <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                    <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
+                        <Alert severity={alertSeverity} onClose={() => setAlertMessage(null)}>{alertMessage}</Alert>
                     </Stack>
                 )}
 
-                {/* Stepper Form */}
-                {isFormVisible && ((hasCreatePermission && editingId === null) || (editingId && hasEditPermission)) && (
-                    <Box sx={{ width: '100%', mt: 3 }}>
-                        {/* Devam/Geri Butonları Üstte */}
-                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
-                            <Button variant="contained" color="error" disabled={activeStep === 0}
-                                onClick={handleBack} startIcon={<IconArrowBack size={20} />}>
-                                Geri
-                            </Button>
-                            {activeStep < STEPS.length - 1 ? (
-                                <Button onClick={handleNext} variant="contained" color="primary"
-                                    endIcon={<IconArrowRight />}>
-                                    Devam
-                                </Button>
-                            ) : (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? `${editingId ? 'Düzenlemeyi' : 'Kaydı'} onaylayın` : ""}>
-                                    <Button
-                                        variant="contained"
-                                        color={editingId ? 'info' : 'success'}
-                                        onClick={editingId ? editImplementation : insertImplementation}
-                                        disabled={loadingButton}
-                                        startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconChecks size={20} />}
-                                    >
-                                        {loadingButton ? 'İşleniyor...' : editingId ? 'Onayla ve Düzenle' : 'Onayla ve Kaydet'}
-                                    </Button>
-                                </CustomTooltip>
-                            )}
-                        </Stack>
-
-                        {/* Stepper Başlık ve Tıklanabilir Adımlar */}
-                        <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: 3 }}>
-                            {STEPS.map((label, index) => (
-                                <Step key={label} onClick={() => handleStepChange(index)} completed={activeStep > index} sx={{ cursor: 'pointer' }}>
-                                    <StepLabel>{label}</StepLabel>
-                                </Step>
-                            ))}
-                        </Stepper>
-
-
-                        <Box sx={{ mt: 4, mb: 2 }}>
-                            {renderStepContent(activeStep)}
-                        </Box>
-
-
-                        {/* Devam/Geri Butonları Üstte */}
-                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 2 }}>
-                            <Button variant="contained" color="error" disabled={activeStep === 0}
-                                onClick={handleBack} startIcon={<IconArrowBack size={20} />}>
-                                Geri
-                            </Button>
-                            {activeStep < STEPS.length - 1 ? (
-                                <Button onClick={handleNext} variant="contained" color="primary"
-                                    endIcon={<IconArrowRight />}>
-                                    Devam
-                                </Button>
-                            ) : (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? `${editingId ? 'Düzenlemeyi' : 'Kaydı'} onaylayın` : ""}>
-                                    <Button
-                                        variant="contained"
-                                        color={editingId ? 'info' : 'success'}
-                                        onClick={editingId ? editImplementation : insertImplementation}
-                                        disabled={loadingButton}
-                                        startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconChecks size={20} />}
-                                    >
-                                        {loadingButton ? 'İşleniyor...' : editingId ? 'Onayla ve Düzenle' : 'Onayla ve Kaydet'}
-                                    </Button>
-                                </CustomTooltip>
-                            )}
-                        </Stack>
-
-
-                        {/* Butonlar Altta (Yedek) - Üstteki butonu bıraktık */}
-                    </Box>
-                )}
-            </div>
-
-            <Divider />
-
-            {/* Liste ve Tablo Bölümü (Türkçe Metinler) */}
-            <BlankCard>
-                <Grid item xs={12} mt={2} mr={2}>
-                    <Stack direction="row" spacing={2} justifyContent="flex-end">
-                        {hasDownloadPermission && (
-                            <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
-                                    <Button variant="contained" color="primary" onClick={() => setOpenDownloadModal(true)} startIcon={<IconFileDownload />}>
-                                        Tümünü İndir
-                                    </Button>
-                                </CustomTooltip>
-                            </Grid>
-                        )}
-                    </Stack>
-                </Grid>
-                <Box sx={{ p: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={8}>
-                            <TextField
-                                label="Uygulama Ara (Planlama Adı)"
-                                variant="outlined"
-                                fullWidth
-                                value={searchTerm}
-                                onChange={handleSearchChange}
-                                InputProps={{
-                                    startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>),
-                                }}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <ToggleButtonGroup value={statusFilter} exclusive onChange={(_event, newFilter) => newFilter !== null && setStatusFilter(newFilter)} aria-label="Status filter" fullWidth>
-                                <StyledToggleButton value="all" aria-label="all plannings">Tümü</StyledToggleButton>
-                                <StyledToggleButton value="active" aria-label="active plannings">Aktif</StyledToggleButton>
-                                <StyledToggleButton value="inactive" aria-label="inactive plannings">Pasif</StyledToggleButton>
-                            </ToggleButtonGroup>
-                        </Grid>
-                    </Grid>
-                </Box>
-                <TableContainer>
-                    <Table aria-label="implementation table">
-                        <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
-                            <TableRow>
-                                <StyledTableCell><TableSortLabel active={orderBy === 'projectPlanning'} direction={orderBy === 'projectPlanning' ? order : 'asc'} onClick={() => handleRequestSort('projectPlanning')} style={{ color: "#171c23" }}><Typography variant="h6">Proje Planlama Adı</Typography></TableSortLabel></StyledTableCell>
-                                <StyledTableCell><TableSortLabel active={orderBy === 'startDate'} direction={orderBy === 'startDate' ? order : 'asc'} onClick={() => handleRequestSort('startDate')} style={{ color: "#171c23" }}><Typography variant="h6">Başlangıç Tarihi</Typography></TableSortLabel></StyledTableCell>
-                                <StyledTableCell><TableSortLabel active={orderBy === 'endDate'} direction={orderBy === 'endDate' ? order : 'asc'} onClick={() => handleRequestSort('endDate')} style={{ color: "#171c23" }}><Typography variant="h6">Bitiş Tarihi</Typography></TableSortLabel></StyledTableCell>
-                                <StyledTableCell><TableSortLabel active={orderBy === 'planningStatus'} direction={orderBy === 'planningStatus' ? order : 'asc'} onClick={() => handleRequestSort('planningStatus')} style={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></TableSortLabel></StyledTableCell>
-                                <StyledTableCell></StyledTableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {loadingData ? (
-                                <TableRow><StyledTableCell colSpan={5} align="center"><CircularProgress /><Typography variant="subtitle1" color="textSecondary">Uygulamalar yükleniyor...</Typography></StyledTableCell></TableRow>
-                            ) : paginatedImplementations.length > 0 ? (
-                                paginatedImplementations.map((row) => (
-                                    <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell><Typography variant="body1">{row.projectPlanning?.title}</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="body1">{format(new Date(row.startDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="body1">{format(new Date(row.endDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
-                                        <StyledTableCell>
-                                            <Chip
-                                                label={getStatusLabel(row.planningStatus)}
-                                                sx={{
-                                                    backgroundColor: row.planningStatus === 1 ? (theme) => theme.palette.error.light : (theme) => theme.palette.success.light,
-                                                    color: row.planningStatus === 1 ? (theme) => theme.palette.error.main : (theme) => theme.palette.success.main
-                                                }}
-                                            />
-                                        </StyledTableCell>
-                                        <StyledTableCell>
-                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                <IconButton id={`basic-button-${row.id}`} aria-controls={openMenu ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={openMenu ? 'true' : undefined} onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
-                                            </CustomTooltip>
-                                            <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`, }}>
-                                                <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Detayları görüntüle" : ""}>
-                                                    <MuiMenuItem onClick={handleShowDetails}><ListItemIcon><IconEye width={18} /></ListItemIcon>Detayları Gör</MuiMenuItem>
-                                                </CustomTooltip>
-                                                {hasEditPermission && (selectedRowForMenu?.planningStatus !== 2 && selectedRowForMenu?.planningStatus !== 1) && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu uygulama kaydını Durduruldu yap" : ""}><MuiMenuItem onClick={handleSetInactive}><ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon>Durduruldu Yap</MuiMenuItem></CustomTooltip>
-                                                )}
-                                                {hasEditPermission && (selectedRowForMenu?.planningStatus === 2) && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu uygulama kaydını Devam Ediyor yap" : ""}><MuiMenuItem onClick={handleSetActive}><ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon>Devam Ediyor Yap</MuiMenuItem></CustomTooltip>
-                                                )}
-                                                {hasEditPermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu uygulama kaydını düzenle" : ""}><MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem></CustomTooltip>
-                                                )}
-                                                {hasDeletePermission && (
-                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu uygulama kaydını sil" : ""}><MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem></CustomTooltip>
-                                                )}
-                                            </Menu>
-                                        </StyledTableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow><StyledTableCell colSpan={5} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç uygulama kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
-                <TablePagination
-                    rowsPerPageOptions={[5, 10, 25]}
-                    component="div"
-                    count={sortedAndFilteredImplementations.length}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    labelRowsPerPage="Sayfa Başına Satır:"
-                    labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
-                />
-            </BlankCard>
-
-            {/* Delete Modal */}
-            <DeleteProjectPlanningImplementation openModal={openDeleteModal} onClose={handleClickCloseDeleteModal} implementationIdToDelete={implementationIdToDelete} onDeleteSuccess={getListImplementations} showAlert={showAlert} />
-
-            {/* Download Modal */}
-            <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
-                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
-                <DialogContent><Stack direction="column" spacing={2}>
-                    <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => handleDownloadPDF(sortedAndFilteredImplementations)}>PDF Olarak İndir</Button>
-                    <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => handleExportExcel(sortedAndFilteredImplementations)}>Excel Olarak İndir</Button>
-                </Stack></DialogContent>
-                <DialogActions><Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
-            </Dialog>
-
-            {/* Details Modal */}
-            <Dialog open={openDetailModal} onClose={handleCloseDetailModal} fullWidth maxWidth="sm">
-                <DialogTitle>Proje Uygulama Detayları</DialogTitle>
-                <DialogContent dividers>
-                    {detailData && (
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}><Typography variant="subtitle1">Proje Planlama: {detailData.projectPlanning?.title}</Typography></Grid>
-                            <Grid item xs={12}><Typography variant="subtitle1">Mücbir Sebep: {detailData.forceMajor?.title || 'Yok'}</Typography></Grid>
-                            <Grid item xs={12} sm={6}><Typography variant="body2">Başlangıç Tarihi: {format(new Date(detailData.startDate), 'dd MMMM yyyy', { locale: tr })}</Typography></Grid>
-                            <Grid item xs={12} sm={6}><Typography variant="body2">Bitiş Tarihi: {format(new Date(detailData.endDate), 'dd MMMM yyyy', { locale: tr })}</Typography></Grid>
-                            <Grid item xs={12}><Typography variant="body2">Açıklama: {detailData.description}</Typography></Grid>
-                            <Grid item xs={12}><Typography variant="body2">Durum: {getStatusLabel(detailData.planningStatus)}</Typography></Grid>
-
-                            {IMPLEMENTATION_FIELDS.map(field => {
-                                const values = detailData[field.key];
-                                return values && values.amount !== undefined && values.amount > 0 && (
-                                    <Grid item xs={12} key={field.key}>
-                                        <Typography variant="subtitle2" mt={2}>{field.label}</Typography>
-                                        <ImplementationValueChips values={values} />
+                {/* Table */}
+                <BlankCard>
+                    <Box sx={{ p: 2 }}>
+                        <Grid item xs={12} mb={2} mr={2}>
+                            <Stack direction="row" spacing={2} justifyContent="flex-end">
+                                {isFilterActive && hasDownloadPermission && (
+                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle projeleri indirin" : ""}>
+                                        <BlinkingButton
+                                            variant="contained" color="secondary"
+                                            onClick={() => setOpenDownloadFilteredModal(true)}
+                                            startIcon={<IconFileDownload />}
+                                            isBlinking
+                                            disabled={loadingData || displayedImplementationDates.length === 0}
+                                        >
+                                            Filtrelenmişi İndir
+                                        </BlinkingButton>
+                                    </CustomTooltip>
+                                )}
+                                {hasDownloadPermission && (
+                                    <Grid item xs={12} sm={6} md={4} sx={{ textAlign: 'right' }}>
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm verileri farklı formatlarda indir" : ""}>
+                                            <Button variant="contained" color="primary" onClick={() => setOpenDownloadAllModal(true)} startIcon={<IconFileDownload />}>
+                                                Tümünü İndir
+                                            </Button>
+                                        </CustomTooltip>
                                     </Grid>
-                                );
-                            })}
-                        </Grid>
-                    )}
-                </DialogContent>
-                <DialogActions><Button onClick={handleCloseDetailModal} color="primary">Kapat</Button></DialogActions>
-            </Dialog>
-
-            {/* Value Input Modal (Genişletilmiş ve İki Sütunlu) */}
-            {/* Value Input Modal (Genişletilmiş ve İki Sütunlu) */}
-            <Dialog open={openValueModal} onClose={handleCloseValueModal} fullWidth maxWidth="md">
-                <DialogTitle>{IMPLEMENTATION_FIELDS.find(f => f.key === currentField)?.label} için Değer Girin</DialogTitle>
-                <DialogContent dividers>
-                    <Grid container spacing={2}>
-
-                        {/* Satır ۱ - Miktar ve Öğe */}
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel required>Miktar (Miktar)</CustomFormLabel>
-                            <CustomTextField type="number" value={currentValues.amount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, amount: Number(e.target.value) }))} fullWidth size="small" inputProps={{ min: 0 }} onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel>Öğe/Birim (Öğe)</CustomFormLabel>
-                            <CustomTextField value={currentValues.item} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, item: e.target.value }))} fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} />
-                        </Grid>
-
-                        {/* Satır ۲ - Başlangıç ve Bitiş */}
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel>Başlangıç Noktası (From)</CustomFormLabel>
-                            <CustomTextField value={currentValues.from} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, from: e.target.value }))} fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel>Bitiş Noktası (To)</CustomFormLabel>
-                            <CustomTextField value={currentValues.to} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, to: e.target.value }))} fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} />
-                        </Grid>
-
-                        {/* Satır ۳ - Konum Bilgileri */}
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel>Enlem (Lang)</CustomFormLabel>
-                            <CustomTextField type="text" value={currentValues.lang} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, lang: e.target.value }))} fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel>Boylam (Lat)</CustomFormLabel>
-                            <CustomTextField type="text" value={currentValues.lat} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, lat: e.target.value }))} fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} />
-                        </Grid>
-
-                        {/* **Satır ۴ - Ek/Ataşman (Dosya Seçimi)** */}
-                        <Grid item xs={12}>
-                            <CustomFormLabel>Ek/Ataşman (Dosya Seçimi)</CustomFormLabel>
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                {/* Hidden input for file selection */}
-                                <input
-                                    type="file"
-                                    id={`attachment-input-${currentField}`}
-                                    hidden
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] || null;
-                                        const fileName = file ? file.name : '';
-
-                                        // 1. فایل را در State filesToUpload ذخیره کن
-                                        setFilesToUpload(prev => ({ ...prev, [currentField!]: file }));
-
-                                        // 2. نام فایل را در formData (به عنوان attachment URL/Name) ذخیره کن
-                                        setCurrentValues(prev => ({ ...prev, attachment: fileName }));
-                                    }}
-                                />
-                                {/* Button to trigger the file input */}
-                                <label htmlFor={`attachment-input-${currentField}`}>
-                                    <Button
-                                        variant="outlined"
-                                        component="span"
-                                        startIcon={<IconFileDownload size={18} />}
-                                    >
-                                        Dosya Seç
-                                    </Button>
-                                </label>
-                                {/* Display the selected file name */}
-                                <Typography variant="body2" color="textSecondary" noWrap>
-                                    {currentValues.attachment || 'Henüz dosya seçilmedi'}
-                                </Typography>
+                                )}
                             </Stack>
                         </Grid>
-                    </Grid>
+
+                        <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={12} sm={6} md={3}>
+                                <TextField
+                                    label="Proje/Sebep Ara"
+                                    variant="outlined"
+                                    fullWidth
+                                    size="small"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                                />
+                            </Grid>
+                            {/* فیلتر تاریخ‌ها به همان روال گذشته باقی می‌ماند */}
+                            <Grid item xs={12} sm={6} md={6}>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+                                    <Stack direction="row" spacing={1} alignItems="center">
+                                        <DatePicker
+                                            label="Başlangıç Tarihi"
+                                            value={startDateFilter}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setStartDateFilter(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <DatePicker
+                                            label="Bitiş Tarihi"
+                                            value={endDateFilter}
+                                            inputFormat="dd/MM/yyyy"
+                                            onChange={(newValue) => setEndDateFilter(newValue)}
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        />
+                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters"><IconX size={20} /></IconButton>
+                                    </Stack>
+                                </LocalizationProvider>
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={3}>
+                                <ToggleButtonGroup value={statusFilter} exclusive onChange={(_, v) => v && setStatusFilter(v)} fullWidth size="small">
+                                    <StyledToggleButton value="all">Tümü</StyledToggleButton>
+                                    <StyledToggleButton value="active">Aktif</StyledToggleButton>
+                                    <StyledToggleButton value="inactive">Pasif</StyledToggleButton>
+                                </ToggleButtonGroup>
+                            </Grid>
+                        </Grid>
+                    </Box>
+
+                    {loadingData ? (
+                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                            <CircularProgress />
+                            <Typography variant="h6" sx={{ ml: 2 }}>Kayıtlar yükleniyor...</Typography>
+                        </Box>
+                    ) : (
+                        <TableContainer component={Paper}>
+                            <Table aria-label="implementation date table">
+                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                    <TableRow>
+                                        <StyledTableCell><Typography variant="h6">Proje Adı (Kod)</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Mücbir Sebep</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Tarih</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
+                                        <StyledTableCell></StyledTableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {displayedImplementationDates.length > 0 ? (
+                                        displayedImplementationDates.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
+                                            <TableRow key={row.id}>
+                                                <StyledTableCell>
+                                                    <Typography variant="body1">
+                                                        {row.projectPlanning?.project?.title || '-'} ({row.projectPlanning?.project?.code || getPlanningIdFromRow(row) || '-'})
+                                                    </Typography>
+                                                </StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{row.forceMajor?.title || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.startDate)}</Typography></StyledTableCell>
+                                                <StyledTableCell><Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} size="small" /></StyledTableCell>
+                                                <StyledTableCell>
+                                                    <IconButton onClick={(e) => { setSelectedRowForMenu(row); setAnchorEl(e.currentTarget); }}>
+                                                        <IconDots width={18} />
+                                                    </IconButton>
+                                                    <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
+                                                        <MuiMenuItem onClick={() => { handleCloseMenu(); navigate(`/project/set-project-planing-implementation/${row.id}`); }}>
+                                                            <ListItemIcon><IconSettings width={18} /></ListItemIcon>Detay Sayfasına Git
+                                                        </MuiMenuItem>
+                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
+                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
+                                                        {hasDownloadPermission && (
+                                                            <MuiMenuItem
+                                                                onClick={() => {
+                                                                    const rowSel = selectedRowForMenu; // قبل از بستن منو نگه‌دار
+                                                                    handleCloseMenu();
+                                                                    if (rowSel) {
+                                                                        setSelectedRowForDownload(rowSel);
+                                                                        setOpenDownloadSingleModal(true);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir
+                                                            </MuiMenuItem>
+                                                        )}
+                                                    </Menu>
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <StyledTableCell colSpan={5} align="center">
+                                                <Typography variant="subtitle1" color="textSecondary">Hiç uygulama tarihi kaydı bulunamadı.</Typography>
+                                            </StyledTableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    )}
+                    <TablePagination
+                        rowsPerPageOptions={[5, 10, 25]}
+                        component="div"
+                        count={displayedImplementationDates.length}
+                        rowsPerPage={rowsPerPage}
+                        page={page}
+                        onPageChange={(_, newPage) => setPage(newPage)}
+                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                        labelRowsPerPage="Satır başına:"
+                        labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
+                    />
+                </BlankCard>
+            </Box>
+
+            {/* Delete Modal */}
+            <DeleteProjectPlanningImplementation
+                openModal={openDeleteModal}
+                onClose={() => { setOpenDeleteModal(false); setIdToDelete(null); fetchImplementationDates(); }}
+                implementationDateIdToDelete={idToDelete}
+                onDeleteSuccess={() => fetchImplementationDates()}
+                showAlert={showAlert}
+            />
+
+            {/* Download Modals */}
+            <Dialog open={openDownloadSingleModal} onClose={() => setOpenDownloadSingleModal(false)} maxWidth="xs">
+                <DialogTitle>Seçili Kaydı İndir</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" mb={2}>
+                        <b>{selectedRowForDownload?.projectPlanning?.project?.title || 'Seçili kayıt'}</b> için formatı seçin.
+                    </Typography>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => handleDownload('pdf', selectedRowForDownload ? [selectedRowForDownload] : [])}
+                            disabled={!selectedRowForDownload || loadingButton}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => handleDownload('excel', selectedRowForDownload ? [selectedRowForDownload] : [])}
+                            disabled={!selectedRowForDownload || loadingButton}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseValueModal}>İptal</Button>
-                    <Button variant="contained" onClick={handleSaveValue}>Kaydet</Button>
-                </DialogActions>
+                <DialogActions><Button onClick={() => setOpenDownloadSingleModal(false)} color="secondary">Kapat</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
+                <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" mb={2}>Tüm uygulama tarihi kayıtları indirilecektir.</Typography>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownload('pdf', implementationDateList)}>
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownload('excel', implementationDateList)}>
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions><Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">Kapat</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
+                <DialogTitle>Filtrelenmiş Kayıtları İndir</DialogTitle>
+                <DialogContent>
+                    <Typography variant="body2" mb={2}>Uygulanan filtreler ile indirilecektir. ({displayedImplementationDates.length} kayıt)</Typography>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownload('pdf', displayedImplementationDates, true)}>
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownload('excel', displayedImplementationDates, true)}>
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions><Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
         </>
     );
 };
 
 export default ListProjectPlanningImplementation;
+

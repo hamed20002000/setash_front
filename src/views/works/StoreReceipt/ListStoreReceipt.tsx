@@ -332,9 +332,12 @@ const ListStoreReceipts = () => {
 
     // Fetches dispatches related to a specific workhouse (store's parent)
     const fetchDispatchesByWorkhouseId = useCallback(async (workhouseId: string) => {
+        debugger
         if (!authToken) return [];
         try {
-            const response = await axios.get(server.baseurl + server.warehouse + `get-warehouse-dispatches-by-workhouse-id/${Number(workhouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } });
+            const response = await axios.get(server.baseurl + server.warehouse + `get-warehouse-dispatches-by-workhouse-id/${Number(workhouseId)}`,
+                { headers: { "Authorization": `Bearer ${authToken}` } });
+            debugger
             if (response.data.httpStatusCode === 200) {
                 const activeDispatches = response.data.data.filter((d: DispatchType) => d.recordStatus === 0);
                 setDispatchesList(activeDispatches);
@@ -353,6 +356,7 @@ const ListStoreReceipts = () => {
 
 
     const fetchReceipts = useCallback(async () => {
+        debugger
         setLoadingData(true);
         if (!authToken) { navigate("/"); return; }
         try {
@@ -361,7 +365,7 @@ const ListStoreReceipts = () => {
                 url = server.baseurl + server.warehouse + `get-store-receipt-by-storeid/${routeStoreId}`;
             }
             const response = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
-
+            debugger
             if (response.data.httpStatusCode === 200) {
                 const formattedReceipts = response.data.data.map((r: any) => ({
                     ...r,
@@ -384,6 +388,7 @@ const ListStoreReceipts = () => {
             if (!authToken) { navigate("/"); return; }
             axios.get(server.baseurl + server.initialoperations + `get-store-by-id/${routeStoreId}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }).then(res => {
+                    debugger
                     const store = res.data.data;
                     if (store) {
                         setSelectedStore(store);
@@ -733,11 +738,10 @@ const ListStoreReceipts = () => {
             doc.text(`Şantiye: ${receipt.store?.name || '-'}`, 15, yPos);
             doc.text(`Sevk Kodu: ${sevkKodu}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
 
-            yPos += 7;
-            doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
+            // doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
             // doc.text(`Toplam Miktar: ${totalQuantity}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
 
-            yPos += 15;
+            yPos += 10;
 
             const detailsRows = (receipt.storeReceiptDetails || []).map(d => [
                 d.item?.name || '-',
@@ -1051,47 +1055,57 @@ const ListStoreReceipts = () => {
                                 {receiptDetails.map((detail, index) => {
                                     const relatedDispatchDetail = selectedDispatch?.warehouseDispatchDetails.find(d => Number(d.id) === Number(detail.warehouseDispatchDetailId));
                                     const maxQuantity = relatedDispatchDetail ? Number(relatedDispatchDetail.quantity) : 0;
-                                    const displayBalance = relatedDispatchDetail ? `(Sevk Miktarı: ${maxQuantity})` : '';
+                                    const displayBalance = relatedDispatchDetail ? `(Sevk: ${maxQuantity})` : '';
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                {/* Malzeme Adı ve Birimi */}
-                                                <Box sx={{ display: 'flex', alignItems: 'center', width: '30%', minWidth: '150px' }}>
-                                                    <Typography variant="body1" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {relatedDispatchDetail?.item?.name || 'Aradığınız şey bulunamadı.'}
-                                                    </Typography>
-                                                    {relatedDispatchDetail?.item?.unit?.title && (
-                                                        <Chip label={relatedDispatchDetail.item.unit.title} color="secondary" variant="outlined" sx={{ ml: 1 }} />
-                                                    )}
-                                                </Box>
+                                            <Grid container spacing={1.5} alignItems="center">
 
-                                                {/* Miktar */}
-                                                <CustomTextField
-                                                    type="number"
-                                                    placeholder="Miktar"
-                                                    value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                    sx={{ width: '35%' }}
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                    }}
-                                                />
-                                                {/* Açıklama */}
-                                                <CustomTextField
-                                                    placeholder="Açıklama"
-                                                    value={detail.description}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'description', e.target.value)}
-                                                    fullWidth
-                                                    sx={{ width: '25%' }}
-                                                />
-
-                                                {/* Silme Butonu */}
-                                                <IconButton color="error" onClick={() => handleRemoveReceiptDetail(index)}>
-                                                    <IconTrash />
-                                                </IconButton>
-                                            </Stack>
+                                                <Grid item xs={12} md={4}>
+                                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: 'wrap' }}>
+                                                        <Typography
+                                                            variant="body1"
+                                                            sx={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                                        >
+                                                            {relatedDispatchDetail?.item?.name || 'Aradığınız şey bulunamadı.'}
+                                                        </Typography>
+                                                        {relatedDispatchDetail?.item?.unit?.title && (
+                                                            <Chip label={relatedDispatchDetail.item.unit.title} color="secondary" variant="outlined" size="small" sx={{ ml: 1 }} />
+                                                        )}
+                                                    </Stack>
+                                                </Grid>
+                                                <Grid item xs={6} md={3}>
+                                                    <CustomTextField
+                                                        type="number"
+                                                        placeholder="Miktar"
+                                                        value={detail.quantity}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
+                                                        fullWidth
+                                                        size="small"
+                                                        InputProps={{
+                                                            endAdornment: (
+                                                                <InputAdornment position="end">
+                                                                    {displayBalance}
+                                                                </InputAdornment>
+                                                            )
+                                                        }}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={5} md={4}>
+                                                    <CustomTextField
+                                                        placeholder="Açıklama"
+                                                        value={detail.description}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'description', e.target.value)}
+                                                        fullWidth
+                                                        size="small"
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={1} md={1} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                                    <IconButton color="error" onClick={() => handleRemoveReceiptDetail(index)}>
+                                                        <IconTrash />
+                                                    </IconButton>
+                                                </Grid>
+                                            </Grid>
                                         </Grid>
                                     );
                                 })}
@@ -1185,12 +1199,14 @@ const ListStoreReceipts = () => {
                                         <DatePicker
                                             label="Başlangıç Tarihi"
                                             value={startDate}
+                                            inputFormat="dd/MM/yyyy"
                                             onChange={(newValue) => setStartDate(newValue)}
                                             renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                         />
                                         <DatePicker
                                             label="Bitiş Tarihi"
                                             value={endDate}
+                                            inputFormat="dd/MM/yyyy"
                                             onChange={(newValue) => setEndDate(newValue)}
                                             renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                         />

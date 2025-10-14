@@ -154,6 +154,7 @@ export interface ReceiptType {
     warehouseId: number;
     recordStatus: number;
     createAt: string;
+    isEnd: boolean | null;
     receiptDetails: ReceiptItem[];
     warehouse: WarehouseType;
 }
@@ -165,4 +166,9 @@ export interface ReceiptItemsTableProps {
     onItemDelete: (item: ProcessedReceiptItem) => void;
     onRestoreItem: (id: number) => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
+    onInvoiceSelect: (invoice: InvoiceType | null) => void;
+    endedInvoiceIds: number[];
+    getReceipts: () => Promise<void>;
+    endedInvoiceReceiptMap: Record<number, number>;
+    isInvoiceComboDisabled: boolean;
 }

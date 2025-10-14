@@ -1,7 +1,3 @@
-
-
-
-
 import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 import Loadable from '../layouts/full/shared/loadable/Loadable';
@@ -30,11 +26,13 @@ const ListTransmission = Loadable(lazy(() => import('../views/works/transmission
 const ListRegion = Loadable(lazy(() => import('../views/baseinfo/region/ListRegion')));
 const ListWarehouses = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListWarehouses')));
 const ListWarehousesDistpach = Loadable(lazy(() => import('../views/warehouse/list-warehouse/ListWarehousesDistpach')));
+const ListWarehouseDispatchReturnToCenter = Loadable(lazy(() => import('../views/warehouse/warehouse-dispatch-return-to-center/ListWarehouseDispatchReturnToCenter')));
 const ListOrders = Loadable(lazy(() => import('../views/order/ListOrders')));
 const ListDrivers = Loadable(lazy(() => import('../views/warehouse/list-driver/ListDrivers')));
 const ListProviders = Loadable(lazy(() => import('../views/baseinfo/provider/ListProviders')));
 const ListForceMajors = Loadable(lazy(() => import('../views/baseinfo/forcemajor/ListForceMajors')));
 const ListInvoices = Loadable(lazy(() => import('../views/warehouse/list-invoice/ListInvoices')));
+const ListStoreInvoice = Loadable(lazy(() => import('../views/warehouse/list-store-invoice/ListStoreInvoice')));
 const ListReceipt = Loadable(lazy(() => import('../views/warehouse/list-receipt/ListReceipt')));
 const ListStores = Loadable(lazy(() => import('../views/works/store/ListStores')));
 const ListStoreReceipts = Loadable(lazy(() => import('../views/works/StoreReceipt/ListStoreReceipt')));
@@ -49,7 +47,13 @@ const ListStoreDispatchToCenter = Loadable(lazy(() => import('../views/works/sto
 const ListStoreDispatchReturnToCenter = Loadable(lazy(() => import('../views/works/storedispatchreturntocenter/ListStoreDispatchReturnToCenter')));
 const ListProjectPlanning = Loadable(lazy(() => import('../views/project/list-project-planing/ListProjectPlaning')));
 const ListProjectPlanningImplementation = Loadable(lazy(() => import('../views/project/list-project-planning-implementation/ListProjectPlanningImplementation')));
-
+const ListSetProjectPlanningImplementation = Loadable(lazy(() => import('../views/project/list-set-project-planning-implementation/ListSetProjectPlanningImplementation')));
+const ProjectPlanningImplementationReport = Loadable(lazy(() => import('../views/project/project-planning-implementation-report/ProjectPlanningImplementationReport')));
+const ListPosition = Loadable(lazy(() => import('../views/humanresources/position/ListPosition')));
+const ListPersonnel = Loadable(lazy(() => import('../views/humanresources/personnel/ListPersonnel')));
+const ListLeaves = Loadable(lazy(() => import('../views/humanresources/leaves/ListLeaves')));
+const ListReceiptsSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-sended-from-store/ListReceiptsSendedFromStore')));
+const ListReceiptsDestructionSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-destruction-sended-from-store/ListReceiptsDestructionSendedFromStore')));
 
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
@@ -259,6 +263,14 @@ const Router = [
         )
       },
       {
+        path: '/warehouse/list-warehouse-dispatch-return-to-center/:warehouseId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListWarehouseDispatchReturnToCenter />
+          </PermissionGuard>
+        )
+      },
+      {
         path: '/warehousespatch/betweenwarehusedispatch/:warehouseId',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
@@ -299,10 +311,34 @@ const Router = [
         )
       },
       {
+        path: '/invoice/list-store-invoice/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListStoreInvoice />
+          </PermissionGuard>
+        )
+      },
+      {
         path: '/receipt/list-receipt/',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListReceipt />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/receipt/list-receipts-sended-from-store/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListReceiptsSendedFromStore />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/receipt/list-receipts-destruction-sended-from-store/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListReceiptsDestructionSendedFromStore />
           </PermissionGuard>
         )
       },
@@ -411,6 +447,22 @@ const Router = [
         )
       },
       {
+        path: '/project/project-planing-implementation-report/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ProjectPlanningImplementationReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/project/set-project-planing-implementation/:dateId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListSetProjectPlanningImplementation />
+          </PermissionGuard>
+        )
+      },
+      {
         path: '/store/between-store-dispatch/:storeId',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
@@ -423,6 +475,30 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListStoreDispatch />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/position/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPosition />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/personnal/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPersonnel />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/leaves/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListLeaves />
           </PermissionGuard>
         )
       },

@@ -1728,7 +1728,7 @@ const NetworkDetails = () => {
                             </Grid>
                             <Grid item xs={12}>
                                 <FormControl component="fieldset" error={yeniError || dmmError || mevcutError} fullWidth>
-                                    <FormLabel component="legend">Miktar Tipi</FormLabel>
+                                    <FormLabel component="legend">Direk Tipi</FormLabel>
                                     <RadioGroup
                                         row={false}
                                         name="quantity-type"
@@ -1764,7 +1764,7 @@ const NetworkDetails = () => {
                                         />
                                         <TextField
                                             id="yeni-input"
-                                            placeholder="Miktar"
+                                            placeholder="Direk Tipi"
                                             size="small"
                                             value={yeniValue}
                                             onChange={(e) => setYeniValue(e.target.value)}
@@ -1780,7 +1780,7 @@ const NetworkDetails = () => {
                                         />
                                         <TextField
                                             id="dmm-input"
-                                            placeholder="Miktar"
+                                            placeholder="Direk Tipi"
                                             size="small"
                                             value={dmmValue}
                                             onChange={(e) => setDmmValue(e.target.value)}
@@ -1796,7 +1796,7 @@ const NetworkDetails = () => {
                                         />
                                         <TextField
                                             id="mevcut-input"
-                                            placeholder="Miktar"
+                                            placeholder="Direk Tipi"
                                             size="small"
                                             value={mevcutValue}
                                             onChange={(e) => setMevcutValue(e.target.value)}

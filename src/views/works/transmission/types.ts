@@ -11,6 +11,9 @@ export interface MapNode extends d3.SimulationNodeDatum {
     isHub?: boolean;
     isNew?: boolean;
     channelRowId?: string;
+
+
+    productTypeCategory?: 1 | 2
 }
 
 export interface SelectOption {
@@ -64,6 +67,8 @@ export interface TransmissionRow {
     toProductTypeX?: number;
     toProductTypeY?: number;
     items?: AddedItem[];
+    fromProductTypeCategory?: 1 | 2;
+    toProductTypeCategory?: 1 | 2;
 }
 
 export type MiktarTipi = 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG' | 'TR-Connection';

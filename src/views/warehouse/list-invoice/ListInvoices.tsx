@@ -1821,7 +1821,7 @@ const ListInvoices = () => {
                                                     {hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Fatura dosyasını indir" : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}>
-                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> İndir
+                                                                <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Bu satırı indir
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}

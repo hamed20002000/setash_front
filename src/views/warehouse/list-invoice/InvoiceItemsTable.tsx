@@ -1,4 +1,5 @@
-// // InvoiceItemsTable.tsx
+
+
 // import React, { useState, useEffect } from 'react';
 // import {
 //     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
@@ -29,36 +30,38 @@
 //     unit: UnitType;
 // }
 
-// interface OrderDetailType {
-//     id: string;
-//     quantity: string;
-//     price: string;
-//     createAt: string;
-//     recordStatus: number;
-//     description: string;
-//     item: ItemType;
-// }
-
-// interface OrderType {
-//     id: string;
-//     docDate: string;
-//     recordStatus: number;
-//     createAt: string;
-//     status: number;
-//     orderDetails: OrderDetailType[];
-//     network?: { title: string } | null;
-// }
-
 // interface ProviderType {
 //     id: number;
 //     name: string;
-//     firm: string;
+//     firm: string; // '1' for true, '0' for false (based on original usage)
 //     recordStatus: number;
+// }
+
+// interface InvoiceDetailFromApi {
+//     id: string;
+//     quantity: string;
+//     price: string;
+//     discountPercent: string;
+//     discountAmount: string;
+//     description: string;
+//     firm: boolean;
+//     item: ItemType;
+//     orderDetail?: { id: string; quantity: string; price: string; } | null;
+//     provider: ProviderType;
+// }
+
+// interface InvoiceSourceType { // Represents the Invoice data returned by the new API
+//     id: string;
+//     invoiceNo: string;
+//     docDate: string;
+//     status: number; // 0: Beklemede, 1: Onaylandı, 2: Reddedildi
+//     warehouse?: { id: string; name: string; } | null;
+//     invoiceDetails: InvoiceDetailFromApi[];
 // }
 
 // interface InvoiceItem {
 //     id: number;
-//     item: string;
+//     item: string; // Item ID
 //     unit?: UnitType;
 //     quantity: number;
 //     price: number;
@@ -77,6 +80,7 @@
 //     onRemoveItem: (id: number) => void;
 //     onUpdateItem: (updatedItem: InvoiceItem) => void;
 //     providersList: ProviderType[];
+//     warehouseId: number | null;
 // }
 
 // const stripHtml = (htmlString: string) => {
@@ -89,10 +93,30 @@
 //     if (value === null || value === undefined) {
 //         return 0;
 //     }
+//     // Remove all non-digit, non-decimal point, non-negative sign characters
 //     const cleanedString = String(value).replace(/[^\d.-]/g, '');
 //     const numericValue = parseFloat(cleanedString);
 //     return isNaN(numericValue) ? 0 : numericValue;
 // };
+
+// const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+//     if (priceInput === null || priceInput === undefined) {
+//         return '₺0.00';
+//     }
+//     const cleanedString = String(priceInput).replace(/[$,]/g, '');
+//     const numericValue = parseFloat(cleanedString);
+//     if (isNaN(numericValue)) {
+//         return '₺0.00';
+//     }
+//     const formattedPrice = numericValue.toLocaleString('en-US', {
+//         style: 'currency',
+//         currency: 'USD',
+//         minimumFractionDigits: 2,
+//         maximumFractionDigits: 2
+//     });
+//     return formattedPrice.replace('$', '₺');
+// };
+
 
 // const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
 //     items,
@@ -100,39 +124,48 @@
 //     onAddItem,
 //     onRemoveItem,
 //     onUpdateItem,
-//     providersList
+//     providersList,
+//     warehouseId // <--- De-structure the new prop
 // }) => {
 //     const [openModal, setOpenModal] = useState(false);
 //     const [modalContent, setModalContent] = useState('');
-//     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
-//     const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null);
-//     const [openOrderDetailsModal, setOpenOrderDetailsModal] = useState(false);
+//     const [invoicesSourceList, setInvoicesSourceList] = useState<InvoiceSourceType[]>([]); // Renamed state
+//     const [selectedInvoiceSource, setSelectedInvoiceSource] = useState<InvoiceSourceType | null>(null); // Renamed state
+//     const [openInvoiceDetailsModal, setOpenInvoiceDetailsModal] = useState(false); // Renamed modal
 
-//     // Changed to an array to handle multiple deleted items
 //     const [deletedItems, setDeletedItems] = useState<InvoiceItem[]>([]);
 
 //     const [editingItems, setEditingItems] = useState<Record<number, Partial<InvoiceItem>>>({});
 
 //     const { isTooltipGloballyEnabled } = useTooltip();
 
+//     // Fetch Invoices by Warehouse ID
 //     useEffect(() => {
-//         const getListOrders = async () => {
+//         const getInvoicesByWarehouse = async () => {
 //             const authToken = localStorage.getItem('authToken');
-//             if (!authToken) return;
+//             // Only proceed if authenticated and a warehouse is selected
+//             if (!authToken || !warehouseId) return;
+
 //             try {
-//                 const response = await axios.get(server.baseurl + server.initialoperations + "get-orders", { headers: { "Authorization": `Bearer ${authToken}` } });
+//                 // Using the new API endpoint
+//                 const response = await axios.get(
+//                     `${server.baseurl}${server.initialoperations}get-invoices-by-warehouse-id/${warehouseId}`,
+//                     { headers: { "Authorization": `Bearer ${authToken}` } }
+//                 );
+//                 debugger
 //                 if (response.data.httpStatusCode === 200) {
-//                     const activeOrders = response.data.data.filter((order: OrderType) => order.status === 1);
-//                     setOrdersList(activeOrders);
+//                     // Filter: Only approved (status 1) or relevant status invoices should be used as source
+//                     const approvedInvoices = response.data.data.filter((invoice: InvoiceSourceType) => invoice.status === 1);
+//                     setInvoicesSourceList(approvedInvoices);
 //                 } else {
-//                     console.error('Siparişler yüklenirken bir hata oluştu:', response.data.message);
+//                     console.error('Kaynak faturalar yüklenirken bir hata oluştu:', response.data.message);
 //                 }
 //             } catch (e: any) {
-//                 console.error('Siparişler yüklenirken bir hata oluştu:', e);
+//                 console.error('Kaynak faturalar yüklenirken bir hata oluştu:', e);
 //             }
 //         };
-//         getListOrders();
-//     }, []);
+//         getInvoicesByWarehouse();
+//     }, [warehouseId]); // Dependency added: re-fetch when warehouseId changes
 
 //     const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
 //         setEditingItems(prev => {
@@ -141,13 +174,14 @@
 //                 [field]: value
 //             };
 
-//             // Fix: If provider is changed, update the 'firm' status as well.
+//             // Logic to update 'firm' status when 'providerId' changes
 //             if (field === 'providerId') {
 //                 const selectedProvider = providersList.find(p => p.id === value);
 //                 if (selectedProvider) {
+//                     // ProviderType.firm is string '1'/'0', convert to boolean
 //                     updatedItem.firm = selectedProvider.firm === '1';
 //                 } else {
-//                     updatedItem.firm = false; // Reset if no provider is selected
+//                     updatedItem.firm = false;
 //                 }
 //             }
 
@@ -191,6 +225,11 @@
 //     };
 
 //     const handleRemoveItemWithUndo = (itemToRemove: InvoiceItem) => {
+//         setEditingItems(prev => {
+//             const newEditingItems = { ...prev };
+//             delete newEditingItems[itemToRemove.id];
+//             return newEditingItems;
+//         });
 //         setDeletedItems(prev => [...prev, itemToRemove]);
 //         onRemoveItem(itemToRemove.id);
 //     };
@@ -200,73 +239,77 @@
 //         setDeletedItems(prev => prev.filter(item => item.id !== itemToRestore.id));
 //     };
 
-//     const handleOpenModal = (content: string) => {
+//     const handleOpenDescriptionModal = (content: string) => { // Renamed handler
 //         setModalContent(stripHtml(content));
 //         setOpenModal(true);
 //     };
 
-//     const handleCloseModal = () => {
+//     const handleCloseDescriptionModal = () => { // Renamed handler
 //         setOpenModal(false);
 //         setModalContent('');
 //     };
 
-//     const handleOrderChange = (_event: any, newValue: OrderType | null) => {
-//         setSelectedOrder(newValue);
+
+//     // Handler for changing the source invoice (previously handleOrderChange)
+//     const handleInvoiceSourceChange = (_event: any, newValue: InvoiceSourceType | null) => {
+//         // Clear current invoice items if a new source invoice is selected
+//         if (newValue && items.length > 0) {
+//             items.forEach(item => onRemoveItem(item.id));
+//         }
+
+//         setSelectedInvoiceSource(newValue);
+//         setDeletedItems([]);
+//         setEditingItems({});
+
 //         if (newValue) {
 //             const newEditingItems: Record<number, Partial<InvoiceItem>> = {};
-//             newValue.orderDetails.forEach(detail => {
+
+//             newValue.invoiceDetails.forEach(detail => {
 //                 const uniqueId = Date.now() + Math.random();
+
+//                 // 👇🏻 حل مشکل: تبدیل ID تأمین‌کننده از رشته به عدد
+//                 const numericProviderId = Number(detail.provider.id);
+
 //                 const itemToAdd: InvoiceItem = {
 //                     id: uniqueId,
 //                     item: detail.item.id,
 //                     quantity: cleanAndConvertNumber(detail.quantity),
 //                     price: cleanAndConvertNumber(detail.price),
-//                     discountPercent: 0,
-//                     discountAmount: 0,
+//                     discountPercent: cleanAndConvertNumber(detail.discountPercent),
+//                     discountAmount: cleanAndConvertNumber(detail.discountAmount),
 //                     description: detail.description,
 //                     unit: detail.item.unit,
-//                     orderDetailId: detail.id,
-//                     providerId: undefined, // Changed from null to undefined
-//                     firm: false,
+//                     orderDetailId: detail.orderDetail?.id || null,
+//                     // استفاده از ID تبدیل شده
+//                     providerId: numericProviderId,
+//                     // "firm" در نمونه API شما boolean است و مستقیماً استفاده می‌شود
+//                     firm: detail.firm,
 //                 };
 //                 onAddItem(itemToAdd);
-//                 newEditingItems[uniqueId] = { ...itemToAdd, providerId: undefined };
+
+//                 newEditingItems[uniqueId] = { ...itemToAdd };
 //             });
 //             setEditingItems(newEditingItems);
 //         }
 //     };
 
-//     const handleOpenOrderDetailsModal = () => {
-//         setOpenOrderDetailsModal(true);
+//     const handleOpenInvoiceDetailsModal = () => { // Renamed modal handler
+//         setOpenInvoiceDetailsModal(true);
 //     };
 
-//     const handleCloseOrderDetailsModal = () => {
-//         setOpenOrderDetailsModal(false);
+//     const handleCloseInvoiceDetailsModal = () => { // Renamed modal handler
+//         setOpenInvoiceDetailsModal(false);
 //     };
-//     const handleResetOrderSelection = () => {
-//         setSelectedOrder(null);
+
+//     const handleResetInvoiceSourceSelection = () => { // Renamed reset handler
+//         setSelectedInvoiceSource(null);
 //         setEditingItems({});
 //         setDeletedItems([]);
+//         // This resets the entire invoice item list to zero
 //         items.forEach(item => onRemoveItem(item.id));
 //     };
-//     const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
-//         if (priceInput === null || priceInput === undefined) {
-//             return '₺0.00';
-//         }
-//         const cleanedString = String(priceInput).replace(/[$,]/g, '');
-//         const numericValue = parseFloat(cleanedString);
-//         if (isNaN(numericValue)) {
-//             return '₺0.00';
-//         }
-//         const formattedPrice = numericValue.toLocaleString('en-US', {
-//             style: 'currency',
-//             currency: 'USD',
-//             minimumFractionDigits: 2,
-//             maximumFractionDigits: 2
-//         });
-//         return formattedPrice.replace('$', '₺');
-//     };
 
+//     // Check if item list is empty to control the Autocomplete disabled state
 //     const isInvoiceItemsEmpty = items.length === 0;
 
 //     return (
@@ -274,25 +317,25 @@
 //             <Typography variant="h6" gutterBottom>Fatura Ürünleri</Typography>
 //             <Grid container spacing={2} sx={{ mb: 2 }}>
 //                 <Grid item xs={12}>
-//                     <CustomFormLabel htmlFor="order-autocomplete">
-//                         Sipariş Seçin
+//                     <CustomFormLabel htmlFor="invoice-source-autocomplete">
+//                         Kaynak Fatura Seçin
 //                     </CustomFormLabel>
 //                     <Stack direction="row" alignItems="center" spacing={2}>
-//                         <Autocomplete<OrderType>
-//                             id="order-autocomplete"
-//                             options={ordersList}
-//                             getOptionLabel={(option) => `${option.id} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
-//                             value={selectedOrder}
-//                             onChange={handleOrderChange}
+//                         <Autocomplete<InvoiceSourceType>
+//                             id="invoice-source-autocomplete"
+//                             options={invoicesSourceList}
+//                             getOptionLabel={(option) => `${option.invoiceNo} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
+//                             value={selectedInvoiceSource}
+//                             onChange={handleInvoiceSourceChange}
 //                             sx={{ flexGrow: 1 }}
-//                             renderInput={(params) => <TextField {...params} label="Sipariş" variant="outlined" size="small" />}
-//                             disabled={!isInvoiceItemsEmpty}
+//                             renderInput={(params) => <TextField {...params} label="Kaynak Fatura No" variant="outlined" size="small" />}
+//                             disabled={!isInvoiceItemsEmpty} // Disable if items already exist
 //                         />
-//                         {selectedOrder && (
+//                         {selectedInvoiceSource && (
 //                             <Stack direction="row" alignItems="center" spacing={1}>
-//                                 <Button variant="outlined" onClick={handleOpenOrderDetailsModal}>Sipariş Detayları</Button>
-//                                 <CustomTooltip title="Siparişi değiştir">
-//                                     <IconButton color="primary" onClick={handleResetOrderSelection}>
+//                                 <Button variant="outlined" onClick={handleOpenInvoiceDetailsModal}>Detayları Gör</Button>
+//                                 <CustomTooltip title="Kaynak Faturayı Sıfırla">
+//                                     <IconButton color="primary" onClick={handleResetInvoiceSourceSelection}>
 //                                         <IconRotate2 size={20} />
 //                                     </IconButton>
 //                                 </CustomTooltip>
@@ -300,43 +343,14 @@
 //                         )}
 //                     </Stack>
 
+
 //                 </Grid>
 //             </Grid>
 
 //             {/* Undo Delete Section */}
-//             {/* {deletedItems.length > 0 && (
-//                 <Box sx={{ mb: 2 }}>
-//                     <Alert
-//                         severity="warning"
-//                         sx={{ backgroundColor: '#ff9800', color: 'white' }}
-//                     >
-//                         <Typography variant="h6">Silinen Ürünler</Typography>
-//                         {deletedItems.map((item) => {
-//                             const provider = providersList.find(p => p.id === item.providerId);
-//                             const itemInfo = itemsList.find(i => i.id === item.item);
-//                             return (
-//                                 <Box key={item.id} sx={{ my: 1, p: 1, backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-//                                     <Box>
-//                                         <Typography variant="body1">{itemInfo?.name}</Typography>
-//                                         <Typography variant="caption">{provider?.name || 'Tedarikçi Bilinmiyor'}</Typography>
-//                                     </Box>
-//                                     <Button
-//                                         color="inherit"
-//                                         variant="outlined"
-//                                         size="small"
-//                                         onClick={() => handleUndoDelete(item)}
-//                                     >
-//                                         Geri Al
-//                                     </Button>
-//                                 </Box>
-//                             );
-//                         })}
-//                     </Alert>
-//                 </Box>
-//             )} */}
 //             {deletedItems.length > 0 && (
 //                 <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
-//                     <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler:</Typography>
+//                     <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler (Geri Almak için tıklayın):</Typography>
 //                     <Stack direction="row" spacing={1} flexWrap="wrap">
 
 //                         {deletedItems.map((item) => {
@@ -364,11 +378,11 @@
 //                     <TableHead>
 //                         <TableRow>
 //                             <TableCell sx={{ width: '25%' }}>Ürün & Birim</TableCell>
-//                             <TableCell sx={{ width: '10%' }}>Miktar & Fiyat</TableCell>
+//                             <TableCell sx={{ width: '15%' }}>Miktar & Fiyat</TableCell>
 //                             <TableCell sx={{ width: '20%' }}>Tedarikçi & Firm</TableCell>
 //                             <TableCell sx={{ width: '15%' }}>İndirimler</TableCell>
 //                             <TableCell sx={{ width: '20%' }}>Açıklama</TableCell>
-//                             <TableCell sx={{ width: '10%' }} align="right">İşlemler</TableCell>
+//                             <TableCell sx={{ width: '5%' }} align="right">İşlemler</TableCell>
 //                         </TableRow>
 //                     </TableHead>
 //                     <TableBody>
@@ -376,6 +390,7 @@
 //                             items.map((item) => {
 //                                 const isEditing = editingItems[item.id] !== undefined;
 //                                 const currentItem = isEditing ? editingItems[item.id] : item;
+//                                 // Need to search providers list using providerId from the current item being edited or displayed
 //                                 const provider = providersList.find(p => p.id === currentItem?.providerId);
 //                                 const product = itemsList.find(i => i.id === item.item);
 
@@ -420,9 +435,8 @@
 //                                                     <Autocomplete<ProviderType>
 //                                                         options={providersList}
 //                                                         getOptionLabel={(option) => option.name}
-//                                                         value={provider || null} // Use the found provider object here
+//                                                         value={provider || null}
 //                                                         onChange={(_event, newValue) => {
-//                                                             // Call handleItemChange with the new provider's ID
 //                                                             const newProviderId = newValue ? newValue.id : undefined;
 //                                                             handleItemChange(item.id, 'providerId', newProviderId);
 //                                                         }}
@@ -481,7 +495,7 @@
 //                                                     <Typography noWrap>{stripHtml(item.description)}</Typography>
 //                                                 )}
 //                                                 {stripHtml(item.description).length > 20 && !isEditing && (
-//                                                     <IconButton size="small" onClick={() => handleOpenModal(item.description || '')}>
+//                                                     <IconButton size="small" onClick={() => handleOpenDescriptionModal(item.description || '')}>
 //                                                         <IconEye size={18} />
 //                                                     </IconButton>
 //                                                 )}
@@ -529,32 +543,38 @@
 //                 </Table>
 //             </TableContainer>
 
-//             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+//             {/* Modal for long description text */}
+//             <Dialog open={openModal} onClose={handleCloseDescriptionModal} maxWidth="sm" fullWidth>
 //                 <DialogTitle>Açıklama</DialogTitle>
 //                 <DialogContent dividers>
 //                     <Typography>{modalContent}</Typography>
 //                 </DialogContent>
 //                 <DialogActions>
-//                     <Button onClick={handleCloseModal}>Kapat</Button>
+//                     <Button onClick={handleCloseDescriptionModal}>Kapat</Button>
 //                 </DialogActions>
 //             </Dialog>
 
-//             <Dialog open={openOrderDetailsModal} onClose={handleCloseOrderDetailsModal} maxWidth="md" fullWidth>
-//                 <DialogTitle>Sipariş Detayları</DialogTitle>
+//             {/* Modal for Invoice Source Details (previously Order Details) */}
+//             <Dialog open={openInvoiceDetailsModal} onClose={handleCloseInvoiceDetailsModal} maxWidth="md" fullWidth>
+//                 <DialogTitle>Kaynak Fatura Detayları</DialogTitle>
 //                 <DialogContent dividers>
-//                     {selectedOrder && (
+//                     {selectedInvoiceSource && (
 //                         <Box>
 //                             <Typography variant="h6" gutterBottom>
-//                                 Sipariş No: {selectedOrder.id} - Tarih: {format(new Date(selectedOrder.docDate), 'dd MMMM yyyy', { locale: tr })}
-//                                 {selectedOrder.network && (
-//                                     <Chip label={`Şebeke: ${selectedOrder.network?.title || '-'}`} sx={{ ml: 2 }} color="primary" variant="outlined" />
-//                                 )}
+//                                 Fatura No: {selectedInvoiceSource.invoiceNo} - Tarih: {format(new Date(selectedInvoiceSource.docDate), 'dd MMMM yyyy', { locale: tr })}
+//                                 <Chip
+//                                     label={selectedInvoiceSource.status === 1 ? "Onaylandı" : selectedInvoiceSource.status === 2 ? "Reddedildi" : "Beklemede"}
+//                                     sx={{ ml: 2 }}
+//                                     color={selectedInvoiceSource.status === 1 ? "success" : selectedInvoiceSource.status === 2 ? "error" : "warning"}
+//                                     variant="outlined"
+//                                 />
 //                             </Typography>
 //                             <TableContainer component={Paper} sx={{ mt: 2 }}>
 //                                 <Table size="small">
 //                                     <TableHead>
 //                                         <TableRow>
 //                                             <TableCell>Ürün</TableCell>
+//                                             <TableCell>Tedarikçi</TableCell>
 //                                             <TableCell>Miktar</TableCell>
 //                                             <TableCell>Birim</TableCell>
 //                                             <TableCell>Fiyat</TableCell>
@@ -562,9 +582,10 @@
 //                                         </TableRow>
 //                                     </TableHead>
 //                                     <TableBody>
-//                                         {selectedOrder.orderDetails.map((detail) => (
+//                                         {selectedInvoiceSource.invoiceDetails.map((detail) => (
 //                                             <TableRow key={detail.id}>
 //                                                 <TableCell>{detail.item.name}</TableCell>
+//                                                 <TableCell>{detail.provider.name}</TableCell>
 //                                                 <TableCell>{Number(detail.quantity).toFixed(2)}</TableCell>
 //                                                 <TableCell>{detail.item.unit.title}</TableCell>
 //                                                 <TableCell>{cleanAndFormatPrice(detail.price)}</TableCell>
@@ -578,7 +599,7 @@
 //                     )}
 //                 </DialogContent>
 //                 <DialogActions>
-//                     <Button onClick={handleCloseOrderDetailsModal}>Kapat</Button>
+//                     <Button onClick={handleCloseInvoiceDetailsModal}>Kapat</Button>
 //                 </DialogActions>
 //             </Dialog>
 //         </Paper>
@@ -601,7 +622,9 @@ import server from 'src/assets/address.json';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 
+// ===============================
 // Type Definitions
+// ===============================
 interface UnitType {
     id: string;
     title: string;
@@ -620,32 +643,27 @@ interface ItemType {
 interface ProviderType {
     id: number;
     name: string;
-    firm: string; // '1' for true, '0' for false (based on original usage)
+    firm: string; // '1' | '0'
     recordStatus: number;
 }
 
-interface InvoiceDetailFromApi {
+// ---- Order API types (source) ----
+interface OrderDetailType {
     id: string;
-    quantity: string;
-    price: string;
-    discountPercent: string;
-    discountAmount: string;
+    quantity: string | null;
+    price: string | null;
     description: string;
-    firm: boolean;
     item: ItemType;
-    orderDetail?: { id: string; quantity: string; price: string; } | null;
-    provider: ProviderType;
 }
 
-interface InvoiceSourceType { // Represents the Invoice data returned by the new API
+interface OrderSourceType {
     id: string;
-    invoiceNo: string;
     docDate: string;
     status: number; // 0: Beklemede, 1: Onaylandı, 2: Reddedildi
-    warehouse?: { id: string; name: string; } | null;
-    invoiceDetails: InvoiceDetailFromApi[];
+    orderDetails: OrderDetailType[];
 }
 
+// ---- Target table item types ----
 interface InvoiceItem {
     id: number;
     item: string; // Item ID
@@ -667,9 +685,12 @@ interface InvoiceItemsTableProps {
     onRemoveItem: (id: number) => void;
     onUpdateItem: (updatedItem: InvoiceItem) => void;
     providersList: ProviderType[];
-    warehouseId: number | null;
+    warehouseId: number | null; // دیگر استفاده نمی‌شود؛ برای سازگاری با Props قبلی نگه‌داشتیم
 }
 
+// ===============================
+// Utils
+// ===============================
 const stripHtml = (htmlString: string) => {
     if (!htmlString) return "";
     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
@@ -677,24 +698,17 @@ const stripHtml = (htmlString: string) => {
 };
 
 const cleanAndConvertNumber = (value: string | number | undefined | null): number => {
-    if (value === null || value === undefined) {
-        return 0;
-    }
-    // Remove all non-digit, non-decimal point, non-negative sign characters
+    if (value === null || value === undefined) return 0;
     const cleanedString = String(value).replace(/[^\d.-]/g, '');
     const numericValue = parseFloat(cleanedString);
     return isNaN(numericValue) ? 0 : numericValue;
 };
 
 const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
-    if (priceInput === null || priceInput === undefined) {
-        return '₺0.00';
-    }
+    if (priceInput === null || priceInput === undefined) return '₺0.00';
     const cleanedString = String(priceInput).replace(/[$,]/g, '');
     const numericValue = parseFloat(cleanedString);
-    if (isNaN(numericValue)) {
-        return '₺0.00';
-    }
+    if (isNaN(numericValue)) return '₺0.00';
     const formattedPrice = numericValue.toLocaleString('en-US', {
         style: 'currency',
         currency: 'USD',
@@ -704,7 +718,9 @@ const cleanAndFormatPrice = (priceInput: string | number | null | undefined): st
     return formattedPrice.replace('$', '₺');
 };
 
-
+// ===============================
+// Component
+// ===============================
 const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     items,
     itemsList,
@@ -712,60 +728,61 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     onRemoveItem,
     onUpdateItem,
     providersList,
-    warehouseId // <--- De-structure the new prop
+    // warehouseId, 
 }) => {
     const [openModal, setOpenModal] = useState(false);
     const [modalContent, setModalContent] = useState('');
-    const [invoicesSourceList, setInvoicesSourceList] = useState<InvoiceSourceType[]>([]); // Renamed state
-    const [selectedInvoiceSource, setSelectedInvoiceSource] = useState<InvoiceSourceType | null>(null); // Renamed state
-    const [openInvoiceDetailsModal, setOpenInvoiceDetailsModal] = useState(false); // Renamed modal
+
+    // ---- NEW (orders as source) ----
+    const [ordersSourceList, setOrdersSourceList] = useState<OrderSourceType[]>([]);
+    const [selectedOrderSource, setSelectedOrderSource] = useState<OrderSourceType | null>(null);
+    const [openOrderDetailsModal, setOpenOrderDetailsModal] = useState(false);
 
     const [deletedItems, setDeletedItems] = useState<InvoiceItem[]>([]);
-
     const [editingItems, setEditingItems] = useState<Record<number, Partial<InvoiceItem>>>({});
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // Fetch Invoices by Warehouse ID
+    // ===============================
+    // Fetch Orders (no warehouse dependency)
+    // ===============================
     useEffect(() => {
-        const getInvoicesByWarehouse = async () => {
+        const getListOrders = async () => {
             const authToken = localStorage.getItem('authToken');
-            // Only proceed if authenticated and a warehouse is selected
-            if (!authToken || !warehouseId) return;
-
+            if (!authToken) return;
             try {
-                // Using the new API endpoint
                 const response = await axios.get(
-                    `${server.baseurl}${server.initialoperations}get-invoices-by-warehouse-id/${warehouseId}`,
+                    server.baseurl + server.initialoperations + "get-orders",
                     { headers: { "Authorization": `Bearer ${authToken}` } }
                 );
-                debugger
-                if (response.data.httpStatusCode === 200) {
-                    // Filter: Only approved (status 1) or relevant status invoices should be used as source
-                    const approvedInvoices = response.data.data.filter((invoice: InvoiceSourceType) => invoice.status === 1);
-                    setInvoicesSourceList(approvedInvoices);
+                if (response.data?.httpStatusCode === 200) {
+                    // Only approved (status === 1) – keep parity with previous logic
+                    const approved = (response.data.data as OrderSourceType[]).filter(o => o.status === 1);
+                    setOrdersSourceList(approved);
                 } else {
-                    console.error('Kaynak faturalar yüklenirken bir hata oluştu:', response.data.message);
+                    console.error(response.data?.message || 'Siparişler yüklenirken bir hata oluştu.');
                 }
-            } catch (e: any) {
-                console.error('Kaynak faturalar yüklenirken bir hata oluştu:', e);
+            } catch (e) {
+                console.error('Siparişler yüklenirken bir hata oluştu.', e);
             }
         };
-        getInvoicesByWarehouse();
-    }, [warehouseId]); // Dependency added: re-fetch when warehouseId changes
+        getListOrders();
+    }, []);
 
+    // ===============================
+    // Editing handlers
+    // ===============================
     const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
         setEditingItems(prev => {
-            const updatedItem = {
+            const updatedItem: Partial<InvoiceItem> = {
                 ...prev[id],
                 [field]: value
             };
 
-            // Logic to update 'firm' status when 'providerId' changes
+            // Auto-set firm by provider
             if (field === 'providerId') {
                 const selectedProvider = providersList.find(p => p.id === value);
                 if (selectedProvider) {
-                    // ProviderType.firm is string '1'/'0', convert to boolean
                     updatedItem.firm = selectedProvider.firm === '1';
                 } else {
                     updatedItem.firm = false;
@@ -794,7 +811,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         if (editedItem) {
             onUpdateItem({
                 ...item,
-                ...editedItem as InvoiceItem,
+                ...(editedItem as InvoiceItem),
             });
             setEditingItems(prev => {
                 const newEditingItems = { ...prev };
@@ -826,111 +843,103 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         setDeletedItems(prev => prev.filter(item => item.id !== itemToRestore.id));
     };
 
-    const handleOpenDescriptionModal = (content: string) => { // Renamed handler
+    const handleOpenDescriptionModal = (content: string) => {
         setModalContent(stripHtml(content));
         setOpenModal(true);
     };
 
-    const handleCloseDescriptionModal = () => { // Renamed handler
+    const handleCloseDescriptionModal = () => {
         setOpenModal(false);
         setModalContent('');
     };
 
-
-    // Handler for changing the source invoice (previously handleOrderChange)
-    const handleInvoiceSourceChange = (_event: any, newValue: InvoiceSourceType | null) => {
-        // Clear current invoice items if a new source invoice is selected
+    // ===============================
+    // Order source selection
+    // ===============================
+    const handleOrderSourceChange = (_event: any, newValue: OrderSourceType | null) => {
+        // Clear current invoice items if a new source is selected
         if (newValue && items.length > 0) {
             items.forEach(item => onRemoveItem(item.id));
         }
 
-        setSelectedInvoiceSource(newValue);
+        setSelectedOrderSource(newValue);
         setDeletedItems([]);
         setEditingItems({});
 
         if (newValue) {
-            const newEditingItems: Record<number, Partial<InvoiceItem>> = {};
+            const newEditing: Record<number, Partial<InvoiceItem>> = {};
 
-            newValue.invoiceDetails.forEach(detail => {
-                const uniqueId = Date.now() + Math.random();
-
-                // 👇🏻 حل مشکل: تبدیل ID تأمین‌کننده از رشته به عدد
-                const numericProviderId = Number(detail.provider.id);
+            newValue.orderDetails.forEach(detail => {
+                const uniqueId = Date.now() + Math.floor(Math.random() * 1e6);
 
                 const itemToAdd: InvoiceItem = {
                     id: uniqueId,
                     item: detail.item.id,
+                    unit: detail.item.unit,
                     quantity: cleanAndConvertNumber(detail.quantity),
                     price: cleanAndConvertNumber(detail.price),
-                    discountPercent: cleanAndConvertNumber(detail.discountPercent),
-                    discountAmount: cleanAndConvertNumber(detail.discountAmount),
-                    description: detail.description,
-                    unit: detail.item.unit,
-                    orderDetailId: detail.orderDetail?.id || null,
-                    // استفاده از ID تبدیل شده
-                    providerId: numericProviderId,
-                    // "firm" در نمونه API شما boolean است و مستقیماً استفاده می‌شود
-                    firm: detail.firm,
+                    discountPercent: 0,
+                    discountAmount: 0,
+                    description: detail.description || '',
+                    orderDetailId: detail.id,
+                    providerId: undefined, // orders don't have provider
+                    firm: false,
                 };
-                onAddItem(itemToAdd);
 
-                newEditingItems[uniqueId] = { ...itemToAdd };
+                onAddItem(itemToAdd);
+                newEditing[uniqueId] = { ...itemToAdd };
             });
-            setEditingItems(newEditingItems);
+
+            setEditingItems(newEditing);
         }
     };
 
-    const handleOpenInvoiceDetailsModal = () => { // Renamed modal handler
-        setOpenInvoiceDetailsModal(true);
-    };
+    const handleOpenOrderDetailsModal = () => setOpenOrderDetailsModal(true);
+    const handleCloseOrderDetailsModal = () => setOpenOrderDetailsModal(false);
 
-    const handleCloseInvoiceDetailsModal = () => { // Renamed modal handler
-        setOpenInvoiceDetailsModal(false);
-    };
-
-    const handleResetInvoiceSourceSelection = () => { // Renamed reset handler
-        setSelectedInvoiceSource(null);
+    const handleResetOrderSourceSelection = () => {
+        setSelectedOrderSource(null);
         setEditingItems({});
         setDeletedItems([]);
-        // This resets the entire invoice item list to zero
         items.forEach(item => onRemoveItem(item.id));
     };
 
-    // Check if item list is empty to control the Autocomplete disabled state
     const isInvoiceItemsEmpty = items.length === 0;
 
+    // ===============================
+    // Render
+    // ===============================
     return (
-        <Paper elevation={3} sx={{ p: 2, mt: 3 }} >
-            <Typography variant="h6" gutterBottom>Fatura Ürünleri</Typography>
+        <Paper elevation={3} sx={{ p: 2, mt: 3 }}>
+            <Typography variant="h6" gutterBottom>Siparişten Ürün Ekle</Typography>
+
             <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={12}>
-                    <CustomFormLabel htmlFor="invoice-source-autocomplete">
-                        Kaynak Fatura Seçin (Opsiyonel)
+                    <CustomFormLabel htmlFor="order-source-autocomplete">
+                        Kaynak Sipariş Seçin
                     </CustomFormLabel>
                     <Stack direction="row" alignItems="center" spacing={2}>
-                        <Autocomplete<InvoiceSourceType>
-                            id="invoice-source-autocomplete"
-                            options={invoicesSourceList}
-                            getOptionLabel={(option) => `${option.invoiceNo} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
-                            value={selectedInvoiceSource}
-                            onChange={handleInvoiceSourceChange}
+                        <Autocomplete<OrderSourceType>
+                            id="order-source-autocomplete"
+                            options={ordersSourceList}
+                            getOptionLabel={(option) => `${option.id} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
+                            value={selectedOrderSource}
+                            onChange={handleOrderSourceChange}
                             sx={{ flexGrow: 1 }}
-                            renderInput={(params) => <TextField {...params} label="Kaynak Fatura No" variant="outlined" size="small" />}
+                            renderInput={(params) => <TextField {...params} label="Kaynak Sipariş" variant="outlined" size="small" />}
                             disabled={!isInvoiceItemsEmpty} // Disable if items already exist
                         />
-                        {selectedInvoiceSource && (
+                        {selectedOrderSource && (
                             <Stack direction="row" alignItems="center" spacing={1}>
-                                <Button variant="outlined" onClick={handleOpenInvoiceDetailsModal}>Detayları Gör</Button>
-                                <CustomTooltip title="Kaynak Faturayı Sıfırla">
-                                    <IconButton color="primary" onClick={handleResetInvoiceSourceSelection}>
+                                <Button variant="outlined" onClick={handleOpenOrderDetailsModal}>Detayları Gör</Button>
+                                <CustomTooltip title="Kaynak Siparişi Sıfırla">
+                                    <IconButton color="primary" onClick={handleResetOrderSourceSelection}>
                                         <IconRotate2 size={20} />
                                     </IconButton>
                                 </CustomTooltip>
                             </Stack>
                         )}
                     </Stack>
-
-
                 </Grid>
             </Grid>
 
@@ -939,7 +948,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <Box mb={2} p={2} border="1px solid" borderColor="error.main" borderRadius={2} bgcolor="error.light">
                     <Typography variant="subtitle2" color="error.dark" mb={1}>Silinen Ürünler (Geri Almak için tıklayın):</Typography>
                     <Stack direction="row" spacing={1} flexWrap="wrap">
-
                         {deletedItems.map((item) => {
                             const provider = providersList.find(p => p.id === item.providerId);
                             const itemInfo = itemsList.find(i => i.id === item.item);
@@ -977,7 +985,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                             items.map((item) => {
                                 const isEditing = editingItems[item.id] !== undefined;
                                 const currentItem = isEditing ? editingItems[item.id] : item;
-                                // Need to search providers list using providerId from the current item being edited or displayed
                                 const provider = providersList.find(p => p.id === currentItem?.providerId);
                                 const product = itemsList.find(i => i.id === item.item);
 
@@ -991,6 +998,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                             <Typography variant="subtitle1" fontWeight="bold">{product?.name || '-'}</Typography>
                                             <Typography variant="body2" color="textSecondary">{product?.unit?.title || '-'}</Typography>
                                         </TableCell>
+
                                         <TableCell>
                                             {isEditing ? (
                                                 <Stack direction="column" spacing={1}>
@@ -1016,6 +1024,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                                 </>
                                             )}
                                         </TableCell>
+
                                         <TableCell>
                                             {isEditing ? (
                                                 <Stack direction="column" spacing={1}>
@@ -1028,7 +1037,14 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                                             handleItemChange(item.id, 'providerId', newProviderId);
                                                         }}
                                                         size="small"
-                                                        renderInput={(params) => <TextField {...params} label="Tedarikçi" error={!providerId} helperText={!providerId && 'Bu alan zorunludur.'} />}
+                                                        renderInput={(params) => (
+                                                            <TextField
+                                                                {...params}
+                                                                label="Tedarikçi"
+                                                                error={!providerId}
+                                                                helperText={!providerId && 'Bu alan zorunludur.'}
+                                                            />
+                                                        )}
                                                     />
                                                     {provider && (
                                                         <Chip
@@ -1049,6 +1065,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                                 </>
                                             )}
                                         </TableCell>
+
                                         <TableCell>
                                             {isEditing ? (
                                                 <Stack direction="column" spacing={1}>
@@ -1070,6 +1087,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                                 </>
                                             )}
                                         </TableCell>
+
                                         <TableCell>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                 {isEditing ? (
@@ -1088,6 +1106,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                                 )}
                                             </Box>
                                         </TableCell>
+
                                         <TableCell align="right">
                                             {isEditing ? (
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Değişiklikleri kaydet" : ""}>
@@ -1141,18 +1160,18 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 </DialogActions>
             </Dialog>
 
-            {/* Modal for Invoice Source Details (previously Order Details) */}
-            <Dialog open={openInvoiceDetailsModal} onClose={handleCloseInvoiceDetailsModal} maxWidth="md" fullWidth>
-                <DialogTitle>Kaynak Fatura Detayları</DialogTitle>
+            {/* Modal for Order Source Details */}
+            <Dialog open={openOrderDetailsModal} onClose={handleCloseOrderDetailsModal} maxWidth="md" fullWidth>
+                <DialogTitle>Kaynak Sipariş Detayları</DialogTitle>
                 <DialogContent dividers>
-                    {selectedInvoiceSource && (
+                    {selectedOrderSource && (
                         <Box>
                             <Typography variant="h6" gutterBottom>
-                                Fatura No: {selectedInvoiceSource.invoiceNo} - Tarih: {format(new Date(selectedInvoiceSource.docDate), 'dd MMMM yyyy', { locale: tr })}
+                                Sipariş No: {selectedOrderSource.id} - Tarih: {format(new Date(selectedOrderSource.docDate), 'dd MMMM yyyy', { locale: tr })}
                                 <Chip
-                                    label={selectedInvoiceSource.status === 1 ? "Onaylandı" : selectedInvoiceSource.status === 2 ? "Reddedildi" : "Beklemede"}
+                                    label={selectedOrderSource.status === 1 ? "Onaylandı" : selectedOrderSource.status === 2 ? "Reddedildi" : "Beklemede"}
                                     sx={{ ml: 2 }}
-                                    color={selectedInvoiceSource.status === 1 ? "success" : selectedInvoiceSource.status === 2 ? "error" : "warning"}
+                                    color={selectedOrderSource.status === 1 ? "success" : selectedOrderSource.status === 2 ? "error" : "warning"}
                                     variant="outlined"
                                 />
                             </Typography>
@@ -1161,7 +1180,6 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                     <TableHead>
                                         <TableRow>
                                             <TableCell>Ürün</TableCell>
-                                            <TableCell>Tedarikçi</TableCell>
                                             <TableCell>Miktar</TableCell>
                                             <TableCell>Birim</TableCell>
                                             <TableCell>Fiyat</TableCell>
@@ -1169,14 +1187,13 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {selectedInvoiceSource.invoiceDetails.map((detail) => (
+                                        {selectedOrderSource.orderDetails.map((detail) => (
                                             <TableRow key={detail.id}>
                                                 <TableCell>{detail.item.name}</TableCell>
-                                                <TableCell>{detail.provider.name}</TableCell>
-                                                <TableCell>{Number(detail.quantity).toFixed(2)}</TableCell>
-                                                <TableCell>{detail.item.unit.title}</TableCell>
-                                                <TableCell>{cleanAndFormatPrice(detail.price)}</TableCell>
-                                                <TableCell>{stripHtml(detail.description)}</TableCell>
+                                                <TableCell>{Number(cleanAndConvertNumber(detail.quantity)).toFixed(2)}</TableCell>
+                                                <TableCell>{detail.item.unit?.title}</TableCell>
+                                                <TableCell>{cleanAndFormatPrice(detail.price || 0)}</TableCell>
+                                                <TableCell>{stripHtml(detail.description || '')}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -1186,7 +1203,7 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseInvoiceDetailsModal}>Kapat</Button>
+                    <Button onClick={handleCloseOrderDetailsModal}>Kapat</Button>
                 </DialogActions>
             </Dialog>
         </Paper>

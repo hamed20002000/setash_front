@@ -989,7 +989,7 @@ const ListBetweenStoreDispatch = () => {
 
     const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
         const dataToDownload = isFiltered ? displayedDispatches : dispatchList;
-        const title = isFiltered ? 'Filtrelenmiş Mağazalar Arası Sevk Raporu' : 'Tüm Mağazalar Arası Sevk Raporu';
+        const title = isFiltered ? 'Filtrelenmiş Şantiyenin Depo Arası Sevk Raporu' : 'Tüm Şantiyenin Depo Arası Sevk Raporu';
         const subtitle = isFiltered ? `Tarih Aralığı: ${formatDateDisplay(startDate ? startDate.toISOString() : null)} - ${formatDateDisplay(endDate ? endDate.toISOString() : new Date().toISOString())}` : undefined;
 
         if (format === 'pdf') {
@@ -1222,28 +1222,68 @@ const ListBetweenStoreDispatch = () => {
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                <Box sx={{ flexGrow: 1, minWidth: '200px', maxWidth: '300px' }}>
-                                                    <Typography variant="body1" component="span" sx={{ mr: 1 }}>
-                                                        {selectedItem?.name || 'Ürün Adı Bulunamadı'}
-                                                    </Typography>
-                                                </Box>
 
-                                                <CustomTextField
-                                                    type="number"
-                                                    placeholder="Miktar"
-                                                    value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                    }}
-                                                    error={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0))}
-                                                    helperText={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0)) ? `Geçerli bir miktar girin! (0 - ${detail.balance || 0})` : ""}
-                                                />
-                                                <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
-                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
-                                            </Stack>
+                                            <Grid container spacing={{ xs: 1, sm: 2 }} alignItems="center">
+
+                                                <Grid item xs={12} sm={4} md={4}>
+                                                    <Box sx={{ flexGrow: 1 }}>
+                                                        <Typography
+                                                            variant="body1"
+                                                            component="div"
+                                                            sx={{
+                                                                fontWeight: 'bold',
+                                                                fontSize: { xs: '0.9rem', md: '1rem' }
+                                                            }}
+                                                        >
+                                                            {selectedItem?.name || 'Ürün Adı Bulunamadı'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Grid>
+
+                                                <Grid item xs={6} sm={3} md={3}>
+                                                    <CustomTextField
+                                                        type="number"
+                                                        label={`Miktar ${displayBalance}`}
+                                                        placeholder="Miktar"
+                                                        value={detail.quantity}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                        fullWidth
+                                                        InputProps={{
+                                                            endAdornment: (
+                                                                <InputAdornment position="end" >
+                                                                    {displayBalance}
+                                                                </InputAdornment>
+                                                            ),
+                                                            inputProps: { min: 0 } // اطمینان از مقدار مثبت
+                                                        }}
+                                                        size="small"
+                                                        error={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0))}
+                                                        helperText={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0)) ? `Maks: ${detail.balance || 0}` : ""}
+                                                    />
+                                                </Grid>
+
+                                                <Grid item xs={6} sm={4} md={4}>
+                                                    <CustomTextField
+                                                        label="Açıklama"
+                                                        placeholder="Açıklama"
+                                                        value={detail.description}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                        fullWidth
+                                                        size="small"
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={12} sm={1} md={1} sx={{ textAlign: { xs: 'right', sm: 'center' } }}>
+
+                                                    <IconButton
+                                                        color="error"
+                                                        onClick={() => handleRemoveDispatchDetail(index)}
+                                                        aria-label="Sil"
+                                                        size="large"
+                                                    >
+                                                        <IconTrash />
+                                                    </IconButton>
+                                                </Grid>
+                                            </Grid>
                                         </Grid>
                                     )
                                 })}
