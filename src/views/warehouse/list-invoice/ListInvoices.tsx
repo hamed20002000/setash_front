@@ -1,6 +1,4 @@
 
-
-
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -27,7 +25,7 @@ import InvoiceItemsTable from './InvoiceItemsTable';
 import DeleteInvoiceModal from './DeleteInvoice';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import jsPDF from 'jspdf';
-import { autoTable } from 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 import { useAuth } from 'src/context/AuthContext';
@@ -37,13 +35,11 @@ import { saveAs } from 'file-saver';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
 import { ArialFont } from 'src/assets/fonts/Arial';
 
-
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -102,6 +98,14 @@ interface InvoiceType {
         createAt?: string;
         recordStatus?: number;
     } | null;
+    workhouse?: {
+        id: string;
+        name: string;
+        code?: string;
+        address?: string;
+        createAt?: string;
+        recordStatus?: number;
+    } | null;
     docDate: string;
     totalAmount?: number;
     status: number;
@@ -144,7 +148,6 @@ interface ApiResponseVehicleType {
     recordStatus: number;
     createAt: string;
 }
-
 interface WarehouseType {
     id: number;
     name: string;
@@ -155,21 +158,9 @@ interface WarehouseType {
 }
 
 const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
-    if (priceInput === null || priceInput === undefined) {
-        return '₺0.00';
-    }
-    const cleanedString = String(priceInput).replace(/[$,]/g, '');
-    const numericValue = parseFloat(cleanedString);
-    if (isNaN(numericValue)) {
-        return '₺0.00';
-    }
-    const formattedPrice = numericValue.toLocaleString('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    });
-    return formattedPrice.replace('$', '₺');
+    const n = Number(String(priceInput ?? '').replace(/[^\d.-]/g, ''));
+    if (isNaN(n)) return '₺0,00';
+    return n.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 };
 
 const blinkAnimation = keyframes`
@@ -177,13 +168,11 @@ const blinkAnimation = keyframes`
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
     100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
-
 const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
     animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
     transition: 'transform 0.3s ease-in-out',
 }));
-// Table Style and Functions
-type SortableInvoiceKeys = 'invoiceNo' | 'provider.name' | 'driver.name' | 'docDate' | 'status' | 'totalAmount' | 'driver.family'; // اضافه کردن این خط
+type SortableInvoiceKeys = 'invoiceNo' | 'provider.name' | 'driver.name' | 'docDate' | 'status' | 'totalAmount' | 'driver.family';
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -200,24 +189,23 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
     },
 }));
 
+
 const descendingComparator = <T, Key extends string>(a: T, b: T, orderBy: Key): number => {
     const getNestedValue = (obj: any, path: string): any => path.split('.').reduce((acc, part) => acc && acc[part], obj);
     const valA = getNestedValue(a, orderBy);
     const valB = getNestedValue(b, orderBy);
-
     if (valB === undefined || valB === null) return (valA === undefined || valA === null) ? 0 : -1;
     if (valA === undefined || valA === null) return 1;
-
+    if (orderBy === 'docDate') {
+        return new Date(valB as string).getTime() - new Date(valA as string).getTime();
+    }
     if (typeof valB === 'string' && typeof valA === 'string') return valB.localeCompare(valA);
     if (typeof valB === 'number' && typeof valA === 'number') return valB - valA;
-
     return 0;
 };
-
 const getComparator = (order: 'asc' | 'desc', orderBy: SortableInvoiceKeys): (a: InvoiceType, b: InvoiceType) => number => {
     return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy);
 };
-
 const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
     stabilizedThis.sort((a, b) => {
@@ -227,12 +215,8 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     });
     return stabilizedThis.map((el) => el[0]);
 };
-
-// تابع کمکی برای پاکسازی و تبدیل رشته به عدد
 const cleanAndConvertNumber = (value: string | number | undefined | null): number => {
-    if (value === null || value === undefined) {
-        return 0;
-    }
+    if (value === null || value === undefined) return 0;
     const cleanedString = String(value).replace(/[^\d.-]/g, '');
     const numericValue = parseFloat(cleanedString);
     return isNaN(numericValue) ? 0 : numericValue;
@@ -266,7 +250,6 @@ const ListInvoices = () => {
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedInvoiceForMenu, setSelectedInvoiceForMenu] = useState<InvoiceType | null>(null);
-    // const openMenu = Boolean(anchorEl);
     const [openModal, setOpenModal] = useState(false);
     const [modalDetails, setModalDetails] = useState<InvoiceDetailType[]>([]);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -301,26 +284,19 @@ const ListInvoices = () => {
     const [selectedInvoiceForDownload, setSelectedInvoiceForDownload] = useState<InvoiceType | null>(null);
 
     const { allowedOperations } = useAuth();
-    const hasCreatePermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    }, [allowedOperations]);
+    const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
+    const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
+    const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
+    const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
+    const hasStatusPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Onaylamak'), [allowedOperations]);
 
-    const hasEditPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    }, [allowedOperations]);
+    // ************* NEW: Order-End Modal states *************
+    const [openIsEndModal, setOpenIsEndModal] = useState(false);
+    const [selectedOrderIdFromChild, setSelectedOrderIdFromChild] = useState<number | null>(null);
+    const [selectedOrderNoFromChild, setSelectedOrderNoFromChild] = useState<string | null>(null);
 
-    const hasDeletePermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    }, [allowedOperations]);
-
-    const hasDownloadPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    }, [allowedOperations]);
-
-    const hasStatusPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Onaylamak');
-    }, [allowedOperations]);
-
+    // const [ordersRefreshTick, setOrdersRefreshTick] = useState(0);
+    // ********************************************************
 
     const formatDateDisplay = (dateString: string | null): string => {
         if (!dateString) return "N/A";
@@ -355,7 +331,6 @@ const ListInvoices = () => {
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-
         doc.setFontSize(8);
         doc.setFont('Arial', 'normal');
         const companyInfo = [
@@ -412,7 +387,6 @@ const ListInvoices = () => {
                 6: { cellWidth: 20 }, 7: { cellWidth: 25 }, 8: { cellWidth: 'auto' },
             },
             didDrawPage: () => {
-                // const pageWidth = doc.internal.pageSize.getWidth();
                 addPdfHeader(doc, `Fatura Detayları`);
                 doc.setFont('Arial');
                 doc.setFontSize(10);
@@ -443,7 +417,7 @@ const ListInvoices = () => {
         });
 
         if (totalQuantities.size > 0 || totalPrices > 0 || totalDiscountAmounts > 0) {
-            const summaryRows = [];
+            const summaryRows: any[] = [];
             Array.from(totalQuantities.entries()).forEach(([unit, total]) => {
                 summaryRows.push([`Toplam Miktar (${unit})`, total.toFixed(2)]);
             });
@@ -462,9 +436,7 @@ const ListInvoices = () => {
                     theme: 'grid',
                     styles: { font: 'Arial', fontSize: 10, fontStyle: 'normal' },
                     headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                    columnStyles: {
-                        0: { halign: 'right' }
-                    }
+                    columnStyles: { 0: { halign: 'right' } }
                 });
             }
         }
@@ -533,10 +505,10 @@ const ListInvoices = () => {
             });
         });
 
-        worksheet.columns.forEach((column) => {
+        worksheet.columns.forEach((column: any) => {
             let maxLength = 0;
             if (column && typeof column.eachCell === 'function') {
-                column.eachCell({ includeEmpty: true }, (cell) => {
+                column.eachCell({ includeEmpty: true }, (cell: any) => {
                     const columnLength = cell.value ? cell.value.toString().length : 10;
                     if (columnLength > maxLength) {
                         maxLength = columnLength;
@@ -578,7 +550,7 @@ const ListInvoices = () => {
         const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
         addExcelCompanyInfo(worksheet, startRow);
 
-        workbook.xlsx.writeBuffer().then(buffer => {
+        workbook.xlsx.writeBuffer().then((buffer: any) => {
             saveAs(new Blob([buffer]), `Fatura_${invoice.id}.xlsx`);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
         });
@@ -613,9 +585,7 @@ const ListInvoices = () => {
             doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, 15, 75);
         };
 
-        const footer = () => {
-            addPdfFooter(doc);
-        };
+        const footer = () => addPdfFooter(doc);
 
         try {
             dataToExport.forEach((invoice, index) => {
@@ -645,10 +615,7 @@ const ListInvoices = () => {
                         3: { cellWidth: 15 }, 4: { cellWidth: 15 }, 5: { cellWidth: 20 },
                         6: { cellWidth: 20 }, 7: { cellWidth: 25 }, 8: { cellWidth: 'auto' },
                     },
-                    didDrawPage: () => {
-                        header(invoice);
-                        footer();
-                    },
+                    didDrawPage: () => { header(invoice); footer(); },
                     showHead: 'everyPage',
                     margin: { top: 80, bottom: 45 }
                 });
@@ -667,16 +634,12 @@ const ListInvoices = () => {
                 });
 
                 if (totalQuantities.size > 0 || totalPrices > 0 || totalDiscountAmounts > 0) {
-                    const summaryRows = [];
+                    const summaryRows: any[] = [];
                     Array.from(totalQuantities.entries()).forEach(([unit, total]) => {
                         summaryRows.push([`Toplam Miktar (${unit})`, total.toFixed(2)]);
                     });
-                    if (totalPrices > 0) {
-                        summaryRows.push([`Toplam Fiyat`, cleanAndFormatPrice(totalPrices)]);
-                    }
-                    if (totalDiscountAmounts > 0) {
-                        summaryRows.push([`Toplam İndirim Miktarı`, cleanAndFormatPrice(totalDiscountAmounts)]);
-                    }
+                    if (totalPrices > 0) summaryRows.push([`Toplam Fiyat`, cleanAndFormatPrice(totalPrices)]);
+                    if (totalDiscountAmounts > 0) summaryRows.push([`Toplam İndirim Miktarı`, cleanAndFormatPrice(totalDiscountAmounts)]);
 
                     if (summaryRows.length > 0) {
                         autoTable(doc, {
@@ -684,9 +647,7 @@ const ListInvoices = () => {
                             body: summaryRows,
                             theme: 'grid',
                             styles: { font: 'Arial', fontSize: 10, fontStyle: 'normal' },
-                            columnStyles: {
-                                0: { halign: 'right' }
-                            }
+                            columnStyles: { 0: { halign: 'right' } }
                         });
                     }
                 }
@@ -750,10 +711,10 @@ const ListInvoices = () => {
                 });
             });
 
-            worksheet.columns.forEach((column) => {
+            worksheet.columns.forEach((column: any) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
-                    column.eachCell({ includeEmpty: true }, (cell) => {
+                    column.eachCell({ includeEmpty: true }, (cell: any) => {
                         const columnLength = cell.value ? cell.value.toString().length : 10;
                         if (columnLength > maxLength) {
                             maxLength = columnLength;
@@ -796,22 +757,21 @@ const ListInvoices = () => {
             addExcelCompanyInfo(worksheet, startRow);
         });
 
-        workbook.xlsx.writeBuffer().then(buffer => {
+        workbook.xlsx.writeBuffer().then((buffer: any) => {
             const fileName = isFiltered ? `Filtrelenmis_Faturalar.xlsx` : `Tum_Faturalar.xlsx`;
             saveAs(new Blob([buffer]), fileName);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
         });
     };
+
     const handleOpenStatusHistoryModal = (invoice: InvoiceType) => {
         setStatusHistoryData(invoice.invoiceHeaderStatusHistories);
         setOpenStatusHistoryModal(true);
     };
-
     const handleCloseStatusHistoryModal = () => {
         setOpenStatusHistoryModal(false);
         setStatusHistoryData([]);
     };
-
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -819,21 +779,15 @@ const ListInvoices = () => {
     const clearAlert = () => { setAlertMessage(null); };
 
     useEffect(() => {
-        let timer: NodeJS.Timeout;
+        let timer: ReturnType<typeof setTimeout>;
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setIsBlinking(false);
-        }, 5000);
-
-        return () => {
-            clearTimeout(timer);
-        };
+        const timer = setTimeout(() => setIsBlinking(false), 5000);
+        return () => { clearTimeout(timer); };
     }, []);
-
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
@@ -892,7 +846,7 @@ const ListInvoices = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [showAlert]);
+    }, []);
 
     const fetchProviders = useCallback(async () => {
         setLoadingData(true);
@@ -930,7 +884,7 @@ const ListInvoices = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, showAlert]);
+    }, [navigate]);
 
     const fetchDrivers = useCallback(async () => {
         setLoadingData(true);
@@ -965,7 +919,7 @@ const ListInvoices = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, showAlert]);
+    }, [navigate]);
 
     const getInvoices = useCallback(async () => {
         setLoadingData(true);
@@ -978,12 +932,17 @@ const ListInvoices = () => {
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-invoices", { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200) {
-                setInvoicesList(response.data.data as InvoiceType[]);
+
+                const fetchedInvoices = (response.data.data as InvoiceType[]) || [];
+
+                const filtered = fetchedInvoices.filter(inv => inv?.warehouse !== null && inv?.workhouse === null);
+
+                setInvoicesList(filtered);
             } else { showAlert(response.data.message || 'Faturalar yüklenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
             showAlert('Faturalar yüklenirken bir hata oluştu.', 'error');
         } finally { setLoadingData(false); }
-    }, [navigate, showAlert]);
+    }, [navigate]);
 
     const getItems = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -998,7 +957,7 @@ const ListInvoices = () => {
                 setItemsList(response.data.data.filter((item: ItemType) => item.recordStatus === 0));
             } else { showAlert('Ürünler yüklenmedi.', 'error'); }
         } catch (e) { showAlert('Ürünler sunucudan alınamadı', 'error'); }
-    }, [navigate, showAlert]);
+    }, [navigate]);
 
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
@@ -1016,11 +975,7 @@ const ListInvoices = () => {
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 const allWarehouses = response.data.data as WarehouseType[];
                 const activeWarehouses = allWarehouses.filter(item => item.recordStatus === 0);
-
-                const WarehousesWithStatus = activeWarehouses.map((item) => ({
-                    ...item,
-                    status: 'Aktif'
-                }));
+                const WarehousesWithStatus = activeWarehouses.map((item) => ({ ...item, status: 'Aktif' }));
                 setWarehousesList(WarehousesWithStatus);
             } else {
                 showAlert(response.data.message || 'İşler yüklenirken bir hata oluştu.', 'error');
@@ -1032,7 +987,7 @@ const ListInvoices = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, showAlert]);
+    }, [navigate]);
 
     useEffect(() => {
         getInvoices();
@@ -1040,21 +995,15 @@ const ListInvoices = () => {
         fetchDrivers();
         fetchWarehouses();
         getItems();
-    }, []);
+    }, []); // eslint-disable-line
 
     const handleAddInvoiceItem = (newItem: InvoiceItem) => {
         setInvoiceItems(prevItems => [...prevItems, newItem]);
         setHasUnsavedChanges(true);
     };
-
     const handleUpdateInvoiceItem = (updatedItem: InvoiceItem) => {
-        setInvoiceItems(prevItems =>
-            prevItems.map(item =>
-                item.id === updatedItem.id ? updatedItem : item
-            )
-        );
+        setInvoiceItems(prevItems => prevItems.map(item => item.id === updatedItem.id ? updatedItem : item));
     };
-
     const handleRemoveInvoiceItem = (id: number) => {
         setInvoiceItems(prevItems => prevItems.filter(item => item.id !== id));
     };
@@ -1086,9 +1035,31 @@ const ListInvoices = () => {
         clearAlert();
     };
 
+    // ************* NEW: API call for ending order after save *************
+    const handleFinalSaveReceipt = async (shouldEnd: boolean) => {
+        if (!shouldEnd) { setOpenIsEndModal(false); return; }
+        try {
+            const authToken = localStorage.getItem('authToken');
+            if (!authToken) { navigate("/"); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); return; }
+            if (!selectedOrderIdFromChild || isNaN(Number(selectedOrderIdFromChild))) { setOpenIsEndModal(false); return; }
+
+            await axios.put(
+                server.baseurl + server.initialoperations + "update-order-is-end",
+                { id: Number(selectedOrderIdFromChild), isEnd: true },
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            showAlert('Sipariş başarıyla sonlandırıldı.', 'success');
+        } catch (e) {
+            showAlert('Sipariş sonlandırılırken bir hata oluştu.', 'error');
+        } finally {
+            setOpenIsEndModal(false);
+            // getInvoices(); // ihtiyaç varsa aç
+        }
+    };
+    // *********************************************************************
+
     const handleSaveInvoice = async () => {
         if (!validateForm()) return;
-
         const invoiceData = {
             docDate: docDate?.toISOString(),
             status: 0,
@@ -1109,11 +1080,7 @@ const ListInvoices = () => {
             }))
         };
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            navigate("/");
-            setLoadingData(false);
-            return;
-        }
+        if (!authToken) { navigate("/"); setLoadingData(false); return; }
         try {
             const response = await axios.post(
                 server.baseurl + server.initialoperations + "create-invoice", invoiceData,
@@ -1121,15 +1088,20 @@ const ListInvoices = () => {
             );
             if (response.data.httpStatusCode === 201) {
                 setHasUnsavedChanges(false);
+
+                // ************* NEW: open modal asking to end the ORDER (Sipariş) *************
+                if (selectedOrderIdFromChild) {
+                    setOpenIsEndModal(true);
+                }
+                // ***************************************************************************
+
                 resetForm();
                 getInvoices();
                 showAlert('Fatura başarıyla kaydedildi!', 'success');
             } else { showAlert(response.data.message || 'Fatura kaydedilirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
             if (e.response?.status === 401) { localStorage.removeItem('authToken'); navigate("/"); showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error'); }
-            else {
-                showAlert('Fatura kaydedilirken bir hata oluştu.', 'error');
-            }
+            else { showAlert('Fatura kaydedilirken bir hata oluştu.', 'error'); }
         }
     };
 
@@ -1170,16 +1142,13 @@ const ListInvoices = () => {
         } catch (e: any) {
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
-
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
-            }
-            else {
+            } else {
                 showAlert('Fatura güncellenirken bir hata oluştu.', 'error');
             }
-
         }
     };
 
@@ -1208,13 +1177,11 @@ const ListInvoices = () => {
 
                 if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                     const activeVehicles = response.data.data.map((item: any) => ({
-                        ...item,
-                        model: String(item.model),
-                        id: Number(item.id)
+                        ...item, model: String(item.model), id: Number(item.id)
                     })).filter((item: any) => item.recordStatus === 0);
 
-                    let vehicleToShowId = null;
-                    let vehicleToShowName = null;
+                    let vehicleToShowId: number | null = null;
+                    let vehicleToShowName: string | null = null;
 
                     if (row.driverVehicle) {
                         vehicleToShowId = Number(row.driverVehicle.id);
@@ -1227,7 +1194,6 @@ const ListInvoices = () => {
                     setVehiclesList(activeVehicles);
                     setSelectedVehicle(vehicleToShowId);
                     setSelectedVehicleName(vehicleToShowName);
-
                 } else {
                     setVehiclesList([]);
                     setSelectedVehicle(null);
@@ -1276,6 +1242,7 @@ const ListInvoices = () => {
         setIsFormVisible(true);
         setInvoiceItems(itemsToEdit);
     };
+
     const handleSelectVehicle = () => {
         const vehicle = vehiclesList.find(v => v.id === tempSelectedVehicle);
         if (vehicle) {
@@ -1284,10 +1251,7 @@ const ListInvoices = () => {
         }
         setOpenVehicleModal(false);
     };
-
-    const handleOpenVehicleModal = () => {
-        setOpenVehicleModal(true);
-    };
+    const handleOpenVehicleModal = () => setOpenVehicleModal(true);
 
     // Table Handlers
     const handleStatusFilterChange = (_event: React.MouseEvent<HTMLElement>, newFilter: 'all' | 'pending' | 'approved' | 'rejected' | null) => {
@@ -1305,10 +1269,7 @@ const ListInvoices = () => {
         setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0);
     };
     const handleOpenModal = (details: InvoiceDetailType[], provider: { id: string; name: string; firm: boolean; } | null) => {
-        const detailsWithProvider = details.map(detail => ({
-            ...detail,
-            provider: detail.provider || provider
-        }));
+        const detailsWithProvider = details.map(detail => ({ ...detail, provider: detail.provider || provider }));
         setModalDetails(detailsWithProvider);
         setOpenModal(true);
     };
@@ -1328,12 +1289,11 @@ const ListInvoices = () => {
 
     const handleClickOpenStatusModal = (id: number, action: 'approve' | 'reject') => {
         setStatusToUpdate(action === 'approve' ? 1 : 2);
-        setIdRow(id)
+        setIdRow(id);
         setDescription('');
         setOpenStatusModal(true);
         handleCloseMenu();
     };
-
     const handleCloseStatusModal = () => {
         setOpenStatusModal(false);
         setStatusToUpdate(null);
@@ -1349,30 +1309,20 @@ const ListInvoices = () => {
         }
 
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            navigate("/");
-            return;
-        }
+        if (!authToken) { navigate("/"); return; }
         try {
-            const payload = {
-                id: Number(idRow),
-                status: statusToUpdate,
-                description: description.trim()
-            };
-
+            const payload = { id: Number(idRow), status: statusToUpdate, description: description.trim() };
             const response = await axios.put(
                 server.baseurl + server.initialoperations + "update-invoice-status",
                 payload,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
-
             if (response.data.httpStatusCode === 200) {
                 showAlert('Sipariş durumu başarıyla güncellendi!', 'success');
                 getInvoices();
             } else {
                 showAlert(response.data.message || 'Sipariş durumu güncellenirken bir hata oluştu.', 'error');
             }
-
         } catch (e: any) {
             if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
@@ -1387,40 +1337,16 @@ const ListInvoices = () => {
         }
     };
 
-    const handleOpenDownloadAllModal = () => {
-        setOpenDownloadAllModal(true);
-    };
-
-    const handleCloseDownloadAllModal = () => {
-        setOpenDownloadAllModal(false);
-    };
-
-    const handleOpenDownloadFilteredModal = () => {
-        setOpenDownloadFilteredModal(true);
-    };
-
-    const handleCloseDownloadFilteredModal = () => {
-        setOpenDownloadFilteredModal(false);
-    };
-
-    const handleOpenRowDownloadModal = (invoice: InvoiceType) => {
-        setSelectedInvoiceForDownload(invoice);
-        setOpenRowDownloadModal(true);
-        handleCloseMenu();
-    };
-
-    const handleCloseRowDownloadModal = () => {
-        setOpenRowDownloadModal(false);
-        setSelectedInvoiceForDownload(null);
-    };
-
+    const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
+    const handleCloseDownloadAllModal = () => setOpenDownloadAllModal(false);
+    const handleOpenDownloadFilteredModal = () => setOpenDownloadFilteredModal(true);
+    const handleCloseDownloadFilteredModal = () => setOpenDownloadFilteredModal(false);
+    const handleOpenRowDownloadModal = (invoice: InvoiceType) => { setSelectedInvoiceForDownload(invoice); setOpenRowDownloadModal(true); handleCloseMenu(); };
+    const handleCloseRowDownloadModal = () => { setOpenRowDownloadModal(false); setSelectedInvoiceForDownload(null); };
     const handleRowDownload = (format: 'pdf' | 'excel') => {
         if (selectedInvoiceForDownload) {
-            if (format === 'pdf') {
-                exportToPdf(selectedInvoiceForDownload);
-            } else {
-                exportToExcel(selectedInvoiceForDownload);
-            }
+            if (format === 'pdf') exportToPdf(selectedInvoiceForDownload);
+            else exportToExcel(selectedInvoiceForDownload);
         }
         handleCloseRowDownloadModal();
     };
@@ -1454,49 +1380,30 @@ const ListInvoices = () => {
         return isMainFormComplete && hasValidItems;
     }, [driver, docDate, warehouse, invoiceItems, selectedVehicle]);
 
-    const handleClearDateFilters = () => {
-        setStartDate(null);
-        setEndDate(null);
-    };
+    const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
+
     return (
         <Box mt={2}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h6" mb={2}>Fatura Detayları</Typography>
-                <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    spacing={2}
-                    alignItems="stretch"
-                    flexGrow={1}
-                    justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
-                >
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="stretch" flexGrow={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
                     {!isFormVisible && hasCreatePermission && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Fatura Belgesi kaydetmek için tıklayınız" : ""}>
-                            <BlinkingButton
-                                variant="contained"
-                                color="primary"
-                                onClick={() => setIsFormVisible(true)}
-                                isBlinking={isBlinking}
-                                fullWidth={false}
-                            >
+                            <BlinkingButton variant="contained" color="primary" onClick={() => setIsFormVisible(true)} isBlinking={isBlinking} fullWidth={false}>
                                 Yeni Fatura Kaydet
                             </BlinkingButton>
                         </CustomTooltip>
                     )}
                     {isFormVisible && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
-                            <Button
-                                variant="contained"
-                                color="error"
-                                onClick={resetForm}
-                                fullWidth={false}
-                                startIcon={<IconX size={20} />}
-                            >
+                            <Button variant="contained" color="error" onClick={resetForm} fullWidth={false} startIcon={<IconX size={20} />}>
                                 Gizle
                             </Button>
                         </CustomTooltip>
                     )}
                 </Stack>
             </Stack>
+
             {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                 <>
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
@@ -1505,7 +1412,8 @@ const ListInvoices = () => {
                                 <CustomFormLabel htmlFor="driver-autocomplete" required>Sürücü</CustomFormLabel>
                                 <Stack direction="row" alignItems="center" spacing={2}>
                                     <Autocomplete<DriverType>
-                                        id="driver-autocomplete" options={drivers}
+                                        id="driver-autocomplete"
+                                        options={drivers}
                                         getOptionLabel={(option) => `${option.name} ${option.family}`}
                                         value={drivers.find(d => d.id === driver) || null}
                                         onChange={(_event, newValue) => {
@@ -1514,23 +1422,18 @@ const ListInvoices = () => {
                                             setSelectedVehicle(null);
                                             setSelectedVehicleName(null);
                                             setVehiclesList([]);
-                                            if (newDriverId) {
-                                                fetchVehicles(newDriverId);
-                                            }
+                                            if (newDriverId) { fetchVehicles(newDriverId); }
                                         }}
                                         renderInput={(params) => <TextField {...params} label="Sürücü Seçin" variant="outlined" size="small" />}
                                         sx={{ flexGrow: 1 }}
                                     />
                                     {selectedVehicleName && (vehiclesList.length > 1) && (
-                                        <IconButton onClick={handleOpenVehicleModal} size="small">
-                                            <IconPencil size={20} />
-                                        </IconButton>
+                                        <IconButton onClick={handleOpenVehicleModal} size="small"><IconPencil size={20} /></IconButton>
                                     )}
                                 </Stack>
-                                {selectedVehicleName && (
-                                    <Chip sx={{ mt: 2 }} label={selectedVehicleName} color="primary" variant="outlined" />
-                                )}
+                                {selectedVehicleName && (<Chip sx={{ mt: 2 }} label={selectedVehicleName} color="primary" variant="outlined" />)}
                             </Grid>
+
                             <Grid item xs={12} md={4}>
                                 <CustomFormLabel htmlFor="warehouse-autocomplete" required>Depo</CustomFormLabel>
                                 <Autocomplete<WarehouseType>
@@ -1542,17 +1445,23 @@ const ListInvoices = () => {
                                     renderInput={(params) => <TextField {...params} label="Depo Seçin" variant="outlined" size="small" />}
                                 />
                             </Grid>
+
                             <Grid item xs={12} md={4}>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                     <CustomFormLabel htmlFor="doc-date" required>Tarihi</CustomFormLabel>
                                     <DatePicker
-                                        value={docDate} onChange={(newValue) => setDocDate(newValue)}
+                                        value={docDate}
+                                        onChange={(newValue) => setDocDate(newValue)}
                                         inputFormat="dd/MM/yyyy"
-                                        renderInput={(params) => <TextField {...params} size="small" sx={{ width: "100%" }} />}
+                                        renderInput={(params) => (
+                                            <TextField {...params} size="small" sx={{ width: '100%' }} />
+                                        )}
                                     />
                                 </LocalizationProvider>
+
                             </Grid>
                         </Grid>
+
                         <InvoiceItemsTable
                             items={invoiceItems}
                             itemsList={itemsList}
@@ -1560,8 +1469,17 @@ const ListInvoices = () => {
                             onRemoveItem={handleRemoveInvoiceItem}
                             onUpdateItem={handleUpdateInvoiceItem}
                             providersList={providers}
-                            warehouseId={warehouse}
+                            // NEW:
+                            // refreshSignal={ordersRefreshTick}
+                            onOrderSelect={(order) => {
+                                setSelectedOrderIdFromChild(order ? Number(order.id) : null);     // 👈 حتماً این
+                                setSelectedOrderNoFromChild(order ? String(order.id) : null);     // 👈 اگر می‌خوای تو مودال نشان بدهی
+                                // اگر تاریخ هم لازم داری، یک state هم برای تاریخ بساز:
+                                // setSelectedOrderDateFromChild(order ? order.docDate : null);
+                            }}
                         />
+
+
                         <Box mt={3} textAlign="right">
                             {editingId ? (
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -1571,18 +1489,13 @@ const ListInvoices = () => {
                             ) : (
                                 <>
                                     {hasCreatePermission && (
-                                        <CustomTooltip
-                                            title={isTooltipGloballyEnabled && hasUnsavedChanges ? "tüm değişiklikleri kaydetmek için buraya tıklayın" : ""}
-                                            placement="right"
-                                        >
+                                        <CustomTooltip title={isTooltipGloballyEnabled && hasUnsavedChanges ? "tüm değişiklikleri kaydetmek için buraya tıklayın" : ""} placement="right">
                                             <Button
                                                 variant="contained"
                                                 color="primary"
                                                 onClick={handleSaveInvoice}
                                                 disabled={!isFormComplete}
-                                                sx={{
-                                                    animation: isFormComplete ? `${blinkAnimation} 1.5s infinite` : 'none',
-                                                }}
+                                                sx={{ animation: isFormComplete ? `${blinkAnimation} 1.5s infinite` : 'none' }}
                                             >
                                                 Faturayı Kaydet
                                             </Button>
@@ -1594,6 +1507,7 @@ const ListInvoices = () => {
                     </Paper>
                 </>
             )}
+
             {alertMessage && (
                 <Stack sx={{ width: '100%', mb: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
@@ -1619,19 +1533,14 @@ const ListInvoices = () => {
                         )}
                         {hasDownloadPermission && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Tümünü Fatura indirin" : ""}>
-                                <Button
-                                    variant="contained"
-                                    color="primary"
-                                    onClick={handleOpenDownloadAllModal}
-                                    startIcon={<IconFileDownload />}
-                                    disabled={loadingData}
-                                >
+                                <Button variant="contained" color="primary" onClick={handleOpenDownloadAllModal} startIcon={<IconFileDownload />} disabled={loadingData}>
                                     Tümünü İndir
                                 </Button>
                             </CustomTooltip>
                         )}
                     </Stack>
                 </Grid>
+
                 <Box sx={{ p: 2 }}>
                     <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
                     <Grid container spacing={2} alignItems="center">
@@ -1648,27 +1557,32 @@ const ListInvoices = () => {
                                     <DatePicker
                                         label="Başlangıç Tarihi"
                                         value={startDate}
-                                        inputFormat="dd/MM/yyyy"
                                         onChange={(newValue) => setStartDate(newValue)}
-                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => (
+                                            <TextField {...params} size="small" fullWidth />
+                                        )}
                                     />
+
                                     <DatePicker
                                         label="Bitiş Tarihi"
                                         value={endDate}
-                                        inputFormat="dd/MM/yyyy"
                                         onChange={(newValue) => setEndDate(newValue)}
-                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => (
+                                            <TextField {...params} size="small" fullWidth />
+                                        )}
                                     />
                                     <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
                                         <IconX size={20} />
                                     </IconButton>
                                 </Stack>
                             </LocalizationProvider>
+
                         </Grid>
+
                         <Grid item xs={12} sm={6} md={5}>
-                            <ToggleButtonGroup
-                                value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth
-                            >
+                            <ToggleButtonGroup value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Status filter" fullWidth>
                                 <StyledToggleButton value="all" aria-label="all invoices">Tümü</StyledToggleButton>
                                 <StyledToggleButton value="pending" aria-label="pending invoices">Beklemede</StyledToggleButton>
                                 <StyledToggleButton value="approved" aria-label="approved invoices">Onaylandı</StyledToggleButton>
@@ -1677,6 +1591,7 @@ const ListInvoices = () => {
                         </Grid>
                     </Grid>
                 </Box>
+
                 <TableContainer component={Paper}>
                     <Table aria-label="invoice table">
                         <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
@@ -1691,17 +1606,13 @@ const ListInvoices = () => {
                                         <Typography variant="h6">Sürücü</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
-                                <StyledTableCell>
-                                    <Typography variant="h6">Depo</Typography>
-                                </StyledTableCell>
+                                <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
                                         <Typography variant="h6">Tarihi</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
-                                <StyledTableCell>
-                                    <Typography variant="h6">Kayıt Tipi</Typography>
-                                </StyledTableCell>
+                                <StyledTableCell><Typography variant="h6">Kayıt Tipi</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
                                         <Typography variant="h6">Durum</Typography>
@@ -1713,27 +1624,15 @@ const ListInvoices = () => {
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
-                                <TableRow>
-                                    <StyledTableCell colSpan={8} align="center">
-                                        <CircularProgress />
-                                    </StyledTableCell>
-                                </TableRow>
+                                <TableRow><StyledTableCell colSpan={8} align="center"><CircularProgress /></StyledTableCell></TableRow>
                             ) : (
                                 paginatedInvoices.length > 0 ? (
                                     paginatedInvoices.map((row) => (
                                         <TableRow key={row.id}>
-                                            <StyledTableCell>
-                                                <Typography variant="body1">{row.invoiceNo || '-'}</Typography>
-                                            </StyledTableCell>
-                                            <StyledTableCell>
-                                                <Typography variant="body1">{row.driver?.name || ''} {row.driver?.family || ''}</Typography>
-                                            </StyledTableCell>
-                                            <StyledTableCell>
-                                                <Typography variant="body1">{row.warehouse?.name || '-'}</Typography>
-                                            </StyledTableCell>
-                                            <StyledTableCell>
-                                                <Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography>
-                                            </StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.invoiceNo || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.driver?.name || ''} {row.driver?.family || ''}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell>
                                                 <Chip
                                                     label={row.invoiceDetails.some(detail => detail.orderDetail) ? "Siparişli" : "Siparişsiz"}
@@ -1748,34 +1647,18 @@ const ListInvoices = () => {
                                                 />
                                                 {row.invoiceHeaderStatusHistories && row.invoiceHeaderStatusHistories.length > 0 && (
                                                     <CustomTooltip title="Durum geçmişini gör" placement="right">
-                                                        <IconButton size="small" onClick={() => handleOpenStatusHistoryModal(row)}>
-                                                            <IconInfoCircle size={18} />
-                                                        </IconButton>
+                                                        <IconButton size="small" onClick={() => handleOpenStatusHistoryModal(row)}><IconInfoCircle size={18} /></IconButton>
                                                     </CustomTooltip>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>
-                                                <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>
-                                                    Görünüm
-                                                </Button>
+                                                <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>Görünüm</Button>
                                             </StyledTableCell>
                                             <StyledTableCell align="right">
-                                                <IconButton
-                                                    id={`basic-button-${row.id}`}
-                                                    aria-controls={Boolean(anchorEl) ? 'basic-menu' : undefined}
-                                                    aria-haspopup="true"
-                                                    aria-expanded={Boolean(anchorEl) ? 'true' : undefined}
-                                                    onClick={(event) => handleClickMenu(event, row)}
-                                                >
+                                                <IconButton id={`basic-button-${row.id}`} aria-controls={Boolean(anchorEl) ? 'basic-menu' : undefined} aria-haspopup="true" aria-expanded={Boolean(anchorEl) ? 'true' : undefined} onClick={(event) => handleClickMenu(event, row)}>
                                                     <IconDots size={20} />
                                                 </IconButton>
-                                                <Menu
-                                                    id="basic-menu"
-                                                    anchorEl={anchorEl}
-                                                    open={Boolean(anchorEl) && selectedInvoiceForMenu?.id === row.id}
-                                                    onClose={handleCloseMenu}
-                                                    MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
-                                                >
+                                                <Menu id="basic-menu" anchorEl={anchorEl} open={Boolean(anchorEl) && selectedInvoiceForMenu?.id === row.id} onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}>
                                                     {hasStatusPermission && selectedInvoiceForMenu?.status === 0 && (
                                                         <>
                                                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı onaylayın" : ""}>
@@ -1830,21 +1713,17 @@ const ListInvoices = () => {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow>
-                                        <StyledTableCell colSpan={8} align="center">
-                                            <Typography variant="subtitle1" color="textSecondary">Hiç fatura bulunamadı.</Typography>
-                                        </StyledTableCell>
-                                    </TableRow>
+                                    <TableRow><StyledTableCell colSpan={8} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç fatura bulunamadı.</Typography></StyledTableCell></TableRow>
                                 )
                             )}
                         </TableBody>
                     </Table>
                 </TableContainer>
-                <TablePagination
-                    rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredInvoices.length}
-                    rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
-                />
+
+                <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={sortedAndFilteredInvoices.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} />
             </BlankCard>
+
+            {/* Details Modal */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fatura Detayları</DialogTitle>
                 <DialogContent dividers>
@@ -1870,14 +1749,8 @@ const ListInvoices = () => {
                                             <StyledTableCell><Typography variant="body1">{detail.provider?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell>
                                                 {detail.provider?.firm !== undefined ? (
-                                                    <Chip
-                                                        label={detail.provider.firm ? "Şirket İçi" : "Şirket Dışı"}
-                                                        color={detail.provider.firm ? "primary" : "secondary"}
-                                                        size="small"
-                                                    />
-                                                ) : (
-                                                    <Typography variant="body1">-</Typography>
-                                                )}
+                                                    <Chip label={detail.provider.firm ? "Şirket İçi" : "Şirket Dışı"} color={detail.provider.firm ? "primary" : "secondary"} size="small" />
+                                                ) : (<Typography variant="body1">-</Typography>)}
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{detail.quantity || '-'}</Typography></StyledTableCell>
@@ -1889,13 +1762,7 @@ const ListInvoices = () => {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow>
-                                        <StyledTableCell colSpan={9} align="center">
-                                            <Typography variant="subtitle1" color="textSecondary">
-                                                Hiç detay bulunamadı.
-                                            </Typography>
-                                        </StyledTableCell>
-                                    </TableRow>
+                                    <TableRow><StyledTableCell colSpan={9} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç detay bulunamadı.</Typography></StyledTableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -1904,74 +1771,45 @@ const ListInvoices = () => {
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
             </Dialog>
 
+            {/* Vehicle selection */}
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Araç Seçimi</DialogTitle>
                 <DialogContent>
-                    <RadioGroup
-                        aria-label="vehicle-selection"
-                        name="vehicle-selection"
-                        value={tempSelectedVehicle}
-                        onChange={(event) => setTempSelectedVehicle(Number(event.target.value))}
-                    >
+                    <RadioGroup aria-label="vehicle-selection" name="vehicle-selection" value={tempSelectedVehicle} onChange={(event) => setTempSelectedVehicle(Number(event.target.value))}>
                         <Box sx={{ mt: 2 }}>
                             {vehiclesList.map((vehicle) => (
-                                <FormControlLabel
-                                    key={vehicle.id}
-                                    value={vehicle.id}
-                                    control={<Radio />}
-                                    label={`${vehicle.name} (${vehicle.plaque})`}
-                                />
+                                <FormControlLabel key={vehicle.id} value={vehicle.id} control={<Radio />} label={`${vehicle.name} (${vehicle.plaque})`} />
                             ))}
                         </Box>
                     </RadioGroup>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpenVehicleModal(false)} color="secondary">
-                        İptal
-                    </Button>
-                    <Button onClick={handleSelectVehicle} variant="contained" disabled={tempSelectedVehicle === null}>
-                        Seç
-                    </Button>
+                    <Button onClick={() => setOpenVehicleModal(false)} color="secondary">İptal</Button>
+                    <Button onClick={handleSelectVehicle} variant="contained" disabled={tempSelectedVehicle === null}>Seç</Button>
                 </DialogActions>
             </Dialog>
 
+            {/* Status change */}
             <Dialog open={openStatusModal} onClose={handleCloseStatusModal} maxWidth="sm" fullWidth>
-                <DialogTitle>
-                    {statusToUpdate === 1 ? 'Onaylama Açıklaması' : 'Reddetme Açıklaması'}
-                </DialogTitle>
+                <DialogTitle>{statusToUpdate === 1 ? 'Onaylama Açıklaması' : 'Reddetme Açıklaması'}</DialogTitle>
                 <DialogContent>
                     <TextField
-                        autoFocus
-                        margin="dense"
-                        label="Açıklama"
-                        type="text"
-                        fullWidth
-                        multiline
-                        rows={4}
-                        variant="outlined"
+                        autoFocus margin="dense" label="Açıklama" type="text" fullWidth multiline rows={4} variant="outlined"
                         value={description}
-                        onChange={(e) => {
-                            setDescription(e.target.value);
-                            if (statusError) setStatusError(false);
-                        }}
+                        onChange={(e) => { setDescription(e.target.value); if (statusError) setStatusError(false); }}
                         error={statusError}
                         helperText={statusError && 'Bu alan zorunludur.'}
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseStatusModal} color="secondary">
-                        İptal
-                    </Button>
-                    <Button onClick={handleUpdateStatus} color="primary">
-                        Kaydet
-                    </Button>
+                    <Button onClick={handleCloseStatusModal} color="secondary">İptal</Button>
+                    <Button onClick={handleUpdateStatus} color="primary">Kaydet</Button>
                 </DialogActions>
             </Dialog>
 
+            {/* Status history */}
             <Dialog open={openStatusHistoryModal} onClose={handleCloseStatusHistoryModal} maxWidth="md" fullWidth>
-                <DialogTitle>
-                    <Typography variant="h5">Durum Geçmişi</Typography>
-                </DialogTitle>
+                <DialogTitle><Typography variant="h5">Durum Geçmişi</Typography></DialogTitle>
                 <DialogContent dividers>
                     <TableContainer component={Paper}>
                         <Table size="small" aria-label="Durum geçmişi tablosu">
@@ -1986,7 +1824,7 @@ const ListInvoices = () => {
                                 {statusHistoryData.length > 0 ? (
                                     statusHistoryData
                                         .sort((a, b) => new Date(b.createAt).getTime() - new Date(a.createAt).getTime())
-                                        .map((historyItem, index) => (
+                                        .map((historyItem: any, index: number) => (
                                             <TableRow key={historyItem.id || index}>
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(historyItem.createAt)}</Typography></StyledTableCell>
                                                 <StyledTableCell>
@@ -2000,21 +1838,13 @@ const ListInvoices = () => {
                                             </TableRow>
                                         ))
                                 ) : (
-                                    <TableRow>
-                                        <StyledTableCell colSpan={3} align="center">
-                                            <Typography variant="subtitle1" color="textSecondary">
-                                                Durum geçmişi bulunamadı.
-                                            </Typography>
-                                        </StyledTableCell>
-                                    </TableRow>
+                                    <TableRow><StyledTableCell colSpan={3} align="center"><Typography variant="subtitle1" color="textSecondary">Durum geçmişi bulunamadı.</Typography></StyledTableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
                     </TableContainer>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseStatusHistoryModal}>Kapat</Button>
-                </DialogActions>
+                <DialogActions><Button onClick={handleCloseStatusHistoryModal}>Kapat</Button></DialogActions>
             </Dialog>
 
             <DeleteInvoiceModal
@@ -2023,104 +1853,62 @@ const ListInvoices = () => {
                 onDeleteSuccess={getInvoices} showAlert={showAlert}
             />
 
+            {/* Download all */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
                 <DialogTitle>Tüm Faturaları İndir</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => {
-                                exportAllDetailedPdf(false);
-                                handleCloseDownloadAllModal();
-                            }}
-                            startIcon={<IconFile />}
-                        >
-                            PDF Olarak İndir
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="success"
-                            onClick={() => {
-                                exportAllExcel(false);
-                                handleCloseDownloadAllModal();
-                            }}
-                            startIcon={<IconFileSpreadsheet />}
-                        >
-                            Excel Olarak İndir
-                        </Button>
+                        <Button variant="contained" color="primary" onClick={() => { exportAllDetailedPdf(false); handleCloseDownloadAllModal(); }} startIcon={<IconFile />}>PDF Olarak İndir</Button>
+                        <Button variant="contained" color="success" onClick={() => { exportAllExcel(false); handleCloseDownloadAllModal(); }} startIcon={<IconFileSpreadsheet />}>Excel Olarak İndir</Button>
                     </Stack>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDownloadAllModal} color="secondary">
-                        Kapat
-                    </Button>
-                </DialogActions>
+                <DialogActions><Button onClick={handleCloseDownloadAllModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
+            {/* Download filtered */}
             <Dialog open={openDownloadFilteredModal} onClose={handleCloseDownloadFilteredModal} maxWidth="xs">
                 <DialogTitle>Filtrelenmiş Faturaları İndir</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => {
-                                exportAllDetailedPdf(true);
-                                handleCloseDownloadFilteredModal();
-                            }}
-                            startIcon={<IconFile />}
-                        >
-                            PDF Olarak İndir
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="success"
-                            onClick={() => {
-                                exportAllExcel(true);
-                                handleCloseDownloadFilteredModal();
-                            }}
-                            startIcon={<IconFileSpreadsheet />}
-                        >
-                            Excel Olarak İndir
-                        </Button>
+                        <Button variant="contained" color="primary" onClick={() => { exportAllDetailedPdf(true); handleCloseDownloadFilteredModal(); }} startIcon={<IconFile />}>PDF Olarak İndir</Button>
+                        <Button variant="contained" color="success" onClick={() => { exportAllExcel(true); handleCloseDownloadFilteredModal(); }} startIcon={<IconFileSpreadsheet />}>Excel Olarak İndir</Button>
                     </Stack>
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDownloadFilteredModal} color="secondary">
-                        Kapat
-                    </Button>
-                </DialogActions>
+                <DialogActions><Button onClick={handleCloseDownloadFilteredModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
+            {/* Download row */}
             <Dialog open={openRowDownloadModal} onClose={handleCloseRowDownloadModal} maxWidth="xs">
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => handleRowDownload('pdf')}
-                            startIcon={<IconFile />}
-                        >
-                            PDF Olarak İndir
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="success"
-                            onClick={() => handleRowDownload('excel')}
-                            startIcon={<IconFileSpreadsheet />}
-                        >
-                            Excel Olarak İndir
-                        </Button>
+                        <Button variant="contained" color="primary" onClick={() => handleRowDownload('pdf')} startIcon={<IconFile />}>PDF Olarak İndir</Button>
+                        <Button variant="contained" color="success" onClick={() => handleRowDownload('excel')} startIcon={<IconFileSpreadsheet />}>Excel Olarak İndir</Button>
                     </Stack>
                 </DialogContent>
+                <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
+            </Dialog>
+
+            {/* ************* NEW: Sipariş Durumu Onayı Modal ************* */}
+            <Dialog open={openIsEndModal} onClose={() => setOpenIsEndModal(false)}>
+                <DialogTitle>Sipariş Durumu Onayı</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Fişi kaydettikten sonra, bu <b>sipariş</b>in Fişini Sonlandırmak
+                        (Sipariş No: {selectedOrderNoFromChild || 'N/A'}) ister misiniz?
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                        (Bu, bu siparişe ait başka bir fiş belgesi oluşturulamayacağı anlamına gelir.)
+                    </Typography>
+                </DialogContent>
                 <DialogActions>
-                    <Button onClick={handleCloseRowDownloadModal} color="secondary">
-                        Kapat
+                    <Button onClick={() => handleFinalSaveReceipt(false)} color="error">Hayır (Sadece Fişi Kaydet)</Button>
+                    <Button onClick={() => handleFinalSaveReceipt(true)} color="primary" variant="contained" autoFocus>
+                        Evet (Kaydet ve Fişi Sonlandır)
                     </Button>
                 </DialogActions>
             </Dialog>
+            {/* *********************************************************** */}
         </Box>
     );
 };

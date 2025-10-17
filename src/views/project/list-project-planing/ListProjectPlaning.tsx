@@ -332,7 +332,7 @@ const ListProjectPlanning = () => {
                 const dataArray = Array.isArray(rawData) ? rawData : [rawData];
                 const formattedData = dataArray.map((item: any) => ({
                     ...item,
-                    project: item.project || { title: 'نامشخص' },
+                    project: item.project || { title: '' },
                     status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
                 }));
                 setPlanningsList(formattedData as PlanningType[]);

@@ -547,7 +547,7 @@ const ListStoreDispatchReturnToCenter = () => {
         if (!authToken) { navigate("/"); return; }
 
         const payload: NewDispatchData = {
-            destruction: true, // Always true as requested
+            destruction: true,
             docDate: docDate?.toISOString() || new Date().toISOString(),
             storeId: Number(storeId),
             driverId: Number(selectedDriverId),
@@ -559,7 +559,7 @@ const ListStoreDispatchReturnToCenter = () => {
                 description: d.description || ''
             }))
         };
-
+        debugger
         try {
             const response = await axios.post(server.baseurl + server.warehouse + "create-store-dispatch-return-to-center", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 201) {

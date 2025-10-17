@@ -1,10 +1,11 @@
+
 // // src/views/Warehouse/ReceiptItemsTable.tsx
 // import React, { useState, useEffect, useCallback } from 'react';
 // import {
 //     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
-//     TextField, Box, Typography, Autocomplete, Chip, Stack
+//     TextField, Box, Typography, Autocomplete, Chip, Stack, Button, Dialog, DialogTitle, DialogContent, DialogActions
 // } from '@mui/material';
-// import { IconTrash, IconEdit, IconReload, IconCheck, IconX } from '@tabler/icons-react';
+// import { IconTrash, IconEdit, IconReload, IconCheck, IconX, IconEyeOff } from '@tabler/icons-react';
 // import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 // import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 // import axios from 'axios';
@@ -14,7 +15,7 @@
 // import {
 //     InvoiceType,
 //     ProcessedReceiptItem,
-//     ReceiptItemsTableProps,
+//     ReceiptItemsTableProps, // فرض می‌کنیم شامل endedInvoiceReceiptMap: Record<number, number> است
 // } from './types';
 // import { useNavigate } from 'react-router';
 
@@ -30,39 +31,130 @@
 //     onItemsUpdate,
 //     onItemDelete,
 //     onRestoreItem,
-//     showAlert
+//     showAlert,
+//     onInvoiceSelect,
+//     endedInvoiceIds,
+//     getReceipts,
+//     endedInvoiceReceiptMap,
+//     isInvoiceComboDisabled,
 // }) => {
 //     const navigate = useNavigate();
 //     const [invoicesList, setInvoicesList] = useState<InvoiceType[]>([]);
+//     const [allInvoices, setAllInvoices] = useState<InvoiceType[]>([]);
+//     const [inactiveInvoices, setInactiveInvoices] = useState<InvoiceType[]>([]);
 //     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceType | null>(null);
 //     const [editingItem, setEditingItem] = useState<ProcessedReceiptItem | null>(null);
+//     const [openInactiveModal, setOpenInactiveModal] = useState(false);
 //     const { isTooltipGloballyEnabled } = useTooltip();
 
-//     const getInvoices = useCallback(async () => {
+//     const formatDateDisplay = (dateString: string | null): string => {
+//         if (!dateString) return "N/A";
+//         try {
+//             const date = new Date(dateString);
+//             return format(date, 'dd MMMM yyyy', { locale: tr });
+//         } catch (e) {
+//             return "Geçersiz Tarih";
+//         }
+//     };
 
+//     /**
+//      * فعال‌سازی مجدد فاکتور با ارسال ID رسید مرتبط (همانطور که درخواست شده است).
+//      */
+//     const handleReactivateInvoice = async (invoice: InvoiceType) => {
+//         const authToken = localStorage.getItem('authToken');
+//         if (!authToken) { navigate("/"); return; }
+
+//         // 👈 استخراج ID رسید از Map ارسالی از والد
+//         const receiptIdToUpdate = endedInvoiceReceiptMap[Number(invoice.id)];
+
+//         if (!receiptIdToUpdate) {
+//             showAlert('Hata: İlgili sonlandırılmış fiş ID bulunamadı.', 'error');
+//             return;
+//         }
+
+//         showAlert(`Fatura ${invoice.invoiceNo} tekrar listeye ekleniyor...`, 'info');
+//         debugger
+//         try {
+//             // ارسال receiptId و isEnd: false
+//             const updateData = { id: Number(receiptIdToUpdate), isEnd: false }; // 👈 ارسال ID رسید
+//             const url = server.baseurl + server.warehouse + "update-receipt-is-end";
+
+//             const response = await axios.put(url, updateData, { headers: { "Authorization": `Bearer ${authToken}` } });
+
+//             if (response.data.httpStatusCode === 200) {
+//                 showAlert(`Fatura No: ${invoice.invoiceNo} başarıyla aktifleştirildi.`, 'success');
+
+//                 // 1. بستن مودال
+//                 setOpenInactiveModal(false);
+
+//                 // 2. رفرش لیست اصلی رسیدها (برای به‌روزرسانی endedInvoiceReceiptMap در والد)
+//                 getReceipts();
+
+//                 // 3. رفرش لیست فاکتورهای داخل همین کامپوننت
+//                 getInvoices();
+
+//             } else {
+//                 showAlert(response.data.message || 'Fiş durumu güncellenirken bir hata oluştu.', 'error');
+//             }
+//         } catch (e: any) {
+//             showAlert('Fatura durumu güncellenirken bir hata oluştu.', 'error');
+//         }
+//     };
+
+
+//     const getInvoices = useCallback(async () => {
 //         const authToken = localStorage.getItem('authToken');
 //         if (!authToken) { navigate("/"); return; }
 //         try {
-//             const response = await axios.get(server.baseurl + server.initialoperations + "get-invoices", { headers: { "Authorization": `Bearer ${authToken}` } });
+//             const response = await axios.get(server.baseurl + server.initialoperations + "get-invoices",
+//                 { headers: { "Authorization": `Bearer ${authToken}` } });
+
 //             if (response.data.httpStatusCode === 200) {
-//                 const approvedInvoices = response.data.data.filter((invoice: InvoiceType) => invoice.status === 1);
-//                 setInvoicesList(approvedInvoices);
+//                 const fetchedInvoices = response.data.data as InvoiceType[];
+//                 setAllInvoices(fetchedInvoices);
+
 //             } else {
 //                 showAlert(response.data.message || 'Faturalar yüklenirken bir hata oluştu.', 'error');
 //             }
 //         } catch (e: any) {
-//             showAlert('Faturalar yüklenirken bir hata oluştu.', 'error');
+//             if (e.response?.status === 401) {
+//                 localStorage.removeItem('authToken');
+//                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+//                 navigate("/");
+//             } else {
+//                 showAlert('Faturalar yüklenirken bir hata oluştu.', 'error');
+//             }
 //         }
-//     }, [showAlert]);
+//     }, [showAlert, navigate]);
+
+//     // فیلتر کردن فاکتورها بر اساس لیست endedInvoiceIds دریافتی از والد
+//     useEffect(() => {
+//         const activeInvoices = allInvoices.filter((invoice: InvoiceType) => {
+//             const invoiceId = Number(invoice.id);
+//             const isEnded = endedInvoiceIds.includes(invoiceId);
+
+//             return invoice.status === 1 && !isEnded;
+//         });
+
+//         const endedInvoices = allInvoices.filter((invoice: InvoiceType) => {
+//             const invoiceId = Number(invoice.id);
+//             const isEnded = endedInvoiceIds.includes(invoiceId);
+
+//             return invoice.status === 1 && isEnded;
+//         });
+
+//         setInvoicesList(activeInvoices);
+//         setInactiveInvoices(endedInvoices);
+//     }, [allInvoices, endedInvoiceIds]);
 
 //     useEffect(() => {
 //         getInvoices();
 //     }, [getInvoices]);
 
 
-
 //     const handleInvoiceChange = (_event: any, newValue: InvoiceType | null) => {
 //         setSelectedInvoice(newValue);
+//         onInvoiceSelect(newValue);
 
 //         if (newValue) {
 //             const newItems: ProcessedReceiptItem[] = newValue.invoiceDetails.map(detail => ({
@@ -71,10 +163,9 @@
 //                 itemName: detail.item.name,
 //                 invoiceNo: newValue.invoiceNo,
 //                 unit: detail.item.unit,
-//                 quantity: Number(detail.quantity), // تبدیل رشته به عدد
+//                 quantity: Number(detail.quantity),
 //                 description: detail.description,
-//                 invoiceDetailId: Number(detail.id), // تبدیل رشته به عدد
-//                 // اطمینان از اینکه providerId همیشه یک عدد است
+//                 invoiceDetailId: Number(detail.id),
 //                 providerId: detail.provider ? detail.provider.id : 0,
 //                 providerName: detail.provider?.name || 'N/A',
 //                 firm: detail.firm ?? false,
@@ -91,6 +182,11 @@
 //     };
 
 //     const handleUpdateChange = (id: number, field: 'quantity' | 'description', value: any) => {
+//         if (field === 'quantity') {
+//             const numValue = Number(value);
+//             if (isNaN(numValue) || numValue < 0) return;
+//         }
+
 //         const updatedItems = items.map(item => {
 //             if (item.id === id) {
 //                 return {
@@ -126,6 +222,19 @@
 
 //     return (
 //         <Paper elevation={3} sx={{ p: 2 }}>
+//             <Box display="flex" justifyContent="flex-end" mb={1}>
+//                 <CustomTooltip title={isTooltipGloballyEnabled ? "Sonlandırılmış (Fişi kesilmiş) faturaları göster" : ""}>
+//                     <Button
+//                         variant="outlined"
+//                         color="secondary"
+//                         onClick={() => setOpenInactiveModal(true)}
+//                         disabled={inactiveInvoices.length === 0}
+//                         startIcon={<IconEyeOff size={20} />}
+//                     >
+//                         Sonlandırılmış Faturalar ({inactiveInvoices.length})
+//                     </Button>
+//                 </CustomTooltip>
+//             </Box>
 //             <Box mb={2}>
 //                 <CustomFormLabel htmlFor="invoice-autocomplete" required>Fatura Seçin</CustomFormLabel>
 //                 <Autocomplete<InvoiceType>
@@ -134,8 +243,14 @@
 //                     getOptionLabel={(option) => `${option.invoiceNo} (${format(new Date(option.docDate), 'dd MMMM yyyy', { locale: tr })})`}
 //                     value={selectedInvoice}
 //                     onChange={handleInvoiceChange}
+//                     isOptionEqualToValue={(option, value) => option.id === value.id}
+//                     disabled={isInvoiceComboDisabled}
 //                     renderInput={(params) => <TextField {...params}
-//                         label="Fatura" variant="outlined" size="small" />
+//                         label="Fatura"
+//                         variant="outlined"
+//                         size="small"
+//                         helperText={isInvoiceComboDisabled ? "Fatura, sonlandırılmış bir fişe bağlıdır ve değiştirilemez." : ""}
+//                     />
 //                     }
 //                     renderOption={(props, option) => (
 //                         <Box component="li" {...props}>
@@ -178,7 +293,6 @@
 //                             <TableCell>Miktar</TableCell>
 //                             <TableCell>Birim</TableCell>
 //                             <TableCell>Açıklama</TableCell>
-//                             {/* <TableCell>Sipariş Detayı</TableCell>  */}
 //                             <TableCell align="right">İşlemler</TableCell>
 //                         </TableRow>
 //                     </TableHead>
@@ -218,16 +332,6 @@
 //                                             <Typography>{stripHtml(item.description)}</Typography>
 //                                         )}
 //                                     </TableCell>
-//                                     {/* <TableCell>
-//                                         {item.orderDetail ? (
-//                                             <Typography variant="body2">
-//                                                 <strong>{item.orderDetail.id}</strong><br />
-//                                                 ({formatDateDisplay(item.orderDetail.createAt)})
-//                                             </Typography>
-//                                         ) : (
-//                                             '-'
-//                                         )}
-//                                     </TableCell> */}
 //                                     <TableCell align="right">
 //                                         {editingItem?.id === item.id ? (
 //                                             <Stack direction="row" spacing={1} justifyContent="flex-end">
@@ -261,19 +365,68 @@
 //                             ))
 //                         ) : (
 //                             <TableRow>
-//                                 <TableCell colSpan={9} align="center">
-//                                     <Typography variant="subtitle1" color="textSecondary">Hiç ürün eklenmedi.</Typography>
+//                                 <TableCell colSpan={8} align="center">
+//                                     <Typography variant="subtitle1" color="textSecondary">Lütfen bir fatura seçerek ürün ekleyin.</Typography>
 //                                 </TableCell>
 //                             </TableRow>
 //                         )}
 //                     </TableBody>
 //                 </Table>
 //             </TableContainer>
+//             {/* Modal نمایش فاکتورهای غیرفعال */}
+//             <Dialog open={openInactiveModal} onClose={() => setOpenInactiveModal(false)} maxWidth="md" fullWidth>
+//                 <DialogTitle>Sonlandırılmış Faturalar (Fişi Kesilmiş)</DialogTitle>
+//                 <DialogContent dividers>
+//                     <TableContainer component={Paper}>
+//                         <Table size="small">
+//                             <TableHead>
+//                                 <TableRow>
+//                                     <TableCell><Typography variant="h6">Fatura No</Typography></TableCell>
+//                                     <TableCell><Typography variant="h6">Tarih</Typography></TableCell>
+//                                     <TableCell align="right"><Typography variant="h6">İşlem</Typography></TableCell>
+//                                 </TableRow>
+//                             </TableHead>
+//                             <TableBody>
+//                                 {inactiveInvoices.length > 0 ? (
+//                                     inactiveInvoices.map((invoice) => (
+//                                         <TableRow key={invoice.id}>
+//                                             <TableCell>{invoice.invoiceNo}</TableCell>
+//                                             <TableCell>{formatDateDisplay(invoice.docDate)}</TableCell>
+//                                             <TableCell align="right">
+//                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Faturayı aktif listeye geri alın" : ""}>
+//                                                     <Button
+//                                                         variant="outlined"
+//                                                         size="small"
+//                                                         color="warning"
+//                                                         onClick={() => handleReactivateInvoice(invoice)}
+//                                                     >
+//                                                         Geri Al
+//                                                     </Button>
+//                                                 </CustomTooltip>
+//                                             </TableCell>
+//                                         </TableRow>
+//                                     ))
+//                                 ) : (
+//                                     <TableRow>
+//                                         <TableCell colSpan={4} align="center">
+//                                             <Typography variant="subtitle1" color="textSecondary">Sonlandırılmış fatura bulunamadı.</Typography>
+//                                         </TableCell>
+//                                     </TableRow>
+//                                 )}
+//                             </TableBody>
+//                         </Table>
+//                     </TableContainer>
+//                 </DialogContent>
+//                 <DialogActions>
+//                     <Button onClick={() => setOpenInactiveModal(false)}>Kapat</Button>
+//                 </DialogActions>
+//             </Dialog>
 //         </Paper >
 //     );
 // };
 
 // export default ReceiptItemsTable;
+
 
 // src/views/Warehouse/ReceiptItemsTable.tsx
 import React, { useState, useEffect, useCallback } from 'react';
@@ -291,7 +444,7 @@ import { tr } from 'date-fns/locale';
 import {
     InvoiceType,
     ProcessedReceiptItem,
-    ReceiptItemsTableProps, // فرض می‌کنیم شامل endedInvoiceReceiptMap: Record<number, number> است
+    ReceiptItemsTableProps,
 } from './types';
 import { useNavigate } from 'react-router';
 
@@ -324,7 +477,7 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
     const { isTooltipGloballyEnabled } = useTooltip();
 
     const formatDateDisplay = (dateString: string | null): string => {
-        if (!dateString) return "N/A";
+        if (!dateString) return "—";
         try {
             const date = new Date(dateString);
             return format(date, 'dd MMMM yyyy', { locale: tr });
@@ -334,13 +487,12 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
     };
 
     /**
-     * فعال‌سازی مجدد فاکتور با ارسال ID رسید مرتبط (همانطور که درخواست شده است).
+     * Sonlandırılmış faturayı tekrar aktifleştir (ilgili Receipt ID ile).
      */
     const handleReactivateInvoice = async (invoice: InvoiceType) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
 
-        // 👈 استخراج ID رسید از Map ارسالی از والد
         const receiptIdToUpdate = endedInvoiceReceiptMap[Number(invoice.id)];
 
         if (!receiptIdToUpdate) {
@@ -349,26 +501,18 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         }
 
         showAlert(`Fatura ${invoice.invoiceNo} tekrar listeye ekleniyor...`, 'info');
-        debugger
+
         try {
-            // ارسال receiptId و isEnd: false
-            const updateData = { id: Number(receiptIdToUpdate), isEnd: false }; // 👈 ارسال ID رسید
+            const updateData = { id: Number(receiptIdToUpdate), isEnd: false };
             const url = server.baseurl + server.warehouse + "update-receipt-is-end";
 
             const response = await axios.put(url, updateData, { headers: { "Authorization": `Bearer ${authToken}` } });
 
             if (response.data.httpStatusCode === 200) {
                 showAlert(`Fatura No: ${invoice.invoiceNo} başarıyla aktifleştirildi.`, 'success');
-
-                // 1. بستن مودال
                 setOpenInactiveModal(false);
-
-                // 2. رفرش لیست اصلی رسیدها (برای به‌روزرسانی endedInvoiceReceiptMap در والد)
                 getReceipts();
-
-                // 3. رفرش لیست فاکتورهای داخل همین کامپوننت
                 getInvoices();
-
             } else {
                 showAlert(response.data.message || 'Fiş durumu güncellenirken bir hata oluştu.', 'error');
             }
@@ -377,17 +521,27 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         }
     };
 
-
+    /**
+     * Faturaları çek:
+     *  - YALNIZ faturalar: warehouse !== null
+     *  - VE workhouse === null olanlar
+     *  - سپس بقیه منطق قبلی (active/ended) اعمال می‌شود.
+     */
     const getInvoices = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-invoices", { headers: { "Authorization": `Bearer ${authToken}` } });
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-invoices",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
 
             if (response.data.httpStatusCode === 200) {
-                const fetchedInvoices = response.data.data as InvoiceType[];
-                setAllInvoices(fetchedInvoices);
+                const fetchedInvoices = (response.data.data as InvoiceType[]) || [];
 
+                const filtered = fetchedInvoices.filter(inv => inv?.warehouse !== null && inv?.workhouse === null);
+
+                setAllInvoices(filtered);
             } else {
                 showAlert(response.data.message || 'Faturalar yüklenirken bir hata oluştu.', 'error');
             }
@@ -402,19 +556,17 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         }
     }, [showAlert, navigate]);
 
-    // فیلتر کردن فاکتورها بر اساس لیست endedInvoiceIds دریافتی از والد
+    // endedInvoiceIds’e göre aktif/sonlandırılmış تفکیک
     useEffect(() => {
         const activeInvoices = allInvoices.filter((invoice: InvoiceType) => {
             const invoiceId = Number(invoice.id);
             const isEnded = endedInvoiceIds.includes(invoiceId);
-
             return invoice.status === 1 && !isEnded;
         });
 
         const endedInvoices = allInvoices.filter((invoice: InvoiceType) => {
             const invoiceId = Number(invoice.id);
             const isEnded = endedInvoiceIds.includes(invoiceId);
-
             return invoice.status === 1 && isEnded;
         });
 
@@ -425,7 +577,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
     useEffect(() => {
         getInvoices();
     }, [getInvoices]);
-
 
     const handleInvoiceChange = (_event: any, newValue: InvoiceType | null) => {
         setSelectedInvoice(newValue);
@@ -648,7 +799,8 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                     </TableBody>
                 </Table>
             </TableContainer>
-            {/* Modal نمایش فاکتورهای غیرفعال */}
+
+            {/* Modal: Sonlandırılmış faturalar */}
             <Dialog open={openInactiveModal} onClose={() => setOpenInactiveModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Faturalar (Fişi Kesilmiş)</DialogTitle>
                 <DialogContent dividers>
@@ -696,7 +848,7 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                     <Button onClick={() => setOpenInactiveModal(false)}>Kapat</Button>
                 </DialogActions>
             </Dialog>
-        </Paper >
+        </Paper>
     );
 };
 

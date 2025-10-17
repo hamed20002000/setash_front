@@ -92,7 +92,14 @@ export interface InvoiceHeaderType {
     statusDescription: string | null;
     provider?: ProviderType;
 }
-
+export interface LocationLite {
+    id: number | string;
+    name: string;
+    code?: string;
+    address?: string;
+    createAt?: string;
+    recordStatus?: number;
+}
 export interface InvoiceType {
     id: number;
     invoiceNo: string;
@@ -101,6 +108,10 @@ export interface InvoiceType {
     invoiceDetails: InvoiceDetailType[];
     status: number;
     provider?: ProviderType;
+
+    warehouse: LocationLite | null;
+    workhouse: LocationLite | null;
+
 }
 
 // **تغییرات در اینترفیس‌های زیر اعمال شده است**
