@@ -111,6 +111,7 @@ export interface InvoiceType {
 
     warehouse: LocationLite | null;
     workhouse: LocationLite | null;
+    isEnd?: boolean | null;
 
 }
 

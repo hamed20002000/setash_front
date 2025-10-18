@@ -1,4 +1,3 @@
-
 // ListProjectPlanning.tsx
 import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -166,11 +165,26 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-const getLastPlanningEnd = (arr: PlanningType[]): Date | null => {
+
+// ⬇️ جدید: تنظیم ساعت برای ارسال
+const toDateAt = (d: Date, h: number, m: number) => {
+    const x = new Date(d);
+    x.setHours(h, m, 0, 0);
+    return x;
+};
+
+// جدید: آخرین تاریخ شروع ثبت‌شده
+const getLastPlanningStart = (arr: PlanningType[]): Date | null => {
     if (!arr || arr.length === 0) return null;
-    const maxMs = Math.max(...arr.map(x => new Date(x.endDate).getTime()));
+    const maxMs = Math.max(...arr.map(x => startOfDay(new Date(x.startDate)).getTime()));
     return new Date(maxMs);
 };
+
+// const getLastPlanningEnd = (arr: PlanningType[]): Date | null => {
+//     if (!arr || arr.length === 0) return null;
+//     const maxMs = Math.max(...arr.map(x => new Date(x.endDate).getTime()));
+//     return new Date(maxMs);
+// };
 
 // ================= Component =================
 const ListProjectPlanning = () => {
@@ -348,26 +362,29 @@ const ListProjectPlanning = () => {
         }
     }, [navigate, numericProjectId]);
 
-    // ====== محاسبه خودکار بازه تاریخ فرم (start/end)
+    // ====== محاسبه خودکار بازه تاریخ فرم (start=end همان روز)
     useEffect(() => {
         if (!projectStart || !projectEnd) return;
 
-        const lastEnd = getLastPlanningEnd(planningsList);
-        const candidateStart = startOfDay(
-            lastEnd ? addDays(startOfDay(lastEnd), 1) : startOfDay(projectStart)
+        // آخرین startDate ثبت‌شده (به‌صورت روز)
+        const lastStart = getLastPlanningStart(planningsList);
+
+        // اگر رکورد نیست ⇒ تاریخ شروع پروژه، وگرنه ⇒ روز بعد از آخرین
+        const candidateDay = startOfDay(
+            lastStart ? addDays(startOfDay(lastStart), 1) : startOfDay(projectStart)
         );
 
-        if (candidateStart.getTime() > startOfDay(projectEnd).getTime()) {
+        if (candidateDay.getTime() > startOfDay(projectEnd).getTime()) {
             setCanCreateInRange(false);
             setStartDate(null);
             setEndDate(null);
             return;
         }
 
-        const candidateEnd = startOfDay(addDays(candidateStart, 1));
         setCanCreateInRange(true);
-        setStartDate(candidateStart);
-        setEndDate(candidateEnd);
+        // ✅ شروع و پایان، همان روز
+        setStartDate(candidateDay);
+        setEndDate(candidateDay);
     }, [projectStart, projectEnd, planningsList]);
 
     // ====== Effects
@@ -392,16 +409,14 @@ const ListProjectPlanning = () => {
         getListPlannings();
     };
 
-    // ====== Edit (تاریخ‌ها editable نیستند)
+    // ====== Edit (تاریخ‌ها editable نیستند؛ فقط همان روز را ست می‌کنیم)
     const handleEditClick = () => {
         if (!selectedRowForMenu) return;
         setEditingId(selectedRowForMenu.id);
 
-        // تاریخ‌ها را فقط نمایش می‌دهیم (عدم اجازه تغییر)
-        const s = new Date(selectedRowForMenu.startDate);
-        const e = new Date(selectedRowForMenu.endDate);
-        setStartDate(startOfDay(s));
-        setEndDate(startOfDay(e));
+        const s = startOfDay(new Date(selectedRowForMenu.startDate));
+        setStartDate(s);
+        setEndDate(s); // همان روز
 
         const newFormData = planningFields.reduce((acc: any, field) => {
             const key = field.key;
@@ -416,7 +431,7 @@ const ListProjectPlanning = () => {
         clearAlert();
     };
 
-    // ====== Value modal handlers (برای واردکردن اعداد فیلدها)
+    // ====== Value modal handlers
     const handleOpenValueModal = (fieldKey: string) => {
         setCurrentField(fieldKey);
         setCurrentValues(formData[fieldKey] || { estimatedNumber: 0, min: 0, max: 0 });
@@ -425,13 +440,29 @@ const ListProjectPlanning = () => {
     const handleCloseValueModal = () => { setOpenValueModal(false); setCurrentField(null); };
     const handleSaveValue = () => {
         if (!currentField) return;
-        if (currentValues.min > currentValues.estimatedNumber) { showAlert('Minimum değer, Tahmini Sayıdan fazla olamaz.', 'error'); minRef.current?.focus(); return; }
-        if (currentValues.max < currentValues.min) { showAlert('Maksimum değer minimumdan az olamaz.', 'error'); maxRef.current?.focus(); return; }
+
+        if (currentValues.min > currentValues.estimatedNumber) {
+            showAlert('Minimum değer, Tahmini Sayıdan fazla olamaz.', 'error');
+            minRef.current?.focus();
+            return;
+        }
+        if (currentValues.max < currentValues.min) {
+            showAlert('Maksimum değer Minimum değerden az olamaz.', 'error');
+            maxRef.current?.focus();
+            return;
+        }
+        // ✅ Max باید >= Tahmini باشد
+        if (currentValues.max < currentValues.estimatedNumber) {
+            showAlert('Maksimum değer Tahmini Sayıdan az olamaz (en az Tahmini kadar olmalı).', 'error');
+            maxRef.current?.focus();
+            return;
+        }
+
         setFormData((prev: any) => ({ ...prev, [currentField]: currentValues }));
         handleCloseValueModal();
     };
 
-    // ====== Create/Update payload helpers
+    // ====== Create/Update payload helpers (بدون تغییر در روال — اوبجکت‌ها کامل ارسال می‌شن)
     const buildPlanningDetailsPayload = () => {
         return ALL_PLANNING_FIELDS.reduce((acc: any, field) => {
             const value = formData[field.key];
@@ -442,24 +473,23 @@ const ListProjectPlanning = () => {
                     max: Number(value.max),
                 };
             } else {
+                // صفرها مثل قبل
                 acc[field.key] = { estimatedNumber: 0, min: 0, max: 0 };
             }
             return acc;
         }, {});
     };
 
-    // ====== Insert
+    // ====== Insert (تنها تغییر: ساعت‌ها موقع ارسال ست می‌شن)
     const insertPlanning = async () => {
         if (!canCreateInRange) { showAlert('Bu proje için girilebilecek tarih kalmadı (proje bitişini aştı).', 'warning'); return; }
         if (!startDate || !endDate || !projectData) { showAlert('Tarih aralığı hazır değil. Lütfen sayfayı yenileyin.', 'warning'); return; }
 
         if (projectStart && projectEnd) {
             const s = startOfDay(startDate).getTime();
-            //   const e = startOfDay(endDate).getTime();
             if (s < startOfDay(projectStart).getTime() || s > startOfDay(projectEnd).getTime()) {
                 showAlert('Planlama tarihi proje aralığı ile uyumlu değil.', 'error'); return;
             }
-            // پایان خودکار +1 روز است، نیازی به بررسی اضافه نیست مگر بخواهید سختگیرانه‌تر کنید.
         }
 
         const authToken = localStorage.getItem('authToken');
@@ -468,8 +498,8 @@ const ListProjectPlanning = () => {
 
         const planningDetails = buildPlanningDetailsPayload();
         const payload = {
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
+            startDate: toDateAt(startDate, 8, 0).toISOString(),    // 08:00 همان روز
+            endDate: toDateAt(endDate, 17, 0).toISOString(),   // 17:00 همان روز
             ...planningDetails,
             projectId: numericProjectId,
         };
@@ -483,7 +513,7 @@ const ListProjectPlanning = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni planlama başarıyla eklendi!', 'success');
                 resetFormAndState();
-                getListPlannings(); // باعث می‌شود بازه بعدی خودکار محاسبه شود
+                getListPlannings();
             } else {
                 showAlert(response.data.message || 'Yeni planlama eklenirken bir hata oluştu.', 'error');
             }
@@ -492,7 +522,7 @@ const ListProjectPlanning = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // ====== Edit
+    // ====== Edit (تنها تغییر: ساعت‌ها موقع ارسال ست می‌شن)
     const editPlanning = async () => {
         if (!editingId || !startDate || !endDate || !projectData) { showAlert('Lütfen tüm gerekli alanları doldurunuz!', 'warning'); return; }
 
@@ -503,8 +533,8 @@ const ListProjectPlanning = () => {
         const planningDetails = buildPlanningDetailsPayload();
         const payload = {
             id: Number(editingId),
-            startDate: startDate.toISOString(),
-            endDate: endDate.toISOString(),
+            startDate: toDateAt(startDate, 8, 0).toISOString(),
+            endDate: toDateAt(endDate, 17, 0).toISOString(),
             ...planningDetails,
             projectId: numericProjectId,
         };
@@ -527,7 +557,7 @@ const ListProjectPlanning = () => {
                 showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
             } else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                showAlert('Oturum süreniz doldu، lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
                 showAlert(e.response?.data?.message || 'Planlama güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
@@ -543,7 +573,7 @@ const ListProjectPlanning = () => {
         setIsFormVisible(false);
     };
 
-    // ====== Downloads (PDF/Excel) – نسخه بهبود یافته
+    // ====== Downloads (PDF/Excel) – بدون تغییرات گسترده
     const handleDownloadPDF = (data: PlanningType[], titlePrefix: string = 'Planlama_Detay') => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak planlama bulunamadı.', 'warning'); return; }
 
@@ -581,12 +611,11 @@ const ListProjectPlanning = () => {
         doc.text(`Proje Başlangıç: ${prStart}`, 15, 30);
         doc.text(`Proje Bitiş: ${prEnd}`, 70, 30);
 
-        // نمایش بازه همین رکورد
-        doc.text(`Kayıt Başlangıç: ${format(new Date(item.startDate), 'dd MMMM yyyy', { locale: tr })}`, 15, 35);
-        doc.text(`Kayıt Bitiş(+1): ${format(new Date(item.endDate), 'dd MMMM yyyy', { locale: tr })}`, 70, 35);
+        // نمایش بازه همین رکورد (08:00–17:00 یک روز)
+        doc.text(`Kayıt Tarihi: ${format(new Date(item.startDate), 'dd MMMM yyyy', { locale: tr })} 08:00 - 17:00`, 15, 35);
 
         doc.line(15, 40, pageWidth - 15, 40);
-        doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+        try { doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25); } catch { }
 
         ALL_PLANNING_FIELDS.forEach((field) => {
             const values = (item as any)[field.key];
@@ -628,11 +657,13 @@ const ListProjectPlanning = () => {
                 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR',
                 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
             ];
-            let footerY = pageHeight - 30;
-            companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
-            doc.text(`Sayfa ${i} / ${pageCount}`, 15, pageHeight - 10);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            const ph = doc.internal.pageSize.getHeight();
+            const pw = doc.internal.pageSize.getWidth();
+            let footerY = ph - 30;
+            companyInfo.forEach(line => { doc.text(line, pw / 2, footerY, { align: 'center' }); footerY += 4; });
+            doc.text(`Sayfa ${i} / ${pageCount}`, 15, ph - 10);
+            doc.text('İmza', pw - 15, ph - 10, { align: 'right' });
+            doc.line(pw - 65, ph - 15, pw - 15, ph - 15);
         }
 
         doc.save(`${titlePrefix}.pdf`);
@@ -649,7 +680,7 @@ const ListProjectPlanning = () => {
 
             const tableHeaders = [
                 'Proje Adı', 'Proje Başlangıç', 'Proje Bitiş',
-                'Kayıt Başlangıç', 'Kayıt Bitiş(+1)', 'Durum',
+                'Kayıt Tarihi (08:00 - 17:00)', 'Durum',
                 ...ALL_PLANNING_FIELDS.map(f => f.label)
             ];
             const headerRow = worksheet.addRow(tableHeaders);
@@ -659,15 +690,14 @@ const ListProjectPlanning = () => {
             const headerFill: Excel.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
             const headerFont = { name: 'Calibri', size: 11, bold: true };
 
-            headerRow.eachCell((cell) => { cell.border = border; cell.fill = headerFill; cell.font = headerFont; });
+            headerRow.eachCell((cell) => { (cell as any).border = border; (cell as any).fill = headerFill; (cell as any).font = headerFont; });
 
             data.forEach(item => {
                 const rowData = [
                     item.project.title,
                     projectStart ? format(projectStart, 'dd MMM yyyy', { locale: tr }) : '-',
                     projectEnd ? format(projectEnd, 'dd MMM yyyy', { locale: tr }) : '-',
-                    format(new Date(item.startDate), 'dd MMM yyyy', { locale: tr }),
-                    format(new Date(item.endDate), 'dd MMM yyyy', { locale: tr }),
+                    `${format(new Date(item.startDate), 'dd MMM yyyy', { locale: tr })} 08:00 - 17:00`,
                     item.status,
                     ...ALL_PLANNING_FIELDS.map(f => {
                         const values = (item as any)[f.key];
@@ -675,17 +705,15 @@ const ListProjectPlanning = () => {
                     })
                 ];
                 const row = worksheet.addRow(rowData);
-                row.eachCell((cell) => { cell.border = border; });
+                row.eachCell((cell) => { (cell as any).border = border; });
             });
 
-            worksheet.columns.forEach((column) => {
+            worksheet.columns.forEach((column: any) => {
                 let maxLength = 0;
-                if (column.eachCell) {
-                    column.eachCell({ includeEmpty: true }, (cell) => {
-                        const len = cell.value ? cell.value.toString().length : 10;
-                        if (len > maxLength) maxLength = len;
-                    });
-                }
+                column.eachCell?.({ includeEmpty: true }, (cell: any) => {
+                    const len = cell.value ? cell.value.toString().length : 10;
+                    if (len > maxLength) maxLength = len;
+                });
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
 
@@ -807,26 +835,18 @@ const ListProjectPlanning = () => {
                     <>
                         {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                             <Grid container spacing={2}>
-                                {/* تاریخ‌های فرم: فقط نمایش (Readonly) */}
+                                {/* تاریخ‌های فرم: فقط نمایش (Readonly + Disabled) */}
                                 <Grid item xs={12} sm={6}>
-                                    <CustomFormLabel>Başlangıç Tarihi (Otomatik)</CustomFormLabel>
+                                    <CustomFormLabel>Tarih (Otomatik)</CustomFormLabel>
                                     <TextField
-                                        value={startDate ? format(startDate, 'dd MMMM yyyy', { locale: tr }) : '-'}
+                                        value={startDate ? format(startOfDay(startDate), 'dd MMMM yyyy', { locale: tr }) : '-'}
                                         size="small"
                                         fullWidth
                                         InputProps={{ readOnly: true }}
+                                        disabled
+                                    // helperText="Bu tarih sistem tarafından sıraya göre otomatik atanır."
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={6}>
-                                    <CustomFormLabel>Bitiş Tarihi (Otomatik, +1 gün)</CustomFormLabel>
-                                    <TextField
-                                        value={endDate ? format(endDate, 'dd MMMM yyyy', { locale: tr }) : '-'}
-                                        size="small"
-                                        fullWidth
-                                        InputProps={{ readOnly: true }}
-                                    />
-                                </Grid>
-
                                 {/* فیلدهای داینامیک */}
                                 {planningFields.map(field => (
                                     <Grid item xs={12} sm={6} md={3} key={field.key}>
@@ -884,7 +904,7 @@ const ListProjectPlanning = () => {
                                         {editingId !== null ? (
                                             <>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili planlamayı güncelleyin" : ""}>
-                                                    <Button variant="contained" color="info" onClick={editPlanning} disabled={loadingButton}>
+                                                    <Button variant="contained" color="info" onClick={editPlanning} disabled={loadingButton || !startDate || !endDate}>
                                                         {loadingButton ? <><BoltIcon color="inherit" sx={{ mr: 1, fontSize: 20 }} /> Beklemek....</> : 'Düzenlemek'}
                                                     </Button>
                                                 </CustomTooltip>
@@ -1189,8 +1209,8 @@ const ListProjectPlanning = () => {
                     {detailData && (
                         <Grid container spacing={2}>
                             <Grid item xs={12}><Typography variant="subtitle1">Proje: {detailData.project?.title}</Typography></Grid>
-                            <Grid item xs={12} sm={6}><Typography variant="body2">Başlangıç Tarihi: {format(new Date(detailData.startDate), 'dd MMMM yyyy', { locale: tr })}</Typography></Grid>
-                            <Grid item xs={12} sm={6}><Typography variant="body2">Bitiş Tarihi: {format(new Date(detailData.endDate), 'dd MMMM yyyy', { locale: tr })}</Typography></Grid>
+                            <Grid item xs={12} sm={6}><Typography variant="body2">Başlangıç Tarihi: {format(new Date(detailData.startDate), 'dd MMMM yyyy HH:mm', { locale: tr })}</Typography></Grid>
+                            <Grid item xs={12} sm={6}><Typography variant="body2">Bitiş Tarihi: {format(new Date(detailData.endDate), 'dd MMMM yyyy HH:mm', { locale: tr })}</Typography></Grid>
                             {planningFields.map(field => {
                                 const values = (detailData as any)[field.key];
                                 return values && (
@@ -1239,8 +1259,17 @@ const ListProjectPlanning = () => {
                         value={currentValues.max}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, max: Number(e.target.value) }))}
                         fullWidth size="small" onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()} inputProps={{ min: 0 }}
-                        error={currentValues.max < currentValues.min}
-                        helperText={currentValues.max < currentValues.min ? "Maksimum değer minimumdan az olamaz." : ""}
+                        error={
+                            currentValues.max < currentValues.min ||
+                            currentValues.max < currentValues.estimatedNumber
+                        }
+                        helperText={
+                            currentValues.max < currentValues.min
+                                ? "Maksimum değer minimumdan az olamaz."
+                                : currentValues.max < currentValues.estimatedNumber
+                                    ? "Maksimum değer Tahmini Sayıdan az olamaz (en az Tahmini kadar olmalı)."
+                                    : ""
+                        }
                     />
                 </DialogContent>
                 <DialogActions>

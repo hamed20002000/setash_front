@@ -477,15 +477,17 @@ const ListProjects = () => {
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); setLoadingButton(false); return; }
+
+        const payload = {
+            title, code, type,
+            startDate: startDate?.toISOString(),
+            predictEndDate: predictEndDate?.toISOString(),
+            endDate: endDate == null ? null : endDate?.toISOString(),
+            workhouseId: Number(selectedWorkhouseId),
+            firmId: Number(selectedFirmId),
+        };
+        debugger
         try {
-            const payload = {
-                title, code, type,
-                startDate: startDate?.toISOString(),
-                predictEndDate: predictEndDate?.toISOString(),
-                endDate: endDate?.toISOString(),
-                workhouseId: Number(selectedWorkhouseId),
-                firmId: Number(selectedFirmId),
-            };
             const response = await axios.post(server.baseurl + server.warehouse + "create-project", payload, {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
@@ -514,7 +516,7 @@ const ListProjects = () => {
                 title, code, type,
                 startDate: startDate?.toISOString(),
                 predictEndDate: predictEndDate?.toISOString(),
-                endDate: endDate?.toISOString(),
+                endDate: endDate == null ? null : endDate?.toISOString(),
                 workhouseId: Number(selectedWorkhouseId),
                 firmId: Number(selectedFirmId),
             };
