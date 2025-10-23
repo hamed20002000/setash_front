@@ -20,6 +20,9 @@ import { AuthProvider } from './context/AuthContext';
 // import { LayoutProvider } from './context/LayoutContext';
 import { TooltipProvider } from './context/TooltipContext';
 
+
+import NotifyBootstrap from './socket/NotifyBootstrap';
+
 function App() {
   const routing = useRoutes(Router);
   const theme = ThemeSettings();
@@ -29,6 +32,7 @@ function App() {
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <AuthProvider>
+          <NotifyBootstrap />
           <TooltipProvider>
             <ThemeProvider theme={theme}>
               <RTL direction={customizer.activeDir}>

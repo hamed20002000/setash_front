@@ -1,5 +1,6 @@
 {
     "baseurl": "https://setasportal.com/api/",
+    "socketurl": "https://setasportal.com",
     "urldpwonload": "https://setasportal.com",
     "admin": "Admin/",
     "login": "auth/",

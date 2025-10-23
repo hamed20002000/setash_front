@@ -112,7 +112,7 @@ const decodeJwtToken = (token: string): JwtPayload | null => {
     );
     return JSON.parse(jsonPayload);
   } catch (e) {
-    console.error("Error decoding JWT token:", e);
+    // console.error("Error decoding JWT token:", e);
     return null;
   }
 };
@@ -201,7 +201,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       return response.data.success ? response.data.data : [];
     } catch (error) {
-      console.error('Error fetching dynamic menu items:', error);
+      // console.error('Error fetching dynamic menu items:', error);
       return [];
     }
   }, []);
@@ -299,7 +299,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return { ops, rawMenus };
 
     } catch (e) {
-      console.error("Failed to fetch menu and role data:", e);
+      // console.error("Failed to fetch menu and role data:", e);
       setAllowedOperations([]);
       setMenuItems([]);
       return { ops: [], rawMenus: [] }; // ✅ در صورت خطا مقادیر خالی را بازمی‌گردانیم
@@ -370,7 +370,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             systemOperationName: op.menuOperation.systemOperation.name
           })) || [];
 
-        console.log("Allowed Operations from API:", ops);
+        // console.log("Allowed Operations from API:", ops);
       }
 
       // ✅ فقط زمانی که تمام داده‌ها آماده است، وضعیت‌ها را به روز کنید
@@ -388,7 +388,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('lastLoggedInUsername', currentUsername);
 
     } catch (e) {
-      console.error("Failed to load auth data:", e);
+      // console.error("Failed to load auth data:", e);
       // در صورت بروز خطا، همه چیز را به حالت اولیه برگردانید
       setUsername('Guest');
       setUserRoles([]);
@@ -464,7 +464,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         navigate('/dashboards/dashboard');
       }
     } else {
-      console.warn(`Attempted to set an invalid role: ${newRoleName}.`);
+      // console.warn(`Attempted to set an invalid role: ${newRoleName}.`);
     }
   }, [userRoles, navigate, location, updateMenuAndOperations, mapApiDataToMenuItems]);
 

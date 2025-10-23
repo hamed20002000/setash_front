@@ -1,6 +1,4 @@
 
-
-
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,6 +11,8 @@ import {
 } from "@mui/material";
 import { keyframes, styled } from "@mui/material/styles";
 import BoltIcon from "@mui/icons-material/Bolt";
+import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
+import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconEye } from "@tabler/icons-react";
 import BlankCard from "src/components/shared/BlankCard";
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
@@ -23,6 +23,7 @@ import axios from "axios";
 import server from "src/assets/address.json";
 import { tr } from "date-fns/locale";
 import { format } from "date-fns";
+
 
 // ----- MUI v5 date pickers -----
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -84,12 +85,16 @@ type RecordStatus = 0 | 1 | 2; // 0=Aktif, 1=Pasif, 2=Silindi
 enum EducationStatus {
     Ilkokul = 0, Ortaokul, Lise, OnLisans, Lisans, YuksekLisans, Doktora
 }
-
+interface Position {
+    id: number;
+    title: string;
+}
 export interface PersonnelType {
     id: number;
     name: string;
     family: string;
     identityNumber: string;
+    position: Position;
     workStartDate: string | null; // yyyy-MM-dd
     workEndDate: string | null;   // yyyy-MM-dd
     insuranceNumber: string;
@@ -118,7 +123,7 @@ type PositionOption = { id: number; title: string };
 const statusText = (s?: number) =>
     (s === 0 ? "Aktif" : s === 1 ? "Pasif" : "Silindi");
 
-const toDateOnly = (d: Date | null): string | null => (d ? format(d, "yyyy-MM-dd") : null);
+
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "—";
@@ -302,9 +307,9 @@ const ListPersonnel: React.FC = () => {
         doc.text(`Sayfa ${pageNo} / ${pageCount}`, bottom, pageHeight - 10);
     };
 
-    // ---------- Export helpers ----------
     const toPairsForPerson = (p: PersonnelType): Array<[string, string]> => {
-        const positionTitle = positions.find(x => x.id === (p.positionId ?? -1))?.title || "—";
+        debugger
+        const positionTitle = positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—";
         return [
             ["Ad", p.name || "—"],
             ["Soyad", p.family || "—"],
@@ -312,7 +317,7 @@ const ListPersonnel: React.FC = () => {
             ["Başlangıç", formatDateDisplay(p.workStartDate)],
             ["Bitiş", formatDateDisplay(p.workEndDate)],
             ["Sigorta No", p.insuranceNumber || "—"],
-            ["Pozisyon", positionTitle],
+            ["Pozisyon", positionTitle],  // تغییر به نام پوزیشن
             ["Cinsiyet", SEX_LABELS[p.sex] ?? "—"],
             ["Ücret Tipi", SALARY_TYPE_LABELS[p.salaryType] ?? "—"],
             ["Tahakkuk", ACCRUAL_LABELS[p.salaryAccrualMethod] ?? "—"],
@@ -329,10 +334,9 @@ const ListPersonnel: React.FC = () => {
             ["Mobil", p.mobile || "—"],
             ["Durum", statusText(p.recordStatus)],
             ["Oluşturulma", formatDateDisplay(p.createAt?.slice(0, 10) || null)],
-            ["ID", String(p.id)],
-            ["Position ID", p.positionId != null ? String(p.positionId) : "—"],
         ];
     };
+
 
     // جایگزینِ pdfForRows
     const pdfForRows = (rows: PersonnelType[], filename: string) => {
@@ -357,7 +361,7 @@ const ListPersonnel: React.FC = () => {
                 ["Başlangıç", formatDateDisplay(p.workStartDate)],
                 ["Bitiş", formatDateDisplay(p.workEndDate)],
                 ["Sigorta No", p.insuranceNumber || "—"],
-                ["Pozisyon", (positions.find(x => x.id === p.positionId)?.title) || "—"],
+                ["Pozisyon", positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—"],  // استفاده از position.id
                 ["Cinsiyet", ["Erkek", "Kadın"][p.sex] ?? "—"],
                 ["Ücret Tipi", ["Aylık", "Günlük"][p.salaryType] ?? "—"],
                 ["Tahakkuk", ["Brüt", "Net"][p.salaryAccrualMethod] ?? "—"],
@@ -366,7 +370,6 @@ const ListPersonnel: React.FC = () => {
                 ["Doğum Tarihi", formatDateDisplay(p.birthDate)],
                 ["Medeni Durum", ["Bekâr", "Evli", "Dul"][p.maritalStatus] ?? "—"],
                 ["Baba Adı", p.fatherName || "—"],
-                // آدرس ممکنه طولانی باشد → wrap
                 ["Adres", p.address || "—"],
                 ["Eğitim", ["İlkokul", "Ortaokul", "Lise", "Ön Lisans", "Lisans", "Yüksek Lisans", "Doktora"][p.educationStatus] ?? "—"],
                 ["IBAN", p.iban || "—"],
@@ -374,8 +377,6 @@ const ListPersonnel: React.FC = () => {
                 ["Mobil", p.mobile || "—"],
                 ["Durum", p.recordStatus === 0 ? "Aktif" : p.recordStatus === 1 ? "Pasif" : "Silindi"],
                 ["Oluşturulma", formatDateDisplay(p.createAt?.slice(0, 10) || null)],
-                ["ID", String(p.id)],
-                ["Position ID", p.positionId != null ? String(p.positionId) : "—"],
             ];
 
             autoTable(doc, {
@@ -414,6 +415,7 @@ const ListPersonnel: React.FC = () => {
     };
 
 
+
     const excelForRows = async (rows: PersonnelType[], filename: string) => {
         const wb = new Excel.Workbook();
 
@@ -434,38 +436,23 @@ const ListPersonnel: React.FC = () => {
             hdr.font = { name: "NotoSans", bold: true };
             hdr.eachCell((c) => (c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } }));
 
-            const pairs = toPairsForPerson(p);
+            const pairs = toPairsForPerson(p); // استفاده از تابع اصلاح‌شده
             pairs.forEach(([k, v]) => ws.addRow([k, v ?? "—"]));
 
             ws.columns = [{ width: 24 }, { width: 60 }];
-
-            // Footer (company info)
-            ws.addRow([]);
-            const footTitle = ws.addRow(["Şirket Bilgisi"]);
-            footTitle.font = { name: "NotoSans", bold: true };
-            ws.mergeCells(`A${footTitle.number}:B${footTitle.number}`);
-            const companyInfo = [
-                "SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.",
-                "Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11",
-                "http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr",
-            ];
-            companyInfo.forEach((line) => {
-                const r = ws.addRow([line]);
-                ws.mergeCells(`A${r.number}:B${r.number}`);
-                r.getCell(1).alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-                r.font = { name: "NotoSans", size: 8 };
-            });
         });
 
         const buf = await wb.xlsx.writeBuffer();
         saveAs(new Blob([buf]), filename);
     };
 
+
     // Form state
     const initialForm: PersonnelType = {
         id: 0,
         name: "",
         family: "",
+        position: { id: -1, title: "—" },
         identityNumber: "",
         workStartDate: null,
         workEndDate: null,
@@ -541,7 +528,7 @@ const ListPersonnel: React.FC = () => {
                 mobile: x.mobile ?? "",
                 recordStatus: Number(x.recordStatus ?? 0) as RecordStatus,
                 createAt: x.createAt ?? "",
-                positionId: x.positionId ? Number(x.positionId) : null,
+                position: x.position ?? { id: -1, title: "Pazition not available" },
                 statusText: statusText(x.recordStatus),
             }));
             setPersonnelList(list);
@@ -603,13 +590,19 @@ const ListPersonnel: React.FC = () => {
     }, []);
 
     const onEditRow = (row: PersonnelType) => {
-        setForm({ ...row });
-        setEditingId(row.id);
-        setIsFormVisible(true);
-        setActiveStep(0);
-        setShowStepErrors(false);
-        handleCloseMenu();
+        setForm({ ...row });  // فرم را با اطلاعات پرسنل ویرایش‌شده پر می‌کنیم
+        setEditingId(row.id);  // ذخیره کردن id برای ویرایش
+        setIsFormVisible(true);  // نمایش فرم
+        setActiveStep(0);  // شروع از اولین مرحله فرم
+        setShowStepErrors(false);  // حذف ارورهای مرحله قبلی
+
+        // پر کردن مقدار PositionId در فرم با استفاده از منطق شما
+        setForm(prevForm => ({ ...prevForm, positionId: row.position.id }));  // مقدار positionId را از رکورد به فرم می‌دهیم
+        handleCloseMenu();  // بستن منو
     };
+
+
+
 
     const handleOpenDelete = () => {
         if (selectedRowForMenu) {
@@ -761,6 +754,48 @@ const ListPersonnel: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
+    const sendStatusUpdate = async (id: number, statusValue: number) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Lütfen giriş yapın.', 'warning');
+            navigate("/");
+        }
+        try {
+            const response = await axios.put(
+                server.baseurl + server.hr + "update-personnel",
+                { id: Number(id), recordStatus: statusValue },
+                {
+                    headers: {
+                        "Accept": "application/json",
+                        "Authorization": `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+            if (response.data.httpStatusCode === 200) {
+                showAlert('Personel başarıyla güncellendi!', 'success');
+                resetFormAndState();
+                getAllPersonnels();
+            } else {
+                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response && e.response.status === 500) {
+                showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+
+            } else if (e.response && e.response.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+                navigate("/");
+            } else {
+                showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
+            }
+        } finally {
+            handleCloseMenu();
+        }
+    };
+
     const handleDownloadChoosePDF = () => {
         if (downloadScope === "all") {
             pdfForRows(sorted, "Personel_Detay_Raporu.pdf"); // هر نفر یک صفحه
@@ -770,6 +805,81 @@ const ListPersonnel: React.FC = () => {
         }
         setOpenDownloadModal(false);
     };
+
+    const handleDownloadChoosePDFTable = () => {
+        const doc = new jsPDF("landscape", "pt", "a4");  // صفحه به‌صورت لندسکیپ
+        // فونت پایه
+        (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+        (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+        doc.setFont("NotoSans", "normal");
+
+        const topMargin = 100;   // فاصله از بالای صفحه
+        const sideMargin = 40;
+        const bottomMargin = 70; // فاصله از پایین صفحه
+
+        // استفاده از `paginated` یا `filtered` برای داده‌ها
+        const rows = paginated; // یا `filtered` رو هم می‌توانید استفاده کنید
+
+        // اینجا می‌خواهیم تمام داده‌ها رو در یک جدول افقی قرار بدیم
+        const allData: any[] = [];
+
+        // ایجاد یک ردیف برای عنوان‌ها
+        const headerRow = [
+            "Ad", "Soyad", "TC Kimlik", "Başlangıç", "Bitiş", "Sigorta No", "Pozisyon",
+            "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Yeri", "Doğum Tarihi",
+            "Medeni Durum", "Baba Adı", "Adres", "Eğitim", "IBAN", "Telefon", "Mobil",
+            "Durum", "Oluşturulma"
+        ];
+
+        // اضافه کردن اطلاعات به جدول
+        rows.forEach((p) => {
+            const row = [
+                p.name || "—", p.family || "—", p.identityNumber || "—", formatDateDisplay(p.workStartDate),
+                formatDateDisplay(p.workEndDate), p.insuranceNumber || "—", positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—",
+                ["Erkek", "Kadın"][p.sex] ?? "—", ["Aylık", "Günlük"][p.salaryType] ?? "—",
+                ["Brüt", "Net"][p.salaryAccrualMethod] ?? "—", ["Emekli", "Normal", "Engelli"][p.group] ?? "—",
+                p.birthPlace || "—", formatDateDisplay(p.birthDate), ["Bekâr", "Evli", "Dul"][p.maritalStatus] ?? "—",
+                p.fatherName || "—", p.address || "—", ["İlkokul", "Ortaokul", "Lise", "Ön Lisans", "Lisans", "Yüksek Lisans", "Doktora"][p.educationStatus] ?? "—",
+                p.iban || "—", p.telephone || "—", p.mobile || "—", statusText(p.recordStatus), formatDateDisplay(p.createAt?.slice(0, 10) || null)
+            ];
+            allData.push(row);
+        });
+
+        // ساخت جدول در PDF
+        autoTable(doc, {
+            startY: topMargin,
+            head: [headerRow],
+            body: allData,
+            theme: "grid",
+            styles: {
+                font: "NotoSans",
+                fontStyle: "normal",
+                fontSize: 8,
+                cellPadding: 3,
+                overflow: "linebreak",   // wrap
+            },
+            headStyles: {
+                fillColor: [242, 242, 242],
+                textColor: [0, 0, 0],
+                font: "NotoSans",
+                fontStyle: "normal",
+            },
+            columnStyles: {
+                0: { cellWidth: 50 },  // تنظیم عرض ستون‌ها به‌طور مناسب
+                1: { cellWidth: 50 },
+                2: { cellWidth: 50 },
+                // ... شما می‌توانید اندازه‌های عرض ستون‌ها رو تنظیم کنید
+            },
+            margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+            didDrawPage: () => { addPdfHeader(doc, "Personel Detay Raporu"); addPdfFooter(doc); },
+            showHead: "everyPage",
+        });
+
+        doc.save("Personel_Tablo_Raporu.pdf");
+    };
+    ;
+
+
 
     const handleDownloadChooseExcel = async () => {
         const safeDate = format(new Date(), "yyyyMMdd-HHmm");
@@ -781,6 +891,59 @@ const ListPersonnel: React.FC = () => {
         }
         setOpenDownloadModal(false);
     };
+
+    const handleDownloadChooseExcelTable = async () => {
+        const wb = new Excel.Workbook();
+
+        // استفاده از `paginated` یا `filtered` برای داده‌ها
+        const rows = paginated; // یا `filtered` رو هم می‌توانید استفاده کنید
+
+        rows.forEach((p) => {
+            const sheetName = `Personel_${(p.name || "")}_${(p.family || "")}`.replace(/[\\/*?:[\]]/g, "_").slice(0, 31) || `Personel_${p.id}`;
+            const ws = wb.addWorksheet(sheetName, { views: [{ rightToLeft: false }] });
+
+            // Header
+            const title = ws.addRow([`Personel Detay Raporu - ${(p.name || "")} ${(p.family || "")}`.trim()]);
+            title.font = { name: "Times New Roman", size: 12, bold: true };
+            ws.mergeCells(`A1:B1`);
+            title.getCell(1).alignment = { horizontal: "center" };
+            ws.mergeCells(`A2:B2`);
+            ws.addRow([]);
+
+            // اضافه کردن ردیف‌های داده‌ها به‌صورت افقی
+            const headerRow = [
+                "Ad", "Soyad", "TC Kimlik", "Başlangıç", "Bitiş", "Sigorta No", "Pozisyon",
+                "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Yeri", "Doğum Tarihi",
+                "Medeni Durum", "Baba Adı", "Adres", "Eğitim", "IBAN", "Telefon", "Mobil",
+                "Durum", "Oluşturulma"
+            ];
+            ws.addRow(headerRow); // ردیف عنوان‌ها
+
+            // اضافه کردن اطلاعات به‌صورت افقی
+            const rowData = [
+                p.name || "—", p.family || "—", p.identityNumber || "—", formatDateDisplay(p.workStartDate),
+                formatDateDisplay(p.workEndDate), p.insuranceNumber || "—", positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—",
+                ["Erkek", "Kadın"][p.sex] ?? "—", ["Aylık", "Günlük"][p.salaryType] ?? "—",
+                ["Brüt", "Net"][p.salaryAccrualMethod] ?? "—", ["Emekli", "Normal", "Engelli"][p.group] ?? "—",
+                p.birthPlace || "—", formatDateDisplay(p.birthDate), ["Bekâr", "Evli", "Dul"][p.maritalStatus] ?? "—",
+                p.fatherName || "—", p.address || "—", ["İlkokul", "Ortaokul", "Lise", "Ön Lisans", "Lisans", "Yüksek Lisans", "Doktora"][p.educationStatus] ?? "—",
+                p.iban || "—", p.telephone || "—", p.mobile || "—", statusText(p.recordStatus), formatDateDisplay(p.createAt?.slice(0, 10) || null)
+            ];
+            ws.addRow(rowData); // ردیف داده‌ها
+
+            // تنظیم عرض ستون‌ها برای نمایش بهتر
+            ws.columns = [
+                { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 },
+                { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 },
+                { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }, { width: 24 }
+            ];
+        });
+
+        const buf = await wb.xlsx.writeBuffer();
+        saveAs(new Blob([buf]), "Personel_Tablo_Raporu.xlsx");
+    };
+
+
 
     // ---------- Render: Header/Form ----------
     const renderTopBar = (
@@ -852,10 +1015,10 @@ const ListPersonnel: React.FC = () => {
                                     <Autocomplete
                                         options={positions}
                                         size="small"
-                                        value={positions.find((p) => p.id === form.positionId) || null}
-                                        isOptionEqualToValue={(opt, val) => opt.id === val.id}
-                                        onChange={(_, v) => setForm((f) => ({ ...f, positionId: v?.id ?? null }))}
-                                        getOptionLabel={(o) => o.title}
+                                        value={positions.find((p) => p.id === (Number(form.positionId) ?? -1)) || null}  // پیدا کردن پوزیشن با استفاده از positionId در فرم
+                                        isOptionEqualToValue={(opt, val) => opt.id === val.id}  // بررسی اینکه گزینه انتخاب‌شده با مقدار در فرم برابر باشد
+                                        onChange={(_, v) => setForm((f) => ({ ...f, positionId: v?.id ?? null }))}  // وقتی کاربر انتخاب می‌کند، مقدار positionId را به فرم اضافه می‌کنیم
+                                        getOptionLabel={(o) => o.title}  // نمایش عنوان پوزیشن
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
@@ -878,28 +1041,52 @@ const ListPersonnel: React.FC = () => {
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Başlangıç</CustomFormLabel>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DatePicker
-                                        value={form.workStartDate ? new Date(form.workStartDate) : null}
-                                        onChange={(d: Date | null) => setForm((f) => ({ ...f, workStartDate: toDateOnly(d) }))}
-                                        inputFormat="dd/MM/yyyy"
-                                        renderInput={(params) => (
-                                            <TextField {...params} size="small" fullWidth required
-                                                error={showStepErrors && !form.workStartDate}
-                                                helperText={showStepErrors && !form.workStartDate ? "Zorunlu" : params.helperText}
-                                            />
-                                        )}
-                                    />
+
+                                    <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                        <DatePicker
+                                            label="Başlangıç"
+                                            value={form.workStartDate}
+
+                                            onChange={(next) => setForm((f) => ({ ...f, workStartDate: next }))}
+                                            inputFormat="dd/MM/yyyy"
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    size="small"
+                                                    fullWidth
+                                                    error={showStepErrors && !form.workStartDate}
+                                                    helperText={showStepErrors ? "Başlangıç tarihi zorunludur!" : ""}
+                                                />
+                                            )}
+                                        />
+                                    </LocalizationProvider>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }}>Bitiş</CustomFormLabel>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DatePicker
-                                        value={form.workEndDate ? new Date(form.workEndDate) : null}
-                                        onChange={(d: Date | null) => setForm((f) => ({ ...f, workEndDate: toDateOnly(d) }))}
-                                        inputFormat="dd/MM/yyyy"
-                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                    />
+
+                                    <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                        <DatePicker
+                                            label="Bitiş"
+                                            value={form.workEndDate}
+
+                                            onChange={(next) => setForm((f) => ({ ...f, workEndDate: next }))}
+                                            inputFormat="dd/MM/yyyy"
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    size="small"
+                                                    fullWidth
+                                                    error={showStepErrors && !form.workEndDate}
+                                                    helperText={showStepErrors ? "Başlangıç tarihi zorunludur!" : ""}
+                                                />
+                                            )}
+                                        />
+                                    </LocalizationProvider>
+
+
+
                                 </Grid>
 
                                 <Grid item xs={12} sm={6} md={2}><CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }}>Sigorta No</CustomFormLabel></Grid>
@@ -964,21 +1151,25 @@ const ListPersonnel: React.FC = () => {
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Doğum Tarihi</CustomFormLabel>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <DatePicker
-                                        value={form.birthDate ? new Date(form.birthDate) : null}
-                                        inputFormat="dd/MM/yyyy"
-                                        onChange={(d: Date | null) => setForm((f) => ({ ...f, birthDate: toDateOnly(d) }))}
-                                        renderInput={(params) => (
-                                            <TextField
-                                                {...params}
-                                                size="small"
-                                                fullWidth
-                                                required
-                                                error={showStepErrors && !form.birthDate}
-                                                helperText={showStepErrors && !form.birthDate ? "Bu alan zorunludur" : params.helperText}
-                                            />
-                                        )}
-                                    />
+
+                                    <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                        <DatePicker
+                                            label="Doğum Tarihi"
+                                            value={form.birthDate}
+
+                                            onChange={(next) => setForm((f) => ({ ...f, birthDate: next }))}
+                                            inputFormat="dd/MM/yyyy"
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    size="small"
+                                                    fullWidth
+                                                    error={showStepErrors && !form.birthDate}
+                                                    helperText={showStepErrors ? "Başlangıç tarihi zorunludur!" : ""}
+                                                />
+                                            )}
+                                        />
+                                    </LocalizationProvider>
 
                                 </Grid>
 
@@ -1237,6 +1428,19 @@ const ListPersonnel: React.FC = () => {
                                                         Silmek
                                                     </MuiMenuItem>
                                                 )}
+                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu projeyi pasif yap" : ""}>
+                                                        <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 1)}>
+                                                            <ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon> Pasif Yap
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
+                                                ) : (
+                                                    <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu projeyi aktif yap" : ""}>
+                                                        <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 0)}>
+                                                            <ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon> Aktif Yap
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
+                                                )}
                                                 {hasDownloadPermission && (
                                                     <MuiMenuItem onClick={openDownloadChooserForRow}>
                                                         <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
@@ -1289,6 +1493,14 @@ const ListPersonnel: React.FC = () => {
                         </Button>
                         <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={handleDownloadChooseExcel}>
                             Excel Olarak İndir
+                        </Button>
+
+                        {/* دکمه‌های جدید برای دانلود به‌صورت لندسکیپ */}
+                        <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={handleDownloadChoosePDFTable}>
+                            PDF Olarak İndir (Tablo)
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={handleDownloadChooseExcelTable}>
+                            Excel Olarak İndir (Tablo)
                         </Button>
                     </Stack>
                 </DialogContent>

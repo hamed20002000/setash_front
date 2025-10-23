@@ -883,7 +883,7 @@ const ListProjects = () => {
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                                <CustomFormLabel htmlFor="firm-selection">Firma Seçimi</CustomFormLabel>
+                                <CustomFormLabel htmlFor="firm-selection" required>Firma Seçimi</CustomFormLabel>
                                 <Stack direction="row" spacing={1} alignItems="center">
                                     <Autocomplete
                                         id="firm-selection"

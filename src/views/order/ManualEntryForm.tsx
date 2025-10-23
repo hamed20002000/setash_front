@@ -36,6 +36,8 @@ import { useAuth } from 'src/context/AuthContext';
 import BlankCard from 'src/components/shared/BlankCard';
 
 
+
+
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
     // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
@@ -1372,6 +1374,8 @@ const ManualEntryForm = () => {
                 />
 
             </BlankCard>
+
+
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Ürün Detayları</DialogTitle>
                 <DialogContent dividers>

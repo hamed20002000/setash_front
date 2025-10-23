@@ -240,12 +240,31 @@ const ListTransmission = () => {
                     parent: row.parent
                         ? { id: String(row.parent.id), label: row.parent.label }
                         : null,
+                    productStatus: row.productStatus as 0 | 1 | 2,
                 });
             }
         }
 
         return finalOptions;
     }, [allProductTypes, channelRowsData]);
+
+
+
+
+    //     const combinedProductTypeOptions = useMemo(() => {
+    //   if (!allProductTypes.length || !channelRowsData.length) return [];
+
+    //   const ptMap = new Map(allProductTypes.map(p => [String(p.id), p.name]));
+    //   return channelRowsData.map((row: any) => ({
+    //     id: String(row.id),
+    //     productTypeId: String(row?.productType?.id),
+    //     name: ptMap.get(String(row?.productType?.id)) || 'Bilinmeyen',
+    //     label: row.label,
+    //     parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
+    //     // 👇 اضافه شد
+    //     productStatus: row.productStatus as 0 | 1 | 2, // 0=YENİ, 1=DMM, 2=MEVCUT
+    //   }));
+    // }, [allProductTypes, channelRowsData]);
 
     const trafoOptions = useMemo(() => {
         return combinedProductTypeOptions.filter(option => option.parent === null);
@@ -483,137 +502,6 @@ const ListTransmission = () => {
         }
     }, [navigate, showAlert]);
 
-    // const fetchTransmissionList = useCallback(async (currentNetworkId: string) => {
-    //     setLoadingList(true);
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-    //         navigate("/");
-    //         setLoadingList(false);
-    //         return;
-    //     }
-
-    //     const statusToMiktarTipi: Record<number, 'Yeni YG' | 'Yeni AG' | 'DMM YG' | 'DMM AG' | 'MEVCUT'> = {
-    //         0: 'Yeni YG',
-    //         1: 'Yeni AG',
-    //         2: 'DMM YG',
-    //         3: 'DMM AG',
-    //         4: 'MEVCUT'
-    //     };
-
-    //     try {
-    //         const response = await axios.get(
-    //             server.baseurl + server.initialoperations + `get-transmission-row-by-network-id/${currentNetworkId}`,
-    //             {
-    //                 headers: {
-    //                     "Accept": "application/json",
-    //                     "Authorization": `Bearer ${authToken}`
-    //                 }
-    //             }
-    //         );
-
-    //         if (response.data.httpStatusCode === 200 && response.data.data) {
-    //             const combinedOptionsMap = new Map(combinedProductTypeOptions.map(opt => [opt.id, opt.name]));
-    //             const transmissionSummaryData = response.data.data.transmissionSummary || [];
-    //             setTransmissionSummary(transmissionSummaryData);
-    //             const productTypeDetailsMap = new Map(allProductTypes.map(p => [String(p.id), p]));
-
-    //             const processedData = response.data.data.transmissionRows.map((row: any) => {
-    //                 const miktarTipi = statusToMiktarTipi[row.productStatus] || 'Bilinmeyen';
-
-    //                 const items = row.transmissionRowItmes.map((item: any) => ({
-    //                     id: String(item.item.id),
-    //                     name: item.item.name,
-    //                     quantity: item.value,
-    //                     miktarTipi: miktarTipi,
-    //                     weight: item.item.weghit,
-    //                     unit: item.item.unit,
-    //                 }));
-
-    //                 const fromProductTypeId = row.fromProductType?.id;
-    //                 const toProductTypeId = row.toProductType?.id;
-
-    //                 const fromProductTypeDetails = productTypeDetailsMap.get(String(fromProductTypeId));
-    //                 const toProductTypeDetails = productTypeDetailsMap.get(String(toProductTypeId));
-
-
-    //                 const fromNodeName = combinedOptionsMap.get(String(fromProductTypeId)) || 'Bilinmeyen Ürün';
-    //                 const toNodeName = combinedOptionsMap.get(String(toProductTypeId)) || 'Bilinmeyen Ürün';
-
-    //                 return {
-    //                     ...row,
-    //                     id: String(row.id),
-    //                     fromProductTypeId: String(fromProductTypeId),
-    //                     toProductTypeId: String(toProductTypeId),
-    //                     miktarTipi: miktarTipi,
-    //                     items: items,
-    //                     fromProductType: fromNodeName,
-    //                     toProductType: toNodeName,
-
-
-
-    //                     fromProductTypeCategory: fromProductTypeDetails?.type as 1 | 2 | undefined,
-    //                     toProductTypeCategory: toProductTypeDetails?.type as 1 | 2 | undefined,
-
-    //                 };
-    //             });
-    //             debugger
-    //             setTransmissionList(processedData);
-    //             setHasUnsavedChanges(false);
-    //             if (processedData.length > 0) {
-    //                 const lastNodeId = processedData[processedData.length - 1].toProductTypeId;
-    //                 const lastNode = combinedProductTypeOptions.find(opt => opt.id === lastNodeId) || null;
-    //                 setFromProductType(lastNode);
-    //                 setIsInitialEntry(false);
-    //             } else {
-    //                 setFromProductType(null);
-    //                 setIsInitialEntry(true);
-    //             }
-
-    //             setFinalCalculationData(_prev => {
-    //                 const newMap = new Map<string, Map<string, AddedItem>>();
-    //                 processedData.forEach((row: TransmissionRow) => {
-    //                     if (row.items) {
-    //                         row.items.forEach((item: AddedItem) => {
-    //                             const currentItemMap = newMap.get(item.id) || new Map<string, AddedItem>();
-    //                             const currentItem = currentItemMap.get(item.miktarTipi);
-    //                             if (currentItem) {
-    //                                 currentItemMap.set(item.miktarTipi, {
-    //                                     ...currentItem,
-    //                                     quantity: parseFloat(String(currentItem.quantity)) + parseFloat(String(item.quantity)),
-    //                                 });
-    //                             } else {
-    //                                 currentItemMap.set(item.miktarTipi, { ...item, quantity: parseFloat(String(item.quantity)) });
-    //                             }
-    //                             newMap.set(item.id, currentItemMap);
-    //                         });
-    //                     }
-    //                 });
-    //                 return newMap;
-    //             });
-
-    //         } else {
-    //             showAlert(response.data.message || 'Veri alınamadı.', 'error');
-    //             setTransmissionList([]);
-    //             setFinalCalculationData(new Map());
-    //             setTransmissionSummary([]);
-    //             setIsInitialEntry(true);
-    //             setFromProductType(null);
-    //         }
-    //     } catch (e: any) {
-    //         console.error("Error fetching transmission list:", e);
-    //         showAlert('Sunucudan iletim listesi alınırken bir hata oluştu.', 'error');
-    //         setTransmissionList([]);
-    //         setFinalCalculationData(new Map());
-    //         setTransmissionSummary([]);
-    //         setIsInitialEntry(true);
-    //         setFromProductType(null);
-    //     } finally {
-    //         setLoadingList(false);
-    //     }
-    // }, [navigate, showAlert, combinedProductTypeOptions]);
-
-    // در ListTransmission.tsx
 
     const fetchTransmissionList = useCallback(async (currentNetworkId: string) => {
         setLoadingList(true);
@@ -674,6 +562,11 @@ const ListTransmission = () => {
                         unit: item.item.unit,
                     }));
 
+                    const distanceInMeters =
+                        row.distance != null
+                            ? parseFloat((Number(row.distance) / 100).toFixed(2)) // cm → m برای نمایش
+                            : 0;
+
                     return {
                         ...row,
                         id: String(row.id),
@@ -686,6 +579,7 @@ const ListTransmission = () => {
                         // --- تزریق فیلد type به TransmissionRow برای MapPreviewModal ---
                         fromProductTypeCategory: fromProductTypeDetails?.type as 1 | 2 | undefined,
                         toProductTypeCategory: toProductTypeDetails?.type as 1 | 2 | undefined,
+                        distance: distanceInMeters,
                     };
                 });
 
@@ -1040,7 +934,7 @@ const ListTransmission = () => {
         };
 
         const payload = {
-            distance: parseFloat(distance),
+            distance: Math.round(parseFloat(distance) * 100),
             formulaTitle: formulaTitle,
             fromProductTypeId: parseInt(fromProductType.id!),
             toProductTypeId: parseInt(toProductType.id!),
@@ -1066,138 +960,102 @@ const ListTransmission = () => {
         }
     }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, resetFormFields, isInitialEntry]);
 
-    // const handleBatchUpdate = useCallback(async (listToUpdate: TransmissionRow[]) => {
-    //     setLoadingButton(true);
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) {
-    //         navigate("/");
-    //         showAlert('Oturumunuzun süresi doldu.', 'error');
-    //         setLoadingButton(false);
-    //         return;
-    //     }
-
-    //     const miktarTipiToStatus: Record<string, number> = {
-    //         'Yeni YG': 0,
-    //         'Yeni AG': 1,
-    //         'DMM YG': 2,
-    //         'DMM AG': 3,
-    //         'TR-Connection': 4
-    //     };
-
-    //     const payload = listToUpdate.map(row => ({
-    //         id: row.id.includes('edge') ? 0 : row.id, // ID-lerin yonetimi
-    //         distance: row.distance,
-    //         formulaTitle: row.formulaTitle,
-    //         fromProductTypeId: parseInt(String(row.fromProductTypeId)),
-    //         toProductTypeId: parseInt(String(row.toProductTypeId)),
-    //         productStatus: miktarTipiToStatus[row.miktarTipi],
-    //         transmissionRowItmes: row.items?.map(item => ({
-    //             value: Number(item.quantity),
-    //             itemId: parseInt(item.id)
-    //         })) || [],
-    //         fromProductTypeX: row.fromProductTypeX,
-    //         fromProductTypeY: row.fromProductTypeY,
-    //         toProductTypeX: row.toProductTypeX,
-    //         toProductTypeY: row.toProductTypeY,
-    //     }));
-    //     debugger
-    //     try {
-    //         await axios.post(server.baseurl + server.initialoperations + "create-transmission-row-batch",
-    //             { networkId: Number(networkId), createTransmissionRows: payload },
-    //             {
-    //                 headers: { "Authorization": `Bearer ${authToken}` }
-    //             });
-
-    //         showAlert('Değişiklikler başarıyla kaydedildi!', 'success');
-    //         setHasUnsavedChanges(false);
-    //         if (networkId) {
-    //             fetchTransmissionList(networkId);
-    //         }
-    //     } catch (e: any) {
-    //         showAlert(e.response?.data?.message || 'Kayıtlar gönderilirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingButton(false);
-    //     }
-    // }, [networkId, showAlert, fetchTransmissionList, navigate]);
-
-
-    // در فایل ListTransmission.tsx
 
     const handleBatchUpdate = useCallback(async (listToUpdate: TransmissionRow[]) => {
         setLoadingButton(true);
+        debugger
         const authToken = localStorage.getItem('authToken');
         if (!authToken || !networkId) {
-            navigate("/");
+            navigate('/');
             showAlert('Oturumunuzun süresi doldu veya ağ ID’si eksik.', 'error');
             setLoadingButton(false);
             return;
         }
 
-        const miktarTipiToStatus: Record<string, number> = {
-            'Yeni YG': 0,
-            'Yeni AG': 1,
-            'DMM YG': 2,
-            'DMM AG': 3,
-            'TR-Connection': 4
+        // نقشه‌ی وضعیت سه‌حالته از channelRows (0:YENİ, 1:DMM, 2:MEVCUT)
+        const statusByChannelRowId = new Map<string, number>();
+        try {
+            (channelRowsData || []).forEach((row: any) => {
+                if (row?.id != null) {
+                    statusByChannelRowId.set(String(row.id), Number(row.productStatus ?? 0));
+                }
+            });
+        } catch { /* ignore */ }
+
+        const toInt = (v: any) => {
+            const n = parseInt(String(v), 10);
+            return Number.isFinite(n) ? n : 0;
         };
 
-        const payload = listToUpdate.map(row => {
-            // اگر ID موقت باشد (مثلاً 'edge-123')، برای ثبت جدید 0 ارسال می‌شود.
-            const rowId = row.id.includes('edge') ? 0 : Number(row.id);
+        const buildPayloadRow = (row: TransmissionRow) => {
+            // توجه: این IDها باید همان channelRow.id باشند
+            const fromId = toInt(row.fromProductTypeId);
+            const toId = toInt(row.toProductTypeId);
 
-            // **حل مشکل NaN/ID موقت گره‌ها:**
-            // اگر ID گره مبدا یا مقصد موقت باشد یا NaN باشد، برای ثبت گره جدید 0 ارسال می‌شود.
-            const fromId = parseInt(String(row.fromProductTypeId));
-            const toId = parseInt(String(row.toProductTypeId));
+            // قانون تعیین productStatus: اول مقصد، بعد مبدا، پیش‌فرض 0
+            // const productStatus =
+            //     statusByChannelRowId.get(String(toId)) ??
+            //     statusByChannelRowId.get(String(fromId)) ??
+            //     0;
 
-            const safeFromId = isNaN(fromId) ? 0 : fromId;
-            const safeToId = isNaN(toId) ? 0 : toId;
-
-            // **توجه مهم:** مقادیر مختصات X و Y باید از MapPreviewModal به درستی در TransmissionRow قرار داده شوند.
-            // در اینجا به درستی از مدل داده گرفته می‌شوند.
-
-            return {
-                id: rowId,
-                distance: row.distance,
-                formulaTitle: row.formulaTitle || '', // برای اطمینان از مقداردهی
-                fromProductTypeId: safeFromId,
-                toProductTypeId: safeToId,
-                productStatus: miktarTipiToStatus[row.miktarTipi as keyof typeof miktarTipiToStatus] || 0,
-                transmissionRowItmes: row.items?.map(item => ({
-                    value: Number(item.quantity),
-                    itemId: parseInt(item.id)
-                })) || [],
-                // مختصات نقشه برای ذخیره‌سازی موقعیت گره‌ها
-                fromProductTypeX: row.fromProductTypeX,
-                fromProductTypeY: row.fromProductTypeY,
-                toProductTypeX: row.toProductTypeX,
-                toProductTypeY: row.toProductTypeY,
+            const miktarTipiToStatus: Record<string, number> = {
+                'Yeni YG': 0,
+                'Yeni AG': 1,
+                'DMM YG': 2,
+                'DMM AG': 3,
+                'TR-Connection': 4
             };
-        });
+            return {
+                distance: Math.round(Number(row.distance ?? 0) * 100),
+                formulaTitle: String(row.formulaTitle ?? ''),
+                fromProductTypeId: fromId,
+                toProductTypeId: toId,
+                productStatus: miktarTipiToStatus[row.miktarTipi as keyof typeof miktarTipiToStatus] || 0,
+                transmissionRowItmes:
+                    (row.items || []).map((it: any) => ({
+                        value: Number(it.quantity ?? it.value ?? 0),
+                        itemId: toInt(it.id ?? it.itemId),
+                    })),
+            };
+        };
 
-        // debugger // این خط را در صورت وجود حذف کنید
+        const updates = (listToUpdate || []).map(buildPayloadRow);
 
         try {
-            await axios.post(server.baseurl + server.initialoperations + "create-transmission-row-batch",
-                { networkId: Number(networkId), createTransmissionRows: payload },
-                {
-                    headers: { "Authorization": `Bearer ${authToken}` }
-                });
+            const headers = { Authorization: `Bearer ${authToken}` };
+            const payload = {
+                networkId: Number(networkId),
+                createTransmissionRows: updates,
+            };
+
+            // فقط و فقط UPDATE
+            await axios.put(
+                server.baseurl + server.initialoperations + 'update-TransmissionRow',
+                payload,
+                { headers }
+            );
 
             showAlert('Değişiklikler başarıyla kaydedildi!', 'success');
             setHasUnsavedChanges(false);
-
-            // پس از ذخیره، لیست جدید را واکشی کنید تا ID های نهایی را از سرور بگیرید
             if (networkId) {
                 await fetchTransmissionList(networkId);
             }
         } catch (e: any) {
-            console.error("Batch update failed:", e);
-            showAlert(e.response?.data?.message || 'Kayıtlar gönderilirken bir hata oluştu.', 'error');
+            console.error('Update failed:', e);
+            if (e?.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                navigate('/');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
+            } else {
+                showAlert(
+                    e?.response?.data?.message || 'Kayıtlar gönderilirken bir hata oluştu.',
+                    'error'
+                );
+            }
         } finally {
             setLoadingButton(false);
         }
-    }, [networkId, showAlert, fetchTransmissionList, navigate]);
+    }, [networkId, navigate, showAlert, fetchTransmissionList, channelRowsData]);
 
 
     const handleDeleteAll = useCallback(() => {
@@ -1814,78 +1672,82 @@ const ListTransmission = () => {
                             </Stack>
                         </Grid>
                     </Paper>
-                    <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
-                    <Box sx={{ p: 2 }}>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={4}>
-                                <TextField
-                                    label="Şantiye Ara"
-                                    variant="outlined"
-                                    fullWidth
-                                    size="small"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={8}>
-                                <Stack direction={isSmallScreen ? "column" : "row"} justifyContent="flex-end" spacing={1} flexWrap="wrap" gap={1}>
 
-                                    {hasEditPermission && (<Box
-                                        sx={{
-                                            zIndex: 1000,
-                                            animation: `${hasUnsavedChanges ? `${blinkAnimation} 1.5s infinite` : 'none'}`,
-                                            '&:hover': { animation: 'none' },
-                                            width: isSmallScreen ? '100%' : 'auto'
-                                        }}
-                                    >
-                                        <CustomTooltip
-                                            title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}
-                                            placement={isSmallScreen ? "top" : "right"}
-                                        >
-                                            <Button
-                                                variant="contained"
-                                                color="info"
-                                                onClick={() => handleBatchUpdate(transmissionList)}
-                                                disabled={loadingButton || !hasUnsavedChanges || isFormDisabled || transmissionList.length === 0}
-                                                startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
-                                                fullWidth={isSmallScreen}
-                                            >
-                                                {loadingButton ? 'Kaydediliyor...' : 'Kaydet (Tümünü Güncelle)'}
-                                            </Button>
-                                        </CustomTooltip>
-
-                                    </Box>)}
-                                    {hasDeletePermission && (
-                                        <Button
-                                            variant="outlined"
-                                            color="error"
-                                            onClick={handleDeleteAll}
-                                            disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
-                                            startIcon={<IconTrash />}
-                                            fullWidth={isSmallScreen}
-                                        >
-                                            Hepsini Sil
-                                        </Button>
-                                    )}
-                                    <Button
-                                        variant="contained"
-                                        color="success"
-                                        onClick={handleOpenFinalCalcModal}
-                                        disabled={Array.from(finalCalculationData.values()).flatMap(m => Array.from(m.values())).length === 0}
-                                        startIcon={<IconChartDots />}
-                                        fullWidth={isSmallScreen}
-                                    >
-                                        Toplam Kayıtları Görüntüle
-                                    </Button>
-                                </Stack>
-                            </Grid>
-                        </Grid>
-                    </Box>
 
                 </>
 
             )}
+            <>
+                <Typography variant="h5" gutterBottom mt={4}>İletim Listesi</Typography>
+                <Box sx={{ p: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={4}>
+                            <TextField
+                                label="Şantiye Ara"
+                                variant="outlined"
+                                fullWidth
+                                size="small"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={8}>
+                            <Stack direction={isSmallScreen ? "column" : "row"} justifyContent="flex-end" spacing={1} flexWrap="wrap" gap={1}>
+
+                                {hasEditPermission && (<Box
+                                    sx={{
+                                        zIndex: 1000,
+                                        animation: `${hasUnsavedChanges ? `${blinkAnimation} 1.5s infinite` : 'none'}`,
+                                        '&:hover': { animation: 'none' },
+                                        width: isSmallScreen ? '100%' : 'auto'
+                                    }}
+                                >
+                                    <CustomTooltip
+                                        title={isTooltipGloballyEnabled ? "Değişiklikleriniz kaydedilmedi. Son kaydetme işlemi için bu butona tıklayın." : ""}
+                                        placement={isSmallScreen ? "top" : "right"}
+                                    >
+                                        <Button
+                                            variant="contained"
+                                            color="info"
+                                            onClick={() => handleBatchUpdate(transmissionList)}
+                                            disabled={loadingButton || !hasUnsavedChanges || isFormDisabled || transmissionList.length === 0}
+                                            startIcon={loadingButton ? <CircularProgress size={20} color="inherit" /> : <IconEdit />}
+                                            fullWidth={isSmallScreen}
+                                        >
+                                            {loadingButton ? 'Kaydediliyor...' : 'Kaydet (Tümünü Güncelle)'}
+                                        </Button>
+                                    </CustomTooltip>
+
+                                </Box>)}
+                                {hasDeletePermission && (
+                                    <Button
+                                        variant="outlined"
+                                        color="error"
+                                        onClick={handleDeleteAll}
+                                        disabled={loadingButton || isFormDisabled || transmissionList.length === 0}
+                                        startIcon={<IconTrash />}
+                                        fullWidth={isSmallScreen}
+                                    >
+                                        Hepsini Sil
+                                    </Button>
+                                )}
+                                <Button
+                                    variant="contained"
+                                    color="success"
+                                    onClick={handleOpenFinalCalcModal}
+                                    disabled={Array.from(finalCalculationData.values()).flatMap(m => Array.from(m.values())).length === 0}
+                                    startIcon={<IconChartDots />}
+                                    fullWidth={isSmallScreen}
+                                >
+                                    Toplam Kayıtları Görüntüle
+                                </Button>
+                            </Stack>
+                        </Grid>
+                    </Grid>
+                </Box>
+            </>
+
             {alertMessage && (
                 <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
                     <Alert severity={alertSeverity} onClose={clearAlert}>

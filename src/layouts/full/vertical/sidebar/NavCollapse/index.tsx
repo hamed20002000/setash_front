@@ -93,10 +93,10 @@ const NavCollapse = ({
   // بررسی کنید آیا هر یک از فرزندان این منو در مسیر فعلی فعال هستند
   const isAnyChildActive = menu.children
     ? menu.children.some(
-        (child: any) =>
-          child.href === pathname ||
-          (child.children && child.children.some((grandchild: any) => grandchild.href === pathname))
-      )
+      (child: any) =>
+        child.href === pathname ||
+        (child.children && child.children.some((grandchild: any) => grandchild.href === pathname))
+    )
     : false;
 
   const ListItemStyled = styled(ListItemButton)(() => ({
@@ -116,9 +116,9 @@ const NavCollapse = ({
       (isOpen || isAnyChildActive) && level < 2
         ? 'black'
         : (level > 1 && (isOpen || isAnyChildActive)
-            ? theme.palette.primary.main
-            : 'inherit'
-          ),
+          ? theme.palette.primary.main
+          : 'inherit'
+        ),
     borderRadius: `${customizer.borderRadius}px`,
   }));
 
@@ -133,9 +133,6 @@ const NavCollapse = ({
           pathWithoutLastPart={pathWithoutLastPart}
           pathDirect={pathDirect}
           hideMenu={hideMenu}
-          // onClick را به NavCollapse های تو در تو پاس نمی‌دهیم
-          // اگر اکاردئون چندسطحی باشد، isOpen و onToggle را باید با منطق پیچیده‌تری پاس داد
-          // فعلاً برای حل مشکل اصلی، فرض بر این است که اکاردئون فقط در سطح یک مدیریت می‌شود
           isOpen={false} // <--- برای زیرمنوها، فعلاً isOpen را false در نظر بگیرید مگر اینکه منطق پیچیده‌تری برای آن اضافه کنید
           onToggle={onToggle} // تابع onToggle را به پایین پاس می‌دهیم
         />
@@ -148,10 +145,7 @@ const NavCollapse = ({
           level={level + 1}
           pathDirect={pathDirect}
           hideMenu={hideMenu}
-          // این onClick در NavItem مسئول بستن سایدبار موبایل است
-          onClick={() => { /* اگر NavItem نیاز به بستن سایدبار دارد، این را اینجا مدیریت کنید */ }}
-          // یا اگر NavItem خودش onClick را از SidebarItems دریافت می‌کند، آن را پاس دهید.
-          // بهتر است NavItem خودش این منطق را داشته باشد.
+          onClick={() => { }}
         />
       );
     }
@@ -179,7 +173,7 @@ const NavCollapse = ({
       </ListItemStyled>
       {/* استفاده از پراپ `isOpen` برای کنترل وضعیت Collapse */}
       <Collapse in={isOpen} timeout="auto" unmountOnExit>
-        <div style={{marginLeft:"10px"}}>
+        <div style={{ marginLeft: "10px", background: "rgb(93 135 255 / 19%)" }}>
           {submenus}
         </div>
       </Collapse>

@@ -238,6 +238,9 @@ const ListProjectPlanning = () => {
     const [filterStartDate, setFilterStartDate] = useState<Date | null>(null);
     const [filterEndDate, setFilterEndDate] = useState<Date | null>(null);
 
+    const [rowForDownload, setRowForDownload] = useState<PlanningType | null>(null);
+
+
     const openMenu = Boolean(anchorEl);
 
     const estimatedRef = useRef<HTMLInputElement>(null);
@@ -575,12 +578,16 @@ const ListProjectPlanning = () => {
 
     // ====== Downloads (PDF/Excel) – بدون تغییرات گسترده
     const handleDownloadPDF = (data: PlanningType[], titlePrefix: string = 'Planlama_Detay') => {
-        if (!data || data.length === 0) { showAlert('PDF oluşturulacak planlama bulunamadı.', 'warning'); return; }
+        if (!data || data.length === 0) {
+            showAlert('PDF oluşturulacak planlama bulunamadı.', 'warning');
+            return;
+        }
 
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
+        // فونت‌ها (یکبار)
         (doc as any).addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         (doc as any).addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         (doc as any).addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -589,86 +596,101 @@ const ListProjectPlanning = () => {
         (doc as any).addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        const item = data[0]; // تک رکورد
-
-        const columnCount = 2;
-        const padding = 10;
-        const cardWidth = (pageWidth - padding * (columnCount + 1)) / columnCount;
-        const cardHeight = 25;
-        let currentY = 65;
-        let currentX = padding;
-        let columnIndex = 0;
-
-        // Header + Project Range
-        doc.setFont('Arial', 'normal').setFontSize(14).text('Proje Planlama Detayları', pageWidth / 2, 15, { align: 'center' });
-        doc.setFont('Arial', 'normal').setFontSize(10)
-            .text(`Proje Adı: ${item.project.title}`, 15, 25);
-
-        // نمایش بازه پروژه اگر موجود است
-        const prStart = projectStart ? format(projectStart, 'dd MMMM yyyy', { locale: tr }) : '-';
-        const prEnd = projectEnd ? format(projectEnd, 'dd MMMM yyyy', { locale: tr }) : '-';
-
-        doc.text(`Proje Başlangıç: ${prStart}`, 15, 30);
-        doc.text(`Proje Bitiş: ${prEnd}`, 70, 30);
-
-        // نمایش بازه همین رکورد (08:00–17:00 یک روز)
-        doc.text(`Kayıt Tarihi: ${format(new Date(item.startDate), 'dd MMMM yyyy', { locale: tr })} 08:00 - 17:00`, 15, 35);
-
-        doc.line(15, 40, pageWidth - 15, 40);
-        try { doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25); } catch { }
-
-        ALL_PLANNING_FIELDS.forEach((field) => {
-            const values = (item as any)[field.key];
-            if (!values || (values.estimatedNumber === 0 && values.min === 0 && values.max === 0)) return;
-
-            currentX = padding + (columnIndex % columnCount) * (cardWidth + padding);
-            if (columnIndex > 0 && columnIndex % columnCount === 0) {
-                currentY += cardHeight + 10;
-                currentX = padding;
-            }
-            if (currentY + cardHeight + 10 > pageHeight - 40) {
-                doc.addPage();
-                currentY = 20;
-                currentX = padding;
-                doc.setFont('Arial', 'normal').setFontSize(14).text('Proje Planlama Detayları (Devam)', pageWidth / 2, 15, { align: 'center' });
-            }
-
-            doc.setFontSize(9).setTextColor(70, 70, 70).text(field.label, currentX, currentY);
-            autoTable(doc, {
-                startY: currentY + 1,
-                margin: { left: currentX, right: pageWidth - (currentX + cardWidth) },
-                head: [['Tahmini', 'Min', 'Max']],
-                body: [[values.estimatedNumber, values.min, values.max]],
-                theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 1, halign: 'center', fillColor: [245, 245, 245], textColor: [0, 0, 0] },
-                headStyles: { fillColor: [200, 220, 255], textColor: [0, 0, 0], fontSize: 7 },
-                columnStyles: { 0: { cellWidth: cardWidth / 3 }, 1: { cellWidth: cardWidth / 3 }, 2: { cellWidth: cardWidth / 3 } },
-            });
-
-            columnIndex++;
-        });
-
-        const pageCount = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
-            doc.setPage(i);
+        const drawFooter = (pageIndex: number, total: number) => {
             doc.setFont('NotoSans', 'normal').setFontSize(8).setTextColor(0);
-            const companyInfo = [
+            const company = [
                 'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
                 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR',
                 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
             ];
             const ph = doc.internal.pageSize.getHeight();
             const pw = doc.internal.pageSize.getWidth();
-            let footerY = ph - 30;
-            companyInfo.forEach(line => { doc.text(line, pw / 2, footerY, { align: 'center' }); footerY += 4; });
-            doc.text(`Sayfa ${i} / ${pageCount}`, 15, ph - 10);
+            let y = ph - 30;
+            company.forEach(line => { doc.text(line, pw / 2, y, { align: 'center' }); y += 4; });
+            doc.text(`Sayfa ${pageIndex} / ${total}`, 15, ph - 10);
             doc.text('İmza', pw - 15, ph - 10, { align: 'right' });
             doc.line(pw - 65, ph - 15, pw - 15, ph - 15);
-        }
+        };
 
-        doc.save(`${titlePrefix}.pdf`);
+        data.forEach((item, idx) => {
+            if (idx > 0) doc.addPage();
+
+            // Header
+            doc.setFont('Arial', 'normal').setFontSize(14)
+                .text('Proje Planlama Detayları', pageWidth / 2, 15, { align: 'center' });
+            doc.setFont('Arial', 'normal').setFontSize(10);
+
+            const projectTitle = item.project?.title ?? '-';
+            doc.text(`Proje Adı: ${projectTitle}`, 15, 25);
+
+            const prStart = projectStart ? format(projectStart, 'dd MMMM yyyy', { locale: tr }) : '-';
+            const prEnd = projectEnd ? format(projectEnd, 'dd MMMM yyyy', { locale: tr }) : '-';
+            doc.text(`Proje Başlangıç: ${prStart}`, 15, 30);
+            doc.text(`Proje Bitiş: ${prEnd}`, 70, 30);
+
+            doc.text(
+                `Kayıt Tarihi: ${format(new Date(item.startDate), 'dd MMMM yyyy', { locale: tr })} 08:00 - 17:00`,
+                15, 35
+            );
+
+            // doc.line(15, 40, pageWidth - 15, 40);
+            try { doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25); } catch { }
+
+            // کارت‌های دو ستونه
+            const columnCount = 2;
+            const padding = 10;
+            const cardWidth = (pageWidth - padding * (columnCount + 1)) / columnCount;
+            const cardHeight = 25;
+            let currentY = 65;
+            let columnIndex = 0;
+
+            ALL_PLANNING_FIELDS.forEach((field) => {
+                const values = (item as any)[field.key];
+                if (!values) return;
+                const allZero = [values.estimatedNumber, values.min, values.max].every((v: any) => Number(v) === 0);
+                if (allZero) return;
+
+                const col = columnIndex % columnCount;
+                const currentX = padding + col * (cardWidth + padding);
+
+                if (col === 0 && columnIndex > 0) {
+                    // شروع ردیف جدید
+                    currentY += cardHeight + 10;
+                }
+                if (currentY + cardHeight + 10 > pageHeight - 40) {
+                    doc.addPage();
+                    currentY = 20;
+                }
+
+                doc.setFontSize(9).setTextColor(70, 70, 70).text(field.label, currentX, currentY);
+
+                autoTable(doc, {
+                    startY: currentY + 1,
+                    margin: { left: currentX, right: pageWidth - (currentX + cardWidth) },
+                    head: [['Tahmini', 'Min', 'Max']],
+                    body: [[values.estimatedNumber, values.min, values.max]],
+                    theme: 'grid',
+                    styles: { fontSize: 8, cellPadding: 1, halign: 'center', fillColor: [245, 245, 245], textColor: [0, 0, 0] },
+                    headStyles: { fillColor: [200, 220, 255], textColor: [0, 0, 0], fontSize: 7 },
+                    columnStyles: { 0: { cellWidth: cardWidth / 3 }, 1: { cellWidth: cardWidth / 3 }, 2: { cellWidth: cardWidth / 3 } },
+                });
+
+                columnIndex++;
+            });
+        });
+
+        // Footer برای همه صفحات
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) { doc.setPage(i); drawFooter(i, pageCount); }
+
+        const name = data.length === 1
+            ? `Planlama_${data[0].id}_Raporu.pdf`
+            : `${titlePrefix}.pdf`;
+
+        doc.save(name);
         showAlert('PDF başarıyla oluşturuldu.', 'success');
     };
+
 
     const handleExportExcel = async (data: PlanningType[]) => {
         setOpenDownloadModal(false);
@@ -728,14 +750,31 @@ const ListProjectPlanning = () => {
     };
 
     // ====== Single download modal
-    const handleClickOpenSingleDownloadModal = () => { if (selectedRowForMenu) setOpenSingleDownloadModal(true); handleCloseMenu(); };
-    const handleCloseSingleDownloadModal = () => setOpenSingleDownloadModal(false);
+    const handleClickOpenSingleDownloadModal = () => {
+        if (selectedRowForMenu) {
+            setRowForDownload(selectedRowForMenu); // snapshot ردیف
+            setOpenSingleDownloadModal(true);
+        }
+        handleCloseMenu(); // اشکالی ندارد اگر selectedRowForMenu را null کند
+    };
+    const handleCloseSingleDownloadModal = () => {
+        setOpenSingleDownloadModal(false);
+        setRowForDownload(null);
+    };
+
     const handleSingleDownload = (formatType: 'pdf' | 'excel') => {
-        if (!selectedRowForMenu) { showAlert('Hata: İndirilecek planlama seçilmedi.', 'error'); handleCloseSingleDownloadModal(); return; }
-        if (formatType === 'pdf') handleDownloadPDF([selectedRowForMenu], `Planlama_${selectedRowForMenu.id}_Raporu`);
-        else handleExportExcel([selectedRowForMenu]);
+        const row = rowForDownload;
+        if (!row) {
+            showAlert('Hata: İndirilecek planlama seçilmedi.', 'error');
+            handleCloseSingleDownloadModal();
+            return;
+        }
+        if (formatType === 'pdf') handleDownloadPDF([row], `Planlama_${row.id}_Raporu`);
+        else handleExportExcel([row]);
+
         handleCloseSingleDownloadModal();
     };
+
 
     // ====== Filters/Sorting/Pagination
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
@@ -1056,11 +1095,6 @@ const ListProjectPlanning = () => {
                                             <Typography variant="h6">Bitiş Tarihi</Typography>
                                         </TableSortLabel>
                                     </StyledTableCell>
-                                    <StyledTableCell>
-                                        <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')} style={{ color: "#171c23" }}>
-                                            <Typography variant="h6">Durum</Typography>
-                                        </TableSortLabel>
-                                    </StyledTableCell>
                                     <StyledTableCell style={{ color: "#171c23" }}>
                                         <Typography variant="h6">Detaylar</Typography>
                                     </StyledTableCell>
@@ -1079,21 +1113,6 @@ const ListProjectPlanning = () => {
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Typography variant="body1">{format(new Date(row.endDate), 'dd MMMM yyyy', { locale: tr })}</Typography>
-                                            </StyledTableCell>
-                                            <StyledTableCell>
-                                                <Chip
-                                                    label={row.status}
-                                                    sx={{
-                                                        backgroundColor:
-                                                            row.recordStatus === 2 ? (theme) => theme.palette.primary.light
-                                                                : row.recordStatus === 1 ? (theme) => theme.palette.error.light
-                                                                    : (theme) => theme.palette.success.light,
-                                                        color:
-                                                            row.recordStatus === 2 ? (theme) => theme.palette.primary.main
-                                                                : row.recordStatus === 1 ? (theme) => theme.palette.error.main
-                                                                    : (theme) => theme.palette.success.main
-                                                    }}
-                                                />
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Stack direction="row" spacing={1} alignItems="center">
@@ -1175,7 +1194,7 @@ const ListProjectPlanning = () => {
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => handleDownloadPDF(sortedAndFilteredPlannings)}>
+                        <Button onClick={() => handleDownloadPDF(sortedAndFilteredPlannings, 'Planlama_Raporu')}>
                             PDF Olarak İndir
                         </Button>
                         <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => handleExportExcel(sortedAndFilteredPlannings)}>
@@ -1201,6 +1220,7 @@ const ListProjectPlanning = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={handleCloseSingleDownloadModal} color="secondary">İptal</Button></DialogActions>
             </Dialog>
+
 
             {/* Details Modal */}
             <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="sm">

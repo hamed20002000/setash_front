@@ -8,18 +8,22 @@ import {
 
 import { useSelector, useDispatch } from 'src/store/Store';
 import { toggleSidebar, toggleMobileSidebar } from 'src/store/customizer/CustomizerSlice';
-import { IconMenu2, IconUserShield,
+import {
+  IconMenu2, IconUserShield,
   //  IconInfoSquare 
-  } from '@tabler/icons-react';
+} from '@tabler/icons-react';
 import Profile from './Profile';
 import Search from './Search';
 import { AppState } from 'src/store/Store';
 
 import { useAuth } from '../../../../context/AuthContext';
-import { 
+import {
   // useTooltip, 
-  CustomTooltip } from '../../../../context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
+  CustomTooltip
+} from '../../../../context/TooltipContext'; // **ایمپورت useTooltip و CustomTooltip**
 import ChangeUserRoleModal from './ChangeUserRoleModal';
+
+import Notifications from 'src/layouts/full/vertical/header/Notification';
 
 const Header = () => {
   const lgUp = useMediaQuery((theme: any) => theme.breakpoints.up('lg'));
@@ -99,8 +103,9 @@ const Header = () => {
         <Box flexGrow={1} />
 
         <Stack spacing={1} direction="row" alignItems="center">
+          <Notifications />
           {userRoles.length > 1 && (
-            <CustomTooltip title="Aktif Rolü Seçin"> 
+            <CustomTooltip title="Aktif Rolü Seçin">
               <Button
                 variant="outlined"
                 color="primary"
@@ -131,7 +136,6 @@ const Header = () => {
               labelPlacement="start"
             />
           </CustomTooltip> */}
-
           <Profile />
         </Stack>
       </ToolbarStyled>

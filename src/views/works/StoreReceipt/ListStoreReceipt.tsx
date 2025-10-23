@@ -966,7 +966,7 @@ const ListStoreReceipts = () => {
                                             }
                                         }}
                                         isOptionEqualToValue={(o, v) => o.id === v?.id}
-                                        renderInput={(p) => <TextField {...p} fullWidth size="small" placeholder="Workhouse Seçin" />}
+                                        renderInput={(p) => <TextField {...p} fullWidth size="small" placeholder="Şantiye Seçin" />}
                                         disabled={!!editingId}
                                     />
                                 </Grid>
@@ -1230,7 +1230,6 @@ const ListStoreReceipts = () => {
                                         <StyledTableCell><Typography variant="h6">Şantiye Adı</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Toplam Miktar</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Detaylar</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
                                     </TableRow>
@@ -1249,9 +1248,6 @@ const ListStoreReceipts = () => {
                                                     <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1" fontWeight="bold">{totalQuantity.toLocaleString()}</Typography></StyledTableCell>
-                                                    <StyledTableCell>
-                                                        <Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} />
-                                                    </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Button variant="outlined" startIcon={<IconEye />} onClick={() => { setDetailsToShow(row.storeReceiptDetails || []); setOpenDetailsModal(true); }}>
                                                             Görünüm

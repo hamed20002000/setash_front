@@ -15,6 +15,7 @@ export interface MapNode extends d3.SimulationNodeDatum {
 
     productTypeCategory?: 1 | 2
 }
+export type NodeStatus = 0 | 1 | 2; // اگر نداری اضافه کن (0=YENİ, 1=DMM, 2=MEVCUT)
 
 export interface SelectOption {
     id: string;
@@ -30,6 +31,7 @@ export interface SelectOption {
     label?: string;
     parent?: { id: string; label: string } | null;
     type?: number;
+    productStatus?: NodeStatus;
 }
 
 export interface AddedItem {

@@ -712,7 +712,7 @@ const NetworkDetails = () => {
             }
             const range = XLSX.utils.decode_range(worksheet['!ref']);
             if (range.e.r < 3 || range.e.c < 6) {
-                showAlert('Excel dosyası boş veya formatı geçersiz (minimum 4 R satır و 7 C ستون (A-G) انتظار می‌رود).', 'error');
+                // showAlert('Excel dosyası boş veya formatı geçersiz (minimum 4 R satır و 7 C ستون (A-G) انتظار می‌رود).', 'error');
                 setLoadingFileUpload(false);
                 return;
             }
@@ -1096,7 +1096,7 @@ const NetworkDetails = () => {
             }
         }
         if (itemsToRegister.length === 0) {
-            showAlert('Lütfen en az bir öğه و مقدار ekleyin!', 'warning');
+            showAlert('Lütfen en az bir öğdar ekleyin!', 'warning');
             hasError = true;
         }
         if (hasError) {

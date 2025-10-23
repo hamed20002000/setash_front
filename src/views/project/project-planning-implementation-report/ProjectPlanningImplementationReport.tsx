@@ -110,11 +110,11 @@ const statusFieldKeys: Readonly<NumericKeys[]> = [
 
 const labelMap: Record<keyof ReportRow, string> = {
     ProjectId: "Proje ID", ProjectName: "Proje", StartDate: "Başlangıç", EndDate: "Bitiş",
-    KaziYapilanDirekDurumu: "Kazı Yapılan Direk", AltMontajiYapilan: "Alt Montajı Yapılan Direk",
-    BetonAtilanDirekDurumu: "Beton Atılan Direk", UstMontajiOrulenDirekDurumu: "Üst Montajı Örülen Direk",
-    UstMontajiKurulanDirekDurumu: "Üst Montajı Kurulan Direk", DikilenBetonDirekDurumu: "Dikilen Beton Direk",
-    IletkenCekilenDirekDurumu: "İletken Çekilen Direk", AyiriciTakilanDirekDurumu: "Ayırıcı Takılan Direk",
-    DikilenAydinlatmaDirekDurumu: "Dikilen Aydınlatma Direk", KabloKanaliDurumu: "Kablo Kanalı",
+    KaziYapilanDirekDurumu: "Kazı Yapılan Direk  Sayısı", AltMontajiYapilan: "Alt Montajı Yapılan Direk  Sayısı",
+    BetonAtilanDirekDurumu: "Beton Atılan Direk  Sayısı", UstMontajiOrulenDirekDurumu: "Üst Montajı Örülen Direk  Sayısı",
+    UstMontajiKurulanDirekDurumu: "Üst Montajı Kurulan Direk  Sayısı", DikilenBetonDirekDurumu: "Dikilen Beton Direk  Sayısı",
+    IletkenCekilenDirekDurumu: "İletken Çekilen Direk  Sayısı", AyiriciTakilanDirekDurumu: "Ayırıcı Takılan Direk  Sayısı",
+    DikilenAydinlatmaDirekDurumu: "Dikilen Aydınlatma Direk  Sayısı", KabloKanaliDurumu: "Kablo Kanalı",
     TransformatorDurumu: "Transformatör", DagitimPanosuDurumu: "Dağıtım Panosu", SahaDagitimKutusuDurumu: "Saha Dağıtım Kutusu",
     BetonKoskDurumu: "Beton Köşk", HucreDurumu: "Hücre", CekilenKabloMiktari: "Çekilen Kablo (m)"
 };
@@ -126,7 +126,7 @@ const percentForRow = (row: ReportRow) => {
     return Math.round((doneCount / statusFieldKeys.length) * 100);
 };
 const dayRangeLabel = (row: ReportRow) =>
-    `${format(new Date(row.StartDate), "dd MMM yyyy", { locale: tr })} - ${format(new Date(row.EndDate), "dd MMM yyyy", { locale: tr })}`;
+    `${format(new Date(row.StartDate), "dd MMM yyyy", { locale: tr })} `;
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
@@ -281,12 +281,12 @@ const ProjectPlanningImplementationReport: React.FC = () => {
         <Grid container spacing={1} mt={3}>
             {/* Row 1 */}
             <Grid item xs={12} md={6} lg={4}>
-                <Typography variant="h6" noWrap>Project Planning Implementation Report</Typography>
+                <Typography variant="h6" noWrap>Proje Planlaması Uygulama Raporu</Typography>
             </Grid>
             <Grid item xs={12} md={6} lg={4}>
                 <Autocomplete
                     options={projects}
-                    getOptionLabel={(o) => `${o.title} (${o.code})`}
+                    getOptionLabel={(o) => `${o.title} (Kod:${o.code})`}
                     isOptionEqualToValue={(opt, val) => opt.id === val.id}
                     loading={loadingProjects}
                     value={selectedProject}
