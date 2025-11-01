@@ -85,7 +85,7 @@ const DeleteProductType = ({ openModal, ProductTypesIdToDelete, onClose, onDelet
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu birimi silmek istediğinizden emin misiniz?"}
+                    {"Bu direği veya trafoyu silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">

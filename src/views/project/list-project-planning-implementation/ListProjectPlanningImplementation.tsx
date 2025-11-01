@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     Box, Stack, Grid, Paper, Typography, Button, Alert, Chip,
     TextField, Checkbox, Autocomplete, CircularProgress,
-    Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, ListItemSecondaryAction, Tabs, Tab
+    Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, ListItemSecondaryAction, Tabs, Tab,
+    IconButton
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import { IconCheck, IconX, IconReportAnalytics, IconFileText, IconFileSpreadsheet } from "@tabler/icons-react";
+import { IconCheck, IconX, IconReportAnalytics, IconFileText, IconFileSpreadsheet, IconRefresh } from "@tabler/icons-react";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from "date-fns/locale";
@@ -203,13 +204,30 @@ type DayRow = { date: Date; status: DayStatus; id?: number | null };
 const ListProjectPlanningImplementation = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem("authToken");
+
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    // const hasIdsFilter = notifIds.length > 0;
+    // const idsSet = new Set<number>(notifIds);
+
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
-
     const hasCreatePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === "Eklemek") ?? false, [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === "İndirmek ve Yazdırmak") ?? false, [allowedOperations]);
 
-    /* Alerts */
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "warning" | "info">("info");
     const alertTimer = useRef<number | null>(null);
@@ -220,7 +238,6 @@ const ListProjectPlanningImplementation = () => {
         alertTimer.current = window.setTimeout(() => setAlertMessage(null), 5000);
     }, []);
 
-    /* Data */
     const [loading, setLoading] = useState(false);
     const [projects, setProjects] = useState<Project[]>([]);
     const [forceMajors, setForceMajors] = useState<ForceMajorType[]>([]);
@@ -230,27 +247,20 @@ const ListProjectPlanningImplementation = () => {
     const [activeTab, setActiveTab] = useState(0);
     const activePlanning: ProjectPlanning | null = plannings[activeTab] ?? null;
 
-    // تاریخ‌های هر پلنینگ و وضعیت‌شان
     const [dayRows, setDayRows] = useState<DayRow[]>([]);
 
-    // کنترل فورس‌ماجور
     const [isForceMajor, setIsForceMajor] = useState(false);
     const [forceMajorId, setForceMajorId] = useState<number | null>(null);
 
-    // انتخاب تاریخ برای ثبت
     const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
-    // فیلتر تاریخ (سمت راست کنار پروژه)
     const [filterFrom, setFilterFrom] = useState<Date | null>(null);
     const [filterTo, setFilterTo] = useState<Date | null>(null);
 
-    // مودال‌های دانلود
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
-    // تاریخ جزئیاتِ زیرِ صفحه (فقط برای normal)
     const [detailDateId, setDetailDateId] = useState<number | null>(null);
 
-    /* ====== Fetches ====== */
     const fetchProjects = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
         setLoading(true);
@@ -370,6 +380,50 @@ const ListProjectPlanningImplementation = () => {
 
     /* ====== Effects ====== */
     useEffect(() => { fetchProjects(); fetchForceMajors(); }, [fetchProjects, fetchForceMajors]);
+
+    // 1) projectId از query
+    const projectIdFromQuery = searchParams.get('projectId') || null;
+
+    // 2) گزینه‌های کمبو
+    const projectOptions = useMemo(() => {
+        if (!projects || projects.length === 0) return [];
+        if (projectIdFromQuery) {
+            // فقط همان پروژه‌ای که از نوتیف آمده
+            return projects.filter(p => String(p.id) === String(projectIdFromQuery));
+        }
+        // در غیر این صورت، همه پروژه‌ها
+        return projects;
+    }, [projects, projectIdFromQuery]);
+
+    // 3) انتخاب خودکار وقتی فقط یک گزینه داریم یا وقتی projectId آمده
+    useEffect(() => {
+        if (!projects.length) return;
+
+        if (projectIdFromQuery) {
+            const found = projects.find(p => String(p.id) === String(projectIdFromQuery));
+            if (found) {
+                setSelectedProject(found);
+                return;
+            }
+        }
+
+        // اگر هنوز انتخابی نداری و دقیقاً یک گزینه در کمبوست، همان را انتخاب کن (کیفی/اختیاری)
+        if (!selectedProject && projectOptions.length === 1) {
+            setSelectedProject(projectOptions[0]);
+        }
+    }, [projects, projectIdFromQuery, projectOptions, selectedProject]);
+
+    // 4) اگر انتخاب فعلی دیگر در گزینه‌ها نیست (به‌خاطر فیلتر)، خالی‌اش کن
+    useEffect(() => {
+        if (selectedProject && !projectOptions.some(p => p.id === selectedProject.id)) {
+            setSelectedProject(null);
+        }
+    }, [projectOptions, selectedProject]);
+
+
+
+
+
 
     // وقتی پروژه انتخاب شد، پلنینگ‌ها را بیاور
     useEffect(() => {
@@ -504,17 +558,55 @@ const ListProjectPlanningImplementation = () => {
         return dayRows.find(r => isSameDay(r.date, t)) || null;
     }, [dayRows]);
 
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        next.delete('projectId');       // مهم
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [], projectId: undefined },
+        });
+
+        setSelectedProject(null);
+    };
+
+
     /* ====== UI ====== */
     return (
         <>
             <Box sx={{ p: 3 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3} flexWrap="wrap" gap={2}>
-                    <Typography variant="h5">Proje – Planlama Uygulama</Typography>
+
+
+                    <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                        <Typography variant="h5">Proje – Planlama Uygulama</Typography>
+                        {notifIds.length > 0 && (
+                            <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                <Chip
+                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    color="error"
+                                    size="small"
+                                />
+                                <IconButton
+                                    aria-label="Bildirim filtresini temizle"
+                                    size="small"
+                                    onClick={clearNotifFilter}
+                                    sx={{ p: 0.5 }}
+                                    title="Filtreyi temizle"
+                                >
+                                    <IconRefresh size={18} />
+                                </IconButton>
+                            </Stack>
+                        )}
+
+                    </Stack>
 
                     {/* Project + filters + report */}
                     <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent="flex-start">
                         <Autocomplete<Project>
-                            options={projects}
+                            options={projectOptions}
                             getOptionLabel={(o) => `${o.title} (${fmt(o.startDate)} – ${fmt(o.endDate)})`}
                             value={selectedProject}
                             onChange={(_, nv) => setSelectedProject(nv)}

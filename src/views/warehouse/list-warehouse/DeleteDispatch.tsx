@@ -85,7 +85,7 @@ const DeleteDispatch = ({ openModal, dispatchIdToDelete, dispatchCodeToDelete, o
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="alert-dialog-description">
-                    {dispatchCodeToDelete} kodlu sevk belgesini silerseniz, geri almanın bir yolu yoktur.
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{dispatchCodeToDelete}</span> kodlu sevk belgesini silerseniz, geri almanın bir yolu yoktur.
                     Kaydı silmek istediğinizden eminseniz,
                     <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                 </DialogContentText>

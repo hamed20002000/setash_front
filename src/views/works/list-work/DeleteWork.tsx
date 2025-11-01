@@ -92,7 +92,7 @@ const DeleteWork = ({ openModal, workIdToDelete, workTitleToDelete, onClose, onD
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        <span style={{ fontWeight: "bold" }}>"{workTitleToDelete}"</span> başlıklı işi silmek üzeresiniz.
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{workTitleToDelete}</span> başlıklı işi silmek üzeresiniz.
                         Eğer silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.

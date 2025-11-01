@@ -1,6 +1,5 @@
-
 import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -9,11 +8,12 @@ import {
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
-    RadioGroup, FormControlLabel, Radio, Chip
+    RadioGroup, FormControlLabel, Radio, Chip,
+    DialogContentText
 } from '@mui/material';
 
 import { styled, keyframes } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconPencil, IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconPencil, IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch, IconRefresh } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -107,6 +107,7 @@ interface InvoiceType {
         recordStatus?: number;
     } | null;
     docDate: string;
+    description: string,
     totalAmount?: number;
     status: number;
     invoiceDetails: InvoiceDetailType[];
@@ -224,6 +225,23 @@ const cleanAndConvertNumber = (value: string | number | undefined | null): numbe
 
 const ListInvoices = () => {
     const navigate = useNavigate();
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     const [providers, setProviders] = useState<ProviderType[]>([]);
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
@@ -262,6 +280,7 @@ const ListInvoices = () => {
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [statusError, setStatusError] = useState(false);
     const [description, setDescription] = useState('');
+    const [generalDescription, setGeneralDescription] = useState('');
     const [idRow, setIdRow] = useState(0);
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -277,6 +296,10 @@ const ListInvoices = () => {
 
     const [openStatusHistoryModal, setOpenStatusHistoryModal] = useState(false);
     const [statusHistoryData, setStatusHistoryData] = useState<any[]>([]);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
@@ -375,7 +398,7 @@ const ListInvoices = () => {
         ]);
 
         autoTable(doc, {
-            startY: 80,
+            startY: 90,
             head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
             body: rows,
             theme: 'grid',
@@ -397,6 +420,7 @@ const ListInvoices = () => {
                 doc.text(`Sürücü: ${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`, 15, 61);
                 doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, 15, 68);
                 doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, 15, 75);
+                doc.text(`Genel Açıklama: ${invoice.description || '-'}`, 15, 82);
                 addPdfFooter(doc);
             },
             showHead: 'everyPage',
@@ -479,6 +503,7 @@ const ListInvoices = () => {
         worksheet.addRow(['Sürücü', `${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`]);
         worksheet.addRow(['Depo', invoice.warehouse?.name || '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(invoice.docDate)]);
+        worksheet.addRow(['Genel Açıklama', invoice.description || '-']);
         worksheet.addRow([]);
 
         const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
@@ -583,6 +608,7 @@ const ListInvoices = () => {
             doc.text(`Sürücü: ${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`, 15, 61);
             doc.text(`Depo: ${invoice.warehouse?.name || '-'}`, 15, 68);
             doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, 15, 75);
+            doc.text(`Genel Açıklama: ${invoice.description || '-'}`, 15, 82);
         };
 
         const footer = () => addPdfFooter(doc);
@@ -604,7 +630,7 @@ const ListInvoices = () => {
                 ]);
 
                 autoTable(doc, {
-                    startY: 80,
+                    startY: 90,
                     head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
                     body: rows,
                     theme: 'grid',
@@ -685,6 +711,7 @@ const ListInvoices = () => {
             worksheet.addRow(['Sürücü', `${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`]);
             worksheet.addRow(['Depo', invoice.warehouse?.name || '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(invoice.docDate)]);
+            worksheet.addRow(['Genel Açıklama', invoice.description || '-']);
             worksheet.addRow([]);
 
             const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
@@ -1024,6 +1051,7 @@ const ListInvoices = () => {
     const resetForm = () => {
         setHasUnsavedChanges(false);
         setDriver('');
+        setGeneralDescription('');
         setDocDate(new Date());
         setInvoiceItems([]);
         setEditingId(null);
@@ -1062,6 +1090,7 @@ const ListInvoices = () => {
         if (!validateForm()) return;
         const invoiceData = {
             docDate: docDate?.toISOString(),
+            description: generalDescription,
             status: 0,
             statusDescription: '',
             driverId: Number(driver),
@@ -1111,6 +1140,7 @@ const ListInvoices = () => {
         const invoiceData = {
             id: Number(editingId),
             docDate: docDate?.toISOString(),
+            description: generalDescription,
             driverId: Number(driver),
             warehouseId: Number(warehouse),
             driverVehicleId: Number(selectedVehicle),
@@ -1218,7 +1248,7 @@ const ListInvoices = () => {
         const selectedWarehouse = warehousesList.find(w => Number(w.id) === Number(row.warehouse?.id));
         setWarehouse(selectedWarehouse ? selectedWarehouse.id : null);
         setDocDate(new Date(row.docDate));
-
+        setGeneralDescription(row.description || '');
         const itemsToEdit = row.invoiceDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
             const detailProvider = providers.find(p => Number(p.id) === Number(detail.provider?.id));
@@ -1368,8 +1398,26 @@ const ListInvoices = () => {
             (!startDate || createDate >= startDate) &&
             (!endDate || createDate <= endDate);
 
-        return matchesSearch && matchesStatus && matchesDate;
+        const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(invoice.id));
+
+
+        return matchesSearch && matchesStatus && matchesDate && matchesNotifIds;
     });
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
 
     const sortedAndFilteredInvoices = stableSort(filteredInvoices, getComparator(order, orderBy));
     const paginatedInvoices = sortedAndFilteredInvoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -1381,6 +1429,18 @@ const ListInvoices = () => {
     }, [driver, docDate, warehouse, invoiceItems, selectedVehicle]);
 
     const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
 
     return (
         <Box mt={2}>
@@ -1459,6 +1519,21 @@ const ListInvoices = () => {
                                     />
                                 </LocalizationProvider>
 
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Fatura)</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Fatura için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
                             </Grid>
                         </Grid>
 
@@ -1542,7 +1617,27 @@ const ListInvoices = () => {
                 </Grid>
 
                 <Box sx={{ p: 2 }}>
-                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
+                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
+                        Fatura Listesi
+                        {notifIds.length > 0 && (
+                            <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                <Chip
+                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    color="error"
+                                    size="small"
+                                />
+                                <IconButton
+                                    aria-label="Bildirim filtresini temizle"
+                                    size="small"
+                                    onClick={clearNotifFilter}
+                                    sx={{ p: 0.5 }}
+                                    title="Filtreyi temizle"
+                                >
+                                    <IconRefresh size={18} />
+                                </IconButton>
+                            </Stack>
+                        )}
+                    </Typography>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={2}>
                             <TextField
@@ -1612,6 +1707,8 @@ const ListInvoices = () => {
                                         <Typography variant="h6">Tarihi</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+
+                                <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                 <StyledTableCell><Typography variant="h6">Kayıt Tipi</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
@@ -1633,6 +1730,20 @@ const ListInvoices = () => {
                                             <StyledTableCell><Typography variant="body1">{row.driver?.name || ''} {row.driver?.family || ''}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                <Typography variant="body2" noWrap title={row.description || ''}>
+                                                    {row.description || '-'}
+                                                </Typography>
+                                                {row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell>
                                                 <Chip
                                                     label={row.invoiceDetails.some(detail => detail.orderDetail) ? "Siparişli" : "Siparişsiz"}
@@ -1696,7 +1807,7 @@ const ListInvoices = () => {
                                                     )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı silin" : ""}>
-                                                            <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.provider?.name || '-')}>
+                                                            <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.invoiceNo || '-')}>
                                                                 <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
@@ -1908,7 +2019,24 @@ const ListInvoices = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
-            {/* *********************************************************** */}
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 };

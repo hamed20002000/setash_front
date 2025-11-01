@@ -12,7 +12,7 @@ import {
   IconBuildingFactory, IconFileInvoice, IconSitemap, IconHelmet, IconBuildingStore,
   IconArrowsExchange, IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar,
   IconFileDollar, IconTimeline, IconBriefcase, IconHierarchy, IconFileExport,
-  IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime
+  IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime, IconQuestionMark
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
@@ -110,6 +110,7 @@ const decodeJwtToken = (token: string): JwtPayload | null => {
         })
         .join(''),
     );
+    debugger
     return JSON.parse(jsonPayload);
   } catch (e) {
     // console.error("Error decoding JWT token:", e);
@@ -126,7 +127,7 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconSitemap: IconSitemap, IconFileDollar, IconHierarchy,
   IconHelmet: IconHelmet, IconBuildingStore: IconBuildingStore, IconArrowsExchange,
   IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar, IconTimeline,
-  IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime
+  IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime, IconQuestionMark
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;
@@ -206,61 +207,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // const updateMenuAndOperations = useCallback(async (roleId: string) => {
-  //   setIsAuthDataLoading(true);
-  //   setAllowedOperations([]);
-  //   setMenuItems([]);
-
-  //   const authToken = localStorage.getItem('authToken');
-  //   if (!authToken) {
-  //     setIsAuthDataLoading(false);
-  //     return;
-  //   }
-
-  //   try {
-  //     const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
-  //       `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
-  //       { headers: { "Authorization": `Bearer ${authToken}` } }
-  //     );
-
-  //     // ✅ اینجا به جای systemOperation.name، id عملیات را در allowedOperations ذخیره می‌کنیم
-  //     const ops: AllowedOperation[] = operationsResponse.data?.data?.roleMenuOperations
-  //       .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
-  //       .map(op => ({
-  //         menuOperationId: op.menuOperation.id,
-  //         systemOperationId: op.menuOperation.systemOperation.id,
-  //         systemOperationName: op.menuOperation.systemOperation.name
-  //       })) || [];
-
-  //     setAllowedOperations(ops); // این خط state را به درستی تنظیم می‌کند
-
-  //     const rawMenus = await getRawMenusFromApi();
-  //     // ✅ اینجا باید آرایه ops را به تابع بدهی تا نوع داده‌ها مطابقت داشته باشد
-  //     const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
-
-
-
-  //     const finalMenuItems: MenuitemsType[] = [];
-  //     const dashboardItem = filteredMenus.find(item => item.title === 'Gösterge Paneli');
-  //     if (dashboardItem) {
-  //       finalMenuItems.push({ navlabel: true, subheader: '', id: uniqueId() });
-  //       finalMenuItems.push(dashboardItem);
-  //     }
-  //     filteredMenus.forEach(item => {
-  //       if (item.title !== 'Gösterge Paneli') {
-  //         finalMenuItems.push(item);
-  //       }
-  //     });
-
-  //     setMenuItems(finalMenuItems);
-  //   } catch (e) {
-  //     console.error("Failed to fetch menu and role data:", e);
-  //     setAllowedOperations([]);
-  //     setMenuItems([]);
-  //   } finally {
-  //     setIsAuthDataLoading(false);
-  //   }
-  // }, [getRawMenusFromApi, mapApiDataToMenuItems]);
 
   const updateMenuAndOperations = useCallback(async (roleId: string) => {
     setIsAuthDataLoading(true);
@@ -307,6 +253,28 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthDataLoading(false);
     }
   }, [getRawMenusFromApi, mapApiDataToMenuItems]);
+
+
+
+
+  function pickAndPersistActiveRole(roles: UserRole[], savedName?: string | null) {
+    // اگر قبلاً چیزی ذخیره شده و هنوز معتبره
+    const saved = savedName ? roles.find(r => r.name === savedName) : undefined;
+    if (saved) {
+      localStorage.setItem('activeUserRoleName', saved.name);
+      localStorage.setItem('activeUserRoleId', saved.id);
+      return saved;
+    }
+
+    // در غیر این صورت: اگر چندتاست، اولی؛ اگر یکیه همون
+    const chosen = roles[0]; // فرض: roles حداقل 1 عضو دارد
+    localStorage.setItem('activeUserRoleName', chosen.name);
+    localStorage.setItem('activeUserRoleId', chosen.id);
+    return chosen;
+  }
+
+
+
   const loadAuthData = useCallback(async () => {
     setIsAuthDataLoading(true); // ✅ شروع حالت بارگذاری
     const authToken = localStorage.getItem('authToken');
@@ -350,11 +318,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         .map(role => ({ id: role.id, name: role.name }));
 
       // ✅ انتخاب نقش فعال
+      // const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
+      // let roleToActivate = rolesFromToken.find(r => r.name === savedActiveRoleName);
+      // if (!roleToActivate && rolesFromToken.length > 0) {
+      //   roleToActivate = rolesFromToken[0];
+      // }
       const savedActiveRoleName = localStorage.getItem('activeUserRoleName');
-      let roleToActivate = rolesFromToken.find(r => r.name === savedActiveRoleName);
-      if (!roleToActivate && rolesFromToken.length > 0) {
-        roleToActivate = rolesFromToken[0];
-      }
+      if (rolesFromToken.length === 0) throw new Error('No roles resolved for user');
+
+      const roleToActivate = pickAndPersistActiveRole(rolesFromToken, savedActiveRoleName);
 
       let ops: AllowedOperation[] = [];
       if (roleToActivate) {
@@ -417,19 +389,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [loadAuthData]);
 
-  // const updateActiveRole = useCallback((newRoleName: string) => {
-  //   const role = userRoles.find(r => r.name === newRoleName);
-  //   if (role) {
-  //     setActiveRoleName(role.name);
-  //     setActiveRoleId(role.id);
-  //     localStorage.setItem('activeUserRoleName', role.name);
-  //     localStorage.setItem('activeUserRoleId', role.id);
-  //     updateMenuAndOperations(role.id);
-  //   } else {
-  //     console.warn(`Attempted to set an invalid role: ${newRoleName}.`);
-  //   }
-  // }, [userRoles, updateMenuAndOperations, navigate]);
-
 
   const updateActiveRole = useCallback(async (newRoleName: string) => {
     const role = userRoles.find(r => r.name === newRoleName);
@@ -440,7 +399,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('activeUserRoleName', role.name);
       localStorage.setItem('activeUserRoleId', role.id);
 
-      // ✅ مرحله ۲: اطلاعات جدید را از سرور دریافت و منتظر تکمیل آن بمانید
       const { ops, rawMenus } = await updateMenuAndOperations(role.id);
 
       // ✅ مرحله ۳: منوهای فیلتر شده را با داده‌های جدیدی که به دست آورده‌ایم، ایجاد کنید

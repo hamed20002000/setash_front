@@ -54,6 +54,8 @@ const ListPersonnel = Loadable(lazy(() => import('../views/humanresources/person
 const ListLeaves = Loadable(lazy(() => import('../views/humanresources/leaves/ListLeaves')));
 const ListReceiptsSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-sended-from-store/ListReceiptsSendedFromStore')));
 const ListReceiptsDestructionSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-destruction-sended-from-store/ListReceiptsDestructionSendedFromStore')));
+const ListPersonnelWorkPlaces = Loadable(lazy(() => import('../views/humanresources/personnel-work-places/ListPersonnelWorkPlaces')));
+const ListRequests = Loadable(lazy(() => import('../views/works/list-request/ListRequests')));
 
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
@@ -499,6 +501,22 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListLeaves />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/personnel-work-places/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPersonnelWorkPlaces />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/store/list-requests/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListRequests />
           </PermissionGuard>
         )
       },

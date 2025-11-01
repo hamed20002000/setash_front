@@ -106,12 +106,12 @@ const DeleteReceiptsDestructionSendedFromStore = ({ openModal, receiptIdToDelete
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
                     {/* ✨ تغییر متن */}
-                    {"Bu giriş belgesini silmek istediğinizden emin misiniz?"}
+                    {"Bu imha fişi belgesini silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
                         {/* ✨ تغییر متن و استفاده از کد رسید */}
-                        **{receiptCodeToDelete}** kodlu giriş belgesini silerseniz, geri almanın bir yolu yoktur.
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{receiptCodeToDelete}</span> kodlu giriş belgesini silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
@@ -120,7 +120,7 @@ const DeleteReceiptsDestructionSendedFromStore = ({ openModal, receiptIdToDelete
                     <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                         <Button onClick={onClose} disabled={loading}>İptal et</Button>
                     </CustomTooltip>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen giriş belgesini sil" : ""}>
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen imha fişi belgesini sil" : ""}>
                         <Button
                             color="error"
                             variant="contained"

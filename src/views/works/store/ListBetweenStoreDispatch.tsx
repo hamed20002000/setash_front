@@ -1,6 +1,6 @@
 // src/views/warehouses/ListBetweenStoreDispatch.tsx
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -23,7 +23,8 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
     IconArrowRight, IconEye, IconX, IconReload, IconPlus,
     IconFileSpreadsheet,
-    IconFileText
+    IconFileText,
+    IconRefresh
 } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -231,6 +232,23 @@ const ListBetweenStoreDispatch = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
@@ -437,11 +455,14 @@ const ListBetweenStoreDispatch = () => {
             const startCheck = !startDate || docDate >= startDate;
             const endCheck = !endDate || docDate <= endDate;
 
-            return matchesSearch && matchesStatus && startCheck && endCheck;
+
+            const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(d.id));
+
+            return matchesSearch && matchesStatus && startCheck && endCheck && matchesNotifIds;
         });
         setDisplayedDispatches(filteredDispatches);
         setPage(0);
-    }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
+    }, [dispatchList, searchTerm, statusFilter, startDate, endDate, notifIds]);
 
     useEffect(() => {
         const isValid = !!selectedDriverId && !!selectedDestinationStoreId &&
@@ -1018,10 +1039,19 @@ const ListBetweenStoreDispatch = () => {
         setOpenRowDownloadModal(false);
     };
 
-    // const paginatedDispatches = useMemo(() => {
-    //     return displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    // }, [displayedDispatches, page, rowsPerPage]);
 
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
     return (
         <>
             <Box sx={{ p: 3 }}>
@@ -1353,6 +1383,32 @@ const ListBetweenStoreDispatch = () => {
                         )}
                     </Stack>
                     <Box sx={{ p: 2 }}>
+
+                        <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                            <Typography variant="h5">
+                                Şantiyenin Depo Arası Sevk Listesi
+
+                            </Typography>
+                            {notifIds.length > 0 && (
+                                <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                    <Chip
+                                        label={`Bildirim filtresi: ${notifIds.length} id`}
+                                        color="error"
+                                        size="small"
+                                    />
+                                    <IconButton
+                                        aria-label="Bildirim filtresini temizle"
+                                        size="small"
+                                        onClick={clearNotifFilter}
+                                        sx={{ p: 0.5 }}
+                                        title="Filtreyi temizle"
+                                    >
+                                        <IconRefresh size={18} />
+                                    </IconButton>
+                                </Stack>
+                            )}
+
+                        </Stack>
                         <Grid container spacing={2} alignItems="center">
                             <Grid item xs={12} sm={6} md={3}>
                                 <TextField

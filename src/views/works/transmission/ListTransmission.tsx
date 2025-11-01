@@ -1320,7 +1320,7 @@ const ListTransmission = () => {
         <Box sx={{ p: 3 }}>
             <Grid container spacing={2} alignItems="center" justifyContent="space-between" mb={3}>
                 <Grid item xs={12} sm={3} md={3}>
-                    <Stack direction="column" alignItems="flex-start" flexWrap="wrap" gap={1}>
+                    <Stack direction="column" alignItems="flex-start" flexWrap="wrap" gap={1} mb={2}>
                         <Chip
                             label={`Şebeke: ${networkTitleForDisplay}`}
                             color="primary"

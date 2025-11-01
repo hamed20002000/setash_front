@@ -163,6 +163,8 @@ export interface ReceiptType {
     id: number;
     code: string;
     docDate: string;
+
+    description: string,
     warehouseId: number;
     recordStatus: number;
     createAt: string;

@@ -1,45 +1,56 @@
+// src/views/hr/Requests/DeleteRequest.tsx
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import {
     Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material';
 import axios from 'axios';
 import BoltIcon from '@mui/icons-material/Bolt';
-import server from 'src/assets/address.json';
+import server from 'src/assets/address.json'; // مسیر فایل address.json را تنظیم کنید
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+
+// --- Props interface ---
+// ⬅️ استفاده از نوع RequestType که در ListRequests تعریف شده بود (با فرض import شدن)
+type RequestItem = { id: number | string; subject: string; };
 
 type Props = {
     openModal: boolean;
-    dispatchIdToDelete: string | null;
-    dispatchCodeToDelete: string;
+    itemToDelete: RequestItem | null; // آبجکت کامل ردیف
     onClose: () => void;
     onDeleteSuccess: () => void;
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteBetweenwarehouseDispatch = ({ openModal, dispatchIdToDelete, dispatchCodeToDelete, onClose, onDeleteSuccess, showAlert }: Props) => {
+const DeleteRequest: React.FC<Props> = ({ openModal, itemToDelete, onClose, onDeleteSuccess, showAlert }) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    const handleDeleteDispatch = async () => {
-        if (dispatchIdToDelete === null) {
-            showAlert('Silinecek depolar arası sevk belgesi seçilmedi.', 'warning');
+    // ⬅️ نام مورد نظر برای نمایش در مودال
+    const requestNameToDelete = itemToDelete?.subject || 'Seçili Talep';
+    const requestIdToDelete = itemToDelete?.id || null;
+
+    const handleDeleteRequest = async () => {
+        if (requestIdToDelete === null) {
+            showAlert('Silinecek talep seçilmedi.', 'warning');
             onClose();
             return;
         }
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
-            showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-            navigate("/");
+            showAlert('Lütfen giriş yapın.', 'warning');
+            // navigate("/"); 
             return;
         }
 
         setLoading(true);
         try {
+            // ⬅️ API حذف درخواست (delete-request) در مسیر HR
+            // فرض می‌کنیم API از متد DELETE با شناسه در URL استفاده می‌کند.
             const response = await axios.delete(
-                `${server.baseurl}${server.warehouse}delete-between-warehouse-dispatch/${dispatchIdToDelete}`,
+                `${server.baseurl}${server.hr}delete-request/${requestIdToDelete}`,
                 {
                     headers: {
                         "Accept": "application/json",
@@ -49,26 +60,27 @@ const DeleteBetweenwarehouseDispatch = ({ openModal, dispatchIdToDelete, dispatc
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Depolar arası sevk belgesi başarıyla silindi!', 'success');
+                showAlert('Talep başarıyla silindi!', 'success');
                 onDeleteSuccess();
+                onClose();
             } else {
-                showAlert(response.data.message || 'Depolar arası sevk belgesi silinirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Talep silinirken bir hata oluştu.', 'error');
+                onClose();
             }
         } catch (e: any) {
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
-
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                const errorMessage = e.response?.data?.message || 'Depolar arası sevk belgesi silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
+                const errorMessage = e.response?.data?.message || 'Talep silinirken beklenmeyen bir hata oluştu, lütfen tekrar deneyin.';
                 showAlert(errorMessage, 'error');
+                onClose();
             }
         } finally {
             setLoading(false);
-            onClose();
         }
     };
 
@@ -79,11 +91,11 @@ const DeleteBetweenwarehouseDispatch = ({ openModal, dispatchIdToDelete, dispatc
             aria-labelledby="alert-dialog-title"
             aria-describedby="alert-dialog-description">
             <DialogTitle id="alert-dialog-title">
-                {"Bu depolar arası sevk belgesini silmek istediğinizden emin misiniz?"}
+                {"Bu talebi silmek istediğinizden emin misiniz?"}
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="alert-dialog-description">
-                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{dispatchCodeToDelete}</span> kodlu depolar arası sevk belgesini silerseniz, geri almanın bir yolu yoktur.
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{requestNameToDelete}</span> adlı talebi silerseniz, geri almanın bir yolu yoktur.
                     Kaydı silmek istediğinizden eminseniz,
                     <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                 </DialogContentText>
@@ -92,11 +104,11 @@ const DeleteBetweenwarehouseDispatch = ({ openModal, dispatchIdToDelete, dispatc
                 <CustomTooltip title={isTooltipGloballyEnabled ? "Silme işlemini iptal et" : ""}>
                     <Button onClick={onClose} disabled={loading}>İptal et</Button>
                 </CustomTooltip>
-                <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen depolar arası sevk belgesini sil" : ""}>
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Seçilen talebi sil" : ""}>
                     <Button
                         color="error"
                         variant="contained"
-                        onClick={handleDeleteDispatch}
+                        onClick={handleDeleteRequest}
                         autoFocus
                         disabled={loading}
                     >
@@ -114,4 +126,4 @@ const DeleteBetweenwarehouseDispatch = ({ openModal, dispatchIdToDelete, dispatc
     );
 };
 
-export default DeleteBetweenwarehouseDispatch;
+export default DeleteRequest;

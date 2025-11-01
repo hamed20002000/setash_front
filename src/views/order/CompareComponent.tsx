@@ -1,7 +1,7 @@
 
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -9,10 +9,11 @@ import {
     Typography, Chip, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
-    DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete
+    DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconExchange, IconFile, IconFileSpreadsheet, IconFileDownload, IconX, IconCheck } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconExchange, IconFile, IconFileSpreadsheet, IconFileDownload, IconX, IconCheck, IconRefresh } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -72,7 +73,19 @@ interface OrderItem {
     price: number;
     statusColor?: 'green' | 'red';
 }
-interface OrderType { id: number; network: { id: string; title: string; }; docDate: string; status: number; orderDetails: OrderDetailType[]; }
+interface RequestComboItem {
+    id: number;
+    subject: string; // برای نمایش در کمبو
+}
+interface OrderType {
+    id: number;
+    network: { id: string; title: string; };
+    docDate: string;
+    description: string,
+    status: number;
+    requestId?: number | null;
+    orderDetails: OrderDetailType[];
+}
 interface OrderDetailType {
     id: number;
     item: { id: string; name: string; unit: { title: string; }; };
@@ -132,6 +145,22 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 const CompareComponent = () => {
     const navigate = useNavigate();
 
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     // States from previous form
     const [network, setNetwork] = useState('');
     const [docDate, setDocDate] = useState<Date | null>(new Date());
@@ -146,6 +175,10 @@ const CompareComponent = () => {
     const [docDateError, setDocDateError] = useState(false);
     const [orderItemsError, setOrderItemsError] = useState(false);
 
+
+    const [requestId, setRequestId] = useState<number | null>(null);
+    const [requestsList, setRequestsList] = useState<RequestComboItem[]>([]);
+
     // States for comparison form
     const [warehouse, setWarehouse] = useState<WarehouseType | null>(null);
     const [tender, setTender] = useState<TenderType | null>(null);
@@ -158,6 +191,7 @@ const CompareComponent = () => {
     const [openComparisonModal, setOpenComparisonModal] = useState(false);
     const [isComparing, setIsComparing] = useState(false);
 
+    const [generalDescription, setGeneralDescription] = useState('');
     // Table States
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
     const [page, setPage] = useState(0);
@@ -193,6 +227,10 @@ const CompareComponent = () => {
 
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => {
@@ -310,7 +348,7 @@ const CompareComponent = () => {
         ]);
 
         autoTable(doc, {
-            startY: 70,
+            startY: 80,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
             body: rows,
             theme: 'grid',
@@ -324,6 +362,7 @@ const CompareComponent = () => {
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 47);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 54);
                     doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 61);
+                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 68);
                 }
                 addPdfFooter(doc);
             },
@@ -375,6 +414,7 @@ const CompareComponent = () => {
             doc.text(`Sipariş No: ${order.id}`, 15, 47);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 54);
             doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 61);
+            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 68);
             const rows = order.orderDetails.map(detail => [
                 detail.item.name || '-',
                 Number(detail.quantity).toFixed(2) || '-',
@@ -384,7 +424,7 @@ const CompareComponent = () => {
             ]);
 
             autoTable(doc, {
-                startY: 65,
+                startY: 75,
                 head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
                 body: rows,
                 theme: 'grid',
@@ -454,6 +494,7 @@ const CompareComponent = () => {
         worksheet.addRow(['Sipariş No', orderData.id]);
         worksheet.addRow(['Şebeke', orderData.network ? orderData.network.title : '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(orderData.docDate)]);
+        worksheet.addRow(['Genel Açıklama', orderData.description || '-']);
         worksheet.addRow([]);
 
         const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
@@ -544,6 +585,7 @@ const CompareComponent = () => {
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(order.docDate)]);
+            worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
             const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
@@ -812,6 +854,28 @@ const CompareComponent = () => {
         }
     };
 
+    // در کنار سایر توابع واکشی (getNetworks, getListItem, getListOrders)
+    const fetchRequestsList = async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) return;
+        try {
+            const response = await axios.get(
+                server.baseurl + server.hr + "get-all-requests", // ⬅️ API درخواستی شما
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            if (response.data.httpStatusCode === 200 && response.data.data) {
+                const activeRequests = (response.data.data as any[])
+                    .filter(req => req.status === 0) // فیلتر کردن فقط درخواست‌های "Beklemede" یا "Aktif"
+                    .map(req => ({ id: Number(req.id), subject: req.subject }));
+                setRequestsList(activeRequests);
+            } else {
+                showAlert(response.data.message || 'Talep listesi alınamadı.', 'error');
+            }
+        } catch (e) {
+            console.error("Failed to fetch requests:", e);
+        }
+    };
+
     useEffect(() => {
         const loadInitialData = async () => {
             await getNetworks();
@@ -819,6 +883,7 @@ const CompareComponent = () => {
             await fetchWarehouses();
             await fetchTenders();
             await getListOrders();
+            await fetchRequestsList();
         };
         loadInitialData();
     }, []);
@@ -923,6 +988,8 @@ const CompareComponent = () => {
     };
     const resetForm = () => {
         setNetwork(''); setDocDate(new Date()); setOrderItems([]);
+        setGeneralDescription('');
+        setRequestId(null);
         setSelectedWork(null); setEditingId(null); setNetworkError(false); setDocDateError(false); setOrderItemsError(false);
         setWarehouse(null); setTender(null); setWarehouseError(false); setTenderError(false);
         setIsFormVisible(false);
@@ -931,7 +998,9 @@ const CompareComponent = () => {
         if (!validateForm()) return;
         const orderData = {
             docDate: docDate?.toISOString(),
+            description: generalDescription,
             networkId: network == "" ? null : Number(network),
+            requestId: requestId,
             status: 0,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
@@ -962,7 +1031,9 @@ const CompareComponent = () => {
         const orderData = {
             id: Number(editingId),
             docDate: docDate?.toISOString(),
+            description: generalDescription,
             networkId: network == "" ? null : Number(network),
+            requestId: requestId,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String(item.quantity)),
@@ -1007,8 +1078,9 @@ const CompareComponent = () => {
             setNetwork('');
             setSelectedWork(null);
         }
-
+        setRequestId(row.requestId || null);
         setDocDate(new Date(row.docDate));
+        setGeneralDescription(row.description || '');
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
             const priceValue = detail.price !== null && !isNaN(Number(detail.price)) ? Number(detail.price) : 0;
@@ -1068,11 +1140,11 @@ const CompareComponent = () => {
         setStatusError(false);
     };
     const handleUpdateStatus = async () => {
-        if (!description.trim()) {
-            setStatusError(true);
-            showAlert('Lütfen bir açıklama giriniz.', 'warning');
-            return;
-        }
+        // if (!description.trim()) {
+        //     setStatusError(true);
+        //     showAlert('Lütfen bir açıklama giriniz.', 'warning');
+        //     return;
+        // }
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -1126,9 +1198,26 @@ const CompareComponent = () => {
         const isWithinDateRange =
             (!startDate || docDate >= startDate) &&
             (!endDate || docDate <= endDate);
+        const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(order.id));
 
-        return matchesSearch && matchesStatus && isWithinDateRange;
+
+        return matchesSearch && matchesStatus && isWithinDateRange && matchesNotifIds;
     });
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
 
     const sortedAndFilteredOrders = stableSort(filteredOrders, getComparator(order, orderBy));
     const paginatedOrders = sortedAndFilteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -1136,6 +1225,17 @@ const CompareComponent = () => {
     const handleClearDateFilters = () => {
         setStartDate(null);
         setEndDate(null);
+    };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
     };
 
     return (
@@ -1182,8 +1282,8 @@ const CompareComponent = () => {
                     <Typography variant="h6" mb={2}>Depo/İhale Karşılaştırması</Typography>
 
                     <Grid container spacing={2}>
-                        <Grid item xs={12} md={8}>
-                            <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} >
+                        <Grid item xs={12} md={4}>
+                            <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }} >
                                 Şebeke
                             </CustomFormLabel>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1202,8 +1302,22 @@ const CompareComponent = () => {
                             </Box>
                         </Grid>
                         <Grid item xs={12} md={4}>
+                            <CustomFormLabel htmlFor="request-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>İlişkili Talep (Opsiyonel)</CustomFormLabel>
+                            <Autocomplete<RequestComboItem>
+                                id="request-autocomplete"
+                                options={requestsList}
+                                getOptionLabel={(option) => `#${option.id} - ${option.subject}`}
+                                value={requestsList.find(req => req.id === requestId) || null}
+                                onChange={(_event, newValue) => setRequestId(newValue ? newValue.id : null)}
+                                renderInput={(params) => (
+                                    <TextField {...params} label="Talep Seçin" variant="outlined" size="small" />
+                                )}
+                                sx={{ flexGrow: 1 }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={4}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                                <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }} required>
                                     Tarihi
                                 </CustomFormLabel>
                                 <DatePicker
@@ -1220,6 +1334,22 @@ const CompareComponent = () => {
                                     )}
                                 />
                             </LocalizationProvider>
+                        </Grid>
+
+
+                        <Grid item xs={12}>
+                            <CustomFormLabel htmlFor="order-general-description">Açıklama (Genel Satın Alma)</CustomFormLabel>
+                            <TextField
+                                id="order-general-description"
+                                label="Satın Alma için genel açıklama giriniz"
+                                type="text"
+                                fullWidth
+                                multiline
+                                rows={3}
+                                variant="outlined"
+                                value={generalDescription} // ⬅️ استفاده از نام جدید
+                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                            />
                         </Grid>
                     </Grid>
 
@@ -1350,7 +1480,27 @@ const CompareComponent = () => {
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
-                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Sipariş Listesi</Typography>
+                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
+                        Sipariş Listesi
+                        {notifIds.length > 0 && (
+                            <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                <Chip
+                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    color="error"
+                                    size="small"
+                                />
+                                <IconButton
+                                    aria-label="Bildirim filtresini temizle"
+                                    size="small"
+                                    onClick={clearNotifFilter}
+                                    sx={{ p: 0.5 }}
+                                    title="Filtreyi temizle"
+                                >
+                                    <IconRefresh size={18} />
+                                </IconButton>
+                            </Stack>
+                        )}
+                    </Typography>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={2}>
                             <TextField
@@ -1407,6 +1557,7 @@ const CompareComponent = () => {
                                         <Typography variant="h6">Tarih</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+                                <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
                                         <Typography variant="h6">Durum</Typography>
@@ -1429,6 +1580,20 @@ const CompareComponent = () => {
                                         <TableRow key={row.id}>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                <Typography variant="body2" noWrap title={row.description || ''}>
+                                                    {row.description || '-'}
+                                                </Typography>
+                                                {row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell>
                                                 <Chip
                                                     label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
@@ -1500,18 +1665,7 @@ const CompareComponent = () => {
                                                         </CustomTooltip>
                                                     )}
                                                     {hasDownloadPermission && (
-                                                        // <>
-                                                        //     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini Excel formatında indirin" : ""}>
-                                                        //         <MuiMenuItem onClick={() => { if (selectedOrderForMenu) { exportToExcel(selectedOrderForMenu); handleCloseMenu(); } }}>
-                                                        //             <ListItemIcon><IconFileSpreadsheet size={18} /></ListItemIcon> Excel İndir
-                                                        //         </MuiMenuItem>
-                                                        //     </CustomTooltip>
-                                                        //     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş bilgilerini PDF formatında indirin" : ""}>
-                                                        //         <MuiMenuItem onClick={() => { if (selectedOrderForMenu) { exportToPdf(selectedOrderForMenu); handleCloseMenu(); } }}>
-                                                        //             <ListItemIcon><IconFile size={18} /></ListItemIcon> PDF İndir
-                                                        //         </MuiMenuItem>
-                                                        //     </CustomTooltip>
-                                                        // </>
+
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Sipariş raporunu indirin" : ""}>
                                                             <MuiMenuItem onClick={() => {
                                                                 if (selectedOrderForMenu) {
@@ -1743,6 +1897,25 @@ const CompareComponent = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>

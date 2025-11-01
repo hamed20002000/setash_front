@@ -85,7 +85,7 @@ const DeleteStoreDispatchReturnToCenter = ({ openModal, dispatchIdToDelete, disp
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="alert-dialog-description">
-                    <span style={{ fontWeight: "bold", color: "#2A3547" }}>{dispatchCodeToDelete}</span> kodlu iade sevk belgesini silerseniz, geri almanın bir yolu yoktur.
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{dispatchCodeToDelete}</span> kodlu iade sevk belgesini silerseniz, geri almanın bir yolu yoktur.
                     Kaydı silmek istediğinizden eminseniz,
                     <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                 </DialogContentText>

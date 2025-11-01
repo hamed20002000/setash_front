@@ -10,6 +10,7 @@ import {
     CircularProgress, Paper, Autocomplete,
     Dialog, DialogTitle, DialogContent, DialogActions, Chip,
     RadioGroup, FormControlLabel, Radio,
+    DialogContentText,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
@@ -89,6 +90,8 @@ interface SendedReceiptType {
     code: string;
     docDate: string;
     createAt: string;
+
+    description: string,
     recordStatus: number;  // برای ستون Durum
     isEnd: boolean | null; // (اگر بماند هم مشکل نیست)
     receiptDetails: ReceiptDetailType[];
@@ -158,6 +161,8 @@ interface FormReceiptDetail {
 
 interface NewReceiptData {
     docDate: string;
+
+    description: string,
     warehouseId: number;
     receiptDetails: { itemId: number; quantity: number; description: string; StoreDispatchDetailId: number; }[];
 }
@@ -229,6 +234,7 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
         doc.text(`Giriş Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
         doc.text(`Belge Kodu: ${receipt.code || '-'}`, 15, yPos + 5);
         doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos + 10);
+        doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos + 15);
         yPos += 20;
 
         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
@@ -296,6 +302,7 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
         ws.addRow([`Belge Kodu:`, receipt.code]);
         ws.addRow([`Giriş Depo:`, receipt.warehouse?.name || '-']);
         ws.addRow([`Belge Tarihi:`, formatDateDisplay(receipt.docDate)]);
+        ws.addRow(['Genel Açıklama', receipt.description || '-']);
         ws.addRow([]);
 
         const hr = ws.addRow(head);
@@ -332,6 +339,9 @@ const ListReceiptsSendedFromStore = () => {
     // --- State ---
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | null>(null);
+
+
+    const [generalDescription, setGeneralDescription] = useState('');
 
     const [receiptDetails, setReceiptDetails] = useState<FormReceiptDetail[]>([]);
     const [receiptList, setReceiptList] = useState<SendedReceiptType[]>([]);
@@ -393,6 +403,10 @@ const ListReceiptsSendedFromStore = () => {
     const [loadingWorkhouses, setLoadingWorkhouses] = useState(false);
     const [loadingStores, setLoadingStores] = useState(false);
     const [loadingDispatches, setLoadingDispatches] = useState(false);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     // --- End modal (for dispatch) ---
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
@@ -722,6 +736,8 @@ const ListReceiptsSendedFromStore = () => {
 
     const resetFormAndState = () => {
         setDocDate(new Date());
+
+        setGeneralDescription('');
         setSelectedWarehouseId(null);
         setSelectedWorkhouseId(null);
         setSelectedStoreId(null);
@@ -750,6 +766,7 @@ const ListReceiptsSendedFromStore = () => {
         try {
             const payload: NewReceiptData = {
                 docDate: docDate?.toISOString() || new Date().toISOString(),
+                description: generalDescription,
                 warehouseId: Number(selectedWarehouseId),
                 receiptDetails: receiptDetails.map(d => ({
                     itemId: d.itemId,
@@ -800,6 +817,7 @@ const ListReceiptsSendedFromStore = () => {
         try {
             const payload: EditReceiptData = {
                 id: Number(editingId),
+                description: generalDescription,
                 code: editingCode!,
                 docDate: docDate?.toISOString() || new Date().toISOString(),
                 warehouseId: Number(selectedWarehouseId),
@@ -953,6 +971,18 @@ const ListReceiptsSendedFromStore = () => {
         }
     }, [removedReceiptDetails]);
 
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
+
     // --- Render ---
     return (
         <Box mt={2}>
@@ -1059,6 +1089,23 @@ const ListReceiptsSendedFromStore = () => {
                                     renderInput={(params) => <TextField {...params} fullWidth size="small" error={docDateError} helperText={docDateError ? "Tarih alanı boş bırakılamaz!" : ""} />}
                                 />
                             </LocalizationProvider>
+                        </Grid>
+
+
+
+                        <Grid item xs={12}>
+                            <CustomFormLabel htmlFor="receipt-general-description">Açıklama (Genel Depoya Gelen Sevk)</CustomFormLabel>
+                            <TextField
+                                id="receipt-general-description"
+                                label="Depoya Gelen Sevk için genel açıklama giriniz"
+                                type="text"
+                                fullWidth
+                                multiline
+                                rows={3}
+                                variant="outlined"
+                                value={generalDescription} // ⬅️ استفاده از نام جدید
+                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                            />
                         </Grid>
                     </Grid>
 
@@ -1231,6 +1278,8 @@ const ListReceiptsSendedFromStore = () => {
                                     <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Giriş Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Detaylar</Typography></StyledTableCell>
                                     <StyledTableCell></StyledTableCell>
@@ -1243,6 +1292,20 @@ const ListReceiptsSendedFromStore = () => {
                                             <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                <Typography variant="body2" noWrap title={row.description || ''}>
+                                                    {row.description || '-'}
+                                                </Typography>
+                                                {row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell>
                                                 {Number(row?.recordStatus) === 0
                                                     ? <Chip label="Aktif" color="success" size="small" />
@@ -1331,6 +1394,7 @@ const ListReceiptsSendedFromStore = () => {
                                                                 setEditingId(selectedRowForMenu.id);
                                                                 setEditingCode(selectedRowForMenu.code);
                                                                 setDocDate(new Date(selectedRowForMenu.docDate));
+                                                                setGeneralDescription(selectedRowForMenu.description || '');
                                                                 setSelectedWarehouseId(Number(selectedRowForMenu.warehouse?.id) || null);
                                                                 setIsFormVisible(true);
                                                                 handleCloseMenu();
@@ -1594,6 +1658,25 @@ const ListReceiptsSendedFromStore = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDispatchManageModal(false)}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
         </Box>

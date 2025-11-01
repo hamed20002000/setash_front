@@ -93,11 +93,11 @@ const DeleteWarehouse = ({ openModal, WarehouseIdToDelete, WarehouseNameToDelete
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu şantiyeyi silmek istediğinizden emin misiniz?"}
+                    {"Bu depoyu silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        {WarehouseNameToDelete} adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
+                        {WarehouseNameToDelete} adlı depoyu silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>

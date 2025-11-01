@@ -85,7 +85,7 @@ const DeleteWarehouseDispatchReturnToCenter = ({ openModal, dispatchIdToDelete, 
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="alert-dialog-description">
-                    {dispatchCodeToDelete} kodlu İmha Edilecek Ürünleri Sevk silerseniz, geri almanın bir yolu yoktur.
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{dispatchCodeToDelete} </span> kodlu İmha Edilecek Ürünleri Sevk silerseniz, geri almanın bir yolu yoktur.
                     Kaydı silmek istediğinizden eminseniz,
                     <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                 </DialogContentText>

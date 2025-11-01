@@ -34,6 +34,7 @@ import {
     ToggleButton as MuiToggleButton,
     ToggleButtonGroup,
     Typography,
+    DialogContentText,
 } from "@mui/material";
 import { keyframes, styled } from "@mui/material/styles";
 import {
@@ -167,6 +168,7 @@ interface StoreReceiptType {
     id: string;
     code: string;
     docDate: string;
+    description: string,
     createAt: string;
     recordStatus: number;
     isEnd: boolean | null;
@@ -250,6 +252,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const [receiptsList, setReceiptsList] = useState<StoreReceiptType[]>([]);
     const [displayedReceipts, setDisplayedReceipts] = useState<StoreReceiptType[]>([]);
 
+    const [generalDescription, setGeneralDescription] = useState('');
     // Selections
     const [selectedWorkhouse, setSelectedWorkhouse] = useState<WorkhouseType | null>(null);
     const [selectedStore, setSelectedStore] = useState<StoreType | null>(null);
@@ -298,6 +301,10 @@ const ListStoreReceiptInvoice: React.FC = () => {
 
     // 🔹 مودال جدید «Listeyi Göster» برای فاکتورهای کمبو
     const [openInvoiceListModal, setOpenInvoiceListModal] = useState(false);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     // Alerts
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -512,6 +519,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
     // ---------- Handlers ----------
     const resetForm = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedWorkhouse(null);
         setSelectedStore(null);
         setSelectedInvoice(null);
@@ -524,16 +532,6 @@ const ListStoreReceiptInvoice: React.FC = () => {
         setIsFormVisible(false);
     };
 
-    // const handleRemoveReceiptDetail = (index: number) => {
-    //     setReceiptDetails((prev) => {
-    //         const item = prev[index];
-    //         if (item && selectedInvoice) {
-    //             const itemFromInv = selectedInvoice.invoiceDetails.find((d) => Number(d.id) === Number(item.invoiceDetailId))?.item;
-    //             setRemovedReceiptDetails((p) => [...p, { ...item, item: itemFromInv }]);
-    //         }
-    //         return prev.filter((_, i) => i !== index);
-    //     });
-    // };
 
     const handleReceiptDetailChange = useCallback(
         (index: number, field: keyof FormReceiptDetail, value: any) => {
@@ -608,6 +606,8 @@ const ListStoreReceiptInvoice: React.FC = () => {
             setEditingId(r.id);
             setEditingCode(r.code);
             setDocDate(new Date(r.docDate));
+
+            setGeneralDescription(r.description || '');
             const details: FormReceiptDetail[] = (r.storeReceiptDetails || []).map((d) => ({
                 itemId: Number(d.item?.id),
                 quantity: Number(d.quantity),
@@ -656,6 +656,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
         try {
             const payload = {
                 docDate: docDate?.toISOString(),
+                description: generalDescription,
                 storeId: Number(routeStoreId || selectedStore?.id),
                 receiptDetails: receiptDetails.map(d => ({
                     itemId: d.itemId,
@@ -705,6 +706,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 id: Number(editingId),
                 code: editingCode,
                 docDate: docDate?.toISOString(),
+                description: generalDescription,
                 storeId: Number(routeStoreId || selectedStore?.id),
                 receiptDetails: receiptDetails.map((d) => ({
                     itemId: d.itemId,
@@ -750,6 +752,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
             doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 9;
             doc.text(`Şantiye: ${receipt.store?.name || "-"}`, 15, yPos); yPos += 15;
+            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 21
 
             const rows = (receipt.storeReceiptDetails || []).map((d) => [
                 d.item?.name || "-",
@@ -794,7 +797,8 @@ const ListStoreReceiptInvoice: React.FC = () => {
             ws.addRow(["Şantiye:", r.store?.name || "-"]);
             ws.addRow(["Belge Tarihi:", formatDateDisplay(r.docDate)]);
             ws.addRow(["Fatura No:", invNo]);
-            ws.addRow(["Durum:", r.recordStatus === 0 ? "Aktif" : "Pasif"]);
+
+            ws.addRow(['Genel Açıklama', r.description || '-']);
             ws.addRow([]);
 
             const h = ws.addRow(cols);
@@ -841,6 +845,18 @@ const ListStoreReceiptInvoice: React.FC = () => {
         else exportReceiptsToExcel([selectedReceiptForDownload], title);
         setOpenRowDownloadModal(false);
     };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
 
     // ---------- Render ----------
     return (
@@ -933,6 +949,23 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                     renderInput={(p) => <TextField {...p} fullWidth size="small" />}
                                 />
                             </LocalizationProvider>
+                        </Grid>
+
+
+
+                        <Grid item xs={12}>
+                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Şantiye Fişleri )</CustomFormLabel>
+                            <TextField
+                                id="invoice-general-description"
+                                label="Şantiye Fişleri  için genel açıklama giriniz"
+                                type="text"
+                                fullWidth
+                                multiline
+                                rows={3}
+                                variant="outlined"
+                                value={generalDescription} // ⬅️ استفاده از نام جدید
+                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                            />
                         </Grid>
 
                         {/* Invoice (by workhouse) */}
@@ -1160,6 +1193,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                     <StyledTableCell><Typography variant="h6">Şantiye Adı</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Toplam Miktar</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Detaylar</Typography></StyledTableCell>
                                     <StyledTableCell></StyledTableCell>
                                 </TableRow>
@@ -1174,7 +1208,20 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                 <StyledTableCell><Typography variant="body1">{row.store?.name || "-"}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1" fontWeight="bold">{totalQty.toLocaleString()}</Typography></StyledTableCell>
-
+                                                <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                    <Typography variant="body2" noWrap title={row.description || ''}>
+                                                        {row.description || '-'}
+                                                    </Typography>
+                                                    {row.description.length > 50 && (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                            <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                                handleOpenDescriptionModal(row.description);
+                                                            }}>
+                                                                Devamını Oku
+                                                            </Button>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </StyledTableCell>
                                                 <StyledTableCell>
                                                     <Button variant="outlined" startIcon={<IconEye />} onClick={() => { setDetailsToShow(row.storeReceiptDetails || []); setOpenDetailsModal(true); }}>
                                                         Görünüm
@@ -1458,6 +1505,25 @@ const ListStoreReceiptInvoice: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenInactiveModal(false)}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
 

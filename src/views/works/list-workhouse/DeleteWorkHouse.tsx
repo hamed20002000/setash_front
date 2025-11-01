@@ -97,7 +97,7 @@ const DeleteWorkhouse = ({ openModal, workhouseIdToDelete, workhouseNameToDelete
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
-                        {workhouseNameToDelete} adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{workhouseNameToDelete}</span> adlı şantiyeyi silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>

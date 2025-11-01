@@ -91,11 +91,12 @@ const DeleteOrderModal: React.FC<DeleteOrderModalProps> = ({
             aria-labelledby="delete-dialog-title"
             aria-describedby="delete-dialog-description">
             <DialogTitle id="delete-dialog-title">
-                {"Sipariş Silme Onayı"}
+                {"Sipariş Silme "}
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="delete-dialog-description">
-                    "{orderTitleToDelete}" adlı siparişi silmek istediğinizden emin misiniz؟
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{orderTitleToDelete}</span> adlı siparişi
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>silmek</span> istediğinizden emin misiniz؟
                     Bu işlem geri alınamaz.
                 </DialogContentText>
             </DialogContent>

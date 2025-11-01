@@ -1,8 +1,6 @@
-
-
-// src/components/apps/projects/ListProjects.tsx
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -26,7 +24,8 @@ import CustomFormLabel from '../../../components/forms/theme-elements/CustomForm
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import {
     IconDots, IconEdit, IconTrash, IconSearch,
-    IconFileDownload, IconX, IconPlus, IconFileSpreadsheet, IconFileText
+    IconFileDownload, IconX, IconPlus, IconFileSpreadsheet, IconFileText,
+    IconRefresh
 } from '@tabler/icons-react';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { LocalizationProvider, DatePicker } from "@mui/x-date-pickers";
@@ -146,10 +145,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// =====================================================================================
-// توابع کمکی برای ساختار گزارش‌دهی PDF و Excel
-// =====================================================================================
-
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
@@ -222,6 +217,23 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
 
 const ListProjects = () => {
     const navigate = useNavigate();
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
 
     // States for Project Form
     const [title, setTitle] = useState<string>('');
@@ -380,7 +392,10 @@ const ListProjects = () => {
         setIsFilterActive(hasSearch || hasStatusFilter || hasDateFilter);
 
         const filteredBySearchAndStatus = projectsList.filter(proj => {
-            const matchesSearch = proj.title.toLowerCase().includes(searchTerm.toLowerCase()) || proj.code.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch =
+                proj.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                proj.code.toLowerCase().includes(searchTerm.toLowerCase());
+
             const matchesStatus =
                 statusFilter === 'all' ||
                 (statusFilter === 'active' && proj.recordStatus === 0) ||
@@ -391,13 +406,18 @@ const ListProjects = () => {
                 (!filterStartDate || createDate >= filterStartDate) &&
                 (!filterEndDate || createDate <= filterEndDate);
 
-            return matchesSearch && matchesStatus && matchesDate;
+            // ⬅️ شرط جدید: اگر notifIds ارسال شده باشد، فقط ردیف‌هایی که idشان در لیست است بمانند
+            const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(proj.id));
+
+            return matchesSearch && matchesStatus && matchesDate && matchesNotifIds;
         });
 
         const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
         setDisplayedProjects(sortedData);
         setPage(0);
-    }, [projectsList, searchTerm, statusFilter, order, orderBy, filterStartDate, filterEndDate]);
+        // }, [projectsList, searchTerm, statusFilter, order, orderBy, filterStartDate, filterEndDate]);
+    }, [projectsList, searchTerm, statusFilter, order, orderBy, filterStartDate, filterEndDate, notifIds]);
+
 
 
     useEffect(() => {
@@ -780,10 +800,7 @@ const ListProjects = () => {
         handleCloseRowDownloadModal();
     };
 
-    // ✨ NEW: Modal handlers
-    // const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
     const handleCloseDownloadAllModal = () => setOpenDownloadAllModal(false);
-    // const handleOpenDownloadFilteredModal = () => setOpenDownloadFilteredModal(true);
     const handleCloseDownloadFilteredModal = () => setOpenDownloadFilteredModal(false);
     const handleOpenRowDownloadModal = (project: ProjectType) => {
         setSelectedProjectForDownload(project);
@@ -803,6 +820,21 @@ const ListProjects = () => {
         setFilterStartDate(null);
         setFilterEndDate(null);
     };
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
+
 
     const handlePlanlamaClick = () => {
         if (selectedRowForMenu) {
@@ -1017,7 +1049,29 @@ const ListProjects = () => {
                 </Grid>
                 <Box sx={{ p: 2 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                        <Typography variant="h5">Proje Listesi</Typography>
+                        <Typography variant="h5">
+                            Proje Listesi
+
+                            {notifIds.length > 0 && (
+                                <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                    <Chip
+                                        label={`Bildirim filtresi: ${notifIds.length} id`}
+                                        color="error"
+                                        size="small"
+                                    />
+                                    <IconButton
+                                        aria-label="Bildirim filtresini temizle"
+                                        size="small"
+                                        onClick={clearNotifFilter}
+                                        sx={{ p: 0.5 }}
+                                        title="Filtreyi temizle"
+                                    >
+                                        <IconRefresh size={18} />
+                                    </IconButton>
+                                </Stack>
+                            )}
+                        </Typography>
+
                     </Stack>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={3}>

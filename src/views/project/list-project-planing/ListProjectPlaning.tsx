@@ -569,8 +569,8 @@ const ListProjectPlanning = () => {
     };
 
     const resetFormAndState = () => {
-        setStartDate(null);
-        setEndDate(null);
+        // setStartDate(null);
+        // setEndDate(null);
         setFormData({});
         setEditingId(null);
         setIsFormVisible(false);
@@ -825,14 +825,19 @@ const ListProjectPlanning = () => {
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        spacing={1}
+                        flexWrap="wrap"
+                        alignItems={{ xs: 'flex-start', sm: 'center' }}
+                    >
                         <Chip
                             label={projectData ? `Proje Planlama: ${projectData.title}` : 'Proje Planlama'}
                             color="primary"
                             variant="filled"
                             size="small"
+                            sx={{ marginBottom: { xs: 1, sm: 0 } }}
                         />
-                        {/* نمایش بازه پروژه */}
                         <Chip
                             label={`Proje Tarih Aralığı: ${projectStart ? format(projectStart, 'dd MMM yyyy', { locale: tr }) : '-'} → ${projectEnd ? format(projectEnd, 'dd MMM yyyy', { locale: tr }) : '-'}`}
                             color="default"

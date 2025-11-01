@@ -346,16 +346,12 @@ const ListPosition = () => {
                 navigate("/");
                 showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
             }
-            console.error("Error inserting position:", e);
-            showAlert(e.response?.data?.message || 'Yeni سمت eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            console.log("Error inserting position:", e);
+            showAlert(e.response?.data?.message == "The Position already exists!" ? "Bu pozisyon daha önce kaydedilmiştir." : 'Yeni eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
-
-    // ********************************
-    // ** تغییر: تابع editPosition **
-    // ********************************
     const editPosition = async () => {
         if (editingId === null) return;
         if (!title.trim()) {
@@ -414,8 +410,9 @@ const ListPosition = () => {
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             } else {
-                console.error("Error updating position:", e);
-                showAlert(e.response?.data?.message || 'Pozisyon güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+
+                console.log("Error inserting position:", e);
+                showAlert(e.response?.data?.message == "The Position already exists!" ? "Bu pozisyon daha önce kaydedilmiştir." : 'Yeni eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
 
             }
         } finally {
@@ -653,7 +650,7 @@ const ListPosition = () => {
                     doc.text('Tüm Pozisyon Raporu', pageWidth / 2, 15, { align: 'center' });
                     doc.setFontSize(10);
                     doc.setFont('Times', 'bold');
-                    doc.text(`Tarih:`, 15, 25);
+                    doc.text(`Rapor Tarih:`, 15, 25);
                     doc.setFont('Times', 'normal');
                     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
                     doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);

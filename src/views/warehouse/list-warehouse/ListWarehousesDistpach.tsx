@@ -1,6 +1,6 @@
 // src/views/warehouses/ListWarehouseDispatch.tsx
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
 
@@ -17,12 +17,14 @@ import {
     RadioGroup,
     FormControlLabel,
     Radio,
-    DialogActions
+    DialogActions,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus, IconArrowRight, IconEye, IconX, IconCheck, IconInfoCircle,
-    IconFileSpreadsheet, IconFileText
+    IconFileSpreadsheet, IconFileText,
+    IconRefresh
 } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -76,6 +78,7 @@ interface DispatchType {
     id: string;
     code: string;
     docDate: string;
+    description: string,
     createAt: string;
     recordStatus: number;
     status: number;
@@ -105,6 +108,7 @@ interface DispatchType {
 
 interface NewDispatchData {
     docDate: string;
+    description: string,
     warehouseId: number;
     driverId: number;
     workhouseId: number;
@@ -208,11 +212,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-
-// =====================================================================================
-// توابع کمکی برای ساختار گزارش‌دهی PDF و Excel (مشابه کد قبلی)
-// =====================================================================================
-
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
@@ -288,12 +287,29 @@ const ListWarehouseDispatch = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
     const navigate = useNavigate();
 
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
     const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
+    const [generalDescription, setGeneralDescription] = useState('');
     const [dispatchDetails, setDispatchDetails] = useState<FormDispatchDetail[]>([]);
     const [dispatchList, setDispatchList] = useState<DispatchType[]>([]);
     const [displayedDispatches, setDisplayedDispatches] = useState<DispatchType[]>([]);
@@ -352,6 +368,10 @@ const ListWarehouseDispatch = () => {
 
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     // ✨ NEW: State for download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
@@ -512,12 +532,15 @@ const ListWarehouseDispatch = () => {
             const startCheck = !startDate || docDate >= startDate;
             const endCheck = !endDate || docDate <= endDate;
 
-            return matchesSearch && matchesStatus && startCheck && endCheck;
+
+            const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(d.id));
+
+            return matchesSearch && matchesStatus && startCheck && endCheck && matchesNotifIds;
         });
 
         setDisplayedDispatches(filteredDispatches);
         setPage(0);
-    }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
+    }, [dispatchList, searchTerm, statusFilter, startDate, endDate, notifIds]);
 
     useEffect(() => {
         const isValid = !!selectedDriverId && !!selectedWorkhouseId &&
@@ -574,6 +597,7 @@ const ListWarehouseDispatch = () => {
 
     const resetFormAndState = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedDriverId(null);
         setSelectedWorkhouseId(null);
         setDispatchDetails([]);
@@ -596,6 +620,7 @@ const ListWarehouseDispatch = () => {
         try {
             const payload: NewDispatchData = {
                 docDate: docDate?.toISOString() || new Date().toISOString(),
+                description: generalDescription,
                 warehouseId: Number(warehouseId),
                 driverId: Number(selectedDriverId),
                 driverVehicleId: Number(selectedVehicleId),
@@ -626,6 +651,7 @@ const ListWarehouseDispatch = () => {
             id: Number(editingId),
             code: editingCode!,
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             warehouseId: Number(warehouseId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -715,6 +741,7 @@ const ListWarehouseDispatch = () => {
         if (selectedRowForMenu) {
             setEditingId(selectedRowForMenu.id);
             setDocDate(new Date(selectedRowForMenu.docDate));
+            setGeneralDescription(selectedRowForMenu.description || '');
             setEditingCode(selectedRowForMenu.code);
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
             setSelectedWorkhouseId(Number(selectedRowForMenu.workhouse?.id));
@@ -853,9 +880,9 @@ const ListWarehouseDispatch = () => {
 
             yPos += 7;
             doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-            if (dispatch.statusDescription) {
-                doc.text(`Açıklama: ${dispatch.statusDescription}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
-            }
+            // if (dispatch.statusDescription) {
+            doc.text(`Açıklama: ${dispatch.description}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
+            // }
 
             yPos += 15; // Space before the details table
 
@@ -918,7 +945,7 @@ const ListWarehouseDispatch = () => {
             worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
             worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
             worksheet.addRow([`Durum:`, dispatch.statusText || '-']);
-            worksheet.addRow([`Açıklama:`, dispatch.statusDescription || '-']);
+            worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
             worksheet.addRow([]);
 
             // Add details table
@@ -993,14 +1020,33 @@ const ListWarehouseDispatch = () => {
         return displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [displayedDispatches, page, rowsPerPage]);
 
-    // const handleStatusFilterChange = (_event: React.MouseEvent<HTMLElement>, newFilter: 'all' | 'active' | 'inactive' | null) => {
-    //     if (newFilter !== null) {
-    //         setStatusFilter(newFilter);
-    //         setPage(0);
-    //     }
-    // };
-
     const selectedItemIds = useMemo(() => dispatchDetails.map(d => d.itemId).filter(id => id !== null), [dispatchDetails]);
+
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
 
     // === UI ===
     return (
@@ -1146,6 +1192,22 @@ const ListWarehouseDispatch = () => {
                                 />
                             </LocalizationProvider>
                         </Grid>
+
+
+                        <Grid item xs={12}>
+                            <CustomFormLabel htmlFor="warehouse-dispatch-general-description">Açıklama (Genel Sevk )</CustomFormLabel>
+                            <TextField
+                                id="warehouse-dispatch-general-description"
+                                label="Sevk  için genel açıklama giriniz"
+                                type="text"
+                                fullWidth
+                                multiline
+                                rows={3}
+                                variant="outlined"
+                                value={generalDescription} // ⬅️ استفاده از نام جدید
+                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                            />
+                        </Grid>
                     </Grid>
                     {/* Sevk Detayları */}
                     <Box mt={4}>
@@ -1159,8 +1221,8 @@ const ListWarehouseDispatch = () => {
                                     !selectedItemIds.includes(Number(item.itemId)) || Number(item.itemId) === Number(detail.itemId)
                                 );
                                 const currentSelectedItem = itemsWithBalance.find(item => Number(item.itemId) === Number(detail.itemId));
-                                const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
-                                const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
+                                // const balance = currentSelectedItem ? Math.max(0, Number(currentSelectedItem.balance)) : 0;
+                                // const displayBalance = currentSelectedItem ? `(Bakiye: ${balance})` : '';
 
                                 return (
                                     <Grid item xs={12} key={index}>
@@ -1169,7 +1231,7 @@ const ListWarehouseDispatch = () => {
                                                 fullWidth
                                                 size="small"
                                                 options={availableItems}
-                                                getOptionLabel={(option) => `${option.name} ${option.itemId ? displayBalance : ''}`}
+                                                getOptionLabel={(option) => `${option.name} `}
                                                 value={currentSelectedItem || null}
                                                 onChange={(_, newValue) => {
                                                     const newQuantity = newValue ? Math.max(0, Number(itemsWithBalance.find(i => i.itemId === newValue.itemId)?.balance || 0)) : '';
@@ -1265,6 +1327,32 @@ const ListWarehouseDispatch = () => {
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
+
+                    <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                        <Typography variant="h5">
+                            Depo Sevk Listesi
+
+                        </Typography>
+                        {notifIds.length > 0 && (
+                            <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                <Chip
+                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    color="error"
+                                    size="small"
+                                />
+                                <IconButton
+                                    aria-label="Bildirim filtresini temizle"
+                                    size="small"
+                                    onClick={clearNotifFilter}
+                                    sx={{ p: 0.5 }}
+                                    title="Filtreyi temizle"
+                                >
+                                    <IconRefresh size={18} />
+                                </IconButton>
+                            </Stack>
+                        )}
+
+                    </Stack>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={3}>
                             <TextField
@@ -1326,9 +1414,10 @@ const ListWarehouseDispatch = () => {
                                     <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
+                                    {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
                                     <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
                                     <StyledTableCell></StyledTableCell>
@@ -1340,10 +1429,24 @@ const ListWarehouseDispatch = () => {
                                         <TableRow key={row.id}>
                                             <StyledTableCell><Typography variant="body1">{row.code}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                            {/* <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell> */}
                                             <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell >
+                                                <Typography variant="body2" noWrap title={row.description || ''}>
+                                                    {row.description || '-'}
+                                                </Typography>
+                                                {row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell>
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <Chip label={row.statusText} color={row.statusColor} />
@@ -1568,6 +1671,25 @@ const ListWarehouseDispatch = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenStatusDescriptionModal(false)} color="secondary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
 

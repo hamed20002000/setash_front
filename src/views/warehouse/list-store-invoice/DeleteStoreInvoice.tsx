@@ -109,9 +109,9 @@ const DeleteStoreInvoiceModal: React.FC<DeleteStoreInvoiceModalProps> = ({
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="delete-invoice-dialog-description">
-                        {invoiceProviderToDelete} adlı tedarikçinin faturasını silerseniz, bu işlem geri alınamaz.
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{invoiceProviderToDelete}</span> adlı tedarikçinin faturasını silerseniz, bu işlem geri alınamaz.
                         Kaydı silmek istediğinizden eminseniz,
-                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#d32f2f", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
                 </DialogContent>
                 <DialogActions>

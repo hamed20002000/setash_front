@@ -100,7 +100,7 @@ const DeleteForceMajor = ({ openModal, forceMajorIdToDelete, onClose, onDeleteSu
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu Forsa major belgesini silmek istediğinizden emin misiniz?"}
+                    {"Bu mücbir sebep belgesini silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">

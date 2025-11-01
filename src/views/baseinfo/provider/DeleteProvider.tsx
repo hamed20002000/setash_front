@@ -91,7 +91,7 @@ const DeleteProvider = ({ openModal, providerIdToDelete, providerNameToDelete, o
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
-                    {"Bu sağlayıcıyı silmek istediğinizden emin misiniz?"}
+                    {"Bu tedarikçiyi silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">

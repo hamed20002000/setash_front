@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -15,12 +15,14 @@ import {
     RadioGroup,
     FormControlLabel,
     Radio,
-    DialogActions
+    DialogActions,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
-    IconArrowRight, IconEye, IconX, IconReload, IconFileText, IconFileSpreadsheet, IconCheck, IconInfoCircle
+    IconArrowRight, IconEye, IconX, IconReload, IconFileText, IconFileSpreadsheet, IconCheck, IconInfoCircle,
+    IconRefresh
 } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -73,6 +75,7 @@ interface BetweenWarehouseDispatchType {
     id: string;
     code: string;
     docDate: string;
+    description: string,
     createAt: string;
     recordStatus: number;
     status: number;
@@ -102,6 +105,7 @@ interface BetweenWarehouseDispatchType {
 
 interface NewDispatchData {
     docDate: string;
+    description: string,
     warehouseId: number;
     driverId: number;
     driverVehicleId: number;
@@ -130,16 +134,6 @@ interface WarehouseType {
     recordStatus?: number;
 }
 
-// interface ItemType {
-//     id: string;
-//     name: string;
-//     abbreviation: string;
-//     unit?: {
-//         id: string;
-//         title: string;
-//     };
-//     recordStatus?: number;
-// }
 
 interface FormDispatchDetail {
     itemId: number | null;
@@ -213,11 +207,6 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
     transition: 'transform 0.3s ease-in-out',
 }));
-
-
-// =====================================================================================
-// توابع کمکی برای ساختار گزارش‌دهی PDF و Excel (مشابه کد قبلی شما)
-// =====================================================================================
 
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -296,6 +285,23 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
 const ListBetweenWarehouseDispatch = () => {
     const { warehouseId } = useParams<{ warehouseId: string }>();
     const navigate = useNavigate();
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     const authToken = localStorage.getItem('authToken');
 
     // === State Variables ===
@@ -304,6 +310,7 @@ const ListBetweenWarehouseDispatch = () => {
     const [selectedDestinationWarehouseId, setSelectedDestinationWarehouseId] = useState<number | null>(null);
     const [selectedVehicleId, setSelectedVehicleId] = useState<number | null>(null);
 
+    const [generalDescription, setGeneralDescription] = useState('');
     const [dispatchDetails, setDispatchDetails] = useState<FormDispatchDetail[]>([]);
     const [dispatchList, setDispatchList] = useState<BetweenWarehouseDispatchType[]>([]);
     const [displayedDispatches, setDisplayedDispatches] = useState<BetweenWarehouseDispatchType[]>([]);
@@ -363,6 +370,11 @@ const ListBetweenWarehouseDispatch = () => {
     const [removedDispatchDetails, setRemovedDispatchDetails] = useState<any[]>([]);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
@@ -527,11 +539,14 @@ const ListBetweenWarehouseDispatch = () => {
             const startCheck = !startDate || docDate >= startDate;
             const endCheck = !endDate || docDate <= endDate;
 
-            return matchesSearch && matchesStatus && startCheck && endCheck;
+            const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(d.id));
+
+
+            return matchesSearch && matchesStatus && startCheck && endCheck && matchesNotifIds;
         });
         setDisplayedDispatches(filteredDispatches);
         setPage(0);
-    }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
+    }, [dispatchList, searchTerm, statusFilter, startDate, endDate, notifIds]);
 
     useEffect(() => {
         const isValid = !!selectedDriverId && !!selectedDestinationWarehouseId &&
@@ -572,6 +587,7 @@ const ListBetweenWarehouseDispatch = () => {
 
     const resetFormAndState = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedDriverId(null);
         setSelectedDestinationWarehouseId(null);
         setDispatchDetails([]);
@@ -592,6 +608,7 @@ const ListBetweenWarehouseDispatch = () => {
 
         const payload: NewDispatchData = {
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             warehouseId: Number(warehouseId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -622,6 +639,7 @@ const ListBetweenWarehouseDispatch = () => {
             id: Number(editingId),
             code: editingCode!,
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             warehouseId: Number(warehouseId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -668,6 +686,7 @@ const ListBetweenWarehouseDispatch = () => {
         if (selectedRowForMenu) {
             setEditingId(selectedRowForMenu.id);
             setDocDate(new Date(selectedRowForMenu.docDate));
+            setGeneralDescription(selectedRowForMenu.description || '');
             setEditingCode(selectedRowForMenu.code);
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
             setSelectedDestinationWarehouseId(Number(selectedRowForMenu.destinationWarehouse?.id));
@@ -752,44 +771,6 @@ const ListBetweenWarehouseDispatch = () => {
         }
     };
 
-    // const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
-    //     setDispatchDetails(prev => {
-    //         const newDetails = [...prev];
-    //         const updatedDetail = { ...newDetails[index] };
-
-    //         if (field === 'quantity') {
-    //             const numValue = Number(value);
-
-    //             // Find the total stock of this item in the warehouse.
-    //             const totalWarehouseBalance = Number(warehouseItems.find(item => Number(item.itemId) === updatedDetail.itemId)?.balance || 0);
-
-    //             // Sum the quantities of this item from all OTHER rows in the form.
-    //             // We filter out the current row by its index.
-    //             const quantityInOtherRows = newDetails
-    //                 .filter((_, i) => i !== index)
-    //                 .filter(d => d.itemId === updatedDetail.itemId)
-    //                 .reduce((sum, d) => sum + Number(d.quantity), 0);
-
-    //             // The maximum editable quantity is the total stock minus what's in other rows.
-    //             const maxEditableQuantity = totalWarehouseBalance - quantityInOtherRows;
-
-    //             if (isNaN(numValue) || numValue < 0) {
-    //                 showAlert('Miktar negatif olamaz veya geçersiz bir değer içeremez!', 'warning');
-    //                 updatedDetail.quantity = 0;
-    //             } else if (numValue > maxEditableQuantity) {
-    //                 showAlert(`Girdiğiniz miktar stoktan fazla! Maksimum: ${maxEditableQuantity}`, 'warning');
-    //                 updatedDetail.quantity = maxEditableQuantity;
-    //             } else {
-    //                 updatedDetail.quantity = numValue;
-    //             }
-    //         } else {
-    //             (updatedDetail as any)[field] = value;
-    //         }
-
-    //         newDetails[index] = updatedDetail;
-    //         return newDetails;
-    //     });
-    // }, [showAlert, warehouseItems]);
 
     const handleDispatchDetailChange = useCallback((index: number, field: keyof FormDispatchDetail, value: any) => {
         setDispatchDetails(prev => {
@@ -873,7 +854,8 @@ const ListBetweenWarehouseDispatch = () => {
             doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`, 15, yPos + 15);
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)})`, 15, yPos + 20);
 
-            yPos += 25;
+            doc.text(`Genel Açıklama: ${dispatch.description || '-'}`, 15, yPos + 25);
+            yPos += 30;
 
             const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
                 d.item?.name || '-',
@@ -932,7 +914,7 @@ const ListBetweenWarehouseDispatch = () => {
             worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
             worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
             worksheet.addRow([`Durum:`, dispatch.statusText || '-']);
-            worksheet.addRow([`Açıklama:`, dispatch.statusDescription || '-']);
+            worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
             worksheet.addRow([]);
 
             const headerRow = worksheet.addRow(detailsColumns);
@@ -1065,6 +1047,33 @@ const ListBetweenWarehouseDispatch = () => {
             setLoadingButton(false);
         }
     };
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
+
 
     return (
         <>
@@ -1221,6 +1230,22 @@ const ListBetweenWarehouseDispatch = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
+
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Depolar Arası Sevk)</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Depolar Arası Sevk için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
+                            </Grid>
                         </Grid>
                         {removedDispatchDetails.length > 0 && (
                             <Box sx={{
@@ -1259,19 +1284,6 @@ const ListBetweenWarehouseDispatch = () => {
                             </Stack>
                             <Grid container spacing={2}>
                                 {dispatchDetails.map((detail, index) => {
-                                    // const selectedItem = warehouseItems.find(item => Number(item.itemId) === Number(detail.itemId));
-                                    // const totalWarehouseBalance = Number(selectedItem?.balance || 0);
-
-                                    // const otherQuantities = dispatchDetails
-                                    //     .filter((_, i) => i !== index)
-                                    //     .filter(d => d.itemId === detail.itemId)
-                                    //     .reduce((sum, d) => sum + Number(d.quantity), 0);
-
-                                    // const maxEditableQuantity = totalWarehouseBalance - otherQuantities;
-                                    // const displayBalance = selectedItem ? `(Stok: ${maxEditableQuantity})` : '';
-
-                                    // const isQuantityInvalid = Number(detail.quantity) > maxEditableQuantity || Number(detail.quantity) < 0;
-
                                     const selectedItem = warehouseItems.find(item => Number(item.itemId) === Number(detail.itemId));
                                     const totalWarehouseBalance = Number(selectedItem?.balance || 0);
                                     const otherQuantities = dispatchDetails
@@ -1376,6 +1388,31 @@ const ListBetweenWarehouseDispatch = () => {
                         )}
                     </Stack>
                     <Box sx={{ p: 2 }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                            <Typography variant="h5">
+                                Depolar Arası Sevk Listesi
+
+                                {notifIds.length > 0 && (
+                                    <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                        <Chip
+                                            label={`Bildirim filtresi: ${notifIds.length} id`}
+                                            color="error"
+                                            size="small"
+                                        />
+                                        <IconButton
+                                            aria-label="Bildirim filtresini temizle"
+                                            size="small"
+                                            onClick={clearNotifFilter}
+                                            sx={{ p: 0.5 }}
+                                            title="Filtreyi temizle"
+                                        >
+                                            <IconRefresh size={18} />
+                                        </IconButton>
+                                    </Stack>
+                                )}
+                            </Typography>
+
+                        </Stack>
                         <Grid container spacing={2} alignItems="center">
                             <Grid item xs={12} sm={6} md={3}>
                                 <TextField
@@ -1440,6 +1477,7 @@ const ListBetweenWarehouseDispatch = () => {
                                         <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
@@ -1455,6 +1493,20 @@ const ListBetweenWarehouseDispatch = () => {
                                                 <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                                <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                    <Typography variant="body2" noWrap title={row.description || ''}>
+                                                        {row.description || '-'}
+                                                    </Typography>
+                                                    {row.description.length > 50 && (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                            <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                                handleOpenDescriptionModal(row.description);
+                                                            }}>
+                                                                Devamını Oku
+                                                            </Button>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </StyledTableCell>
                                                 <StyledTableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <Chip label={row.statusText} color={row.statusColor} />
@@ -1687,6 +1739,25 @@ const ListBetweenWarehouseDispatch = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenStatusDescriptionModal(false)} color="secondary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
 

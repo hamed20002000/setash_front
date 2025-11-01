@@ -1,8 +1,5 @@
-
-
-// export default ListStoreInvoice;
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell, MenuItem as MuiMenuItem,
@@ -10,13 +7,15 @@ import {
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
-    RadioGroup, FormControlLabel, Radio, Chip
+    RadioGroup, FormControlLabel, Radio, Chip,
+    DialogContentText
 } from '@mui/material';
 
 import { styled, keyframes } from '@mui/material/styles';
 import {
     IconDots, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconPencil,
-    IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch
+    IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch,
+    IconRefresh
 } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -135,6 +134,8 @@ interface InvoiceType {
         recordStatus?: number;
     } | null;
     docDate: string;
+
+    description: string,
     totalAmount?: number;
     status: number;
     invoiceDetails: InvoiceDetailType[];
@@ -191,11 +192,28 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 const ListStoreInvoice = () => {
     const navigate = useNavigate();
 
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
     // core lists
     const [providers, setProviders] = useState<ProviderType[]>([]);
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
+
+    const [generalDescription, setGeneralDescription] = useState('');
 
     // form states
     const [driver, setDriver] = useState('');
@@ -258,6 +276,10 @@ const ListStoreInvoice = () => {
 
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     // permissions
     const { allowedOperations } = useAuth();
@@ -450,6 +472,7 @@ const ListStoreInvoice = () => {
     const resetForm = () => {
         setHasUnsavedChanges(false);
         setDriver('');
+        setGeneralDescription('');
         setDocDate(new Date());
         setInvoiceItems([]);
         setEditingId(null);
@@ -484,6 +507,7 @@ const ListStoreInvoice = () => {
         if (!validateForm()) return;
         const invoiceData = {
             docDate: docDate?.toISOString(),
+            description: generalDescription,
             status: 0,
             statusDescription: '',
             driverId: Number(driver),
@@ -528,6 +552,7 @@ const ListStoreInvoice = () => {
         const invoiceData = {
             id: Number(editingId),
             docDate: docDate?.toISOString(),
+            description: generalDescription,
             driverId: Number(driver),
             workhouseId: Number(workhouse), // <<<<<< IMPORTANT
             driverVehicleId: Number(selectedVehicle),
@@ -618,6 +643,7 @@ const ListStoreInvoice = () => {
         setWorkhouse(selectedWorkhouse ? selectedWorkhouse.id : null);
         setDocDate(new Date(row.docDate));
 
+        setGeneralDescription(row.description || '');
         // items fill
         const itemsToEdit = row.invoiceDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
@@ -661,9 +687,6 @@ const ListStoreInvoice = () => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0);
     };
-    // ================================================
-
-    // menu & dialogs
     const handleOpenModal = (details: InvoiceDetailType[], provider: { id: string; name: string; firm: boolean } | null) => {
         const detailsWithProvider = details.map(detail => ({ ...detail, provider: detail.provider || provider }));
         setModalDetails(detailsWithProvider);
@@ -778,7 +801,7 @@ const ListStoreInvoice = () => {
         ]);
 
         autoTable(doc, {
-            startY: 80,
+            startY: 90,
             head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
             body: rows,
             theme: 'grid',
@@ -798,6 +821,8 @@ const ListStoreInvoice = () => {
                 doc.text(`Sürücü: ${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`, 15, 61);
                 doc.text(`Şantiye: ${invoice.workhouse?.name || '-'}`, 15, 68);
                 doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, 15, 75);
+
+                doc.text(`Genel Açıklama: ${invoice.description || '-'}`, 15, 82);
                 addPdfFooter(doc);
             },
             showHead: 'everyPage',
@@ -867,6 +892,8 @@ const ListStoreInvoice = () => {
         worksheet.addRow(['Sürücü', `${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`]);
         worksheet.addRow(['Şantiye', invoice.workhouse?.name || '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(invoice.docDate)]);
+
+        worksheet.addRow(['Genel Açıklama', invoice.description || '-']);
         worksheet.addRow([]);
 
         const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
@@ -959,6 +986,7 @@ const ListStoreInvoice = () => {
             doc.text(`Sürücü: ${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`, 15, 61);
             doc.text(`Şantiye: ${invoice.workhouse?.name || '-'}`, 15, 68);
             doc.text(`Tarih: ${formatDateDisplay(invoice.docDate)}`, 15, 75);
+            doc.text(`Genel Açıklama: ${invoice.description || '-'}`, 15, 82);
         };
         const footer = () => addPdfFooter(doc);
 
@@ -979,7 +1007,7 @@ const ListStoreInvoice = () => {
                 ]);
 
                 autoTable(doc, {
-                    startY: 80,
+                    startY: 90,
                     head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
                     body: rows,
                     theme: 'grid',
@@ -1042,6 +1070,7 @@ const ListStoreInvoice = () => {
             worksheet.addRow(['Sürücü', `${invoice.driver?.name || ''} ${invoice.driver?.family || ''}`]);
             worksheet.addRow(['Şantiye', invoice.workhouse?.name || '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(invoice.docDate)]);
+            worksheet.addRow(['Genel Açıklama', invoice.description || '-']);
             worksheet.addRow([]);
 
             const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
@@ -1142,8 +1171,11 @@ const ListStoreInvoice = () => {
             (!startDate || createDate >= new Date(new Date(startDate).setHours(0, 0, 0, 0))) &&
             (!endDate || createDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999)));
 
-        return matchesSearch && matchesStatus && matchesDate;
-    }), [invoicesList, searchTerm, statusFilter, startDate, endDate]);
+        const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(invoice.id));
+
+
+        return matchesSearch && matchesStatus && matchesDate && matchesNotifIds;
+    }), [invoicesList, searchTerm, statusFilter, startDate, endDate, notifIds]);
 
     const sortedAndFilteredInvoices = useMemo(
         () => stableSort(filteredInvoices, getComparator(order, orderBy)),
@@ -1161,6 +1193,33 @@ const ListStoreInvoice = () => {
     }, [driver, docDate, workhouse, invoiceItems, selectedVehicle]);
 
     const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
+
 
     // ---------- render ----------
     return (
@@ -1238,6 +1297,23 @@ const ListStoreInvoice = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
+
+
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Fatura)</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Fatura için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
+                            </Grid>
                         </Grid>
 
                         {/* Invoice items table — with onOrderSelect fully WIRED */}
@@ -1314,7 +1390,27 @@ const ListStoreInvoice = () => {
                 </Grid>
 
                 <Box sx={{ p: 2 }}>
-                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>Fatura Listesi</Typography>
+                    <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
+                        Fatura Listesi
+                        {notifIds.length > 0 && (
+                            <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                <Chip
+                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    color="error"
+                                    size="small"
+                                />
+                                <IconButton
+                                    aria-label="Bildirim filtresini temizle"
+                                    size="small"
+                                    onClick={clearNotifFilter}
+                                    sx={{ p: 0.5 }}
+                                    title="Filtreyi temizle"
+                                >
+                                    <IconRefresh size={18} />
+                                </IconButton>
+                            </Stack>
+                        )}
+                    </Typography>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} sm={6} md={2}>
                             <TextField
@@ -1378,6 +1474,8 @@ const ListStoreInvoice = () => {
                                         <Typography variant="h6">Tarihi</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+
+                                <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                 <StyledTableCell><Typography variant="h6">Kayıt Tipi</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'status'} direction={orderBy === 'status' ? order : 'asc'} onClick={() => handleRequestSort('status')}>
@@ -1401,6 +1499,20 @@ const ListStoreInvoice = () => {
                                             <StyledTableCell><Typography variant="body1">{row.driver?.name || ''} {row.driver?.family || ''}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                <Typography variant="body2" noWrap title={row.description || ''}>
+                                                    {row.description || '-'}
+                                                </Typography>
+                                                {row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell>
                                                 <Chip
                                                     label={row.invoiceDetails.some(detail => detail.orderDetail) ? 'Siparişli' : 'Siparişsiz'}
@@ -1466,7 +1578,7 @@ const ListStoreInvoice = () => {
                                                     )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? 'Bu faturayı silin' : ''}>
-                                                            <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.provider?.name || '-')}>
+                                                            <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.invoiceNo || '-')}>
                                                                 <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
@@ -1684,7 +1796,7 @@ const ListStoreInvoice = () => {
                 <DialogTitle>Sipariş Durumu Onayı</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Fişi kaydettikten sonra، این <b>sipariş</b>in Fişini Sonlandırmak
+                        Fişi kaydettikten sonra، bu <b>sipariş</b>in Fişini Sonlandırmak
                         (Sipariş No: {selectedOrderNoFromChild || 'N/A'}) ister misiniz?
                     </Typography>
                     <Typography variant="caption" color="textSecondary">
@@ -1695,6 +1807,25 @@ const ListStoreInvoice = () => {
                     <Button onClick={() => handleFinalSaveReceipt(false)} color="error">Hayır (Sadece Fişi Kaydet)</Button>
                     <Button onClick={() => handleFinalSaveReceipt(true)} color="primary" variant="contained" autoFocus>
                         Evet (Kaydet ve Fişi Sonlandır)
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
                     </Button>
                 </DialogActions>
             </Dialog>

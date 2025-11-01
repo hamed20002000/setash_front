@@ -628,9 +628,25 @@ const WorkhouseDetails = () => {
     return (
         <Box sx={{ p: 3, position: 'relative' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                    <Chip label={`İsim: ${workhouseDetail?.name}`} color="primary" variant="filled" size="small" />
-                    <Chip label={`Kod: ${workhouseDetail?.code}`} color="success" variant="filled" size="small" />
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    flexWrap="wrap"
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                >
+                    <Chip
+                        label={`İsim: ${workhouseDetail?.name}`}
+                        color="primary"
+                        variant="filled"
+                        size="small"
+                        sx={{ marginBottom: { xs: 1, sm: 0 } }}
+                    />
+                    <Chip
+                        label={`Kod: ${workhouseDetail?.code}`}
+                        color="default"
+                        variant="outlined"
+                        size="small"
+                    />
                 </Stack>
                 <Stack
                     direction={{ xs: 'column', sm: 'row' }}
@@ -860,7 +876,7 @@ const WorkhouseDetails = () => {
                                 ) : (
                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Şantiye detaylarını güncelleyin" : ""}>
                                         <Button variant="contained" color="info" onClick={createWorkhouseDetail} disabled={loadingButton || startDateError || endDateError}>
-                                            {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Detayları Güncelle'}
+                                            {loadingButton ? <><BoltIcon sx={{ mr: 1, fontSize: 20 }} /> Bekleniyor...</> : 'Detayları Ekle'}
                                         </Button>
                                     </CustomTooltip>
                                 )}

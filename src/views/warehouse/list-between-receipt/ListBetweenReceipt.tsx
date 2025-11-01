@@ -8,7 +8,8 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     Chip, Autocomplete, Radio, RadioGroup, FormControlLabel,
-    Dialog, DialogTitle, DialogContent, DialogActions
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
@@ -105,7 +106,10 @@ interface ReceiptDetailType {
     originWarehouseDispatchDeatailId: number | null;
 }
 interface BetweenReceiptType {
-    id: string; code: string; docDate: string; createAt: string; recordStatus: number; warehouse: WarehouseType;
+    id: string; code: string;
+    docDate: string;
+    description: string,
+    createAt: string; recordStatus: number; warehouse: WarehouseType;
     receiptDetails: ReceiptDetailType[]; status?: string;
 }
 interface FormReceiptDetail {
@@ -118,6 +122,7 @@ interface FormReceiptDetail {
 }
 interface NewReceiptData {
     docDate: string;
+    description: string,
     warehouseId: number;
     receiptDetails: { itemId: number; quantity: number; description: string; originWarehouseDispatchDeatailId: number; }[];
 }
@@ -178,6 +183,17 @@ const ListBetweenReceipt = () => {
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
 
+
+    /* ---- Download modals state (unchanged) ---- */
+    const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
+    const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
+    const [openReceiptDetailsDownloadModal, setOpenReceiptDetailsDownloadModal] = useState(false);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+    const [generalDescription, setGeneralDescription] = useState('');
     // NEW: Sevk List modal & End-confirm modal (on save)
     const [openDispatchListModal, setOpenDispatchListModal] = useState(false);
     const [openEndDispatchConfirmModal, setOpenEndDispatchConfirmModal] = useState(false);
@@ -320,6 +336,7 @@ const ListBetweenReceipt = () => {
     };
     const resetFormAndState = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedWarehouseId(null);
         setSelectedDispatchId(null);
         setReceiptDetails([]);
@@ -389,6 +406,7 @@ const ListBetweenReceipt = () => {
 
         const payload: NewReceiptData = {
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             warehouseId: Number(selectedWarehouseId),
             receiptDetails: receiptDetails.map(d => ({
                 itemId: Number(d.itemId),
@@ -434,6 +452,7 @@ const ListBetweenReceipt = () => {
             id: Number(editingId),
             code: editingCode!,
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             warehouseId: Number(selectedWarehouseId),
             receiptDetails: receiptDetails.map(d => ({
                 itemId: Number(d.itemId),
@@ -599,6 +618,7 @@ const ListBetweenReceipt = () => {
             doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
             doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos); yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 15;
+            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 23
 
             const rows = (receipt.receiptDetails || []).map(d => [d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
             const totals = calculateTotalQuantity(receipt.receiptDetails || []);
@@ -629,6 +649,7 @@ const ListBetweenReceipt = () => {
         doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
         doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos); yPos += 7;
         doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 15;
+        doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 23
 
         const rows = (receipt.receiptDetails || []).map(d => [d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
         const totals = calculateTotalQuantity(receipt.receiptDetails || []);
@@ -671,7 +692,10 @@ const ListBetweenReceipt = () => {
 
             data.forEach((receipt, idx) => {
                 if (idx > 0) ws.addRow([]);
-                const infoRow = ws.addRow([`Fiş Kodu: ${receipt.code || '-'}`, `Depo: ${receipt.warehouse?.name || '-'}`, `Tarih: ${formatDateDisplay(receipt.docDate)}`]);
+                const infoRow = ws.addRow([`Fiş Kodu: ${receipt.code || '-'}`,
+                `Depo: ${receipt.warehouse?.name || '-'}`,
+                `Tarih: ${formatDateDisplay(receipt.docDate)}`,
+                `Genel Açıklama:${receipt.description || ''}`]);
                 infoRow.eachCell(c => Object.assign(c.style, bodyStyle));
                 ws.addRow([]);
                 const hdr = ws.addRow(itemHeaders);
@@ -730,8 +754,9 @@ const ListBetweenReceipt = () => {
             ws.mergeCells(`A2:${lastCol}2`);
             ws.addRow([]);
 
-            const infoHeaders = ['Fiş Kodu', 'Depo', 'Tarih'];
-            const infoData = [receipt.code || '-', receipt.warehouse?.name || '-', formatDateDisplay(receipt.docDate)];
+            const infoHeaders = ['Fiş Kodu', 'Depo', 'Tarih', 'Genel Açıklama'];
+            const infoData = [receipt.code || '-', receipt.warehouse?.name || '-',
+            formatDateDisplay(receipt.docDate), receipt.description || ''];
             infoHeaders.forEach((h, idx) => { ws.addRow([h, infoData[idx]]).eachCell(c => Object.assign(c.style, bodyStyle)); });
             ws.addRow([]);
 
@@ -780,6 +805,7 @@ const ListBetweenReceipt = () => {
         setEditingId(selectedRowForMenu.id);
         setEditingCode(selectedRowForMenu.code);
         setDocDate(new Date(selectedRowForMenu.docDate));
+        setGeneralDescription(selectedRowForMenu.description || '');
         setSelectedWarehouseId(selectedRowForMenu.warehouse.id);
         setIsFormVisible(true);
         handleCloseMenu();
@@ -855,10 +881,18 @@ const ListBetweenReceipt = () => {
     /* ---- Date filters ---- */
     const handleClearDateFilters = () => { setStartDate(null); setEndDate(null); };
 
-    /* ---- Download modals state (unchanged) ---- */
-    const [openAllDownloadModal, setOpenAllDownloadModal] = useState(false);
-    const [openFilteredDownloadModal, setOpenFilteredDownloadModal] = useState(false);
-    const [openReceiptDetailsDownloadModal, setOpenReceiptDetailsDownloadModal] = useState(false);
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
 
     return (
         <>
@@ -954,6 +988,23 @@ const ListBetweenReceipt = () => {
                                         )}
                                     />
                                 </LocalizationProvider>
+                            </Grid>
+
+
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Depolar Arası Fişler)</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Depolar Arası Fişler için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
                             </Grid>
                         </Grid>
 
@@ -1107,6 +1158,7 @@ const ListBetweenReceipt = () => {
                                         <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Fiş Detayları</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
@@ -1119,6 +1171,20 @@ const ListBetweenReceipt = () => {
                                                 <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                                <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                    <Typography variant="body2" noWrap title={row.description || ''}>
+                                                        {row.description || '-'}
+                                                    </Typography>
+                                                    {row.description.length > 50 && (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                            <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                                handleOpenDescriptionModal(row.description);
+                                                            }}>
+                                                                Devamını Oku
+                                                            </Button>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </StyledTableCell>
                                                 <StyledTableCell><Chip label={row.status} color={row.recordStatus === 0 ? 'success' : 'error'} /></StyledTableCell>
                                                 <StyledTableCell>
                                                     <Stack direction="row" spacing={1} alignItems="center">
@@ -1229,6 +1295,25 @@ const ListBetweenReceipt = () => {
                     </Stack>
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAllDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
             </Dialog>
 
             {/* Filtered Receipts Download Modal */}

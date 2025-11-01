@@ -1,6 +1,6 @@
 // src/views/warehouses/ListStoreDispatchReturnToCenter.tsx
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -16,7 +16,8 @@ import {
     RadioGroup,
     FormControlLabel,
     Radio,
-    DialogActions
+    DialogActions,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
@@ -24,6 +25,7 @@ import {
     IconArrowRight, IconEye, IconX, IconReload, IconPlus, IconInfoCircle,
     IconFileSpreadsheet,
     IconFileText,
+    IconRefresh,
 } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -104,6 +106,7 @@ interface StoreDispatchReturnToCenterType {
     id: string;
     code: string;
     docDate: string;
+    description: string,
     createAt: string;
     recordStatus: number;
     destruction: boolean | null;
@@ -119,6 +122,7 @@ interface StoreDispatchReturnToCenterType {
 interface NewDispatchData {
     destruction: boolean;
     docDate: string;
+    description: string,
     storeId: number;
     driverId: number;
     driverVehicleId: number;
@@ -205,6 +209,23 @@ const ListStoreDispatchReturnToCenter = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
 
+
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
@@ -242,6 +263,7 @@ const ListStoreDispatchReturnToCenter = () => {
     const [warehouses, setWarehouses] = useState<StoreType[]>([]);
     const [storeItems, setStoreItems] = useState<ItemBalanceType[]>([]);
 
+    const [generalDescription, setGeneralDescription] = useState('');
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [dispatchIdToAct, setDispatchIdToAct] = useState<string | null>(null);
     const [dispatchCodeToAct, setDispatchCodeToAct] = useState<string>('');
@@ -272,6 +294,10 @@ const ListStoreDispatchReturnToCenter = () => {
     const [selectedDispatchForDownload, setSelectedDispatchForDownload] = useState<StoreDispatchReturnToCenterType | null>(null);
 
     const [initialDispatchDetails, setInitialDispatchDetails] = useState<FormDispatchDetail[]>([]);
+
+
+    const [openDescriptionModalT, setOpenDescriptionModalT] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -436,6 +462,7 @@ const ListStoreDispatchReturnToCenter = () => {
         fetchDispatches();
         fetchStoreItems();
     }, [fetchDispatches, fetchStoreItems]);
+
     useEffect(() => {
         let filteredDispatches = dispatchList.filter(d => {
             const matchesSearch = d.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -451,11 +478,14 @@ const ListStoreDispatchReturnToCenter = () => {
             const startCheck = !startDate || docDate >= startDate;
             const endCheck = !endDate || docDate <= endDate;
 
-            return matchesSearch && matchesStatus && startCheck && endCheck;
+
+            const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(d.id));
+
+            return matchesSearch && matchesStatus && startCheck && endCheck && matchesNotifIds;
         });
         setDisplayedDispatches(filteredDispatches);
         setPage(0);
-    }, [dispatchList, searchTerm, statusFilter, startDate, endDate]);
+    }, [dispatchList, searchTerm, statusFilter, startDate, endDate, notifIds]);
 
 
     useEffect(() => {
@@ -523,6 +553,7 @@ const ListStoreDispatchReturnToCenter = () => {
 
     const resetFormAndState = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedDriverId(null);
         setSelectedDestinationWarehouseId(null);
         setDispatchDetails([]);
@@ -549,6 +580,7 @@ const ListStoreDispatchReturnToCenter = () => {
         const payload: NewDispatchData = {
             destruction: true,
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             storeId: Number(storeId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -587,6 +619,7 @@ const ListStoreDispatchReturnToCenter = () => {
             code: editingCode!,
             destruction: true, // Always true as requested
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             storeId: Number(storeId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -707,6 +740,7 @@ const ListStoreDispatchReturnToCenter = () => {
             setEditingId(selectedRowForMenu.id);
             setEditingCode(selectedRowForMenu.code);
             setDocDate(new Date(selectedRowForMenu.docDate));
+            setGeneralDescription(selectedRowForMenu.description || '');
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
             setSelectedDestinationWarehouseId(Number(selectedRowForMenu.destinationWarehouse?.id));
 
@@ -856,7 +890,6 @@ const ListStoreDispatchReturnToCenter = () => {
             let yPos = 55;
             addPdfHeader();
 
-            const statusInfo = getStatusTextAndColor(dispatch.status);
 
             doc.setFontSize(10);
             doc.text(`Kaynak Şantiyenin Depo: ${dispatch.store?.name || '-'}`, 15, yPos); yPos += 7;
@@ -864,7 +897,8 @@ const ListStoreDispatchReturnToCenter = () => {
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos); yPos += 7;
             doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 15, yPos); yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos); yPos += 7;
-            doc.text(`Durum: ${statusInfo.text}`, 15, yPos); yPos += 15;
+
+            doc.text(`Genel Açıklama: ${dispatch.description || '-'}`, 15, yPos); yPos += 15;
 
             const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
                 d.item?.name || '-',
@@ -942,7 +976,6 @@ const ListStoreDispatchReturnToCenter = () => {
             const totalColumns = detailsColumns.length;
 
             addExcelHeader(worksheet, title, totalColumns);
-            const statusInfo = getStatusTextAndColor(dispatch.status);
 
             worksheet.addRow([`Sevk Belgesi Kodu:`, dispatch.code]);
             worksheet.addRow([`Kaynak Şantiyenin Depo:`, dispatch.store?.name || '-']);
@@ -950,7 +983,8 @@ const ListStoreDispatchReturnToCenter = () => {
             worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
             worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
             worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
-            worksheet.addRow([`Durum:`, statusInfo.text || '-']);
+
+            worksheet.addRow(['Genel Açıklama', dispatch.description || '-']);
             worksheet.addRow([]);
 
             const headerRow = worksheet.addRow(detailsColumns);
@@ -1016,6 +1050,31 @@ const ListStoreDispatchReturnToCenter = () => {
     const paginatedDispatches = useMemo(() => {
         return displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     }, [displayedDispatches, page, rowsPerPage]);
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
+    };
+
+
+    const handleOpenDescriptionModalT = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModalT(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModalT(false);
+        setFullDescriptionContent('');
+    };
 
 
     return (
@@ -1177,6 +1236,22 @@ const ListStoreDispatchReturnToCenter = () => {
                                         )}
                                     />
                                 </LocalizationProvider>
+                            </Grid>
+
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Merkez Depoya İmha Edilecek)</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Merkez Depoya İmha Edilecek için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
                             </Grid>
                         </Grid>
                         {/* === Silinen Ürünler (Restore Logic) === */}
@@ -1362,6 +1437,32 @@ const ListStoreDispatchReturnToCenter = () => {
                         )}
                     </Stack>
                     <Box sx={{ p: 2 }}>
+
+                        <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                            <Typography variant="h5">
+                                Merkez Depoya İmha Sevk Listesi
+
+                            </Typography>
+                            {notifIds.length > 0 && (
+                                <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                    <Chip
+                                        label={`Bildirim filtresi: ${notifIds.length} id`}
+                                        color="error"
+                                        size="small"
+                                    />
+                                    <IconButton
+                                        aria-label="Bildirim filtresini temizle"
+                                        size="small"
+                                        onClick={clearNotifFilter}
+                                        sx={{ p: 0.5 }}
+                                        title="Filtreyi temizle"
+                                    >
+                                        <IconRefresh size={18} />
+                                    </IconButton>
+                                </Stack>
+                            )}
+
+                        </Stack>
                         <Grid container spacing={2} alignItems="center">
                             <Grid item xs={12} sm={6} md={3}>
                                 <TextField
@@ -1424,8 +1525,9 @@ const ListStoreDispatchReturnToCenter = () => {
                                         <StyledTableCell><Typography variant="h6">Kaynak Depo</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Hedef Merkez</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
+                                        {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
@@ -1440,9 +1542,23 @@ const ListStoreDispatchReturnToCenter = () => {
                                                     <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1">{row.destinationWarehouse?.name || '-'}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                                    <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                                    {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
                                                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                                    <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                        <Typography variant="body2" noWrap title={row.description || ''}>
+                                                            {row.description || '-'}
+                                                        </Typography>
+                                                        {row.description.length > 50 && (
+                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                                <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                                    handleOpenDescriptionModalT(row.description);
+                                                                }}>
+                                                                    Devamını Oku
+                                                                </Button>
+                                                            </CustomTooltip>
+                                                        )}
+                                                    </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                             <Chip
@@ -1693,6 +1809,25 @@ const ListStoreDispatchReturnToCenter = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModalT}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
 

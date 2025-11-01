@@ -10,7 +10,8 @@ import {
     Autocomplete, Chip,
     Dialog, DialogTitle, DialogContent, DialogActions,
     // NEW: for radio control in Sevk list modal
-    Radio, RadioGroup, FormControlLabel
+    Radio, RadioGroup, FormControlLabel,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
@@ -93,16 +94,16 @@ interface StoreReceiptType {
     code: string;
     docDate: string;
     createAt: string;
+    description: string,
     recordStatus: number;
     status: string;
-    isEnd?: boolean | null; // (دیگه استفاده عملی نداریم، حذف نکردم)
+    isEnd?: boolean | null;
     storeReceiptDetails: ReceiptDetailType[];
     store: StoreType;
     warehouse: WarehouseType;
     warehouseDispatchHeaders?: { id: string; code: string; };
 }
 
-// --- Warehouse Dispatch (Sevk) ---
 interface WarehouseDispatchDetail {
     id: string;
     quantity: string;
@@ -129,7 +130,7 @@ interface FormReceiptDetail {
     description: string;
     item?: ItemType;
     warehouseDispatchDetailId: string | null;
-    dispatchHeaderId?: string; // برای isEnd بعد از ثبت
+    dispatchHeaderId?: string;
 }
 
 const formatDateDisplay = (dateString: string | null): string => {
@@ -237,7 +238,8 @@ const ListStoreReceipts = () => {
     const [selectedWorkhouse, setSelectedWorkhouse] = useState<WorkhouseType | null>(null);
     const [selectedStore, setSelectedStore] = useState<StoreType | null>(null);
 
-    // --- NEW: Sevk headers by Workhouse
+
+    const [generalDescription, setGeneralDescription] = useState('');
     const [dispatchHeaders, setDispatchHeaders] = useState<WarehouseDispatchHeader[]>([]);
     const [selectedDispatchHeader, setSelectedDispatchHeader] = useState<WarehouseDispatchHeader | null>(null);
 
@@ -278,6 +280,10 @@ const ListStoreReceipts = () => {
     const [isFilterActive, setIsFilterActive] = useState(false);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     // NEW: dispatch list modal + confirm-end modal (قبلی)
     const [openDispatchListModal, setOpenDispatchListModal] = useState(false);
@@ -513,6 +519,7 @@ const ListStoreReceipts = () => {
 
     const resetFormAndState = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedWorkhouse(null);
         setSelectedStore(null);
         setSelectedDispatchHeader(null);
@@ -576,6 +583,7 @@ const ListStoreReceipts = () => {
             setEditingCode(receipt.code);
             setDocDate(new Date(receipt.docDate));
 
+            setGeneralDescription(receipt.description || '');
             // Store
             const storeRes = await axios.get(
                 server.baseurl + server.initialoperations + `get-store-by-id/${storeIdToFetch}`,
@@ -643,6 +651,7 @@ const ListStoreReceipts = () => {
         try {
             const payload = {
                 docDate: docDate?.toISOString(),
+                description: generalDescription,
                 storeId: Number(routeStoreId || selectedStore?.id),
                 receiptDetails: receiptDetails.map(d => ({
                     itemId: Number(d.itemId),
@@ -659,12 +668,6 @@ const ListStoreReceipts = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert('Yeni fiş başarıyla eklendi!', 'success');
 
-                // قبلی شما:
-                // if (selectedDispatchHeader?.id) {
-                //     setOpenConfirmDispatchEndModal(true);
-                // }
-
-                // NEW: طبق نمونه‌ی کاربر — مودال تأیید با نمایش کد Sevk
                 if (selectedDispatchHeader) {
                     setLastSelectedDispatch(selectedDispatchHeader);
                     setOpenEndDispatchConfirmModal(true);
@@ -692,6 +695,7 @@ const ListStoreReceipts = () => {
                 id: Number(editingId),
                 code: editingCode,
                 docDate: docDate?.toISOString(),
+                description: generalDescription,
                 storeId: Number(routeStoreId || selectedStore?.id),
                 receiptDetails: receiptDetails.map(d => ({
                     itemId: Number(d.itemId),
@@ -750,6 +754,7 @@ const ListStoreReceipts = () => {
             const sevkKodu = receipt.storeReceiptDetails?.[0]?.warehouseDispatchDetail?.warehouseDispatchHeaders?.code || '-';
             doc.text(`Şantiye: ${receipt.store?.name || '-'}`, 15, yPos);
             doc.text(`Sevk Kodu: ${sevkKodu}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
+            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos);
             yPos += 10;
 
             const detailsRows = (receipt.storeReceiptDetails || []).map(d => [
@@ -795,7 +800,8 @@ const ListStoreReceipts = () => {
             ws.addRow([`Şantiye:`, receipt.store?.name || '-']);
             ws.addRow([`Belge Tarihi:`, formatDateDisplay(receipt.docDate)]);
             ws.addRow([`Sevk Kodu:`, sevkKodu]);
-            ws.addRow([`Durum:`, receipt.status || '-']);
+
+            ws.addRow(['Genel Açıklama', receipt.description || '-']);
             ws.addRow([]);
 
             const headerRow = ws.addRow(cols);
@@ -908,6 +914,18 @@ const ListStoreReceipts = () => {
         if (selectedWorkhouse?.id) await fetchDispatchesByWorkhouseId(String(selectedWorkhouse.id));
         resetFormAndState();
     };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
 
     return (
         <>
@@ -1036,25 +1054,30 @@ const ListStoreReceipts = () => {
                                     disabled={!!editingId || !selectedStore}
                                 />
                             </Grid>
+
+
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Şantiye Fişleri)</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Şantiye Fişleri için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
+                            </Grid>
                         </Grid>
 
                         {/* Receipt Details */}
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Fiş Detayları</Typography>
-                                {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Sevk listesini görüntüleyin ve durumlarını değiştirin" : ""}>
-                                    <span>
-                                        <Button
-                                            variant="outlined"
-                                            color="secondary"
-                                            onClick={() => setOpenDispatchListModal(true)}
-                                            startIcon={<IconEyeOff size={20} />}
-                                            disabled={dispatchHeaders.length === 0}
-                                        >
-                                            Sevk Listesi ({dispatchHeaders.length})
-                                        </Button>
-                                    </span>
-                                </CustomTooltip> */}
+
                             </Stack>
 
                             {removedReceiptDetails.length > 0 && (
@@ -1230,6 +1253,8 @@ const ListStoreReceipts = () => {
                                         <StyledTableCell><Typography variant="h6">Şantiye Adı</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Toplam Miktar</Typography></StyledTableCell>
+
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Detaylar</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
                                     </TableRow>
@@ -1248,6 +1273,20 @@ const ListStoreReceipts = () => {
                                                     <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                     <StyledTableCell><Typography variant="body1" fontWeight="bold">{totalQuantity.toLocaleString()}</Typography></StyledTableCell>
+                                                    <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                        <Typography variant="body2" noWrap title={row.description || ''}>
+                                                            {row.description || '-'}
+                                                        </Typography>
+                                                        {row.description.length > 50 && (
+                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                                <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                                    handleOpenDescriptionModal(row.description);
+                                                                }}>
+                                                                    Devamını Oku
+                                                                </Button>
+                                                            </CustomTooltip>
+                                                        )}
+                                                    </StyledTableCell>
                                                     <StyledTableCell>
                                                         <Button variant="outlined" startIcon={<IconEye />} onClick={() => { setDetailsToShow(row.storeReceiptDetails || []); setOpenDetailsModal(true); }}>
                                                             Görünüm
@@ -1523,6 +1562,25 @@ const ListStoreReceipts = () => {
                     <Button onClick={() => handleConfirmEndDispatch(false)} color="error">Hayır</Button>
                     <Button onClick={() => handleConfirmEndDispatch(true)} color="primary" variant="contained" autoFocus>
                         Evet (Sevki Sonlandır)
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
                     </Button>
                 </DialogActions>
             </Dialog>

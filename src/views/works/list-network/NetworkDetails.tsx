@@ -343,6 +343,7 @@ const NetworkDetails = () => {
                     }
                 }
             );
+            debugger
             if (response.data.httpStatusCode === 200) {
                 const apiData = response.data.data;
                 const convertedData: WorkDetailRow[] = [];

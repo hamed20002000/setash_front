@@ -94,12 +94,12 @@ const DeleteReceiptModal: React.FC<DeleteReceiptModalProps> = ({
             aria-describedby="delete-receipt-dialog-description"
         >
             <DialogTitle id="delete-receipt-dialog-title">
-                {"Bu makbuzu silmek istediğinizden emin misiniz?"}
+                {"Bu fişi silmek istediğinizden emin misiniz?"}
             </DialogTitle>
             <DialogContent>
                 <DialogContentText id="delete-receipt-dialog-description">
-                    Bu makbuzu silerseniz, bu işlem geri alınamaz. Kaydı silmek istediğinizden eminseniz,
-                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#d32f2f", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
+                    Bu fişi silerseniz, bu işlem geri alınamaz. Kaydı silmek istediğinizden eminseniz,
+                    <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                 </DialogContentText>
             </DialogContent>
             <DialogActions>

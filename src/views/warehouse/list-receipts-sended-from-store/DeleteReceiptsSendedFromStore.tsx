@@ -106,12 +106,12 @@ const DeleteReceiptsSendedFromStore = ({ openModal, receiptIdToDelete, receiptCo
                 aria-describedby="alert-dialog-description">
                 <DialogTitle id="alert-dialog-title">
                     {/* ✨ تغییر متن */}
-                    {"Bu giriş belgesini silmek istediğinizden emin misiniz?"}
+                    {"Bu şantiyeden gelen fişi belgesini silmek istediğinizden emin misiniz?"}
                 </DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description">
                         {/* ✨ تغییر متن و استفاده از کد رسید */}
-                        **{receiptCodeToDelete}** kodlu giriş belgesini silerseniz, geri almanın bir yolu yoktur.
+                        <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>{receiptCodeToDelete}</span> kodlu giriş belgesini silerseniz, geri almanın bir yolu yoktur.
                         Kaydı silmek istediğinizden eminseniz,
                         <span style={{ fontSize: "18px", fontWeight: "bold", color: "#FA896B", margin: "0 5px" }}>Silmek</span> düğmesine tıklayın.
                     </DialogContentText>
