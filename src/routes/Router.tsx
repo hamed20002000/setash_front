@@ -56,7 +56,7 @@ const ListReceiptsSendedFromStore = Loadable(lazy(() => import('../views/warehou
 const ListReceiptsDestructionSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-destruction-sended-from-store/ListReceiptsDestructionSendedFromStore')));
 const ListPersonnelWorkPlaces = Loadable(lazy(() => import('../views/humanresources/personnel-work-places/ListPersonnelWorkPlaces')));
 const ListRequests = Loadable(lazy(() => import('../views/works/list-request/ListRequests')));
-
+const ListRequestReceipt = Loadable(lazy(() => import('../views/works/list-request-receipt/ListRequestReceipt')));
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
 const Login2 = Loadable(lazy(() => import('../views/authentication/auth2/Login2')));
@@ -517,6 +517,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListRequests />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/order/list-request-receipt/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListRequestReceipt />
           </PermissionGuard>
         )
       },

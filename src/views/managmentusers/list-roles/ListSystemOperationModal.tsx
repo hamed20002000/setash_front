@@ -104,11 +104,6 @@ const filterMenusByRecordStatus = (menus: Menu[]): Menu[] => {
         const filteredChildMenus = menu.menus && menu.menus.length > 0
             ? filterMenusByRecordStatus(menu.menus)
             : [];
-
-        // اگر خود منو recordStatus = 0 باشد، یا اگر عملیات‌های فیلتر شده‌ای داشته باشد،
-        // یا اگر منوهای فرزند فیلتر شده‌ای داشته باشد، آن را اضافه می‌کنیم.
-        // این منطق تضمین می‌کند که اگر یک منو خودش recordStatus=1 باشد ولی فرزندی با recordStatus=0 داشته باشد، آن فرزند قابل مشاهده باشد.
-        // اگر می‌خواهید والد نیز حتما recordStatus=0 باشد، شرط recordStatus === 0 را برای والد هم بگذارید.
         if (menu.recordStatus === 0) { // فقط منوهایی که recordStatus=0 دارند را نگه می‌داریم
             const newMenu = {
                 ...menu,
@@ -154,9 +149,6 @@ const getAllDescendantMenuIdsPure = (
     return foundMenuIds;
 };
 
-// ---------------------------------------------------------
-// RECURSIVE COMPONENT: MenuItemRenderer
-// ---------------------------------------------------------
 
 interface MenuItemRendererProps {
     menu: FlattenedMenu;
@@ -184,7 +176,6 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
     const hasChildren = menu.menus && menu.menus.length > 0;
     const isOpen = expandedMenus.has(menu.id);
 
-    // برای بررسی دسترسی والد، باید menuOp.id مربوط به VIEW_OPERATION_ID والد را پیدا کنیم
     const parentHasViewAccess = useMemo(() => {
         if (!menu.parentId) return true;
         const parentMenu = findMenuInTreePure(allMenus, menu.parentId);
@@ -198,17 +189,40 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
 
     const isMenuDisabled = !parentHasViewAccess && menu.depth > 0;
 
-    const handleMenuSelectionClick = useCallback((event: React.MouseEvent) => {
-        if (hasChildren && event.target instanceof Element && (event.target.closest('.MuiIconButton-root') || event.target.closest('svg'))) {
-            event.stopPropagation();
+    // const handleMenuSelectionClick = useCallback((event: React.MouseEvent) => {
+    //     if (hasChildren && event.target instanceof Element && (event.target.closest('.MuiIconButton-root') || event.target.closest('svg'))) {
+    //         event.stopPropagation();
+    //         onToggleExpand(menu.id);
+    //     } else {
+    //         onMenuClick(menu);
+    //         if (hasChildren && !isOpen) {
+    //             onToggleExpand(menu.id);
+    //         }
+    //     }
+    // }, [menu, hasChildren, onMenuClick, onToggleExpand, isOpen]);
+
+    const handleMenuSelectionClick = useCallback((_event: React.MouseEvent) => {
+        // 1. همیشه منوی فعلی را انتخاب (Select) کن
+        onMenuClick(menu);
+
+        // 2. اگر منو فرزند دارد، همیشه Collapse را Toggle کن.
+        if (hasChildren) {
+            // این کار باعث می‌شود کلیک روی متن نیز Collapse را باز و بسته کند.
             onToggleExpand(menu.id);
-        } else {
-            onMenuClick(menu);
-            if (hasChildren && !isOpen) {
-                onToggleExpand(menu.id);
-            }
         }
-    }, [menu, hasChildren, onMenuClick, onToggleExpand, isOpen]);
+
+        /*
+      if (hasChildren && event.target instanceof Element && (event.target.closest('.MuiIconButton-root') || event.target.closest('svg'))) {
+          event.stopPropagation();
+          onToggleExpand(menu.id); // اگر کلیک روی آیکون بود، فقط آکاردئون را باز و بسته کن
+      } else {
+          onMenuClick(menu); // منو انتخاب شود
+          if (hasChildren) {
+              onToggleExpand(menu.id); // آکاردئون باز/بسته شود
+          }
+      }
+      */
+    }, [menu, hasChildren, onMenuClick, onToggleExpand]); // isOpen از dependencies حذف شد
 
     return (
         <>
@@ -233,9 +247,16 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
                     }}
                 >
                     {hasChildren ? (
-                        <IconButton onClick={(e) => { e.stopPropagation(); onToggleExpand(menu.id); }} size="small" sx={{ p: 0, mr: 1 }}>
-                            {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                        </IconButton>
+                        // <IconButton onClick={(e) => { e.stopPropagation(); onToggleExpand(menu.id); }} size="small" sx={{ p: 0, mr: 1 }}>
+                        //     {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                        // </IconButton>
+                        <>
+
+                            <IconButton size="small" sx={{ p: 0, mr: 1 }}>
+                                {isOpen ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                            </IconButton>
+
+                        </>
                     ) : (
                         <Box sx={{ width: '24px', mr: 1 }} />
                     )}
@@ -255,7 +276,6 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
             {hasChildren && (
                 <Collapse in={isOpen} timeout="auto" unmountOnExit>
                     <List component="div" disablePadding dense>
-                        {/* اینجا نیز باید منوهای فرزند فیلتر شده را ارسال کنیم */}
                         {menu.menus.sort((a, b) => a.order - b.order).map((childMenu) => (
                             <MenuItemRenderer
                                 key={childMenu.id}
@@ -278,9 +298,6 @@ const MenuItemRenderer: React.FC<MenuItemRendererProps> = ({
 };
 
 
-// ---------------------------------------------------------
-// کامپوننت اصلی ListSystemOperationModal
-// ---------------------------------------------------------
 
 const ListSystemOperationModal = ({ openOperationModal, onClose, roleId, showAlert }: Props) => {
     const [allMenus, setAllMenus] = useState<Menu[]>([]);

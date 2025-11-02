@@ -78,12 +78,18 @@ interface InvoiceItem {
     providerId?: number;
     firm?: boolean;
 }
+interface User {
+    id: string; // یا number، بر اساس API
+    username: string; // ⬅️ این فیلد برای نمایش نام لازم است
+    // اگر فیلد دیگری از کاربر را می‌خواهید، اینجا اضافه کنید
+}
 interface InvoiceHeaderStatusHistory {
     id: string;
     status: number;
     createAt: string;
     recordStatus: number;
     description: string | null;
+    user?: User;
 }
 interface InvoiceType {
     id: number;
@@ -1730,11 +1736,11 @@ const ListInvoices = () => {
                                             <StyledTableCell><Typography variant="body1">{row.driver?.name || ''} {row.driver?.family || ''}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                            <StyledTableCell>
                                                 <Typography variant="body2" noWrap title={row.description || ''}>
                                                     {row.description || '-'}
                                                 </Typography>
-                                                {row.description.length > 50 && (
+                                                {row.description != null && row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
@@ -1744,7 +1750,7 @@ const ListInvoices = () => {
                                                     </CustomTooltip>
                                                 )}
                                             </StyledTableCell>
-                                            <StyledTableCell>
+                                            <StyledTableCell >
                                                 <Chip
                                                     label={row.invoiceDetails.some(detail => detail.orderDetail) ? "Siparişli" : "Siparişsiz"}
                                                     color={row.invoiceDetails.some(detail => detail.orderDetail) ? "success" : "default"}
@@ -1945,7 +1951,13 @@ const ListInvoices = () => {
                                                         size="small"
                                                     />
                                                 </StyledTableCell>
-                                                <StyledTableCell><Typography variant="body1">{historyItem.description || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{historyItem.description || '-'}</Typography>
+                                                    {historyItem.user?.username && (
+                                                        <Typography variant="caption" color="textSecondary" sx={{ fontStyle: 'italic' }}>
+                                                            İşlem Yapan: {historyItem.user.username}
+                                                        </Typography>
+                                                    )}
+                                                </StyledTableCell>
                                             </TableRow>
                                         ))
                                 ) : (

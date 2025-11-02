@@ -17,7 +17,7 @@ import {
   IconBuildingFactory, IconFileInvoice, IconNetwork, IconHelmet, IconBuildingStore,
   IconArrowsExchange, IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar,
   IconFileDollar, IconTimeline, IconHierarchy, IconFileExport, IconFileOff, IconReportAnalytics,
-  IconUsersGroup, IconCalendarTime, IconQuestionMark
+  IconUsersGroup, IconCalendarTime, IconQuestionMark, IconInbox
 } from '@tabler/icons-react';
 
 import server from '../../../../assets/address.json';
@@ -79,7 +79,7 @@ const IconComponents: { [key: string]: React.ElementType } = {
   'IconHierarchy': IconHierarchy, 'IconFileExport': IconFileExport,
   'IconFileOff': IconFileOff, 'IconReportAnalytics': IconReportAnalytics,
   'IconUsersGroup': IconUsersGroup, 'IconCalendarTime': IconCalendarTime,
-  'IconQuestionMark': IconQuestionMark
+  'IconQuestionMark': IconQuestionMark, 'IconInbox': IconInbox
 };
 
 const getIconComponent = (iconIdentifier: string | undefined): React.ElementType => {

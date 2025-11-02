@@ -10,10 +10,11 @@ import {
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
-    DialogContentText
+    DialogContentText,
+    Divider
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconExchange, IconFile, IconFileSpreadsheet, IconFileDownload, IconX, IconCheck, IconRefresh } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconExchange, IconFile, IconFileSpreadsheet, IconFileDownload, IconX, IconCheck, IconRefresh, IconInfoCircle } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -77,6 +78,19 @@ interface RequestComboItem {
     id: number;
     subject: string; // برای نمایش در کمبو
 }
+// در کنار سایر رابط‌ها (Interfaces)
+interface User {
+    username: string;
+    // ... سایر فیلدهای لازم کاربر
+}
+
+interface OrderStatusHistory {
+    id: string;
+    status: 0 | 1 | 2;
+    description: string | null;
+    createAt: string;
+    user: User; // کاربری که عملیات را انجام داده است
+}
 interface OrderType {
     id: number;
     network: { id: string; title: string; };
@@ -85,6 +99,7 @@ interface OrderType {
     status: number;
     requestId?: number | null;
     orderDetails: OrderDetailType[];
+    orderHeaderStatusHistories?: OrderStatusHistory[];
 }
 interface OrderDetailType {
     id: number;
@@ -142,6 +157,22 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
+const statusToColor = (s: number): 'warning' | 'success' | 'error' | 'primary' | 'default' => {
+    switch (s) {
+        case 0: return "warning";
+        case 1: return "success";
+        case 2: return "error";
+        default: return "primary";
+    }
+};
+const statusToLabel = (s: number): 'warning' | 'success' | 'error' | 'primary' | 'default' => {
+    switch (s) {
+        case 0: return "warning";
+        case 1: return "success";
+        case 2: return "error";
+        default: return "primary";
+    }
+};
 const CompareComponent = () => {
     const navigate = useNavigate();
 
@@ -192,6 +223,9 @@ const CompareComponent = () => {
     const [isComparing, setIsComparing] = useState(false);
 
     const [generalDescription, setGeneralDescription] = useState('');
+
+    const [openHistoryModal, setOpenHistoryModal] = useState(false);
+    const [historyData, setHistoryData] = useState<OrderStatusHistory[]>([]);
     // Table States
     const [ordersList, setOrdersList] = useState<OrderType[]>([]);
     const [page, setPage] = useState(0);
@@ -1140,11 +1174,6 @@ const CompareComponent = () => {
         setStatusError(false);
     };
     const handleUpdateStatus = async () => {
-        // if (!description.trim()) {
-        //     setStatusError(true);
-        //     showAlert('Lütfen bir açıklama giriniz.', 'warning');
-        //     return;
-        // }
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -1216,6 +1245,18 @@ const CompareComponent = () => {
         });
 
         setPage(0);
+    };
+
+    // ⬅️ توابع مدیریت Modal تاریخچه
+    const handleOpenHistoryModal = (row: OrderType) => {
+        // بارگذاری داده‌های تاریخچه از ردیف فعلی
+        setHistoryData(row.orderHeaderStatusHistories || []);
+        setOpenHistoryModal(true);
+    };
+
+    const handleCloseHistoryModal = () => {
+        setOpenHistoryModal(false);
+        setHistoryData([]);
     };
 
 
@@ -1584,7 +1625,7 @@ const CompareComponent = () => {
                                                 <Typography variant="body2" noWrap title={row.description || ''}>
                                                     {row.description || '-'}
                                                 </Typography>
-                                                {row.description.length > 50 && (
+                                                {row.description != null && row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
@@ -1599,6 +1640,16 @@ const CompareComponent = () => {
                                                     label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
                                                     color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
                                                 />
+                                                {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleOpenHistoryModal(row)}
+                                                        >
+                                                            <IconInfoCircle size={18} />
+                                                        </IconButton>
+                                                    </CustomTooltip>
+                                                ) : null}
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.orderDetails)}>
@@ -1696,6 +1747,41 @@ const CompareComponent = () => {
                     rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
                 />
             </BlankCard>
+
+            {/* ⬅️ HISTORY MODAL (تاریخچه وضعیت) */}
+            <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
+                <DialogTitle>Sipariş Durum Geçmişi</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2}>
+                        {historyData.length > 0 ? (
+                            historyData.map((h, index) => (
+                                <Paper key={index} elevation={1} sx={{ p: 2, borderLeft: `5px solid ${statusToColor(h.status)}` }}>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Chip label={statusToLabel(h.status)} color={statusToColor(h.status)} size="small" />
+                                        <Typography variant="caption" color="textSecondary">
+                                            {new Date(h.createAt).toLocaleString('tr-TR')}
+                                        </Typography>
+                                    </Box>
+                                    <Divider sx={{ my: 1 }} />
+                                    <Typography variant="body2" sx={{ fontStyle: 'italic', mb: 1 }}>
+                                        Açıklama: {h.description || '—'}
+                                    </Typography>
+                                    {h.user?.username && (
+                                        <Typography variant="body2">
+                                            İşlem Yapan: {h.user.username}
+                                        </Typography>
+                                    )}
+                                </Paper>
+                            ))
+                        ) : (
+                            <Typography>Henüz durum geçmişi yok.</Typography>
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseHistoryModal}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Ürün Detayları</DialogTitle>

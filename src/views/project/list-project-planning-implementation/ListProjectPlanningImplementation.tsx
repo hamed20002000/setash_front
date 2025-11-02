@@ -24,10 +24,8 @@ import Logo from "src/assets/images/logos/logo.png";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
 
-// ⬇⬇⬇ مهم: اضافه‌کردن این ایمپورت برای نمایش جزئیات زیر صفحه
 import ListSetProjectPlanningImplementation from "../list-set-project-planning-implementation/ListSetProjectPlanningImplementation";
 
-/* ====== Types ====== */
 interface Project {
     id: string;
     title: string;

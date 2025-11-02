@@ -8,7 +8,8 @@ import {
     Stack, Grid, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
-    DialogContentText
+    DialogContentText,
+    Divider
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
@@ -18,7 +19,8 @@ import {
     IconCheck, IconX, IconFile,
     IconDownload, IconListDetails,
     IconFileDownload,
-    IconRefresh
+    IconRefresh,
+    IconInfoCircle
 } from '@tabler/icons-react';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
@@ -82,6 +84,19 @@ interface RequestComboItem {
     id: number;
     subject: string; // برای نمایش در کمبو
 }
+// در کنار سایر رابط‌ها (Interfaces)
+interface User {
+    username: string;
+    // ... سایر فیلدهای لازم کاربر
+}
+
+interface OrderStatusHistory {
+    id: string;
+    status: 0 | 1 | 2;
+    description: string | null;
+    createAt: string;
+    user: User; // کاربری که عملیات را انجام داده است
+}
 interface OrderType {
     id: number;
     network: { id: string; title: string; };
@@ -90,6 +105,7 @@ interface OrderType {
     description: string,
     status: number;
     orderDetails: OrderDetailType[];
+    orderHeaderStatusHistories?: OrderStatusHistory[];
 }
 interface OrderDetailType {
     id: number;
@@ -127,6 +143,25 @@ const descendingComparator = <T, Key extends string>(a: T, b: T, orderBy: Key): 
 };
 const getComparator = (order: 'asc' | 'desc', orderBy: SortableOrderKeys): (a: OrderType, b: OrderType) => number => { return order === 'desc' ? (a, b) => descendingComparator(a, b, orderBy) : (a, b) => -descendingComparator(a, b, orderBy); };
 const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => { const stabilizedThis = array.map((el, index) => [el, index] as [T, number]); stabilizedThis.sort((a, b) => { const order = comparator(a[0], b[0]); if (order !== 0) return order; return a[1] - b[1]; }); return stabilizedThis.map((el) => el[0]); };
+
+
+
+const statusToColor = (s: number): 'warning' | 'success' | 'error' | 'primary' | 'default' => {
+    switch (s) {
+        case 0: return "warning";
+        case 1: return "success";
+        case 2: return "error";
+        default: return "primary";
+    }
+};
+const statusToLabel = (s: number): 'warning' | 'success' | 'error' | 'primary' | 'default' => {
+    switch (s) {
+        case 0: return "warning";
+        case 1: return "success";
+        case 2: return "error";
+        default: return "primary";
+    }
+};
 
 const ExcelImportComponent = () => {
     const navigate = useNavigate();
@@ -183,6 +218,9 @@ const ExcelImportComponent = () => {
 
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+    const [openHistoryModal, setOpenHistoryModal] = useState(false);
+    const [historyData, setHistoryData] = useState<OrderStatusHistory[]>([]);
 
 
     const [requestId, setRequestId] = useState<number | null>(null);
@@ -1233,6 +1271,18 @@ const ExcelImportComponent = () => {
         setPage(0);
     };
 
+    // ⬅️ توابع مدیریت Modal تاریخچه
+    const handleOpenHistoryModal = (row: OrderType) => {
+        // بارگذاری داده‌های تاریخچه از ردیف فعلی
+        setHistoryData(row.orderHeaderStatusHistories || []);
+        setOpenHistoryModal(true);
+    };
+
+    const handleCloseHistoryModal = () => {
+        setOpenHistoryModal(false);
+        setHistoryData([]);
+    };
+
 
     const sortedAndFilteredOrders = stableSort(filteredOrders, getComparator(order, orderBy));
     const paginatedOrders = sortedAndFilteredOrders.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -1595,7 +1645,7 @@ const ExcelImportComponent = () => {
                                                 <Typography variant="body2" noWrap title={row.description || ''}>
                                                     {row.description || '-'}
                                                 </Typography>
-                                                {row.description.length > 50 && (
+                                                {row.description != null && row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
@@ -1610,6 +1660,16 @@ const ExcelImportComponent = () => {
                                                     label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
                                                     color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
                                                 />
+                                                {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleOpenHistoryModal(row)}
+                                                        >
+                                                            <IconInfoCircle size={18} />
+                                                        </IconButton>
+                                                    </CustomTooltip>
+                                                ) : null}
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.orderDetails)}>
@@ -1718,7 +1778,40 @@ const ExcelImportComponent = () => {
                     rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage}
                 />
             </BlankCard>
-
+            {/* ⬅️ HISTORY MODAL (تاریخچه وضعیت) */}
+            <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
+                <DialogTitle>Sipariş Durum Geçmişi</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2}>
+                        {historyData.length > 0 ? (
+                            historyData.map((h, index) => (
+                                <Paper key={index} elevation={1} sx={{ p: 2, borderLeft: `5px solid ${statusToColor(h.status)}` }}>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Chip label={statusToLabel(h.status)} color={statusToColor(h.status)} size="small" />
+                                        <Typography variant="caption" color="textSecondary">
+                                            {new Date(h.createAt).toLocaleString('tr-TR')}
+                                        </Typography>
+                                    </Box>
+                                    <Divider sx={{ my: 1 }} />
+                                    <Typography variant="body2" sx={{ fontStyle: 'italic', mb: 1 }}>
+                                        Açıklama: {h.description || '—'}
+                                    </Typography>
+                                    {h.user?.username && (
+                                        <Typography variant="body2">
+                                            İşlem Yapan: {h.user.username}
+                                        </Typography>
+                                    )}
+                                </Paper>
+                            ))
+                        ) : (
+                            <Typography>Henüz durum geçmişi yok.</Typography>
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseHistoryModal}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
             {/* Modals */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Ürün Detayları</DialogTitle>

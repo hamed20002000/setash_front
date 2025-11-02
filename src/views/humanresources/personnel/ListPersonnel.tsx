@@ -1024,7 +1024,6 @@ const ListPersonnel: React.FC = () => {
         setPage(0);
     };
 
-    /* -------------------- RENDER -------------------- */
     const renderTopBar = (
         <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} mt={2} mb={3} flexWrap="wrap" gap={2}>
@@ -1055,7 +1054,6 @@ const ListPersonnel: React.FC = () => {
                 </Stack>
             </Stack>
 
-            {/* Multi-step form */}
             {isFormVisible && (
                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                     <Stack spacing={2}>
@@ -1065,7 +1063,6 @@ const ListPersonnel: React.FC = () => {
 
                         {showStepErrors && <Alert severity="warning">Lütfen bu adımın zorunlu alanlarını doldurun.</Alert>}
 
-                        {/* Step 0: Kimlik */}
                         {activeStep === 0 && (
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
@@ -1147,7 +1144,6 @@ const ListPersonnel: React.FC = () => {
 
                         )}
 
-                        {/* Step 1: İş Bilgileri */}
                         {activeStep === 1 && (
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">

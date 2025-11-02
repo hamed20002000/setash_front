@@ -1497,7 +1497,7 @@ const ListBetweenWarehouseDispatch = () => {
                                                     <Typography variant="body2" noWrap title={row.description || ''}>
                                                         {row.description || '-'}
                                                     </Typography>
-                                                    {row.description.length > 50 && (
+                                                    {row.description != null && row.description.length > 50 && (
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                             <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                                 handleOpenDescriptionModal(row.description);

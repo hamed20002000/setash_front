@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     Typography, Box, Stack, Grid, Button, Alert,
     CircularProgress, Paper, Chip, IconButton,
@@ -11,7 +12,13 @@ import {
     DialogTitle,
     DialogActions,
     DialogContent,
-    DialogContentText
+    DialogContentText,
+    Divider,
+    TextField,
+    InputAdornment,
+    ToggleButtonGroup,
+    ToggleButton as MuiToggleButton,
+    TableSortLabel,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
@@ -20,7 +27,9 @@ import {
     IconFileText, // ⬅️ آیکون پیشنهادی برای "Talepler"
     IconPlus, IconTrash, IconEdit,
     IconDots, IconDownload,
-    IconLink, IconX
+    IconLink, IconX,
+    IconInfoCircle,
+    IconSearch
 } from '@tabler/icons-react';
 import axios from 'axios';
 import server from 'src/assets/address.json';
@@ -31,6 +40,16 @@ import { useAuth } from "src/context/AuthContext";
 interface Attachment {
     fileUrl: string;
 }
+interface User {
+    username: string;
+}
+
+interface RequestStatusHistory {
+    status: 0 | 1 | 2;
+    statusDescription: string;
+    createAt: string;
+    user: User; // کاربری که وضعیت را تغییر داده
+}
 
 interface RequestType {
     id: number | string;
@@ -39,11 +58,27 @@ interface RequestType {
     status: 0 | 1 | 2; // 0: Beklemede, 1: Onaylandı, 2: Reddedildi
     createAt: string;
     attachments: Attachment[];
+    statusDescription?: string | null; // اگر از API برمی‌گردد
+    // ⬅️ اضافه شدن فیلد تاریخچه
+    requestStatusHistories?: RequestStatusHistory[];
 }
+
+
+// ⬅️ وضعیت‌های مرتب‌سازی
+type Order = 'asc' | 'desc';
+type OrderBy = keyof RequestType | 'id' | 'subject' | 'status' | 'createAt';
 
 // ==============================================================================
 // 2. STYLED COMPONENTS & UTILS
 // ==============================================================================
+
+const StyledToggleButton = styled(MuiToggleButton)(({ theme }) => ({
+    '&.Mui-selected': { color: 'white' },
+    '&.Mui-selected[data-value="all"]': { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } },
+    '&.Mui-selected[data-value="0"]': { backgroundColor: theme.palette.warning.main, '&:hover': { backgroundColor: theme.palette.warning.dark } },
+    '&.Mui-selected[data-value="1"]': { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } },
+    '&.Mui-selected[data-value="2"]': { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } },
+}));
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
@@ -62,6 +97,49 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
     transition: 'transform 0.3s ease-in-out',
 }));
+
+// قبل از کامپوننت ListRequests یا در یک فایل Utils جداگانه
+const descendingComparator = <T, K extends keyof T>(a: T, b: T, orderBy: K) => {
+    const va = a[orderBy] as any;
+    const vb = b[orderBy] as any;
+
+    if (vb == null) return va == null ? 0 : -1;
+    if (va == null) return 1;
+
+    // مقایسه رشته‌ها (برای subject)
+    if (typeof vb === "string" && typeof va === "string") return vb.localeCompare(va);
+
+    // مقایسه اعداد (برای status)
+    if (typeof vb === "number" && typeof va === "number") return vb - va;
+
+    // مقایسه تاریخ‌ها (برای createAt)
+    if (orderBy === 'createAt') {
+        const dateA = Date.parse(String(va));
+        const dateB = Date.parse(String(vb));
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return 0;
+    }
+
+    if (String(vb) < String(va)) return -1;
+    if (String(vb) > String(va)) return 1;
+    return 0;
+};
+
+const getComparator = <K extends keyof RequestType>(order: Order, orderBy: K) =>
+    order === "desc"
+        ? (a: RequestType, b: RequestType) => descendingComparator(a, b, orderBy)
+        : (a: RequestType, b: RequestType) => -descendingComparator(a, b, orderBy);
+
+const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
+    const stabilized = array.map((el, index) => [el, index] as [T, number]);
+    stabilized.sort((a, b) => {
+        const order = comparator(a[0], b[0]);
+        if (order !== 0) return order;
+        return a[1] - b[1];
+    });
+    return stabilized.map((el) => el[0]);
+};
 
 const statusToLabel = (s: number) => {
     switch (s) {
@@ -83,6 +161,22 @@ const ListRequests: React.FC = () => {
     const navigate = useNavigate();
     const { isTooltipGloballyEnabled } = useTooltip();
 
+    const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const idsFromState =
+        ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+    const idsFromSingleParam = (searchParams.get('ids') ?? '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+    const notifIds: number[] = (idsFromState.length ? idsFromState :
+        (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+        .map(id => Number(id))
+        .filter(id => Number.isFinite(id));
+    const hasIdsFilter = notifIds.length > 0;
+    const idsSet = new Set<number>(notifIds);
+
     // States
     const [requestsList, setRequestsList] = useState<RequestType[]>([]);
     const [subject, setSubject] = useState('');
@@ -102,6 +196,12 @@ const ListRequests: React.FC = () => {
     const [itemToEdit, setItemToEdit] = useState<RequestType | null>(null);
     const [subjectError, setSubjectError] = useState(false);
 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 0 | 1 | 2>('all'); // 'all', 0=Beklemede, 1=Onaylandı, 2=Reddedildi
+
+    const [orderBy, setOrderBy] = useState<OrderBy>('createAt');
+    const [order, setOrder] = useState<Order>('desc');
+
 
     // Table States
     const [page, setPage] = useState(0);
@@ -113,6 +213,9 @@ const ListRequests: React.FC = () => {
 
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+    const [openHistoryModal, setOpenHistoryModal] = useState(false);
+    const [historyData, setHistoryData] = useState<RequestStatusHistory[]>([]);
 
     // Modals
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -147,6 +250,10 @@ const ListRequests: React.FC = () => {
         const timer = setTimeout(() => setIsBlinking(false), 5000);
         return () => clearTimeout(timer);
     }, []);
+
+
+
+
 
 
     // ==============================================================================
@@ -412,9 +519,65 @@ const ListRequests: React.FC = () => {
         setPage(0);
     };
 
-    const paginatedRequestsList = useMemo(() => {
-        return requestsList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-    }, [requestsList, page, rowsPerPage]);
+    // const paginatedRequestsList = useMemo(() => {
+    //     return requestsList.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    // }, [requestsList, page, rowsPerPage]);
+
+    // داخل کامپوننت ListRequests
+
+    const filteredRequests = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+
+        return requestsList.filter((r) => {
+            // 1. فیلتر جستجو (Search Filter)
+            const matchesSearch =
+                !q ||
+                (String(r.id) ?? "").includes(q) ||
+                (r.subject ?? "").toLowerCase().includes(q) ||
+                (r.description ?? "").toLowerCase().includes(q);
+
+            // 2. فیلتر وضعیت (Status Filter)
+            const matchesStatus =
+                statusFilter === 'all' ||
+                r.status === statusFilter;
+
+            // 3. فیلتر ID اعلان‌ها (Notification ID Filter)
+            const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(r.id));
+
+
+            return matchesSearch && matchesStatus && matchesNotifIds;
+        });
+    }, [requestsList, searchTerm, statusFilter, hasIdsFilter, idsSet]);
+
+
+    const sortedRequests = useMemo(() => {
+        // ⬅️ تبدیل orderBy به keyof RequestType
+        const validOrderBy = orderBy as keyof RequestType;
+        return stableSort(filteredRequests, getComparator(order, validOrderBy));
+    }, [filteredRequests, order, orderBy]);
+
+    const paginatedRequestsList = useMemo(() =>
+        sortedRequests.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+        , [sortedRequests, page, rowsPerPage]);
+
+
+
+
+
+    // ⬅️ اضافه کردن Handler برای تغییر فیلتر وضعیت
+    const handleStatusFilterChange = (_: any, v: 'all' | 0 | 1 | 2 | null) => {
+        if (v !== null) {
+            setStatusFilter(v as 'all' | 0 | 1 | 2);
+            setPage(0);
+        }
+    };
+
+    const handleRequestSort = (property: OrderBy) => {
+        const isAsc = orderBy === property && order === "asc";
+        setOrder(isAsc ? "desc" : "asc");
+        setOrderBy(property);
+        setPage(0);
+    };
 
 
     const handleOpenDescriptionModal = (descriptionContent: string) => {
@@ -425,6 +588,33 @@ const ListRequests: React.FC = () => {
     const handleCloseDescriptionModal = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
+    };
+
+
+    // ⬅️ توابع مدیریت Modal تاریخچه
+    const handleOpenHistoryModal = (row: RequestType) => {
+        // اطمینان حاصل می‌کنیم که آرایه تاریخچه وجود دارد
+        setHistoryData(row.requestStatusHistories || []);
+        setOpenHistoryModal(true);
+    };
+
+    const handleCloseHistoryModal = () => {
+        setOpenHistoryModal(false);
+        setHistoryData([]);
+    };
+
+
+    const clearNotifFilter = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('ids');
+        setSearchParams(next, { replace: true });
+
+        navigate(location.pathname, {
+            replace: true,
+            state: { ...(location.state as any), notifIds: [] },
+        });
+
+        setPage(0);
     };
 
 
@@ -561,6 +751,51 @@ const ListRequests: React.FC = () => {
                 </Stack>
             )}
 
+            <Box sx={{ p: 2, borderBottom: '1px solid rgba(0, 0, 0, 0.12)' }}>
+                <Grid container spacing={2} alignItems="center">
+                    {/* Notif Filter Chip */}
+                    {hasIdsFilter && (
+                        <Grid item xs={12}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <Chip label={`Bildirim filtresi: ${notifIds.length} id`} color="primary" size="small" />
+                                <IconButton aria-label="Filtreyi temizle" size="small" onClick={clearNotifFilter} title="Filtreyi temizle">
+                                    <IconX size={18} />
+                                </IconButton>
+                            </Stack>
+                        </Grid>
+                    )}
+
+                    {/* Search Field */}
+                    <Grid item xs={12} sm={6} md={8}>
+                        <TextField
+                            label="Talep Ara (Başlık/Açıklama/ID)"
+                            variant="outlined"
+                            fullWidth
+                            value={searchTerm}
+                            onChange={(e) => { setSearchTerm(e.target.value); setPage(0); }}
+                            InputProps={{
+                                startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>)
+                            }}
+                        />
+                    </Grid>
+
+                    {/* Status Filter */}
+                    <Grid item xs={12} sm={6} md={4}>
+                        <ToggleButtonGroup
+                            value={statusFilter}
+                            exclusive
+                            onChange={handleStatusFilterChange}
+                            fullWidth
+                        >
+                            <StyledToggleButton value="all" data-value="all">Tümü</StyledToggleButton>
+                            <StyledToggleButton value={0} data-value="0">Beklemede</StyledToggleButton>
+                            <StyledToggleButton value={1} data-value="1">Onaylandı</StyledToggleButton>
+                            <StyledToggleButton value={2} data-value="2">Reddedildi</StyledToggleButton>
+                        </ToggleButtonGroup>
+                    </Grid>
+                </Grid>
+            </Box>
+
             {/* Table Section */}
             <TableContainer component={Paper} sx={{ mt: 3 }}>
                 {loadingData ? (
@@ -572,10 +807,28 @@ const ListRequests: React.FC = () => {
                     <Table aria-label="Talepler tablosu">
                         <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Başlık</Typography></StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <TableSortLabel active={orderBy === "subject"} direction={orderBy === "subject" ? order : "asc"} onClick={() => handleRequestSort("subject")}>
+                                        <Typography variant="h6">Başlık</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
+
+                                {/* Açıklama (بدون مرتب‌سازی) */}
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></StyledTableCell>
-                                <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Tarih</Typography></StyledTableCell>
+
+                                {/* Durum (Status) */}
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <TableSortLabel active={orderBy === "status"} direction={orderBy === "status" ? order : "asc"} onClick={() => handleRequestSort("status")}>
+                                        <Typography variant="h6">Durum</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
+
+                                {/* Tarih (CreateAt) */}
+                                <StyledTableCell sx={{ color: "#171c23" }}>
+                                    <TableSortLabel active={orderBy === "createAt"} direction={orderBy === "createAt" ? order : "desc"} onClick={() => handleRequestSort("createAt")}>
+                                        <Typography variant="h6">Tarih</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Ekler</Typography></StyledTableCell>
                                 <StyledTableCell></StyledTableCell>
                             </TableRow>
@@ -587,7 +840,7 @@ const ListRequests: React.FC = () => {
                                         <StyledTableCell><Typography variant="body1">{row.subject}</Typography></StyledTableCell>
                                         <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                             <Typography variant="body2" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
-                                            {row.description.length > 50 && (
+                                            {row.description != null && row.description.length > 50 && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                     <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                         handleOpenDescriptionModal(row.description);
@@ -599,6 +852,16 @@ const ListRequests: React.FC = () => {
                                         </StyledTableCell>
                                         <StyledTableCell>
                                             <Chip label={statusToLabel(row.status)} color={statusToColor(row.status)} size="small" />
+                                            {(row.requestStatusHistories && row.requestStatusHistories.length > 0) ? (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => handleOpenHistoryModal(row)}
+                                                    >
+                                                        <IconInfoCircle size={18} />
+                                                    </IconButton>
+                                                </CustomTooltip>
+                                            ) : null}
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{new Date(row.createAt).toLocaleDateString('tr-TR')}</Typography></StyledTableCell>
                                         <StyledTableCell>
@@ -627,7 +890,7 @@ const ListRequests: React.FC = () => {
                                                 )}
                                                 {hasDeletePermission && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı sil" : ""}>
-                                                        <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row)}>
+                                                        <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row)} disabled={row.status !== 0}>
                                                             <ListItemIcon><IconTrash width={18} /></ListItemIcon> Silmek
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
@@ -660,6 +923,40 @@ const ListRequests: React.FC = () => {
                 labelRowsPerPage="Satır başına düşen:"
                 labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
             />
+
+            <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
+                <DialogTitle>Talep Durum Geçmişi</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2}>
+                        {historyData.length > 0 ? (
+                            historyData.map((h, index) => (
+                                // ⬅️ استفاده از Paper برای نمایش هر آیتم تاریخچه
+                                <Paper key={index} elevation={1} sx={{ p: 2, borderLeft: `5px solid ${statusToColor(h.status)}` }}>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Chip label={statusToLabel(h.status)} color={statusToColor(h.status)} size="small" />
+                                        <Typography variant="caption" color="textSecondary">
+                                            {new Date(h.createAt).toLocaleString('tr-TR')}
+                                        </Typography>
+                                    </Box>
+                                    <Divider sx={{ my: 1 }} />
+                                    <Typography variant="body2" sx={{ fontStyle: 'italic', mb: 1 }}>
+                                        Açıklama: {h.statusDescription || '—'}
+                                    </Typography>
+                                    {/* فرض می‌کنیم فیلد user در history موجود است */}
+                                    <Typography variant="body2">
+                                        İşlem Yapan: {h.user?.username || 'Bilinmiyor'}
+                                    </Typography>
+                                </Paper>
+                            ))
+                        ) : (
+                            <Typography>Henüz durum geçmişi yok.</Typography>
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseHistoryModal}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog
                 open={openDescriptionModal}
