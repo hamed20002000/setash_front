@@ -16,7 +16,8 @@ import {
     RadioGroup,
     FormControlLabel,
     Radio,
-    DialogActions
+    DialogActions,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
@@ -77,6 +78,7 @@ interface BetweenStoreDispatchType {
     id: string;
     code: string;
     docDate: string;
+    description: string,
     createAt: string;
     recordStatus: number;
     status: string;
@@ -106,6 +108,7 @@ interface BetweenStoreDispatchType {
 
 interface NewDispatchData {
     docDate: string;
+    description: string,
     storeId: number;
     driverId: number;
     driverVehicleId: number;
@@ -302,6 +305,7 @@ const ListBetweenStoreDispatch = () => {
     const [isFilterActive, setIsFilterActive] = useState(false);
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
+    const [generalDescription, setGeneralDescription] = useState('');
 
     const [removedDispatchDetails, setRemovedDispatchDetails] = useState<any[]>([]);
     const [isFormVisible, setIsFormVisible] = useState(false);
@@ -309,6 +313,10 @@ const ListBetweenStoreDispatch = () => {
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
     // ... سایر useState‌ها
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
@@ -566,6 +574,7 @@ const ListBetweenStoreDispatch = () => {
 
     const resetFormAndState = () => {
         setDocDate(new Date());
+        setGeneralDescription('');
         setSelectedDriverId(null);
         setSelectedDestinationStoreId(null);
         setDispatchDetails([]);
@@ -588,6 +597,7 @@ const ListBetweenStoreDispatch = () => {
 
         const payload: NewDispatchData = {
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             storeId: Number(storeId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -619,6 +629,7 @@ const ListBetweenStoreDispatch = () => {
             id: Number(editingId),
             code: editingCode!,
             docDate: docDate?.toISOString() || new Date().toISOString(),
+            description: generalDescription,
             storeId: Number(storeId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
@@ -685,6 +696,7 @@ const ListBetweenStoreDispatch = () => {
             setEditingId(selectedRowForMenu.id);
             setEditingCode(selectedRowForMenu.code);
             setDocDate(new Date(selectedRowForMenu.docDate));
+            setGeneralDescription(selectedRowForMenu.description || '');
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
             setSelectedDestinationStoreId(Number(selectedRowForMenu.destinationStore?.id));
             if (selectedRowForMenu.driverVehicle) {
@@ -881,6 +893,9 @@ const ListBetweenStoreDispatch = () => {
             doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 15, yPos);
             yPos += 15;
 
+            doc.text(`Genel Açıklama: ${dispatch.description || '-'}`, 15, yPos);
+            yPos += 22;
+
             const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
                 d.item?.name || '-',
                 d.quantity,
@@ -975,7 +990,8 @@ const ListBetweenStoreDispatch = () => {
             worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
             worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
             worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
-            worksheet.addRow([`Durum:`, dispatch.status || '-']);
+
+            worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
             worksheet.addRow([]);
 
             const headerRow = worksheet.addRow(detailsColumns);
@@ -1052,6 +1068,18 @@ const ListBetweenStoreDispatch = () => {
 
         setPage(0);
     };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
     return (
         <>
             <Box sx={{ p: 3 }}>
@@ -1206,6 +1234,21 @@ const ListBetweenStoreDispatch = () => {
                                         )}
                                     />
                                 </LocalizationProvider>
+                            </Grid>
+
+                            <Grid item xs={12}>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
+                                <TextField
+                                    id="invoice-general-description"
+                                    label="Şantiyenin Depo Arası Sevk için genel açıklama giriniz"
+                                    type="text"
+                                    fullWidth
+                                    multiline
+                                    rows={3}
+                                    variant="outlined"
+                                    value={generalDescription} // ⬅️ استفاده از نام جدید
+                                    onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                />
                             </Grid>
                         </Grid>
                         {removedDispatchDetails.length > 0 && (
@@ -1471,8 +1514,9 @@ const ListBetweenStoreDispatch = () => {
                                         <StyledTableCell><Typography variant="h6">Kaynak Şantiyenin Depo</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Hedef Şantiyenin Depo</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
+                                        {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
                                         <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
                                         <StyledTableCell></StyledTableCell>
@@ -1485,9 +1529,23 @@ const ListBetweenStoreDispatch = () => {
                                                 <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{row.destinationStore?.name || '-'}</Typography></StyledTableCell>
-                                                <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
-                                                <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} '-' ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                                {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                                <StyledTableCell>
+                                                    <Typography variant="body2" noWrap title={row.description || ''}>
+                                                        {row.description || '-'}
+                                                    </Typography>
+                                                    {row.description != null && row.description.length > 50 && (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                            <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                                handleOpenDescriptionModal(row.description);
+                                                            }}>
+                                                                Devamını Oku
+                                                            </Button>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </StyledTableCell>
                                                 <StyledTableCell>
                                                     <Chip
                                                         label={row.status}
@@ -1524,14 +1582,15 @@ const ListBetweenStoreDispatch = () => {
                                                         open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                         onClose={handleCloseMenu}
                                                     >
+                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
+                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
+
                                                         {hasDownloadPermission && (
                                                             <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
                                                                 Bu satırı indir
                                                             </MuiMenuItem>
                                                         )}
-                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
-                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
                                                     </Menu>
                                                 </StyledTableCell>
                                             </TableRow>
@@ -1561,6 +1620,27 @@ const ListBetweenStoreDispatch = () => {
                     />
                 </BlankCard>
             </Box>
+
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)}>
                 <DialogTitle>Araç Seçin</DialogTitle>
                 <DialogContent>

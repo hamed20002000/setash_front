@@ -1305,7 +1305,7 @@ const ListStoreDispatch = () => {
 
 
                         <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Şantiyenin Depo Sevk)</CustomFormLabel>
+                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                             <TextField
                                 id="invoice-general-description"
                                 label="Şantiyenin Depo Sevk için genel açıklama giriniz"
@@ -1579,7 +1579,7 @@ const ListStoreDispatch = () => {
                                                 {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
                                                 <StyledTableCell><Typography variant="body1">{row.project?.title || '-'}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
-                                                <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                <StyledTableCell>
                                                     <Typography variant="body2" noWrap title={row.description || ''}>
                                                         {row.description || '-'}
                                                     </Typography>
@@ -1635,12 +1635,6 @@ const ListStoreDispatch = () => {
                                                         open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                         onClose={handleCloseMenu}
                                                     >
-                                                        {hasDownloadPermission && (
-                                                            <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
-                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                Bu satırı indir
-                                                            </MuiMenuItem>
-                                                        )}
                                                         {hasEditPermission && selectedRowForMenu?.status === 0 && (
                                                             <>
                                                                 <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(1)}><ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla</MuiMenuItem>
@@ -1658,6 +1652,12 @@ const ListStoreDispatch = () => {
                                                         )}
                                                         {hasDeletePermission && (
                                                             <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
+                                                        )}
+                                                        {hasDownloadPermission && (
+                                                            <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
+                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                                Bu satırı indir
+                                                            </MuiMenuItem>
                                                         )}
                                                     </Menu>
                                                 </StyledTableCell>

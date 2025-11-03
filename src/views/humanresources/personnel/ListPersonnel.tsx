@@ -1396,7 +1396,6 @@ const ListPersonnel: React.FC = () => {
         </Box>
     );
 
-    /* -------------------- JSX -------------------- */
     return (
         <>
             {renderTopBar}
@@ -1566,8 +1565,6 @@ const ListPersonnel: React.FC = () => {
                 onDeleteSuccess={getAllPersonnels}
                 showAlert={showAlert}
             />
-
-            {/* Download chooser */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
@@ -1588,8 +1585,6 @@ const ListPersonnel: React.FC = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
             </Dialog>
-
-            {/* Details dialog */}
             <Dialog open={openDetailsDialog} onClose={() => setOpenDetailsDialog(false)} maxWidth="md" fullWidth scroll="body" PaperProps={{ sx: { maxHeight: "none" } }}>
                 <DialogTitle>Personel Detayı</DialogTitle>
                 <DialogContent dividers sx={{ overflow: "visible" }}>
@@ -1606,8 +1601,6 @@ const ListPersonnel: React.FC = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDetailsDialog(false)}>Kapat</Button></DialogActions>
             </Dialog>
-
-            {/* ------- Import Fix Modal (invalid rows only) ------- */}
             <Dialog open={invalidRows.length > 0} maxWidth="md" fullWidth>
                 <DialogTitle>İçe Aktarım — Düzeltme ({invalidIndex + 1}/{invalidRows.length})</DialogTitle>
                 <DialogContent dividers>
@@ -1774,7 +1767,6 @@ const ListPersonnel: React.FC = () => {
                         <Button variant="outlined" color="secondary" onClick={() => { setInvalidRows([]); getAllPersonnels(); }}>Kapat</Button>
                         <Button variant="contained" color="success" onClick={async () => {
                             const r = invalidRows[invalidIndex];
-                            // recompute errors minimal
                             const req: string[] = [];
                             if (!r.name) req.push("Ad");
                             if (!r.family) req.push("Soyad");
@@ -1802,8 +1794,6 @@ const ListPersonnel: React.FC = () => {
                                 showAlert("Lütfen zorunlu alanları ve hataları düzeltin.", "warning");
                                 return;
                             }
-
-                            // submit
                             try {
                                 await createImportedRow(r);
                                 const after = [...invalidRows];
@@ -1861,9 +1851,6 @@ const ListPersonnel: React.FC = () => {
                     <Button onClick={() => setOpenAnnualLeaveModal(false)} color="secondary">Kapat</Button>
                 </DialogActions>
             </Dialog>
-
-
-            {/* Processing loader */}
             <Backdrop open={isProcessingImport} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1000 }}>
                 <Stack alignItems="center" spacing={2}>
                     <CircularProgress color="inherit" />

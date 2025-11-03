@@ -1240,7 +1240,7 @@ const ListStoreDispatchReturnToCenter = () => {
 
 
                             <Grid item xs={12}>
-                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Merkez Depoya İmha Edilecek)</CustomFormLabel>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                                 <TextField
                                     id="invoice-general-description"
                                     label="Merkez Depoya İmha Edilecek için genel açıklama giriniz"
@@ -1606,17 +1606,17 @@ const ListStoreDispatchReturnToCenter = () => {
                                                             open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
                                                             onClose={handleCloseMenu}
                                                         >
-                                                            {hasDownloadPermission && (
-                                                                <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
-                                                                    <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                    Bu satırı indir
-                                                                </MuiMenuItem>
-                                                            )}
                                                             {hasEditPermission && (
                                                                 <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>
                                                             )}
                                                             {hasDeletePermission && row.recordStatus === 0 && (
                                                                 <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
+                                                            )}
+                                                            {hasDownloadPermission && (
+                                                                <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
+                                                                    <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                                    Bu satırı indir
+                                                                </MuiMenuItem>
                                                             )}
                                                         </Menu>
                                                     </StyledTableCell>

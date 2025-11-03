@@ -1112,7 +1112,7 @@ const ListReceipts = () => {
 
 
                             <Grid item xs={12}>
-                                <CustomFormLabel htmlFor="receipt-general-description">Açıklama (Genel Fiş)</CustomFormLabel>
+                                <CustomFormLabel htmlFor="receipt-general-description">Açıklama</CustomFormLabel>
                                 <TextField
                                     id="receipt-general-description"
                                     label="Fiş için genel açıklama giriniz"
@@ -1357,14 +1357,6 @@ const ListReceipts = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${row.id}` }}
                                                 >
-                                                    {hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi PDF olarak indirin" : ""}>
-                                                            <MuiMenuItem onClick={() => handleDownloadReceiptDetailsClicked(row)}>
-                                                                <IconFileDownload size={18} style={{ marginRight: 8 }} />
-                                                                Bu satırı indir
-                                                            </MuiMenuItem>
-                                                        </CustomTooltip>
-                                                    )}
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi düzenleyin" : ""}>
                                                             <MuiMenuItem onClick={() => handleEditClick(row)}>
@@ -1378,6 +1370,14 @@ const ListReceipts = () => {
                                                             <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id)}>
                                                                 <IconTrash size={18} style={{ marginRight: 8 }} />
                                                                 Silmek
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Fişi PDF olarak indirin" : ""}>
+                                                            <MuiMenuItem onClick={() => handleDownloadReceiptDetailsClicked(row)}>
+                                                                <IconFileDownload size={18} style={{ marginRight: 8 }} />
+                                                                Bu satırı indir
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}

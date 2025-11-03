@@ -1757,7 +1757,14 @@ const uploadImage = async (file: File, authToken: string, showAlert: (m: string,
     const uploadResponse = await axios.post(
       server.baseurl + server.baseinfo + "upload-files",
       formData,
-      { headers: { 'Authorization': `Bearer ${authToken}` } }
+      {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          // ⬅️ اگر تنظیمات سراسری دارید، Content-Type را روی undefined یا null قرار دهید
+          'Content-Type': 'multipart/form-data; charset=utf-8',
+          // و سپس اجازه دهید Axios/مرورگر آن را لغو کند.
+        }
+      }
     );
 
     if (uploadResponse.data.httpStatusCode === 201) {

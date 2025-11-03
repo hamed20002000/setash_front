@@ -1343,7 +1343,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                     )}
                                                     {hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kaydı indir" : ""}>
-                                                            <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Kaydı İndir</MuiMenuItem>
+                                                            <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir</MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>

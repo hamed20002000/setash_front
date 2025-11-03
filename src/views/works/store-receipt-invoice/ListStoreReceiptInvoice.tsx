@@ -954,7 +954,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
 
 
                         <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Şantiye Fişleri )</CustomFormLabel>
+                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                             <TextField
                                 id="invoice-general-description"
                                 label="Şantiye Fişleri  için genel açıklama giriniz"
@@ -1232,13 +1232,15 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                         <IconDots width={18} />
                                                     </IconButton>
                                                     <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
+
+                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
+                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
+
                                                         {hasDownloadPermission && (
                                                             <MuiMenuItem onClick={() => { setSelectedReceiptForDownload(row); setOpenRowDownloadModal(true); handleCloseMenu(); }}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir
                                                             </MuiMenuItem>
                                                         )}
-                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
-                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
                                                     </Menu>
                                                 </StyledTableCell>
                                             </TableRow>

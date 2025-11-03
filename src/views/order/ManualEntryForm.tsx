@@ -88,6 +88,10 @@ interface OrderStatusHistory {
     createAt: string;
     user: User; // کاربری که عملیات را انجام داده است
 }
+interface RequestInfo { // Yeni bir arayüz tanımlayalım
+    id: string; // API'de string geliyor
+    subject: string;
+}
 interface OrderType {
     id: number;
     network: { id: string; title: string; };
@@ -97,6 +101,7 @@ interface OrderType {
     status: number;
     orderDetails: OrderDetailType[];
     orderHeaderStatusHistories?: OrderStatusHistory[];
+    request: RequestInfo | null;
 }
 interface OrderDetailType {
     id: number;
@@ -369,7 +374,7 @@ const ManualEntryForm = () => {
         ]);
 
         autoTable(doc, {
-            startY: 80,
+            startY: 90,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
             body: rows,
             theme: 'grid',
@@ -383,7 +388,8 @@ const ManualEntryForm = () => {
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 47);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 54);
                     doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 61);
-                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 68);
+                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 68);
+                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 75);
                 }
                 addPdfFooter(doc);
             },
@@ -448,7 +454,8 @@ const ManualEntryForm = () => {
             doc.text(`Sipariş No: ${order.id}`, 15, 47);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 54);
             doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 61);
-            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 68);
+            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 68);
+            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 75);
 
             const rows = order.orderDetails.map(detail => [
                 detail.item.name || '-',
@@ -459,7 +466,7 @@ const ManualEntryForm = () => {
             ]);
 
             autoTable(doc, {
-                startY: 75,
+                startY: 85,
                 head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
                 body: rows,
                 theme: 'grid',
@@ -543,6 +550,7 @@ const ManualEntryForm = () => {
         worksheet.addRow(['Sipariş No', orderData.id]);
         worksheet.addRow(['Şebeke', orderData.network ? orderData.network.title : '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(orderData.docDate)]);
+        worksheet.addRow(['İlişkili Talep No', orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-']);
 
         worksheet.addRow(['Genel Açıklama', orderData.description || '-']);
         worksheet.addRow([]);
@@ -647,6 +655,8 @@ const ManualEntryForm = () => {
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(order.docDate)]);
+            worksheet.addRow(['İlişkili Talep No', order.request ? '#' + order.request.id + order.request.subject : '-']);
+
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
@@ -832,7 +842,7 @@ const ManualEntryForm = () => {
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 const activeRequests = (response.data.data as any[])
-                    .filter(req => req.status === 0) // فیلتر کردن فقط درخواست‌های "Beklemede" یا "Aktif"
+                    .filter(req => req.status === 1) // فیلتر کردن فقط درخواست‌های "Beklemede" یا "Aktif"
                     .map(req => ({ id: Number(req.id), subject: req.subject }));
                 setRequestsList(activeRequests);
             } else {
@@ -1422,6 +1432,7 @@ const ManualEntryForm = () => {
                                         <Typography variant="h6">Şebeke Adı</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+                                <StyledTableCell><Typography variant="h6">İlişkili Talep</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
                                         <Typography variant="h6">Tarih</Typography>
@@ -1450,6 +1461,11 @@ const ManualEntryForm = () => {
                                     paginatedOrders.map((row) => (
                                         <TableRow key={row.id}>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                <Typography variant="body1">
+                                                    {row.request ? `#${row.request.id} - ${row.request.subject}` : '-'}
+                                                </Typography>
+                                            </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body2" noWrap title={row.description || ''}>

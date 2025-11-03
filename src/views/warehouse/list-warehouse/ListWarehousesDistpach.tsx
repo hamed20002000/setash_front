@@ -1195,7 +1195,7 @@ const ListWarehouseDispatch = () => {
 
 
                         <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="warehouse-dispatch-general-description">Açıklama (Genel Sevk )</CustomFormLabel>
+                            <CustomFormLabel htmlFor="warehouse-dispatch-general-description">Açıklama</CustomFormLabel>
                             <TextField
                                 id="warehouse-dispatch-general-description"
                                 label="Sevk  için genel açıklama giriniz"
@@ -1490,12 +1490,6 @@ const ListWarehouseDispatch = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-                                                    {hasDownloadPermission && (
-                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
-                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                            Bu satırı indir
-                                                        </MuiMenuItem>
-                                                    )}
                                                     {hasEditPermission && (
                                                         <MuiMenuItem onClick={handleEditClick}>
                                                             <ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle
@@ -1514,6 +1508,12 @@ const ListWarehouseDispatch = () => {
                                                     {(selectedRowForMenu?.status === 0 || selectedRowForMenu?.status === 1) && (
                                                         <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}>
                                                             <ListItemIcon><IconX width={18} /></ListItemIcon>Reddet
+                                                        </MuiMenuItem>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
+                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                            Bu satırı indir
                                                         </MuiMenuItem>
                                                     )}
                                                 </Menu>

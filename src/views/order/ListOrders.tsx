@@ -28,7 +28,7 @@ const ListOrders = () => {
     };
 
     return (
-        <Box sx={{ p: 3, maxWidth: 1200, margin: 'auto' }}>
+        <Box sx={{ p: 3, }}>
             <Typography variant="h4" gutterBottom>
                 Satın Alma Sipariş Yönetimi
             </Typography>

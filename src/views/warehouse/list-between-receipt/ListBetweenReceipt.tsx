@@ -993,7 +993,7 @@ const ListBetweenReceipt = () => {
 
 
                             <Grid item xs={12}>
-                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Depolar Arası Fişler)</CustomFormLabel>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                                 <TextField
                                     id="invoice-general-description"
                                     label="Depolar Arası Fişler için genel açıklama giriniz"
@@ -1200,13 +1200,14 @@ const ListBetweenReceipt = () => {
                                                         <IconDots width={18} />
                                                     </IconButton>
                                                     <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
+
+                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
+                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
                                                         {hasDownloadPermission && (
                                                             <MuiMenuItem onClick={() => { handleCloseMenu(); setSelectedRowForMenu(row); setOpenReceiptDetailsDownloadModal(true); }}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir
                                                             </MuiMenuItem>
                                                         )}
-                                                        {hasEditPermission && <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>}
-                                                        {hasDeletePermission && <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>}
                                                     </Menu>
                                                 </StyledTableCell>
                                             </TableRow>

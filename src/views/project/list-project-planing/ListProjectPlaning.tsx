@@ -1139,13 +1139,7 @@ const ListProjectPlanning = () => {
                                                     </IconButton>
                                                 </CustomTooltip>
                                                 <Menu id="basic-menu" anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu} MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}>
-                                                    {hasDownloadPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu planlamayı indir" : ""}>
-                                                            <MuiMenuItem onClick={handleClickOpenSingleDownloadModal}>
-                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir
-                                                            </MuiMenuItem>
-                                                        </CustomTooltip>
-                                                    )}
+
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu planlamayı düzenle" : ""}>
                                                             <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
@@ -1154,6 +1148,13 @@ const ListProjectPlanning = () => {
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu planlamayı sil" : ""}>
                                                             <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu planlamayı indir" : ""}>
+                                                            <MuiMenuItem onClick={handleClickOpenSingleDownloadModal}>
+                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>

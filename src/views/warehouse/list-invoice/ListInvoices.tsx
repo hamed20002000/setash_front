@@ -1528,7 +1528,7 @@ const ListInvoices = () => {
                             </Grid>
 
                             <Grid item xs={12}>
-                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Fatura)</CustomFormLabel>
+                                <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                                 <TextField
                                     id="invoice-general-description"
                                     label="Fatura için genel açıklama giriniz"

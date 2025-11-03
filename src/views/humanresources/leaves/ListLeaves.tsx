@@ -1213,16 +1213,16 @@ const ListLeaves: React.FC = () => {
                                                         </MuiMenuItem>
                                                     )}
 
-                                                    {hasDownloadPermission && (
-                                                        <MuiMenuItem onClick={openDownloadChooserForRow}>
-                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                            İzin belgesini indir
-                                                        </MuiMenuItem>
-                                                    )}
 
                                                     {hasDeletePermission && (
                                                         <MuiMenuItem onClick={handleOpenDelete}>
                                                             <ListItemIcon><IconTrash width={18} /></ListItemIcon> Silmek
+                                                        </MuiMenuItem>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <MuiMenuItem onClick={openDownloadChooserForRow}>
+                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                            İzin belgesini indir
                                                         </MuiMenuItem>
                                                     )}
                                                 </Menu>

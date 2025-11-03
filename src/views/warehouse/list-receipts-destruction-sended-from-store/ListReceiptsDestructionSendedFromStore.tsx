@@ -992,7 +992,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
 
 
                         <Grid item xs={12}>
-                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama (Genel Depoya Gelen (İmha/İade) Sevk)</CustomFormLabel>
+                            <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                             <TextField
                                 id="invoice-general-description"
                                 label="Depoya Gelen (İmha/İade) Sevk için genel açıklama giriniz"
@@ -1219,11 +1219,7 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                                     <IconDots width={18} />
                                                 </IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                    {hasDownloadPermission && (
-                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}>
-                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir
-                                                        </MuiMenuItem>
-                                                    )}
+
                                                     {hasEditPermission && (
                                                         <MuiMenuItem onClick={() => {
                                                             // Prefill edit using row
@@ -1280,6 +1276,11 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                                     {hasDeletePermission && (
                                                         <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek
+                                                        </MuiMenuItem>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}>
+                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir
                                                         </MuiMenuItem>
                                                     )}
                                                 </Menu>

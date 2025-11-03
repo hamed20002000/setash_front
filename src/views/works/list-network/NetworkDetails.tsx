@@ -321,6 +321,7 @@ const NetworkDetails = () => {
     }, [navigate, showAlert]);
 
     const getInitialData = useCallback(async () => {
+        debugger
         if (!networkId) {
             showAlert('Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
             return;

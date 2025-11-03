@@ -212,6 +212,7 @@ const ListNetwork = () => {
     }, [allNetworks, filterWorkId, searchTerm, statusFilter]);
 
     useEffect(() => {
+        debugger
         if (workId) {
             const parsedWorkId = parseInt(workId);
             setSelectedWorkIdForForm(parsedWorkId);
@@ -267,6 +268,7 @@ const ListNetwork = () => {
     };
 
     const fetchAllNetworksAndWorks = async () => {
+        debugger
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -306,6 +308,7 @@ const ListNetwork = () => {
                 showAlert('Veri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
+            debugger
             showAlert(e.response?.data?.message || 'Veri yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
@@ -658,7 +661,7 @@ const ListNetwork = () => {
             fetchAllNetworksAndWorks();
         }
     };
-    const handleViewNetworkDetails = (networkId: string) => {
+    const handleViewNetworkDetails = (networkId: number) => {
         navigate(`/network/${networkId}/details`);
     };
     const handleOpenDescriptionModal = (descriptionContent: string) => {
@@ -1384,7 +1387,15 @@ const ListNetwork = () => {
                                                         <Button
                                                             variant="outlined"
                                                             size="small"
-                                                            onClick={() => handleViewNetworkDetails(row.id)}
+                                                            // onClick={() => handleViewNetworkDetails(row.work.id)}
+                                                            onClick={() => {
+                                                                if (row.work?.id) {
+                                                                    handleViewNetworkDetails(row.work.id);
+                                                                } else {
+                                                                    // İsteğe bağlı: Kullanıcıya bir uyarı gösterebilirsiniz.
+                                                                    // showAlert("Bu şebeke için tanımlı bir iş bulunamadı.", "warning");
+                                                                }
+                                                            }}
                                                             startIcon={<IconSearch size={18} />}
                                                         >
                                                             Detayları Görüntüle

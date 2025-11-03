@@ -1799,7 +1799,7 @@ const ListWorkhouses = () => {
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Şantiyeyi indir" : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}>
                                                                 <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                Şantiyeyi İndir
+                                                                Bu satırı indir
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}

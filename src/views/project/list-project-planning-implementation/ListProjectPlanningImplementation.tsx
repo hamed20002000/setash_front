@@ -664,7 +664,7 @@ const ListProjectPlanningImplementation = () => {
                         <Grid container spacing={2}>
                             {/* Left: vertical tabs (plannings) */}
                             <Grid item xs={12} md={2}>
-                                <Paper variant="outlined" sx={{ height: "100%", minHeight: 420 }}>
+                                <Paper variant="outlined" sx={{ height: "100%", minHeight: "80vh" }}>
                                     <Typography variant="subtitle2" sx={{ px: 2, py: 1.5, borderBottom: "1px solid rgba(0,0,0,0.08)" }}>
                                         Planlar
                                     </Typography>
