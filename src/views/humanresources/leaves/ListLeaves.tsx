@@ -397,10 +397,10 @@ const generateLeavePDFPersonnelInfo = (doc: jsPDF, row: LeaveType) => {
     doc.text(`${row.personnel.insuranceNumber}`, 320, personnelInfoYPosition + 50); // خالی برای SSK SİCİL NO
 
     doc.text("İZNE AYRILMAK İSTENİLEN TARİH:", 40, personnelInfoYPosition + 65);
-    doc.text(fmtTR(row.endDate), 320, personnelInfoYPosition + 65); // خالی برای İZNE AYRILMAK İSTENİLEN TARİH
+    doc.text(fmtTR(row.startDate), 320, personnelInfoYPosition + 65); // خالی برای İZNE AYRILMAK İSTENİLEN TARİH
 
     doc.text("İZİN BİTİŞ TARİHİ:", 40, personnelInfoYPosition + 80);
-    doc.text(fmtTR(row.startDate), 320, personnelInfoYPosition + 80); // نمایش تاریخ پایان مرخصی
+    doc.text(fmtTR(row.endDate), 320, personnelInfoYPosition + 80); // نمایش تاریخ پایان مرخصی
 
     doc.text("İŞE BAŞLAMA TARİHİ:", 40, personnelInfoYPosition + 95);
     doc.text(fmtTR(row.personnel.workStartDate), 320, personnelInfoYPosition + 95); // نمایش تاریخ شروع کار
@@ -609,12 +609,12 @@ const generateLeaveExcelSubHeaderAndPersonnelInfo = (ws: ExcelWorksheet, row: Le
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
     // İZNE AYRILMAK İSTENİLEN TARİH:
-    nextRow++; ws.addRow(["İZNE AYRILMAK İSTENİLEN TARİH:", "", "", fmtTR(row.endDate)]);
+    nextRow++; ws.addRow(["İZNE AYRILMAK İSTENİLEN TARİH:", "", "", fmtTR(row.startDate)]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
     // İZİN BİTİŞ TARİHİ:
-    nextRow++; ws.addRow(["İZİN BİTİŞ TARİHİ:", "", "", fmtTR(row.startDate)]);
+    nextRow++; ws.addRow(["İZİN BİTİŞ TARİHİ:", "", "", fmtTR(row.endDate)]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
@@ -799,7 +799,25 @@ const ListLeaves: React.FC = () => {
             showAlert("Personel listesi alınırken bir hata oluştu.", "error");
         }
     };
-    const getAllLeaves = async () => {
+
+
+    // const getAllLeaves = async () => {
+    //     const authToken = localStorage.getItem("authToken");
+    //     setLoadingData(true);
+    //     if (!authToken) { navigate("/"); setLoadingData(false); return; }
+    //     try {
+    //         const res = await axios.get(server.baseurl + server.hr + "get-all-leaves", {
+    //             headers: { Accept: "application/json", Authorization: `Bearer ${authToken}` },
+    //         });
+    //         if (res.data?.httpStatusCode === 200) setLeaves(res.data.data || []);
+    //         else showAlert(res.data?.message || "İzin listesi alınırken hata oluştu.", "error");
+    //     } catch (e: any) {
+    //         if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
+    //         showAlert("İzin listesi alınırken bir hata oluştu.", "error");
+    //     } finally { setLoadingData(false); }
+    // };
+
+    const getAllLeaves = React.useCallback(async () => {
         const authToken = localStorage.getItem("authToken");
         setLoadingData(true);
         if (!authToken) { navigate("/"); setLoadingData(false); return; }
@@ -807,13 +825,20 @@ const ListLeaves: React.FC = () => {
             const res = await axios.get(server.baseurl + server.hr + "get-all-leaves", {
                 headers: { Accept: "application/json", Authorization: `Bearer ${authToken}` },
             });
-            if (res.data?.httpStatusCode === 200) setLeaves(res.data.data || []);
-            else showAlert(res.data?.message || "İzin listesi alınırken hata oluştu.", "error");
+            if (res.data?.httpStatusCode === 200) {
+                const newLeaves = res.data.data || [];
+                setLeaves(newLeaves); // State را بروزرسانی می‌کنیم
+                return newLeaves; // ⬅️ لیست جدید را برمی‌گردانیم
+            } else {
+                showAlert(res.data?.message || "İzin listesi alınırken hata oluştu.", "error");
+                return null;
+            }
         } catch (e: any) {
             if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
             showAlert("İzin listesi alınırken bir hata oluştu.", "error");
         } finally { setLoadingData(false); }
-    };
+    }, [navigate, showAlert]);
+
     useEffect(() => { getAllLeaves(); getAllPersonnels(); }, []);
 
     // form validate/submit
@@ -826,30 +851,100 @@ const ListLeaves: React.FC = () => {
         if (!personnelId) { setPersonnelError("Personel seçimi zorunludur."); ok = false; }
         return ok;
     };
+    // const insertLeave = async () => {
+    //     if (!validateForm()) return;
+    //     const authToken = localStorage.getItem("authToken");
+    //     if (!authToken) { navigate("/"); return; }
+    //     setLoadingButton(true);
+    //     try {
+    //         const payload = {
+    //             startDate: startDate!.toISOString(),
+    //             endDate: endDate!.toISOString(),
+    //             personnelId: Number(personnelId),
+    //             type: type, // اضافه کردن type به payload
+    //         };
+    //         const res = await axios.post(server.baseurl + server.hr + "create-leave", payload, {
+    //             headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+    //         });
+    //         if (res.data?.httpStatusCode === 201 || res.data?.success) {
+    //             showAlert("İzin kaydı başarıyla eklendi!", "success");
+    //             setStartDate(null);
+    //             setEndDate(null);
+    //             setPersonnelId("");
+    //             setType(0); // reset type
+    //             setIsFormVisible(false);
+    //             getAllLeaves();
+    //         } else showAlert(res.data?.message || "İzin eklenirken hata oluştu.", "error");
+    //     } catch (e: any) {
+    //         if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
+    //         showAlert(e.response?.data?.message || "İzin eklenirken hata oluştu.", "error");
+    //     } finally { setLoadingButton(false); }
+    // };
+
+
+    // table helpers
+
+    // در ListLeaves.tsx (خطوط 522 تا 554)
     const insertLeave = async () => {
         if (!validateForm()) return;
         const authToken = localStorage.getItem("authToken");
         if (!authToken) { navigate("/"); return; }
         setLoadingButton(true);
+
+        // ذخیره موقت مشخصات مرخصی برای شناسایی پس از get
+        const tempPersonnelId = Number(personnelId);
+        const tempStartDate = startDate!.toISOString();
+        const tempEndDate = endDate!.toISOString();
+        const tempType = type; // ذخیره نوع مرخصی
+
         try {
             const payload = {
-                startDate: startDate!.toISOString(),
-                endDate: endDate!.toISOString(),
-                personnelId: Number(personnelId),
-                type: type, // اضافه کردن type به payload
+                startDate: tempStartDate,
+                endDate: tempEndDate,
+                personnelId: tempPersonnelId,
+                type: tempType,
             };
             const res = await axios.post(server.baseurl + server.hr + "create-leave", payload, {
                 headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
             });
+
             if (res.data?.httpStatusCode === 201 || res.data?.success) {
-                showAlert("İzin kaydı başarıyla eklendi!", "success");
+                showAlert("İzin kaydı başarıyla eklendi! İndirme formu açılıyor...", "success");
+
+                // 1. لیست جدید را دریافت می‌کنیم (و State را بروزرسانی می‌کنیم)
+                const updatedLeaves = await getAllLeaves();
+
+                // 2. اگر لیست جدید موجود بود، مرخصی را در آن پیدا می‌کنیم
+                if (updatedLeaves) {
+                    const newLeave = updatedLeaves.find((l: LeaveType) =>
+                        Number(l.personnel.id) === tempPersonnelId &&
+                        l.startDate === tempStartDate &&
+                        l.endDate === tempEndDate &&
+                        l.type === tempType
+                    );
+
+                    // 3. اگر مرخصی پیدا شد، مودال دانلود را برای آن باز می‌کنیم
+                    if (newLeave) {
+                        setDownloadScope("row");
+                        setRowForDownload(newLeave);
+                        setOpenDownloadModal(true);
+                    } else {
+                        showAlert("Yeni kayıt bulunamadı. Lütfen listeden manuel olarak indirin.", "warning");
+                    }
+                } else {
+                    showAlert("Liste güncellenemedi, lütfen yeniden deneyin.", "error");
+                }
+
+                // 4. ریست کردن فرم
                 setStartDate(null);
                 setEndDate(null);
                 setPersonnelId("");
-                setType(0); // reset type
+                setType(0);
                 setIsFormVisible(false);
-                getAllLeaves();
-            } else showAlert(res.data?.message || "İzin eklenirken hata oluştu.", "error");
+
+            } else {
+                showAlert(res.data?.message || "İzin eklenirken hata oluştu.", "error");
+            }
         } catch (e: any) {
             if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
             showAlert(e.response?.data?.message || "İzin eklenirken hata oluştu.", "error");
@@ -857,7 +952,6 @@ const ListLeaves: React.FC = () => {
     };
 
 
-    // table helpers
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => { setSearchTerm(e.target.value); setPage(0); };
@@ -1020,6 +1114,7 @@ const ListLeaves: React.FC = () => {
                                 <DateTimePicker
                                     label="Bitiş Tarihi"
                                     value={endDate}
+                                    minDate={startDate || undefined}
                                     onChange={(v) => setEndDate(v)}
                                     renderInput={(params) => <TextField {...params} size="small" fullWidth error={!!endError} helperText={endError} />}
                                 />
@@ -1073,7 +1168,7 @@ const ListLeaves: React.FC = () => {
                         {notifIds.length > 0 && (
                             <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
                                 <Chip
-                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    label={`Bildirim filtresi: ${notifIds.length}`}
                                     color="error"
                                     size="small"
                                 />
@@ -1105,7 +1200,8 @@ const ListLeaves: React.FC = () => {
                             <LocalizationProvider dateAdapter={AdapterDateFns}>
                                 <Stack direction="row" spacing={1} alignItems="center">
                                     <DateTimePicker label="Başlangıç Tarihi" value={filterStart} onChange={(v) => setFilterStart(v)} renderInput={(p) => <TextField {...p} size="small" fullWidth />} />
-                                    <DateTimePicker label="Bitiş Tarihi" value={filterEnd} onChange={(v) => setFilterEnd(v)} renderInput={(p) => <TextField {...p} size="small" fullWidth />} />
+                                    <DateTimePicker label="Bitiş Tarihi" value={filterEnd}
+                                        minDate={filterEnd || undefined} onChange={(v) => setFilterEnd(v)} renderInput={(p) => <TextField {...p} size="small" fullWidth />} />
                                     <IconButton onClick={clearDateFilters} aria-label="clear date filters"><IconX size={20} /></IconButton>
                                 </Stack>
                             </LocalizationProvider>

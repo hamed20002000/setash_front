@@ -50,11 +50,11 @@ const DeleteLeaves = ({
             navigate('/');
             return;
         }
-
+        debugger
         setLoading(true);
         try {
             const response = await axios.delete(
-                `${server.baseurl}${server.hr}delete-leave/${leaveIdToDelete}`,
+                `${server.baseurl}${server.hr}delete-leave/${Number(leaveIdToDelete)}`,
                 {
                     headers: {
                         Accept: 'application/json',

@@ -25,13 +25,9 @@ import DefineWorkModal from './DefineWorkModal';
 import axios from 'axios';
 import server from '../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import ThumbUpAltIcon from '@mui/icons-material/ThumbUpAlt';
 import ThumbDownAltIcon from '@mui/icons-material/ThumbDownAlt';
-import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-// import * as XLSX from 'xlsx';
 
 import Excel from 'exceljs';
 import AttachFileModal from './AttachFileModal';
@@ -160,6 +156,15 @@ const descendingComparator = <T, Key extends keyof T>(
     return 1;
   }
   return 0;
+};
+
+const statusToLabel = (s: string) => {
+  switch (s) {
+    case "Beklemede": return "Beklemede";
+    case "Onaylandı": return "Onaylandı";
+    case "Reddedildi": return "Reddedildi";
+    default: return "-";
+  }
 };
 
 const getComparator = (
@@ -389,95 +394,7 @@ const ListTender = () => {
     });
   };
 
-  // const downloadExcelForPurchase = async (tender: TenderType) => {
-  //   debugger
-  //   // if (!selectedRowForMenu) return;
-
-  //   const tenderId = tender.id;
-  //   const tenderTitle = tender.title;
-  //   const authToken = localStorage.getItem('authToken');
-  //   if (!authToken) {
-  //     showAlert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.', 'warning');
-  //     navigate("/");
-  //     handleCloseMenu();
-  //     return;
-  //   }
-
-  //   showAlert('İhale verileri indiriliyor...', 'info');
-  //   handleCloseMenu();
-
-  //   try {
-  //     const response = await axios.get(
-  //       `${server.baseurl + server.initialoperations}get-tender-by-id/${tenderId}`,
-  //       {
-  //         headers: {
-  //           "Accept": "application/json",
-  //           "Authorization": `Bearer ${authToken}`
-  //         }
-  //       }
-  //     );
-  //     debugger
-  //     if (response.data.httpStatusCode === 200 && response.data.data) {
-  //       const tenderData = response.data.data;
-  //       const tenderCategories = tenderData.tenderCategories || [];
-
-  //       // ایجاد یک آرایه برای نگهداری داده‌های اکسل
-  //       const excelData: any[] = [];
-  //       debugger
-  //       // پردازش و فیلتر کردن داده‌ها
-  //       tenderCategories.forEach((category: any) => {
-  //         const tenderDetails = category.tenderDetails || [];
-  //         tenderDetails.forEach((detail: any) => {
-  //           // فیلتر بر اساس ourProcuredItemQuantities
-  //           const quantity = parseFloat(detail.ourProcuredItemQuantities);
-  //           if (!isNaN(quantity) && quantity > 0) {
-  //             excelData.push({
-  //               'Ürün': detail.item?.name || '-',
-  //               'Ölçü': detail.item?.unit?.title || '-',
-  //               'Miktar': quantity,
-  //               'Açıklama': '', // توضیحات خالی
-  //               'Fiyat': ''    // قیمت خالی
-  //             });
-  //           }
-  //         });
-  //       });
-
-  //       // بررسی اینکه آیا داده‌ای برای اکسل وجود دارد یا خیر
-  //       if (excelData.length === 0) {
-  //         showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
-  //         return;
-  //       }
-
-  //       // ساخت و دانلود فایل اکسل
-  //       const worksheet = XLSX.utils.json_to_sheet(excelData);
-  //       const workbook = XLSX.utils.book_new();
-  //       XLSX.utils.book_append_sheet(workbook, worksheet, 'Satın Alma Listesi');
-
-  //       const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  //       const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
-  //       saveAs(data, `${tenderTitle}-SatınAlma.xlsx`);
-
-  //       showAlert('İhale verileri başarıyla indirildi!', 'success');
-
-  //     } else {
-  //       showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
-  //     }
-  //   } catch (e: any) {
-  //     console.error("Download failed:", e);
-  //     if (e.response && e.response.status === 401) {
-  //       localStorage.removeItem('authToken');
-  //       navigate("/");
-  //       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     } else {
-  //       showAlert('İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-  //     }
-  //   }
-
-  //   setOpenDownloadOptionsModal(false);
-  // };
-
   const downloadExcelForPurchase = async (tender: TenderType) => {
-    // حذف debugger
     const tenderId = tender.id;
     const tenderTitle = tender.title;
     const authToken = localStorage.getItem('authToken');
@@ -754,137 +671,6 @@ const ListTender = () => {
       setOpenDownloadOptionsModal(false);
     }
   };
-
-  // const downloadPdfForPurchase = async (tender: TenderType) => {
-  //   showAlert('PDF dosyası hazırlanıyor...', 'info');
-  //   try {
-  //     const authToken = localStorage.getItem('authToken');
-  //     if (!authToken) {
-  //       showAlert('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', 'warning');
-  //       navigate("/");
-  //       return;
-  //     }
-
-  //     const response = await axios.get(
-  //       `${server.baseurl + server.initialoperations}get-tender-by-id/${tender.id}`,
-  //       {
-  //         headers: {
-  //           "Accept": "application/json",
-  //           "Authorization": `Bearer ${authToken}`
-  //         }
-  //       }
-  //     );
-
-  //     if (response.data.httpStatusCode === 200 && response.data.data) {
-  //       const tenderData = response.data.data;
-  //       const tenderCategories = tenderData.tenderCategories || [];
-
-  //       const doc = new jsPDF();
-  //       const pageWidth = doc.internal.pageSize.getWidth();
-  //       const pageHeight = doc.internal.pageSize.getHeight();
-
-  //       doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-  //       doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-  //       doc.setFont('NotoSans');
-
-  //       const header = () => {
-
-  //         doc.addImage(Logo, 'PNG', 10, 10, 40, 25);
-  //         doc.setFontSize(18);
-  //         doc.text(`İhale Detayları`, pageWidth - 15, 30, { align: 'right' });
-  //         doc.setFontSize(12);
-  //         doc.text(`İhale Adı: ${tenderData.title || '-'}`, pageWidth - 15, 40, { align: 'right' });
-  //         doc.text(`Tarih: ${formatDateDisplay(tenderData.createAt)}`, pageWidth - 15, 47, { align: 'right' });
-  //       };
-
-  //       const footer = () => {
-  //         doc.setFontSize(10);
-  //         doc.setTextColor(0);
-  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-  //         const docAny = doc as any;
-  //         const pageCount = docAny.internal.getNumberOfPages();
-  //         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-  //       };
-
-  //       const tableData: TableRowData[] = [];
-  //       tenderCategories.forEach((category: any) => {
-  //         const tenderDetails = category.tenderDetails || [];
-  //         tenderDetails.forEach((detail: any) => {
-  //           const quantity = parseFloat(detail.ourProcuredItemQuantities);
-  //           if (!isNaN(quantity) && quantity > 0) {
-  //             tableData.push({
-  //               itemName: detail.item?.name || '-',
-  //               quantity: quantity,
-  //               unit: detail.item?.unit?.title || '-',
-  //               description: stripHtml(detail.description),
-  //               price: '',
-  //             });
-  //           }
-  //         });
-  //       });
-
-  //       if (tableData.length === 0) {
-  //         showAlert('Seçilen ihale için satın alma verisi bulunamadı.', 'warning');
-  //         setOpenDownloadOptionsModal(false);
-  //         return;
-  //       }
-
-  //       const rows = tableData.map(row => [
-  //         row.itemName,
-  //         row.quantity,
-  //         row.unit,
-  //         row.description,
-  //         row.price
-  //       ]);
-
-  //       autoTable(doc, {
-  //         startY: 60,
-  //         head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
-  //         body: rows,
-  //         theme: 'grid',
-  //         styles: {
-  //           font: 'NotoSans',
-  //           fontStyle: 'normal',
-  //           fontSize: 10,
-  //           cellPadding: 2,
-  //           overflow: 'linebreak'
-  //         },
-  //         headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-  //         columnStyles: {
-  //           0: { cellWidth: 50 },
-  //           1: { cellWidth: 20 },
-  //           2: { cellWidth: 20 },
-  //           3: { cellWidth: 50 },
-  //           4: { cellWidth: 'auto' },
-  //         },
-  //         didDrawPage: () => {
-  //           header();
-  //           footer();
-  //         },
-  //         showHead: 'everyPage',
-  //         margin: { top: 50, bottom: 20 }
-  //       });
-
-  //       doc.save(`${tenderData.title}-SatınAlma.pdf`);
-  //       showAlert('PDF dosyası başarıyla indirildi!', 'success');
-  //     } else {
-  //       showAlert(response.data.message || 'İhale verileri alınırken bir hata oluştu.', 'error');
-  //     }
-  //   } catch (e: any) {
-  //     console.error("PDF oluşturma başarısız oldu:", e);
-  //     if (e.response && e.response.status === 401) {
-  //       localStorage.removeItem('authToken');
-  //       navigate("/");
-  //       showAlert('Oturum süreniz doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-  //     } else {
-  //       showAlert(e.response?.data?.message || 'İhale verileri indirilirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
-  //     }
-  //   } finally {
-  //     setOpenDownloadOptionsModal(false);
-  //   }
-  // };
-
 
   const handleDownloadTenderForPurchase = () => {
     if (!selectedRowForMenu) return;
@@ -1193,6 +979,15 @@ const ListTender = () => {
     }
     handleCloseMenu();
   }, [selectedRowForMenu, showAlert, handleCloseMenu]);
+
+  const handleDownloadAttachmentsDirect = useCallback((row: TenderType) => {
+    if (row.attachments && row.attachments.length > 0) {
+      setFilesForDownload(row.attachments);
+      setOpenDownloadModal(true);
+    } else {
+      showAlert('Bu ihale için indirilecek dosya bulunamadı.', 'warning');
+    }
+  }, [showAlert]);
 
   function getListTender() {
     setLoadingData(true);
@@ -1605,10 +1400,12 @@ const ListTender = () => {
                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                       {/* سلول‌های اطلاعاتی */}
                       <StyledTableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: "pointer" }}>
                           {row.attachments && row.attachments.length > 0 && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Bu ihale ek dosya içeriyor." : ""}>
-                              <IconPaperclip size={20} color="#01c4ffff" />
+                              <IconPaperclip
+                                onClick={() => handleDownloadAttachmentsDirect(row)}
+                                size={20} color="#01c4ffff" />
                             </CustomTooltip>
                           )}
                           <Typography variant="body1">{row.title}</Typography>
@@ -1619,10 +1416,9 @@ const ListTender = () => {
                       </StyledTableCell>
                       <StyledTableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          {row.showApprovedIcon && <CheckCircleOutlineIcon color="success" fontSize="small" />}
-                          {row.showRejectedIcon && <HighlightOffIcon color="error" fontSize="small" />}
-                          {row.showPendingIcon && <HourglassEmptyIcon sx={{ color: 'orange' }} fontSize="small" />}
-                          <Typography variant="body1">{row.approvedTenderText}</Typography>
+                          {row.showApprovedIcon && <Chip label={statusToLabel(row.approvedTenderText ?? '-')} color="success" size="small" />}
+                          {row.showRejectedIcon && <Chip label={statusToLabel(row.approvedTenderText ?? '-')} color="error" size="small" />}
+                          {row.showPendingIcon && <Chip label={statusToLabel(row.approvedTenderText ?? '-')} color="warning" size="small" />}
                         </Box>
                       </StyledTableCell>
                       <StyledTableCell>

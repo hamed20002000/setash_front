@@ -1,4 +1,4 @@
-// ListPersonnel.tsx
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
@@ -15,7 +15,8 @@ import { keyframes, styled } from "@mui/material/styles";
 import BoltIcon from "@mui/icons-material/Bolt";
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconEye, IconRefresh, IconUpload } from "@tabler/icons-react";
+// IconFile برای نمایش مدارک جدید اضافه شد
+import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconEye, IconRefresh, IconUpload, IconFile } from "@tabler/icons-react";
 import BlankCard from "src/components/shared/BlankCard";
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import CustomTextField from "src/components/forms/theme-elements/CustomTextField";
@@ -41,7 +42,6 @@ import Logo from "src/assets/images/logos/logo.png";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
 
-
 import imagedefault from '../../../assets/images/profile/user-d.svg';
 
 // ----- Delete Personnel -----
@@ -53,32 +53,17 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontSize: "0.8rem",
     [theme.breakpoints.up("md")]: { fontSize: "1rem" },
 }));
-
 const StyledToggleButton = styled(MuiToggleButton)(({ theme }) => ({
     "&.Mui-selected": { color: "white" },
-    "&.Mui-selected[data-value='all']": {
-        backgroundColor: theme.palette.primary.main,
-        "&:hover": { backgroundColor: theme.palette.primary.dark },
-    },
-    "&.Mui-selected[data-value='active']": {
-        backgroundColor: theme.palette.success.main,
-        "&:hover": { backgroundColor: theme.palette.success.dark },
-    },
-    "&.Mui-selected[data-value='inactive']": {
-        backgroundColor: theme.palette.error.main,
-        "&:hover": { backgroundColor: theme.palette.error.dark },
-    },
-    "&:not(.Mui-selected)": {
-        color: theme.palette.text.primary,
-        borderColor: theme.palette.divider,
-        "&:hover": { backgroundColor: theme.palette.action.hover },
-    },
+    "&.Mui-selected[data-value='all']": { backgroundColor: theme.palette.primary.main, "&:hover": { backgroundColor: theme.palette.primary.dark } },
+    "&.Mui-selected[data-value='active']": { backgroundColor: theme.palette.success.main, "&:hover": { backgroundColor: theme.palette.success.dark } },
+    "&.Mui-selected[data-value='inactive']": { backgroundColor: theme.palette.error.main, "&:hover": { backgroundColor: theme.palette.error.dark } },
+    "&:not(.Mui-selected)": { color: theme.palette.text.primary, borderColor: theme.palette.divider, "&:hover": { backgroundColor: theme.palette.action.hover } },
 }));
-
 const blinkAnimation = keyframes`
-  0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
-  50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
-  100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
 `;
 const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
     animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : "none",
@@ -89,6 +74,7 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 type RecordStatus = 0 | 1 | 2; // 0=Aktif, 1=Pasif, 2=Silindi
 enum EducationStatus { Ilkokul = 0, Ortaokul, Lise, OnLisans, Lisans, YuksekLisans, Doktora }
 interface Position { id: number; title: string; }
+export interface Attachment { fileUrl: string; } // NEW
 export interface PersonnelType {
     id: number;
     name: string;
@@ -116,7 +102,9 @@ export interface PersonnelType {
     createAt: string;
     positionId?: number | null;
     statusText?: string;
-    imageSrc?: string;
+    imageSrc?: string; // URL of the image
+    hasISG?: boolean; // NEW: İş Güvenliği Sertifikası
+    attachments?: Attachment[]; // NEW: Ek Belgeler
 }
 type PositionOption = { id: number; title: string };
 
@@ -129,20 +117,6 @@ const BLOOD_LABELS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const
 const EDU_LABELS = ["İlkokul", "Ortaokul", "Lise", "Ön Lisans", "Lisans", "Yüksek Lisans", "Doktora"] as const;
 
 const statusText = (s?: number) => (s === 0 ? "Aktif" : s === 1 ? "Pasif" : "Silindi");
-// جایگزین normalizeTr قبلی کن
-const normalizeTr = (s: string) => (
-    s
-        .toLowerCase()
-        // توجه: i̇ (i با نقطه ترکیبی) را هم به i ساده برمی‌گردانیم
-        .replace(/i̇/g, "i")
-        .replace(/ı/g, "i")
-        .replace(/ğ/g, "g")
-        .replace(/ç/g, "c")
-        .replace(/ş/g, "s")
-        .replace(/ö/g, "o")
-        .replace(/ü/g, "u")
-        .trim()
-);
 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "—";
@@ -175,63 +149,83 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilized.map((el) => el[0]);
 };
 
+// TEMPLATE_HEADERS: 'Bitiş' kaldırıldı, 'ISG' eklendi
 const TEMPLATE_HEADERS = [
-    "Ad",
-    "Soyad",
-    "TC Kimlik",
-    "Pozisyon",
+    "Ad", "Soyad", "TC Kimlik", "Pozisyon",
     "Başlangıç (yyyy-MM-dd)",
-    "Bitiş (yyyy-MM-dd)",
-    "Sigorta No",
-    "Cinsiyet (Erkek|Kadın|0|1)",
-    "Ücret Tipi (Aylık|Günlük|0|1)",
-    "Tahakkuk (Brüt|Net|0|1)",
-    "Grup (Emekli|Normal|Engelli|0|1|2)",
-    "Doğum Yeri",
-    "Doğum Tarihi (yyyy-MM-dd)",
-    "Medeni (Bekâr|Evli|Dul|0|1|2)",
-    "Kan Grubu (A+|A-|B+|B-|AB+|AB-|O+|O-|0..7)",
-    "Baba Adı",
-    "Adres",
-    "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)",
-    "IBAN",
-    "Telefon",
-    "Mobil",
+    "Sigorta No", "Cinsiyet (Erkek|Kadın|0|1)", "Ücret Tipi (Aylık|Günlük|0|1)",
+    "Tahakkuk (Brüt|Net|0|1)", "Grup (Emekli|Normal|Engelli|0|1|2)", "Doğum Yeri",
+    "Doğum Tarihi (yyyy-MM-dd)", "Medeni (Bekâr|Evli|Dul|0|1|2)", "Kan Grubu (A+|A-|B+|B-|AB+|AB-|O+|O-|0..7)",
+    "Baba Adı", "Adres", "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)",
+    "IBAN", "Telefon", "Mobil",
+    "ISG (Var|Yok|True|False|0|1)", // YENİ
 ] as const;
 
 type ImportedRow = {
     _rowIndex: number;
-    name: string;
-    family: string;
-    identityNumber: string;
-    positionText: string;
-    positionId: number | null;
-    workStartDate: string | null;
-    workEndDate: string | null;
-    insuranceNumber: string;
-    sex: number;
-    salaryType: number;
-    salaryAccrualMethod: number;
-    group: number;
-    birthPlace: string;
-    birthDate: string | null;
-    maritalStatus: number;
-    bloodType: number;
-    fatherName: string;
-    address: string;
-    educationStatus: number;
-    iban: string;
-    telephone: string;
-    mobile: string;
+    name: string; family: string; identityNumber: string;
+    positionText: string; positionId: number | null;
+    workStartDate: string | null; workEndDate: string | null; insuranceNumber: string;
+    sex: number; salaryType: number; salaryAccrualMethod: number; group: number;
+    birthPlace: string; birthDate: string | null; maritalStatus: number; bloodType: number;
+    fatherName: string; address: string; educationStatus: number; iban: string; telephone: string; mobile: string;
+    hasISG: boolean; // NEW
 
     /* validation flags */
     errors: {
-        identityDuplicate: boolean;
-        positionMissing: boolean;
-        requiredMissing: string[]; // names of missing columns
-        invalidDate: string[];     // which date fields invalid
+        identityDuplicate: boolean; positionMissing: boolean;
+        requiredMissing: string[]; invalidDate: string[];
     };
 };
+
+const DEFAULT_IMAGE_URL = imagedefault;
+
+// Helper function for fetching image URL
+const getFullImageUrl = (fileUrl: string | undefined): string => {
+    if (!fileUrl || fileUrl === "N/A" || fileUrl.startsWith('data:')) {
+        return DEFAULT_IMAGE_URL;
+    }
+    return `${server.urldpwonload}${fileUrl}`;
+};
+
+// Utility function to upload files (Based on user request)
+const uploadFiles = async (
+    files: File[],
+    authToken: string,
+    showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void
+): Promise<string[] | null> => {
+
+    if (!files || files.length === 0) {
+        return [];
+    }
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+
+    try {
+        const uploadResponse = await axios.post(
+            server.baseurl + server.baseinfo + "upload-files", // 'server.baseinfo' is assumed to be the correct endpoint base
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            }
+        );
+
+        if (uploadResponse.data.httpStatusCode === 201) {
+            return uploadResponse.data.data.files as string[];
+        } else {
+            showAlert(uploadResponse.data?.message || 'Dosya yüklenirken sunucu hatası oluştu.', 'error');
+            return null;
+        }
+    } catch (e: any) {
+        showAlert(e?.response?.data?.message || 'Dosya yüklenirken ağ hatası oluştu.', 'error');
+        return null;
+    }
+};
+
 
 const ListPersonnel: React.FC = () => {
     const navigate = useNavigate();
@@ -249,19 +243,14 @@ const ListPersonnel: React.FC = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
-    const hasCreatePermission = useMemo(() =>
-        allowedOperations.some((op) => op.systemOperationName === "Eklemek"), [allowedOperations]);
-    const hasEditPermission = useMemo(() =>
-        allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
-    const hasDeletePermission = useMemo(() =>
-        allowedOperations.some((op) => op.systemOperationName === "Silmek"), [allowedOperations]);
-    const hasDownloadPermission = useMemo(() =>
-        allowedOperations.some((op) => op.systemOperationName === "İndirmek ve Yazdırmak"), [allowedOperations]);
+    const hasCreatePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Eklemek"), [allowedOperations]);
+    const hasEditPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
+    const hasDeletePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Silmek"), [allowedOperations]);
+    const hasDownloadPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "İndirmek ve Yazdırmak"), [allowedOperations]);
 
     /* alerts */
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
-    const [alertSeverity, setAlertSeverity] =
-        useState<"success" | "error" | "warning" | "info">("info");
+    const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "warning" | "info">("info");
     useEffect(() => {
         let t: any;
         if (alertMessage) t = setTimeout(() => setAlertMessage(null), 5000);
@@ -302,53 +291,46 @@ const ListPersonnel: React.FC = () => {
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
     const [downloadScope, setDownloadScope] = useState<"all" | "row">("all");
     const [rowForDownload, setRowForDownload] = useState<PersonnelType | null>(null);
+    const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false); // NEW
+    const [rowForAttachments, setRowForAttachments] = useState<PersonnelType | null>(null); // NEW
 
     const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
     const [selectedRowForDetails, setSelectedRowForDetails] = useState<PersonnelType | null>(null);
+    const [openEndCooperationModal, setOpenEndCooperationModal] = useState(false); // NEW
+    const [personnelToEndCooperation, setPersonnelToEndCooperation] = useState<PersonnelType | null>(null); // NEW
+    const [endDate, setEndDate] = useState<string | null>(null); // NEW
 
     /* -------- IMPORT state -------- */
     const [isProcessingImport, setIsProcessingImport] = useState(false);
     const [validRows, setValidRows] = useState<ImportedRow[]>([]);
     const [invalidRows, setInvalidRows] = useState<ImportedRow[]>([]);
     const [invalidIndex, setInvalidIndex] = useState(0);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null); // for excel import
 
     const [openAnnualLeaveModal, setOpenAnnualLeaveModal] = useState(false);
     const [annualLeaveData, setAnnualLeaveData] = useState<any>(null);
     const [loadingAnnualLeave, setLoadingAnnualLeave] = useState(false);
 
-    const DEFAULT_PERSONNEL_IMAGE_URL = imagedefault;
-    const [profileImageBase64, setProfileImageBase64] = useState<string>('');
-    const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_PERSONNEL_IMAGE_URL);
+    const [personnelForAnnualLeave, setPersonnelForAnnualLeave] = useState<PersonnelType | null>(null); // NEW/UPDATED State
+
+    /* -------- IMAGE & ATTACHMENTS state -------- */
+    const profileImageInputRef = useRef<HTMLInputElement>(null); // NEW: for profile picture
+    const attachmentsInputRef = useRef<HTMLInputElement>(null); // NEW: for attachments
+    const [profileRawFile, setProfileRawFile] = useState<File | null>(null); // NEW: raw file for upload
+    const [attachmentsRawFiles, setAttachmentsRawFiles] = useState<File[]>([]); // NEW: raw files for upload
+    const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_IMAGE_URL); // for display
+
 
     const initialForm: PersonnelType = {
-        id: 0,
-        name: "",
-        family: "",
-        position: { id: -1, title: "—" },
-        identityNumber: "",
-        workStartDate: null,
-        workEndDate: null,
-        insuranceNumber: "",
-        sex: 0,
-        salaryType: 0,
-        salaryAccrualMethod: 0,
-        group: 0,
-        birthPlace: "",
-        birthDate: null,
-        maritalStatus: 0,
-        fatherName: "",
-        bloodType: 0,
-        address: "",
-        educationStatus: EducationStatus.Ilkokul,
-        iban: "",
-        telephone: "",
-        mobile: "",
-        recordStatus: 0,
-        createAt: "",
-        positionId: null,
-        statusText: undefined,
-        imageSrc: undefined,
+        id: 0, name: "", family: "", position: { id: -1, title: "—" }, identityNumber: "",
+        workStartDate: null, workEndDate: null, insuranceNumber: "", sex: 0,
+        salaryType: 0, salaryAccrualMethod: 0, group: 0, birthPlace: "", birthDate: null,
+        maritalStatus: 0, fatherName: "", bloodType: 0, address: "",
+        educationStatus: EducationStatus.Ilkokul, iban: "", telephone: "", mobile: "",
+        recordStatus: 0, createAt: "", positionId: null, statusText: undefined,
+        imageSrc: undefined, // NEW
+        hasISG: false, // NEW
+        attachments: [], // NEW
     };
     const [form, setForm] = useState<PersonnelType>(initialForm);
     const firstRequiredRef = useRef<HTMLInputElement>(null);
@@ -377,31 +359,23 @@ const ListPersonnel: React.FC = () => {
                 headers: { Authorization: `Bearer ${authToken}` },
             });
             const list: PersonnelType[] = (res.data?.data ?? []).map((x: any) => ({
-                id: Number(x.id),
-                name: x.name,
-                family: x.family,
-                identityNumber: x.identityNumber,
+                id: Number(x.id), name: x.name, family: x.family, identityNumber: x.identityNumber,
                 workStartDate: x.workStartDate ? String(x.workStartDate).slice(0, 10) : null,
                 workEndDate: x.workEndDate ? String(x.workEndDate).slice(0, 10) : null,
-                insuranceNumber: x.insuranceNumber,
-                sex: Number(x.sex ?? 0),
-                salaryType: Number(x.salaryType ?? 0),
-                salaryAccrualMethod: Number(x.salaryAccrualMethod ?? 0),
-                group: Number(x.group ?? 0),
-                birthPlace: String(x.birthPlace ?? ""),
+                insuranceNumber: x.insuranceNumber, sex: Number(x.sex ?? 0),
+                salaryType: Number(x.salaryType ?? 0), salaryAccrualMethod: Number(x.salaryAccrualMethod ?? 0),
+                group: Number(x.group ?? 0), birthPlace: String(x.birthPlace ?? ""),
                 birthDate: x.birthDate ? String(x.birthDate).slice(0, 10) : null,
-                maritalStatus: Number(x.maritalStatus ?? 0),
-                fatherName: x.fatherName ?? "",
-                bloodType: Number(x.bloodType ?? 0),
-                address: x.address ?? "",
-                educationStatus: Number(x.educationStatus ?? 0),
-                iban: x.iban ?? "",
-                telephone: x.telephone ?? "",
-                mobile: x.mobile ?? "",
+                maritalStatus: Number(x.maritalStatus ?? 0), fatherName: x.fatherName ?? "",
+                bloodType: Number(x.bloodType ?? 0), address: x.address ?? "",
+                educationStatus: Number(x.educationStatus ?? 0), iban: x.iban ?? "",
+                telephone: x.telephone ?? "", mobile: x.mobile ?? "",
                 recordStatus: Number(x.recordStatus ?? 0) as RecordStatus,
-                createAt: x.createAt ?? "",
-                position: x.position ?? { id: -1, title: "Pozisyon yok" },
+                createAt: x.createAt ?? "", position: x.position ?? { id: -1, title: "Pozisyon yok" },
                 statusText: statusText(x.recordStatus),
+                imageSrc: x.imageSrc ?? undefined, // NEW
+                hasISG: x.hasISG ?? false, // NEW
+                attachments: x.attachments ?? [], // NEW
             }));
             setPersonnelList(list);
         } catch (e: any) {
@@ -410,36 +384,47 @@ const ListPersonnel: React.FC = () => {
             setLoadingData(false);
         }
     };
+    useEffect(() => { getAllPersonnels(); getAllPositions(); }, []);
 
-    // در کنار سایر توابع useCallback
+
+    // NEW: Handle Image Change for Profile (sets raw file)
     const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
+        setProfileRawFile(file || null);
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                const base64String = reader.result as string;
-                setProfileImageBase64(base64String); // ذخیره Base64 برای ارسال به API
-                setProfileImageUrl(base64String); // نمایش تصویر جدید
+                setProfileImageUrl(reader.result as string);
             };
             reader.readAsDataURL(file);
         } else {
-            setProfileImageBase64('');
-            setProfileImageUrl(DEFAULT_PERSONNEL_IMAGE_URL);
+            setProfileImageUrl(DEFAULT_IMAGE_URL);
         }
+    }, []);
+
+    // NEW: Handle Attachments Change (sets raw files)
+    const handleAttachmentsChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        setAttachmentsRawFiles(files);
     }, []);
 
 
     const handleAnnualLeaveClick = async (row: PersonnelType) => {
-        debugger
+        // 1. ذخیره اطلاعات هویتی قبل از فراخوانی API
+        setPersonnelForAnnualLeave(row);
+        handleCloseMenu(); // منو را می‌بندد و selectedRowForMenu را پاک می‌کند
+
         setLoadingAnnualLeave(true);
+        setAnnualLeaveData(null); // پاک کردن داده‌های قبلی
+
         try {
             const response = await axios.get(`${server.baseurl}${server.hr}get-remaining-leave-by-personnelId/${row.id}`, {
                 headers: { Authorization: `Bearer ${authToken}` },
             });
+
             if (response.data.success) {
                 setAnnualLeaveData(response.data.data);
                 setOpenAnnualLeaveModal(true);
-                handleCloseMenu();
             } else {
                 showAlert("Veri alınırken bir hata oluştu.", "error");
             }
@@ -450,7 +435,12 @@ const ListPersonnel: React.FC = () => {
         }
     };
 
-    useEffect(() => { getAllPersonnels(); getAllPositions(); }, []);
+    // تابع بستن Modal:
+    const handleCloseAnnualLeaveModal = () => {
+        setOpenAnnualLeaveModal(false);
+        setPersonnelForAnnualLeave(null); // پاکسازی State موقت
+        setAnnualLeaveData(null);
+    }
 
     /* -------- Filters / sorting -------- */
     const handleStatusFilterChange = (_: any, v: "all" | "active" | "inactive" | null) => { if (v) { setStatusFilter(v); setPage(0); } };
@@ -464,9 +454,7 @@ const ListPersonnel: React.FC = () => {
         const q = (searchTerm.trim().toLowerCase());
         return personnelList.filter((p) => {
             const matchesSearch =
-                !q ||
-                (p.name ?? "").toLowerCase().includes(q) ||
-                (p.family ?? "").toLowerCase().includes(q) ||
+                !q || (p.name ?? "").toLowerCase().includes(q) || (p.family ?? "").toLowerCase().includes(q) ||
                 `${(p.name ?? "").toLowerCase()} ${(p.family ?? "").toLowerCase()}`.includes(q) ||
                 (p.identityNumber ?? "").toLowerCase().includes(q);
             const matchesStatus =
@@ -476,7 +464,7 @@ const ListPersonnel: React.FC = () => {
             const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(p.id));
             return matchesSearch && matchesStatus && matchesNotifIds;
         });
-    }, [personnelList, searchTerm, statusFilter, hasIdsFilter, notifIds]);
+    }, [personnelList, searchTerm, statusFilter, hasIdsFilter, idsSet]);
 
     const sorted = useMemo(() => stableSort(filtered, getComparator(order, orderBy)), [filtered, order, orderBy]);
     const paginated = useMemo(() => sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [sorted, page, rowsPerPage]);
@@ -488,14 +476,17 @@ const ListPersonnel: React.FC = () => {
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
     const onEditRow = (row: PersonnelType) => {
-        debugger
         setForm({ ...row });
         setEditingId(row.id);
         setIsFormVisible(true);
         setActiveStep(0);
         setShowStepErrors(false);
         setForm(prevForm => ({ ...prevForm, positionId: row.position?.id ?? null }));
-        setProfileImageBase64('');
+
+        // Resim/dosya state'lerini sıfırla/doldur
+        setProfileRawFile(null);
+        setProfileImageUrl(getFullImageUrl(row.imageSrc));
+        setAttachmentsRawFiles([]);
         handleCloseMenu();
     };
 
@@ -509,8 +500,12 @@ const ListPersonnel: React.FC = () => {
     const resetFormAndState = () => {
         setForm(initialForm); setIsFormVisible(false);
         setEditingId(null); setActiveStep(0); setShowStepErrors(false);
-        setProfileImageUrl(DEFAULT_PERSONNEL_IMAGE_URL);
+        setProfileImageUrl(DEFAULT_IMAGE_URL);
+        setProfileRawFile(null);
+        setAttachmentsRawFiles([]);
     };
+
+    // isStepValid: WorkEndDate kaldırıldı
     const isStepValid = (step: number) => {
         switch (step) {
             case 0: return Boolean(form.name?.trim()) && Boolean(form.family?.trim()) && Boolean(form.identityNumber?.trim()) && form.positionId != null;
@@ -524,34 +519,43 @@ const ListPersonnel: React.FC = () => {
     const handleNextStep = () => { if (!isStepValid(activeStep)) { setShowStepErrors(true); return; } setShowStepErrors(false); setActiveStep((s) => Math.min(3, s + 1)); };
     const handlePrevStep = () => { setShowStepErrors(false); setActiveStep((s) => Math.max(0, s - 1)); };
 
+    // NEW: File Upload Logic integrated into submitCreate/submitUpdate
     const submitCreate = async () => {
         if (!isStepValid(3)) { setShowStepErrors(true); return; }
         if (!authToken) { navigate("/"); return; }
         setLoadingButton(true);
+
+        // 1. Upload Profile Image
+        let profileImageUrlToSend: string | undefined = undefined;
+        if (profileRawFile) {
+            const uploadedUrls = await uploadFiles([profileRawFile], authToken, showAlert);
+            if (!uploadedUrls) { setLoadingButton(false); return; }
+            profileImageUrlToSend = uploadedUrls[0];
+        }
+
+        // 2. Upload Attachments
+        let attachmentPayload: Attachment[] = [];
+        if (attachmentsRawFiles.length > 0) {
+            const uploadedUrls = await uploadFiles(attachmentsRawFiles, authToken, showAlert);
+            if (!uploadedUrls) { setLoadingButton(false); return; }
+            attachmentPayload = uploadedUrls.map(url => ({ fileUrl: url }));
+        }
+
         try {
             const payload = {
-                name: form.name,
-                family: form.family,
-                identityNumber: form.identityNumber,
+                name: form.name, family: form.family, identityNumber: form.identityNumber,
                 workStartDate: form.workStartDate,
-                workEndDate: form.workEndDate,
-                insuranceNumber: form.insuranceNumber,
-                sex: form.sex,
-                salaryType: form.salaryType,
-                salaryAccrualMethod: form.salaryAccrualMethod,
-                group: form.group,
-                birthPlace: form.birthPlace,
-                birthDate: form.birthDate,
-                maritalStatus: form.maritalStatus,
-                fatherName: form.fatherName,
-                bloodType: form.bloodType,
-                address: form.address,
-                educationStatus: form.educationStatus,
-                iban: form.iban,
-                telephone: form.telephone,
-                mobile: form.mobile,
-                positionId: form.positionId ?? null,
-                imageSrc: profileImageBase64,
+                workEndDate: null, // YENİ KURAL: Her zaman null gönderilir
+                insuranceNumber: form.insuranceNumber, sex: form.sex,
+                salaryType: form.salaryType, salaryAccrualMethod: form.salaryAccrualMethod,
+                group: form.group, birthPlace: form.birthPlace, birthDate: form.birthDate,
+                maritalStatus: form.maritalStatus, fatherName: form.fatherName,
+                bloodType: form.bloodType, address: form.address, educationStatus: form.educationStatus,
+                iban: form.iban, telephone: form.telephone, mobile: form.mobile,
+                positionId: Number(form.positionId) ?? null,
+                imageSrc: profileImageUrlToSend, // NEW
+                hasISG: form.hasISG ?? false, // NEW
+                attachments: attachmentPayload, // NEW
             };
             const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
                 headers: { Authorization: `Bearer ${authToken}` },
@@ -572,31 +576,44 @@ const ListPersonnel: React.FC = () => {
         if (!isStepValid(3)) { setShowStepErrors(true); return; }
         if (!authToken) { navigate("/"); return; }
         setLoadingButton(true);
+
+        // 1. Upload Profile Image (if raw file exists)
+        let profileImageUrlToSend: string | undefined = undefined;
+        if (profileRawFile) {
+            const uploadedUrls = await uploadFiles([profileRawFile], authToken, showAlert);
+            if (!uploadedUrls) { setLoadingButton(false); return; }
+            profileImageUrlToSend = uploadedUrls[0];
+        } else {
+            // Keep existing image URL if not changed and not the default placeholder
+            profileImageUrlToSend = (profileImageUrl !== DEFAULT_IMAGE_URL ? form.imageSrc : undefined);
+        }
+
+        // 2. Upload Attachments (new files)
+        let attachmentPayload: Attachment[] = form.attachments ?? [];
+        if (attachmentsRawFiles.length > 0) {
+            const uploadedUrls = await uploadFiles(attachmentsRawFiles, authToken, showAlert);
+            if (!uploadedUrls) { setLoadingButton(false); return; }
+            // Yeni yüklenen dosyalar, mevcut dosyalara eklenmelidir veya onları değiştirmelidir.
+            // Bu örnekte, yeni yüklenenler mevcut olanların YERİNE geçer varsayılır (API davranışına bağlı olarak değişebilir)
+            attachmentPayload = uploadedUrls.map(url => ({ fileUrl: url }));
+        }
+        debugger
         try {
             const payload = {
                 id: editingId,
-                name: form.name,
-                family: form.family,
-                identityNumber: form.identityNumber,
+                name: form.name, family: form.family, identityNumber: form.identityNumber,
                 workStartDate: form.workStartDate,
-                workEndDate: form.workEndDate,
-                insuranceNumber: form.insuranceNumber,
-                sex: form.sex,
-                salaryType: form.salaryType,
-                salaryAccrualMethod: form.salaryAccrualMethod,
-                group: form.group,
-                birthPlace: form.birthPlace,
-                birthDate: form.birthDate,
-                maritalStatus: form.maritalStatus,
-                fatherName: form.fatherName,
-                bloodType: form.bloodType,
-                address: form.address,
-                educationStatus: form.educationStatus,
-                iban: form.iban,
-                telephone: form.telephone,
-                mobile: form.mobile,
-                positionId: form.positionId ?? null,
-                imageSrc: profileImageBase64 || (profileImageUrl !== DEFAULT_PERSONNEL_IMAGE_URL ? profileImageUrl : ''),
+                workEndDate: form.workEndDate, // WorkEndDate mevcutsa veya sonlandırmada set edilmişse gönderilir
+                insuranceNumber: form.insuranceNumber, sex: form.sex,
+                salaryType: form.salaryType, salaryAccrualMethod: form.salaryAccrualMethod,
+                group: form.group, birthPlace: form.birthPlace, birthDate: form.birthDate,
+                maritalStatus: form.maritalStatus, fatherName: form.fatherName,
+                bloodType: form.bloodType, address: form.address, educationStatus: form.educationStatus,
+                iban: form.iban, telephone: form.telephone, mobile: form.mobile,
+                positionId: Number(form.positionId) ?? null,
+                imageSrc: profileImageUrlToSend, // NEW LOGIC
+                hasISG: form.hasISG ?? false, // NEW
+                attachments: attachmentPayload, // NEW
             };
             const res = await axios.put(`${server.baseurl}${server.hr}update-personnel`, payload, {
                 headers: { Authorization: `Bearer ${authToken}` },
@@ -637,15 +654,50 @@ const ListPersonnel: React.FC = () => {
         } finally { handleCloseMenu(); }
     };
 
-    /* ---------------- PDF helpers (unchanged UI) ---------------- */
+    // NEW: Submit End Cooperation
+    const submitEndCooperation = async () => {
+        if (!personnelToEndCooperation || !endDate) return;
+        if (!authToken) { navigate("/"); return; }
+
+        setLoadingButton(true);
+        debugger
+
+        try {
+            const payload = {
+                id: personnelToEndCooperation.id,
+                workEndDate: endDate,
+            };
+            const res = await axios.put(`${server.baseurl}${server.hr}update-personnel`, payload, {
+                headers: { Authorization: `Bearer ${authToken}` },
+            });
+
+            if (res.data?.httpStatusCode === 200) {
+                showAlert("İş birliği başarıyla sonlandırıldı.", "success");
+                setOpenEndCooperationModal(false);
+                getAllPersonnels();
+            } else {
+                showAlert(res.data?.message || "İş birliği sonlandırılamadı.", "error");
+            }
+        } catch (e: any) {
+            showAlert(e?.response?.data?.message || "Bir hata oluştu.", "error");
+        } finally {
+            setLoadingButton(false);
+        }
+    };
+
+
+    /* ---------------- PDF helpers (updated for NEW fields) ---------------- */
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const d: any = doc;
+
+        // فرض: فونت‌ها در آدرس‌های مشخص شده موجود هستند.
         d.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         d.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         d.addFileToVFS("Arial.ttf", ArialFont);
         d.addFont("Arial.ttf", "Arial", "normal");
         doc.setFont("NotoSans", "normal");
+
         if ((doc as any).setCharSpace) (doc as any).setCharSpace(0);
         if ((doc as any).setWordSpace) (doc as any).setWordSpace(0);
 
@@ -661,19 +713,36 @@ const ListPersonnel: React.FC = () => {
         doc.text("Rapor Tarihi:", labelX, labelY);
         doc.text(format(new Date(), "dd MMMM yyyy", { locale: tr }), labelX + 65, labelY);
     };
+
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const bottom = 36;
-        doc.setFont("NotoSans", "normal"); doc.setFontSize(8);
-        // const y = pageHeight - bottom - 16;
+
+        // --- 1. تنظیمات و اطلاعات شرکت ---
+        doc.setFontSize(8);
+        doc.setFont('NotoSans', 'normal');
+        const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+        ];
+
+        const bottomLineY = pageHeight - 10;
+        let footerY = pageHeight - 50;
+        const lineSpacing = 12;
+
+        companyInfo.forEach(line => {
+            doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+            footerY += lineSpacing;
+        });
         doc.setFontSize(10);
-        doc.text("İmza", pageWidth - bottom, pageHeight - 10, { align: "right" });
-        doc.line(pageWidth - bottom - 50, pageHeight - 15, pageWidth - bottom, pageHeight - 15);
-        const d: any = doc;
-        const pageNo = d.internal.getCurrentPageInfo().pageNumber;
-        const pageCount = d.internal.getNumberOfPages();
-        doc.text(`Sayfa ${pageNo} / ${pageCount}`, bottom, pageHeight - 10);
+        doc.text('İmza', pageWidth - 15, bottomLineY, { align: 'right' });
+
+        doc.line(pageWidth - 65, bottomLineY - 5, pageWidth - 15, bottomLineY - 5);
+
+        const docAny = doc as any;
+        const pageCount = docAny.internal.getNumberOfPages();
+        doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, bottomLineY);
     };
     const toPairsForPerson = (p: PersonnelType): Array<[string, string]> => {
         const positionTitle = positions.find(x => x.id === (Number(p.position?.id) ?? -1))?.title || "—";
@@ -681,10 +750,11 @@ const ListPersonnel: React.FC = () => {
             ["Ad", p.name || "—"],
             ["Soyad", p.family || "—"],
             ["TC Kimlik", p.identityNumber || "—"],
-            ["Başlangıç", formatDateDisplay(p.workStartDate)],
-            ["Bitiş", formatDateDisplay(p.workEndDate)],
-            ["Sigorta No", p.insuranceNumber || "—"],
             ["Pozisyon", positionTitle],
+            ["İş Güvenliği (ISG)", p.hasISG ? "Var" : "Yok"], // NEW
+            ["Başlangıç", formatDateDisplay(p.workStartDate)],
+            ["Bitiş", formatDateDisplay(p.workEndDate)], // Bitiş tarihi raporda gösterilir
+            ["Sigorta No", p.insuranceNumber || "—"],
             ["Cinsiyet", SEX_LABELS[p.sex] ?? "—"],
             ["Ücret Tipi", SALARY_TYPE_LABELS[p.salaryType] ?? "—"],
             ["Tahakkuk", ACCRUAL_LABELS[p.salaryAccrualMethod] ?? "—"],
@@ -703,34 +773,69 @@ const ListPersonnel: React.FC = () => {
             ["Oluşturulma", formatDateDisplay(p.createAt?.slice(0, 10) || null)],
         ];
     };
+
     const pdfForRows = (rows: PersonnelType[], filename: string) => {
+        // 1. تنظیمات اولیه PDF
         const doc = new jsPDF("p", "pt", "a4");
+
+        // تنظیمات فونت
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
 
-        const topMargin = 100, sideMargin = 40, bottomMargin = 70;
+        const headerSpace = 100; // فضای رزرو شده برای هدر (100pt)
+        const sideMargin = 40;
+        const bottomMargin = 70; // فضای رزرو شده برای فوتر (70pt)
+        const imageSize = 100;    // اندازه تصویر (عرض و ارتفاع)
+        const imageStartX = sideMargin;
+        const imageStartY = headerSpace + 10;
+
         rows.forEach((p, idx) => {
             if (idx > 0) doc.addPage();
-            addPdfHeader(doc, "Personel Detay Raporu");
+
             const pairs = toPairsForPerson(p);
-            autoTable(doc, {
-                startY: topMargin,
+            const img = getFullImageUrl(p.imageSrc);
+            let startY = headerSpace; // شروع اولیه جدول بعد از هدر
+
+            // 2. منطق اضافه کردن تصویر
+            if (img && img !== DEFAULT_IMAGE_URL && img.startsWith('data:')) {
+                try {
+                    // اگر Base64 بود، آن را رسم می‌کنیم
+                    doc.addImage(img, 'PNG', imageStartX, imageStartY, imageSize, imageSize, undefined, 'FAST');
+                    // شروع جدول را زیر تصویر تنظیم می‌کنیم
+                    startY = imageStartY + imageSize + 20;
+                } catch (error) {
+                    // در صورت خطای احتمالی در رسم تصویر Base64
+                    console.error("PDF Image add error:", error);
+                    startY = headerSpace;
+                }
+            } else {
+                // اگر عکس نبود یا URL بود (که در PDF sync قابل رسم نیست)، جدول از بالا شروع می‌شود.
+                startY = imageStartY + 10; // کمی پایین‌تر از هدر
+            }
+
+            // 3. افزودن جدول با تضمین فوتر در تمام صفحات
+            autoTable((doc as any), {
+                startY: startY,
                 head: [["Alan", "Değer"]],
                 body: pairs,
                 theme: "grid",
                 styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 4, overflow: "linebreak" },
                 headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
                 columnStyles: { 0: { cellWidth: 150, font: "NotoSans", fontStyle: "normal" }, 1: { cellWidth: "auto" } },
-                margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
-                didDrawPage: () => { addPdfHeader(doc, "Personel Detay Raporu"); addPdfFooter(doc); },
+                margin: { top: headerSpace, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+
+                // CRITICAL: هوک برای رسم هدر و فوتر در هر صفحه
+                didDrawPage: (_data: any) => {
+                    addPdfHeader(doc, "Personel Detay Raporu");
+                    addPdfFooter(doc);
+                },
                 showHead: "everyPage",
             });
         });
+
         doc.save(filename);
     };
-
-    /* ---------------- Excel (table) export existing UI kept) ---------------- */
     const handleDownloadChoosePDF = () => {
         if (downloadScope === "all") {
             pdfForRows(sorted, "Personel_Detay_Raporu.pdf");
@@ -740,32 +845,50 @@ const ListPersonnel: React.FC = () => {
         }
         setOpenDownloadModal(false);
     };
-
     const handleDownloadChoosePDFTable = () => {
         const doc = new jsPDF("landscape", "pt", "a4");
+
+        // (Aynı font ayarları)
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
+
         const topMargin = 100, sideMargin = 40, bottomMargin = 70;
         const rows = paginated;
+
+        // 1. ISG başlığı eklendi
         const headerRow = [
             "Ad", "Soyad", "TC Kimlik", "Başlangıç", "Bitiş", "Pozisyon",
             "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Tarihi",
-            "Medeni Durum", "Baba Adı", "Eğitim", "Telefon", "Mobil"
+            "Medeni Durum", "Baba Adı", "Eğitim", "ISG", // <--- NEW: ISG eklendi
+            "Telefon", "Mobil"
         ];
+
         const allData: any[] = [];
         rows.forEach((p) => {
             const row = [
-                p.name || "—", p.family || "—", p.identityNumber || "—", formatDateDisplay(p.workStartDate),
-                formatDateDisplay(p.workEndDate), positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—",
-                SEX_LABELS[p.sex] ?? "—", SALARY_TYPE_LABELS[p.salaryType] ?? "—",
-                ACCRUAL_LABELS[p.salaryAccrualMethod] ?? "—", GROUP_LABELS[p.group] ?? "—",
-                formatDateDisplay(p.birthDate), MARITAL_LABELS[p.maritalStatus] ?? "—",
-                p.fatherName || "—", EDU_LABELS[p.educationStatus] ?? "—",
-                p.telephone || "—", p.mobile || "—"
+                p.name || "—",
+                p.family || "—",
+                p.identityNumber || "—",
+                formatDateDisplay(p.workStartDate),
+                formatDateDisplay(p.workEndDate),
+                positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—",
+                SEX_LABELS[p.sex] ?? "—",
+                SALARY_TYPE_LABELS[p.salaryType] ?? "—",
+                ACCRUAL_LABELS[p.salaryAccrualMethod] ?? "—",
+                GROUP_LABELS[p.group] ?? "—",
+                formatDateDisplay(p.birthDate),
+                MARITAL_LABELS[p.maritalStatus] ?? "—",
+                p.fatherName || "—",
+                EDU_LABELS[p.educationStatus] ?? "—",
+                p.hasISG ? "Var" : "Yok", // <--- NEW: ISG değeri eklendi
+                p.telephone || "—",
+                p.mobile || "—"
             ];
             allData.push(row);
         });
+
+        // AutoTable oluşturma
         autoTable(doc, {
             startY: topMargin,
             head: [headerRow],
@@ -774,55 +897,90 @@ const ListPersonnel: React.FC = () => {
             styles: { font: "NotoSans", fontStyle: "normal", fontSize: 8, cellPadding: 3, overflow: "linebreak" },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
             margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+            // didDrawPage hook'u ile her sayfaya başlık ve altbilgi eklenir.
             didDrawPage: () => { addPdfHeader(doc, "Personel Detay Raporu"); addPdfFooter(doc); },
             showHead: "everyPage",
         });
+
         doc.save("Personel_Tablo_Raporu.pdf");
     };
 
-    /* ---------------- Excel Template (LTR, no footer) ---------------- */
     const handleDownloadTemplate = async () => {
         const wb = new Excel.Workbook();
-        const ws = wb.addWorksheet("Personel_Sablonu", { views: [{ rightToLeft: false }] }); // LTR
+        const ws = wb.addWorksheet("Personel_Sablonu", { views: [{ rightToLeft: false }] });
         ws.addRow([...TEMPLATE_HEADERS]);
         ws.getRow(1).font = { name: "NotoSans", bold: true };
         ws.columns = [
             { width: 18 }, { width: 18 }, { width: 16 }, { width: 24 },
-            { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 },
-            { width: 16 }, { width: 12 }, { width: 16 }, { width: 16 },
-            { width: 16 }, { width: 18 }, { width: 16 }, { width: 16 },
-            { width: 28 }, { width: 18 }, { width: 22 }, { width: 16 },
-            { width: 16 },
+            { width: 16 }, { width: 16 }, { width: 16 }, { width: 12 },
+            { width: 16 }, { width: 16 }, { width: 16 }, { width: 18 },
+            { width: 16 }, { width: 16 }, { width: 28 }, { width: 18 }, { width: 22 },
+            { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 }, // Updated width for added columns
         ];
         ws.addRow([
-            "Ali",
-            "Yılmaz",
-            "12345678901",
-            "Yazılım Uzmanı",
+            "Ali", "Yılmaz", "12345678901", "Yazılım Uzmanı",
             "2023-01-10",
-            "",
-            "SGK-0001",
-            "Erkek",
-            "Aylık",
-            "Brüt",
-            "Normal",
-            "İzmir",
-            "1992-05-15",
-            "Evli",
-            "A+",
-            "Mehmet",
-            "İzmir/…",
-            "Lisans",
-            "TR00 0000 0000 0000 0000 0000 00",
-            "0232...",
-            "05.."
+            "SGK-0001", "Erkek", "Aylık", "Brüt", "Normal", "İzmir",
+            "1992-05-15", "Evli", "A+", "Mehmet", "İzmir/…", "Lisans",
+            "TR00 0000 0000 0000 0000 0000 00", "0232...", "05..",
+            "Var" // YENİ: ISG
         ]);
         const buf = await wb.xlsx.writeBuffer();
         saveAs(new Blob([buf]), "Personel_Sablonu.xlsx");
     };
 
-    /* ---------------- Import Excel ---------------- */
+    // در نزدیکی توابع PDF قبلی اضافه کنید:
+    const pdfForAnnualLeave = (p: PersonnelType, leaveData: any, filename: string) => {
+        const doc = new jsPDF("p", "pt", "a4");
+
+        // ... (تنظیمات فونت)
+        (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+        (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+        doc.setFont("NotoSans", "normal");
+
+        addPdfHeader(doc, "Yıllık İzin Detay Raporu");
+
+        const leavePairs: Array<[string, string]> = [
+            ["Adı Soyadı", `${p.name || "—"} ${p.family || "—"}`],
+            ["Başlangıç Tarihi", formatDateDisplay(p.workStartDate)],
+            ["Bitiş Tarihi", formatDateDisplay(p.workEndDate)],
+            ["Yaş", leaveData.age ? String(leaveData.age) : "—"],
+            ["Çalışma Yılı", leaveData.yearOfWork ? String(leaveData.yearOfWork) : "—"],
+            ["Resmi İzin Hakkı", leaveData.official ? String(leaveData.official) : "—"],
+            ["Kalan İzin Günü", leaveData.remaining ? String(leaveData.remaining) : "—"],
+        ];
+
+        autoTable((doc as any), {
+            startY: 100,
+            head: [["Alan", "Değer"]],
+            body: leavePairs,
+            theme: "grid",
+            styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 4, overflow: "linebreak" },
+            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
+            margin: { top: 100, bottom: 70, left: 40, right: 40 },
+            didDrawPage: (_data: any) => {
+                addPdfHeader(doc, "Yıllık İzin Detay Raporu");
+                addPdfFooter(doc);
+            },
+        });
+
+        doc.save(filename);
+    };
+    /* ---------------- Import Excel (updated for new fields) ---------------- */
     const getByTitle = (row: Excel.Row, map: Map<string, number>, title: string) => String(row.getCell(map.get(title) ?? 0).value ?? "").trim();
+    const normalizeTr = (s: string) => (
+        s
+            .toLowerCase()
+            .replace(/i̇/g, "i")
+            .replace(/ı/g, "i")
+            .replace(/ğ/g, "g")
+            .replace(/ç/g, "c")
+            .replace(/ş/g, "s")
+            .replace(/ö/g, "o")
+            .replace(/ü/g, "u")
+            .trim()
+    );
+
     const tryMapRadioFromText = (raw: any, labels: readonly string[], def: number): number => {
         if (raw == null) return def;
         const s = String(raw).trim();
@@ -832,9 +990,18 @@ const ListPersonnel: React.FC = () => {
         const i = labels.findIndex((x) => normalizeTr(x) === normalizeTr(s));
         return i >= 0 ? i : def;
     };
+
     const parseIso = (s: string): string | null => {
         if (!s) return null;
-        const d = new Date(s);
+        // Date object'in Excel تاریخ‌ها را به عنوان عدد برمی‌گرداند.
+        let d;
+        if (typeof s === 'number') {
+            // Excel date handling (if needed, adjust based on your ExcelJS usage context)
+            d = new Date(Math.round((s - 25569) * 86400 * 1000));
+        } else {
+            d = new Date(s);
+        }
+
         const good = !isNaN(d.getTime());
         if (!good) return null;
         const yyyy = d.getFullYear();
@@ -855,6 +1022,7 @@ const ListPersonnel: React.FC = () => {
             await wb.xlsx.load(buf);
             const ws = wb.worksheets[0];
             if (!ws) throw new Error("Şablon bulunamadı.");
+
             // header mapping
             const headerRow = ws.getRow(1);
             const headerMap = new Map<string, number>();
@@ -876,28 +1044,31 @@ const ListPersonnel: React.FC = () => {
 
             ws.eachRow((row, rowNumber) => {
                 if (rowNumber === 1) return; // header
-                const name = getByTitle(row, headerMap, TEMPLATE_HEADERS[0]);
-                const family = getByTitle(row, headerMap, TEMPLATE_HEADERS[1]);
-                const identityNumber = getByTitle(row, headerMap, TEMPLATE_HEADERS[2]);
-                const positionText = getByTitle(row, headerMap, TEMPLATE_HEADERS[3]);
 
-                const workStartDate = parseIso(getByTitle(row, headerMap, TEMPLATE_HEADERS[4]));
-                const workEndDate = parseIso(getByTitle(row, headerMap, TEMPLATE_HEADERS[5]));
-                const insuranceNumber = getByTitle(row, headerMap, TEMPLATE_HEADERS[6]);
-                const sex = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[7]), SEX_LABELS as unknown as string[], 0);
-                const salaryType = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[8]), SALARY_TYPE_LABELS as unknown as string[], 0);
-                const salaryAccrualMethod = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[9]), ACCRUAL_LABELS as unknown as string[], 0);
-                const group = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[10]), GROUP_LABELS as unknown as string[], 1);
-                const birthPlace = getByTitle(row, headerMap, TEMPLATE_HEADERS[11]);
-                const birthDate = parseIso(getByTitle(row, headerMap, TEMPLATE_HEADERS[12]));
-                const maritalStatus = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[13]), MARITAL_LABELS as unknown as string[], 0);
-                const bloodType = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[14]), BLOOD_LABELS as unknown as string[], 0);
-                const fatherName = getByTitle(row, headerMap, TEMPLATE_HEADERS[15]);
-                const address = getByTitle(row, headerMap, TEMPLATE_HEADERS[16]);
-                const educationStatus = tryMapRadioFromText(getByTitle(row, headerMap, TEMPLATE_HEADERS[17]), EDU_LABELS as unknown as string[], 4);
-                const iban = getByTitle(row, headerMap, TEMPLATE_HEADERS[18]);
-                const telephone = getByTitle(row, headerMap, TEMPLATE_HEADERS[19]);
-                const mobile = getByTitle(row, headerMap, TEMPLATE_HEADERS[20]);
+                // Get Fields (Index mapping is critical here after removing 'Bitiş')
+                const map = headerMap; // using existing map for brevity
+                const name = getByTitle(row, map, "Ad");
+                const family = getByTitle(row, map, "Soyad");
+                const identityNumber = getByTitle(row, map, "TC Kimlik");
+                const positionText = getByTitle(row, map, "Pozisyon");
+                const workStartDate = parseIso(getByTitle(row, map, "Başlangıç (yyyy-MM-dd)"));
+                const insuranceNumber = getByTitle(row, map, "Sigorta No");
+                const sex = tryMapRadioFromText(getByTitle(row, map, "Cinsiyet (Erkek|Kadın|0|1)"), SEX_LABELS as unknown as string[], 0);
+                const salaryType = tryMapRadioFromText(getByTitle(row, map, "Ücret Tipi (Aylık|Günlük|0|1)"), SALARY_TYPE_LABELS as unknown as string[], 0);
+                const salaryAccrualMethod = tryMapRadioFromText(getByTitle(row, map, "Tahakkuk (Brüt|Net|0|1)"), ACCRUAL_LABELS as unknown as string[], 0);
+                const group = tryMapRadioFromText(getByTitle(row, map, "Grup (Emekli|Normal|Engelli|0|1|2)"), GROUP_LABELS as unknown as string[], 1);
+                const birthPlace = getByTitle(row, map, "Doğum Yeri");
+                const birthDate = parseIso(getByTitle(row, map, "Doğum Tarihi (yyyy-MM-dd)"));
+                const maritalStatus = tryMapRadioFromText(getByTitle(row, map, "Medeni (Bekâr|Evli|Dul|0|1|2)"), MARITAL_LABELS as unknown as string[], 0);
+                const bloodType = tryMapRadioFromText(getByTitle(row, map, "Kan Grubu (A+|A-|B+|B-|AB+|AB-|O+|O-|0..7)"), BLOOD_LABELS as unknown as string[], 0);
+                const fatherName = getByTitle(row, map, "Baba Adı");
+                const address = getByTitle(row, map, "Adres");
+                const educationStatus = tryMapRadioFromText(getByTitle(row, map, "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)"), EDU_LABELS as unknown as string[], 4);
+                const iban = getByTitle(row, map, "IBAN");
+                const telephone = getByTitle(row, map, "Telefon");
+                const mobile = getByTitle(row, map, "Mobil");
+                const hasISGText = getByTitle(row, map, "ISG (Var|Yok|True|False|0|1)"); // NEW
+                const hasISG = normalizeTr(hasISGText) === normalizeTr("Var") || normalizeTr(hasISGText) === normalizeTr("True") || Number(hasISGText) === 1;
 
                 // position map
                 const foundPos = positions.find(p => normalizeTr(p.title) === normalizeTr(positionText));
@@ -915,29 +1086,25 @@ const ListPersonnel: React.FC = () => {
                 if (!(mobile || telephone)) requiredMissing.push("Mobil/Telefon");
 
                 const invalidDate: string[] = [];
-                if (getByTitle(row, headerMap, TEMPLATE_HEADERS[4]) && !workStartDate) invalidDate.push("Başlangıç");
-                if (getByTitle(row, headerMap, TEMPLATE_HEADERS[12]) && !birthDate) invalidDate.push("Doğum Tarihi");
+                if (getByTitle(row, map, "Başlangıç (yyyy-MM-dd)") && !workStartDate) invalidDate.push("Başlangıç");
+                if (getByTitle(row, map, "Doğum Tarihi (yyyy-MM-dd)") && !birthDate) invalidDate.push("Doğum Tarihi");
 
                 // TC duplicates: in-file or existing DB list
-                const tcDup = !identityNumber
-                    ? false
-                    : (seenTC.has(identityNumber) || existingTC.has(identityNumber));
-
+                const tcDup = !identityNumber ? false : (seenTC.has(identityNumber) || existingTC.has(identityNumber));
                 if (identityNumber) seenTC.add(identityNumber);
 
                 const r: ImportedRow = {
                     _rowIndex: rowNumber,
                     name, family, identityNumber,
                     positionText, positionId,
-                    workStartDate, workEndDate, insuranceNumber,
+                    workStartDate, workEndDate: null, insuranceNumber, // workEndDate: null yapıldı
                     sex, salaryType, salaryAccrualMethod, group,
                     birthPlace, birthDate, maritalStatus, bloodType,
                     fatherName, address, educationStatus, iban, telephone, mobile,
+                    hasISG, // NEW
                     errors: {
-                        identityDuplicate: tcDup,
-                        positionMissing: positionId == null,
-                        requiredMissing,
-                        invalidDate
+                        identityDuplicate: tcDup, positionMissing: positionId == null,
+                        requiredMissing, invalidDate
                     }
                 };
 
@@ -982,33 +1149,213 @@ const ListPersonnel: React.FC = () => {
     const createImportedRow = async (r: ImportedRow) => {
         if (!authToken) { navigate("/"); throw new Error("auth"); }
         const payload = {
-            name: r.name,
-            family: r.family,
-            identityNumber: r.identityNumber,
+            name: r.name, family: r.family, identityNumber: r.identityNumber,
             workStartDate: r.workStartDate,
-            workEndDate: r.workEndDate,
-            insuranceNumber: r.insuranceNumber,
-            sex: r.sex,
-            salaryType: r.salaryType,
-            salaryAccrualMethod: r.salaryAccrualMethod,
-            group: r.group,
-            birthPlace: r.birthPlace,
-            birthDate: r.birthDate,
-            maritalStatus: r.maritalStatus,
-            fatherName: r.fatherName,
-            bloodType: r.bloodType,
-            address: r.address,
-            educationStatus: r.educationStatus,
-            iban: r.iban,
-            telephone: r.telephone,
-            mobile: r.mobile,
-            positionId: r.positionId
+            workEndDate: null, // SAKLANDI
+            insuranceNumber: r.insuranceNumber, sex: r.sex,
+            salaryType: r.salaryType, salaryAccrualMethod: r.salaryAccrualMethod,
+            group: r.group, birthPlace: r.birthPlace, birthDate: r.birthDate,
+            maritalStatus: r.maritalStatus, fatherName: r.fatherName,
+            bloodType: r.bloodType, address: r.address, educationStatus: r.educationStatus,
+            iban: r.iban, telephone: r.telephone, mobile: r.mobile,
+            positionId: r.positionId,
+            hasISG: r.hasISG, // NEW
         };
         const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
             headers: { Authorization: `Bearer ${authToken}` },
         });
         if (!(res.data?.httpStatusCode === 201 || res.status === 201)) throw new Error(res.data?.message || "create failed");
     };
+
+
+    const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
+        worksheet.views = [{ rightToLeft: false }];
+        const titleRow = worksheet.addRow([title]);
+        titleRow.font = { name: 'NotoSans', size: 14, bold: true };
+        worksheet.mergeCells(titleRow.number, 1, titleRow.number, columnsLength);
+        titleRow.getCell(1).alignment = { horizontal: 'center' };
+        const dateRow = worksheet.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+        dateRow.font = { name: 'NotoSans', size: 10, bold: false };
+        dateRow.getCell(1).alignment = { horizontal: 'left' };
+        worksheet.mergeCells(dateRow.number, 1, dateRow.number, columnsLength);
+        worksheet.addRow([]);
+    };
+
+    const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
+        const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+        ];
+        let rowNum = startRow;
+        companyInfo.forEach(line => {
+            const row = worksheet.getRow(rowNum);
+            row.getCell(1).value = line;
+            row.getCell(1).alignment = { horizontal: 'center', readingOrder: 'ltr' };
+            row.getCell(1).font = { name: 'NotoSans', size: 8, bold: false };
+            worksheet.mergeCells(`A${rowNum}:${String.fromCharCode(65 + columnsLength - 1)}${rowNum}`);
+            rowNum++;
+        });
+    };
+
+
+    const exportToExcelDetailConsolidated = async (rows: PersonnelType[], filename: string) => {
+        const wb = new Excel.Workbook();
+        const ws = wb.addWorksheet("Personel Detaylari", { views: [{ rightToLeft: false }] });
+
+        const columnsLength = 2; // همیشه دو ستون: "Alan" و "Değer"
+
+        // 1. NEW: افزودن هدر گزارش
+        addExcelHeader(ws, "PERSONEL DETAYLI RAPORU", columnsLength);
+
+        let currentRow = ws.lastRow?.number ?? 1;
+
+        rows.forEach((p, index) => {
+            currentRow++;
+
+            // عنوان پرسنل
+            const titleRow = ws.getRow(currentRow);
+            titleRow.getCell(1).value = `--- PERSONEL ${index + 1}: ${p.name || "—"} ${p.family || "—"} (${p.identityNumber || "—"}) ---`;
+            titleRow.getCell(1).font = { bold: true, color: { argb: 'FF0000FF' } };
+            ws.mergeCells(`A${currentRow}:B${currentRow}`);
+
+            currentRow++;
+
+            // افزودن سربرگ جدول کوچک (Alan / Değer)
+            const headers = ws.getRow(currentRow);
+            headers.getCell(1).value = "Alan";
+            headers.getCell(2).value = "Değer";
+            headers.font = { bold: true };
+            headers.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+            currentRow++;
+
+            // افزودن جزئیات ستونی (Pairs)
+            const pairs = toPairsForPerson(p);
+            pairs.forEach(([label, value]) => {
+                const dataRow = ws.getRow(currentRow);
+                dataRow.getCell(1).value = label;
+                dataRow.getCell(2).value = value;
+                currentRow++;
+            });
+
+            // افزودن سطر خالی برای جداسازی
+            currentRow++;
+        });
+
+        // تنظیم عرض ستون‌ها
+        ws.columns[0].width = 30; // Alan
+        ws.columns[1].width = 50; // Değer
+
+        // 2. NEW: افزودن اطلاعات شرکت (فوتر) در انتهای داده‌ها
+        addExcelCompanyInfo(ws, currentRow + 2, columnsLength);
+
+        const buf = await wb.xlsx.writeBuffer();
+        saveAs(new Blob([buf]), filename);
+    };
+
+    const exportToExcelDetail = async (p: PersonnelType, filename: string) => {
+        const wb = new Excel.Workbook();
+        // RTL (sağdan sola) görünüm isterseniz: { views: [{ rightToLeft: true }] }
+        const ws = wb.addWorksheet("Personel Detay", { views: [{ rightToLeft: false }] });
+
+        // Sütun başlıkları ve genişlikleri
+        ws.columns = [
+            { header: "Alan", key: "label", width: 30 },
+            { header: "Değer", key: "value", width: 50 },
+        ];
+
+        // Tüm alanları toPairsForPerson'dan alır
+        const pairs = toPairsForPerson(p);
+        const data = pairs.map(([label, value]) => ({ label, value }));
+
+        ws.addRows(data);
+
+        // Estetik: Başlık satırı
+        ws.getRow(1).font = { bold: true };
+        ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+        const buf = await wb.xlsx.writeBuffer();
+        saveAs(new Blob([buf]), filename);
+    };
+
+
+    const exportToExcelTable = async (rows: PersonnelType[], filename: string) => {
+        const wb = new Excel.Workbook();
+        const ws = wb.addWorksheet("Personel Tablo", { views: [{ rightToLeft: false }] });
+
+        // تعریف سربرگ‌ها و عرض ستون‌ها
+        const headerRowTitles = [
+            "Ad", "Soyad", "TC Kimlik", "Pozisyon", "Başlangıç", "Bitiş",
+            "Sigorta No", "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Yeri",
+            "Doğum Tarihi", "Medeni Durum", "Baba Adı", "Kan Grubu", "Adres",
+            "Eğitim", "IBAN", "Telefon", "Mobil", "ISG", "Durum"
+        ];
+        const columnsLength = headerRowTitles.length;
+
+        // 1. NEW: افزودن هدر گزارش
+        addExcelHeader(ws, "PERSONEL TABLO RAPORU", columnsLength);
+        let currentRow = ws.lastRow?.number ?? 0;
+
+        // افزودن عنوان ستون‌ها
+        const headers = ws.getRow(currentRow + 1);
+        headers.values = headerRowTitles;
+        headers.font = { bold: true };
+        headers.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } };
+
+        // افزودن داده‌ها
+        const allData: any[] = [];
+        rows.forEach((p) => {
+            const positionTitle = positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—";
+            const rowData = [
+                p.name || "—", p.family || "—", p.identityNumber || "—", positionTitle,
+                formatDateDisplay(p.workStartDate), formatDateDisplay(p.workEndDate),
+                p.insuranceNumber || "—", SEX_LABELS[p.sex] ?? "—",
+                SALARY_TYPE_LABELS[p.salaryType] ?? "—", ACCRUAL_LABELS[p.salaryAccrualMethod] ?? "—",
+                GROUP_LABELS[p.group] ?? "—", p.birthPlace || "—",
+                formatDateDisplay(p.birthDate), MARITAL_LABELS[p.maritalStatus] ?? "—",
+                p.fatherName || "—", BLOOD_LABELS[p.bloodType] ?? "—", p.address || "—",
+                EDU_LABELS[p.educationStatus] ?? "—", p.iban || "—",
+                p.telephone || "—", p.mobile || "—", p.hasISG ? "Var" : "Yok",
+                statusText(p.recordStatus),
+            ];
+            allData.push(rowData);
+        });
+
+        ws.addRows(allData);
+
+        // تنظیم عرض ستون‌ها
+        ws.columns.forEach((column, index) => {
+            column.width = headerRowTitles[index].length < 15 ? 15 : headerRowTitles[index].length + 5;
+        });
+
+        // 2. NEW: افزودن اطلاعات شرکت (فوتر) در انتهای داده‌ها
+        const startRowCompanyInfo = ws.lastRow?.number ? ws.lastRow.number + 2 : 1;
+        addExcelCompanyInfo(ws, startRowCompanyInfo, columnsLength);
+
+        const buf = await wb.xlsx.writeBuffer();
+        saveAs(new Blob([buf]), filename);
+    };
+
+
+    const handleDownloadChooseExcel = (isDetailExport: boolean) => {
+        // اگر کاربر 'İndir (Detay)' را زده باشد
+        if (isDetailExport) {
+            if (downloadScope === "row" && rowForDownload) {
+                // حالت: دانلود جزئیات فقط برای یک ردیف انتخاب شده از منو
+                const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
+                exportToExcelDetail(rowForDownload, `Personel_Detay_${fileSlug || rowForDownload.id}.xlsx`);
+            } else {
+                // حالت: دانلود جزئیات همه پرسنل در یک فایل تجمیع شده (جدید)
+                // از این پس، این خط تمام منطق دانلود چندگانه را مدیریت می‌کند:
+                exportToExcelDetailConsolidated(sorted, "Personel_Detay_Consolidated.xlsx");
+            }
+        } else {
+            // حالت Tablo (برای تمام لیست فیلتر شده)
+            exportToExcelTable(sorted, "Personel_Tablo_Raporu.xlsx");
+        }
+        setOpenDownloadModal(false);
+    };
+
 
     const openDownloadChooserForAll = () => {
         if (!sorted.length) { showAlert("İndirilecek veri bulunamadı.", "warning"); return; }
@@ -1063,6 +1410,7 @@ const ListPersonnel: React.FC = () => {
 
                         {showStepErrors && <Alert severity="warning">Lütfen bu adımın zorunlu alanlarını doldurun.</Alert>}
 
+                        {/* Step 0: Kimlik - Profile Image Logic Changed */}
                         {activeStep === 0 && (
                             <Grid container spacing={2}>
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
@@ -1099,8 +1447,7 @@ const ListPersonnel: React.FC = () => {
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
                                     <Autocomplete
-                                        options={positions}
-                                        size="small"
+                                        options={positions} size="small"
                                         value={positions.find((p) => p.id === (Number(form.positionId) ?? -1)) || null}
                                         isOptionEqualToValue={(opt, val) => opt.id === val.id}
                                         onChange={(_, v) => setForm((f) => ({ ...f, positionId: v?.id ?? null }))}
@@ -1113,8 +1460,8 @@ const ListPersonnel: React.FC = () => {
                                     />
                                 </Grid>
 
-
-                                <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="flex-start">
+                                {/* NEW: Profile Image Upload */}
+                                <Grid item xs={12} md={3} display="flex" flexDirection="column" alignItems="center" justifyContent="flex-start">
                                     <CardMedia
                                         component="img"
                                         sx={{ width: 150, height: 150, borderRadius: '50%', objectFit: 'cover', mb: 1, border: '1px solid #ccc' }}
@@ -1122,16 +1469,15 @@ const ListPersonnel: React.FC = () => {
                                         alt="Personel Fotoğrafı"
                                     />
                                     <input
-                                        type="file"
-                                        accept="image/*"
-                                        ref={fileInputRef}
+                                        type="file" accept="image/*"
+                                        ref={profileImageInputRef}
                                         style={{ display: 'none' }}
                                         onChange={handleImageChange}
                                     />
                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Personelin profil resmini seçin" : ""}>
                                         <Button
                                             variant="outlined"
-                                            onClick={() => fileInputRef.current?.click()}
+                                            onClick={() => profileImageInputRef.current?.click()}
                                             size="small"
                                         >
                                             Resim Seç
@@ -1140,12 +1486,12 @@ const ListPersonnel: React.FC = () => {
                                 </Grid>
 
                             </Grid>
-
-
                         )}
 
+                        {/* Step 1: İş Bilgileri - Bitiş kaldırıldı, hasISG ve Attachments eklendi */}
                         {activeStep === 1 && (
                             <Grid container spacing={2}>
+                                {/* Başlangıç */}
                                 <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Başlangıç</CustomFormLabel>
                                 </Grid>
@@ -1162,27 +1508,24 @@ const ListPersonnel: React.FC = () => {
                                     </LocalizationProvider>
                                 </Grid>
 
-                                <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
-                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }}>Bitiş</CustomFormLabel>
-                                </Grid>
-                                <Grid item xs={12} sm={6} md={4}>
-                                    <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                        <DatePicker
-                                            label="Bitiş"
-                                            value={form.workEndDate}
-                                            onChange={(next: any) => setForm((f) => ({ ...f, workEndDate: next ? format(next, "yyyy-MM-dd") : null }))}
-                                            renderInput={(params: any) => (<TextField {...params} size="small" fullWidth />)}
-                                        />
-                                    </LocalizationProvider>
-                                </Grid>
-
+                                {/* Bitiş KALDIRILDI */}
                                 <Grid item xs={12} sm={6} md={2}><CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }}>Sigorta No</CustomFormLabel></Grid>
-                                <Grid item xs={12} sm={6} md={10}>
+                                <Grid item xs={12} sm={6} md={4}>
                                     <CustomTextField size="small" fullWidth value={form.insuranceNumber}
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, insuranceNumber: e.target.value }))} />
                                 </Grid>
 
                                 <Grid item xs={12}><Divider /></Grid>
+
+                                {/* NEW: hasISG Radio Button */}
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <FormLabel>İş Güvenliği (ISG)</FormLabel>
+                                    <RadioGroup row value={form.hasISG === true ? "true" : "false"}
+                                        onChange={(e) => setForm((f) => ({ ...f, hasISG: e.target.value === "true" }))}>
+                                        <FormControlLabel value="true" control={<Radio />} label="Var (Evet)" />
+                                        <FormControlLabel value="false" control={<Radio />} label="Yok (Hayır)" />
+                                    </RadioGroup>
+                                </Grid>
 
                                 <Grid item xs={12} sm={6} md={3}>
                                     <FormLabel>Cinsiyet</FormLabel>
@@ -1213,9 +1556,29 @@ const ListPersonnel: React.FC = () => {
                                         <FormControlLabel value={2} control={<Radio />} label="Engelli" />
                                     </RadioGroup>
                                 </Grid>
+
+                                <Grid item xs={12}><Divider /></Grid>
+
+                                {/* NEW: Attachments Upload */}
+                                <Grid item xs={12}>
+                                    <CustomFormLabel>Ek Belgeler (PDF, Excel, Resim)</CustomFormLabel>
+                                    <input
+                                        type="file" accept=".pdf,.xlsx,.xls,.png,.jpg,.jpeg"
+                                        multiple ref={attachmentsInputRef}
+                                        style={{ display: 'none' }}
+                                        onChange={handleAttachmentsChange}
+                                    />
+                                    <Button variant="outlined" startIcon={<IconUpload />} onClick={() => attachmentsInputRef.current?.click()}>
+                                        Dosya Seç ({attachmentsRawFiles.length} Yeni)
+                                    </Button>
+                                    <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 1 }}>
+                                        Mevcut kayıtlı belge sayısı: {form.attachments?.length || 0}
+                                        {attachmentsRawFiles.length > 0 && <span> | {attachmentsRawFiles.length} adet dosya yüklenecek.</span>}
+                                    </Typography>
+                                </Grid>
+
                             </Grid>
                         )}
-
                         {/* Step 2: Kişisel */}
                         {activeStep === 2 && (
                             <Grid container spacing={2}>
@@ -1369,7 +1732,7 @@ const ListPersonnel: React.FC = () => {
     const renderToolbar = (
         <Box sx={{ p: 2 }}>
             <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                <Typography variant="h5">Personel  Listesi</Typography>
+                <Typography variant="h5">Personel Listesi</Typography>
                 {notifIds.length > 0 && (
                     <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
                         <Chip label={`Bildirim filtresi: ${notifIds.length} id`} color="error" size="small" />
@@ -1419,6 +1782,8 @@ const ListPersonnel: React.FC = () => {
                     <Table aria-label="personnel table">
                         <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
+                                {/* NEW: Photo Column */}
+                                <StyledTableCell><Typography variant="h6">Fotoğraf</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === "name"} direction={orderBy === "name" ? order : "asc"} onClick={() => handleRequestSort("name")} style={{ color: "#171c23" }}>
                                         <Typography variant="h6">Ad Soyad</Typography>
@@ -1451,14 +1816,29 @@ const ListPersonnel: React.FC = () => {
                         <TableBody>
                             {loadingData ? (
                                 <TableRow>
-                                    <StyledTableCell colSpan={7} align="center">
+                                    <StyledTableCell colSpan={8} align="center">
                                         <CircularProgress />
                                         <Typography variant="subtitle1" color="textSecondary">Personeller yükleniyor...</Typography>
                                     </StyledTableCell>
                                 </TableRow>
                             ) : paginated.length > 0 ? (
                                 paginated.map((row) => (
-                                    <TableRow key={row.id} sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
+                                    <TableRow key={row.id}
+                                        sx={{
+                                            '&:last-child td, &:last-child th': { border: 0 },
+                                            ...(row.workEndDate && row.workEndDate !== "N/A"
+                                                ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                : {}
+                                            )
+                                        }}>
+                                        <StyledTableCell>
+                                            <CardMedia
+                                                component="img"
+                                                sx={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }}
+                                                image={getFullImageUrl(row.imageSrc)}
+                                                alt="Personel Fotoğrafı"
+                                            />
+                                        </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.name} {row.family}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.identityNumber}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.workStartDate)}</Typography></StyledTableCell>
@@ -1485,22 +1865,23 @@ const ListPersonnel: React.FC = () => {
                                         </StyledTableCell>
                                         <StyledTableCell>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
-                                                <IconButton id={`menu-${row.id}`} aria-controls={openMenu ? "menu" : undefined} aria-haspopup="true" aria-expanded={openMenu ? "true" : undefined} onClick={(event) => handleClickMenu(event, row)}>
+                                                <IconButton id={`menu-${row.id}`} onClick={(event) => handleClickMenu(event, row)}>
                                                     <IconDots width={18} />
                                                 </IconButton>
                                             </CustomTooltip>
                                             <Menu id="menu" anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu} MenuListProps={{ "aria-labelledby": `menu-${selectedRowForMenu?.id}` }}>
 
-                                                <StyledTableCell>
-                                                    <Button
-                                                        variant="outlined"
-                                                        size="small"
-                                                        startIcon={<IconEye size={16} />}
-                                                        onClick={() => selectedRowForMenu && handleAnnualLeaveClick(selectedRowForMenu)}
-                                                    >
-                                                        Yıllık İzin Hesapla
-                                                    </Button>
-                                                </StyledTableCell>
+                                                {/* Yıllık İzin Hesapلا (Using correct MenuItem structure) */}
+                                                <MuiMenuItem onClick={() => selectedRowForMenu && handleAnnualLeaveClick(selectedRowForMenu)}>
+                                                    <ListItemIcon><BoltIcon width={18} /></ListItemIcon> Yıllık İzin Hesapla
+                                                </MuiMenuItem>
+
+                                                {/* NEW: İş Birliği Sonlandırma */}
+                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                                                    <MuiMenuItem onClick={() => { setPersonnelToEndCooperation(selectedRowForMenu); setEndDate(null); setOpenEndCooperationModal(true); handleCloseMenu(); }}>
+                                                        <ListItemIcon><IconX width={18} color="red" /></ListItemIcon> İş Birliği Sonlandırma
+                                                    </MuiMenuItem>
+                                                )}
 
                                                 {hasEditPermission && (
                                                     <MuiMenuItem onClick={() => selectedRowForMenu && onEditRow(selectedRowForMenu)}>
@@ -1525,6 +1906,14 @@ const ListPersonnel: React.FC = () => {
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
                                                 )}
+
+                                                {/* NEW: Belgeleri İndir */}
+                                                {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
+                                                    <MuiMenuItem onClick={() => { setRowForAttachments(selectedRowForMenu); setOpenAttachmentsModal(true); handleCloseMenu(); }}>
+                                                        <ListItemIcon><IconFile width={18} /></ListItemIcon> Belgeleri İndir ({selectedRowForMenu.attachments.length})
+                                                    </MuiMenuItem>
+                                                )}
+
                                                 {hasDownloadPermission && (
                                                     <MuiMenuItem onClick={openDownloadChooserForRow}>
                                                         <ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir
@@ -1536,7 +1925,7 @@ const ListPersonnel: React.FC = () => {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <StyledTableCell colSpan={7} align="center">
+                                    <StyledTableCell colSpan={8} align="center">
                                         <Typography variant="subtitle1" color="textSecondary">Kayıt bulunamadı.</Typography>
                                     </StyledTableCell>
                                 </TableRow>
@@ -1557,7 +1946,7 @@ const ListPersonnel: React.FC = () => {
                 />
             </BlankCard>
 
-            {/* Delete Personnel */}
+            {/* Delete Personnel - unchanged */}
             <DeletePersonnel
                 openModal={openDeleteModal}
                 onClose={() => { setOpenDeleteModal(false); setPersonnelIdToDelete(null); getAllPersonnels(); }}
@@ -1565,26 +1954,54 @@ const ListPersonnel: React.FC = () => {
                 onDeleteSuccess={getAllPersonnels}
                 showAlert={showAlert}
             />
+
+            {/* Download Chooser Modal - unchanged */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2}>
+
+                        {/* 1. PDF - Detay (Single Row Detail) */}
                         <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={handleDownloadChoosePDF}>
-                            PDF Olarak İndir
+                            PDF İndir (Detay)
                         </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={async () => {
-                            // reuse existing excel export if needed; omitted for brevity
-                            showAlert("Excel tablo exportu üstteki seçeneklerle mevcut.", "info");
-                        }}>
-                            Excel Olarak İndir
-                        </Button>
+
+                        {/* 2. PDF - Tablo (List Table) */}
                         <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={handleDownloadChoosePDFTable}>
-                            PDF Olarak İndir (Tablo)
+                            PDF İndir (Tablo)
                         </Button>
+
+                        <Divider />
+
+                        {/* 3. Excel - Detay (Single Row Detail) */}
+                        <Button variant="contained" color="success" startIcon={<IconFileDownload />}
+                            // اگر دکمه "Bu satırı indir" را زده باشد، این حالت جزئیات را دانلود می‌کند
+                            onClick={() => {
+                                handleDownloadChooseExcel(true); // true = Detay/Columnar Export
+                                setOpenDownloadModal(false);
+                            }}
+                        >
+                            Excel İndir (Detay)
+                        </Button>
+
+                        {/* 4. Excel - Tablo (List Table) */}
+                        <Button variant="contained" color="success" startIcon={<IconFileDownload />}
+                            // اگر دکمه "Tümünü İndir" را زده باشد، این حالت جدول را دانلود می‌کند
+                            onClick={() => {
+                                handleDownloadChooseExcel(false); // false = Table Export
+                                setOpenDownloadModal(false);
+                            }}
+                        >
+                            Excel İndir (Tablo)
+                        </Button>
+
                     </Stack>
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button></DialogActions>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button>
+                </DialogActions>
             </Dialog>
+            {/* Details Modal - unchanged */}
             <Dialog open={openDetailsDialog} onClose={() => setOpenDetailsDialog(false)} maxWidth="md" fullWidth scroll="body" PaperProps={{ sx: { maxHeight: "none" } }}>
                 <DialogTitle>Personel Detayı</DialogTitle>
                 <DialogContent dividers sx={{ overflow: "visible" }}>
@@ -1601,6 +2018,8 @@ const ListPersonnel: React.FC = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDetailsDialog(false)}>Kapat</Button></DialogActions>
             </Dialog>
+
+            {/* Import Error/Correction Modal - unchanged */}
             <Dialog open={invalidRows.length > 0} maxWidth="md" fullWidth>
                 <DialogTitle>İçe Aktarım — Düzeltme ({invalidIndex + 1}/{invalidRows.length})</DialogTitle>
                 <DialogContent dividers>
@@ -1637,8 +2056,7 @@ const ListPersonnel: React.FC = () => {
                                 </Grid>
                                 <Grid item xs={12} sm={6}>
                                     <Autocomplete
-                                        options={positions}
-                                        size="small"
+                                        options={positions} size="small"
                                         value={positions.find(p => p.id === r.positionId) ?? null}
                                         isOptionEqualToValue={(a, b) => a.id === b.id}
                                         onChange={(_, v) => setR({ positionId: v?.id ?? null, errors: { ...r.errors, positionMissing: v == null } })}
@@ -1658,11 +2076,21 @@ const ListPersonnel: React.FC = () => {
                                         helperText={reqMissing("Başlangıç (yyyy-MM-dd)") ? "Zorunlu" : ""} />
                                 </Grid>
                                 <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth size="small" label="Bitiş (yyyy-MM-dd)" value={r.workEndDate ?? ""} onChange={(e) => setR({ workEndDate: e.target.value })} />
+                                    <TextField fullWidth size="small" label="Bitiş (yyyy-MM-dd) - Kaldırıldı" value={r.workEndDate ?? ""} disabled />
                                 </Grid>
 
                                 <Grid item xs={12} sm={6}>
                                     <TextField fullWidth size="small" label="Sigorta No" value={r.insuranceNumber} onChange={(e) => setR({ insuranceNumber: e.target.value })} />
+                                </Grid>
+
+                                {/* NEW: ISG for Import Correction */}
+                                <Grid item xs={12} sm={6}>
+                                    <FormLabel>İş Güvenliği (ISG)</FormLabel>
+                                    <RadioGroup row value={r.hasISG ? "true" : "false"}
+                                        onChange={(e) => setR({ hasISG: e.target.value === "true" })}>
+                                        <FormControlLabel value="true" control={<Radio />} label="Var (Evet)" />
+                                        <FormControlLabel value="false" control={<Radio />} label="Yok (Hayır)" />
+                                    </RadioGroup>
                                 </Grid>
 
                                 <Grid item xs={12} sm={6}>
@@ -1819,38 +2247,115 @@ const ListPersonnel: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            <Dialog open={openAnnualLeaveModal} onClose={() => setOpenAnnualLeaveModal(false)}>
+
+            <Dialog
+                maxWidth="md"
+                fullWidth={true}
+                open={openAnnualLeaveModal} onClose={handleCloseAnnualLeaveModal}>
                 <DialogTitle>Yıllık İzin Bilgileri</DialogTitle>
                 <DialogContent>
                     {loadingAnnualLeave ? (
                         <CircularProgress />
                     ) : (
-                        annualLeaveData && (
+                        annualLeaveData && personnelForAnnualLeave && ( // استفاده از State موقت جدید
                             <Stack spacing={2}>
-                                <Box display="flex" justifyContent="space-between">
-                                    <Typography variant="h6">İzin Hakkı</Typography>
-                                    <Chip label={annualLeaveData.official} color="primary" />
-                                </Box>
-                                <Box display="flex" justifyContent="space-between">
-                                    <Typography variant="h6">Kalan İzin</Typography>
-                                    <Chip label={annualLeaveData.remaining} color="success" />
-                                </Box>
-                                <Box display="flex" justifyContent="space-between">
-                                    <Typography variant="h6">Yaş</Typography>
-                                    <Chip label={annualLeaveData.age} color="info" />
-                                </Box>
-                                <Box display="flex" justifyContent="space-between">
-                                    <Typography variant="h6">Çalışma Yılı</Typography>
-                                    <Chip label={annualLeaveData.yearOfWork} color="secondary" />
-                                </Box>
+                                <Typography variant="h5" fontWeight={600}>
+                                    {personnelForAnnualLeave.name} {personnelForAnnualLeave.family}
+                                </Typography>
+                                <Typography variant="body2">
+                                    Başlangıç: {formatDateDisplay(personnelForAnnualLeave.workStartDate)}
+                                </Typography>
+                                <Typography variant="body2">
+                                    Bitiş: {formatDateDisplay(personnelForAnnualLeave.workEndDate)}
+                                </Typography>
+
+                                <Divider sx={{ my: 1 }} />
+
+                                <Box display="flex" justifyContent="space-between"><Typography variant="h6">İzin Hakkı</Typography><Chip label={annualLeaveData.official} color="primary" /></Box>
+                                <Box display="flex" justifyContent="space-between"><Typography variant="h6">Kalan İzin</Typography><Chip label={annualLeaveData.remaining} color="success" /></Box>
+                                <Box display="flex" justifyContent="space-between"><Typography variant="h6">Yaş</Typography><Chip label={annualLeaveData.age} color="info" /></Box>
+                                <Box display="flex" justifyContent="space-between"><Typography variant="h6">Çalışma Yılı</Typography><Chip label={annualLeaveData.yearOfWork} color="secondary" /></Box>
+
+                                <Divider sx={{ my: 1 }} />
+                                <Typography variant="h6">Rapor İndir</Typography>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() =>
+                                        personnelForAnnualLeave && annualLeaveData &&
+                                        pdfForAnnualLeave(
+                                            personnelForAnnualLeave,
+                                            annualLeaveData,
+                                            `İzin_Raporu_${personnelForAnnualLeave.name}_${personnelForAnnualLeave.family}.pdf`
+                                        )
+                                    }>
+                                    PDF İndir (Detay)
+                                </Button>
                             </Stack>
                         )
                     )}
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpenAnnualLeaveModal(false)} color="secondary">Kapat</Button>
+                    <Button onClick={handleCloseAnnualLeaveModal} color="secondary">Kapat</Button>
                 </DialogActions>
             </Dialog>
+
+            {/* NEW: İş Birliği Sonlandırma Modal */}
+            <Dialog open={openEndCooperationModal} onClose={() => setOpenEndCooperationModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>İş Birliği Sonlandırma</DialogTitle>
+                <DialogContent>
+                    {personnelToEndCooperation && (
+                        <Stack spacing={2}>
+                            <Typography>Personel: {personnelToEndCooperation.name} {personnelToEndCooperation.family}</Typography>
+                            <Typography>Başlangıç Tarihi:{formatDateDisplay(personnelToEndCooperation.workStartDate)}</Typography>
+
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <DatePicker
+                                    label="Bitiş Tarihi Seçin"
+                                    value={endDate}
+                                    onChange={(next: any) => setEndDate(next ? format(next, "yyyy-MM-dd") : null)}
+                                    renderInput={(params: any) => (<TextField {...params} size="small" fullWidth />)}
+                                />
+                            </LocalizationProvider>
+                            <Alert severity="warning">Seçilen tarih, personelin son çalışma tarihi olacaktır.</Alert>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenEndCooperationModal(false)} color="secondary">İptal</Button>
+                    <Button onClick={submitEndCooperation} color="error" disabled={!endDate}>Sonlandır</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* NEW: Attachments Download Modal */}
+            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Ek Belgeler</DialogTitle>
+                <DialogContent dividers>
+                    {rowForAttachments?.attachments && rowForAttachments.attachments.length > 0 ? (
+                        rowForAttachments.attachments.map((att, index) => (
+                            <Box key={index} display="flex" justifyContent="space-between" alignItems="center" my={1} p={1} sx={{ borderBottom: '1px solid #eee' }}>
+                                <Typography>{att.fileUrl.split('/').pop() || `Dosya ${index + 1}`}</Typography>
+                                <Button
+                                    variant="outlined"
+                                    size="small"
+                                    href={`${server.urldpwonload}${att.fileUrl}`}
+                                    target="_blank"
+                                    download
+                                >
+                                    İndir
+                                </Button>
+                            </Box>
+                        ))
+                    ) : (
+                        <Typography>Bu personel için ek belge bulunmamaktadır.</Typography>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAttachmentsModal(false)}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Backdrop - unchanged */}
             <Backdrop open={isProcessingImport} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1000 }}>
                 <Stack alignItems="center" spacing={2}>
                     <CircularProgress color="inherit" />

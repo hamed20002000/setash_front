@@ -11,7 +11,11 @@ import {
     CircularProgress, Paper, FormControl, InputLabel, Select,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel,
-    Dialog, DialogTitle, DialogContent, DialogActions
+    Dialog, DialogTitle, DialogContent, DialogActions, Chip,
+    OutlinedInput,
+    Checkbox,
+    ListItemText,
+    SelectChangeEvent
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -34,7 +38,7 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 // @ts-ignore
-import autoTable from 'jspdf-autotable'; // Import as default
+import autoTable from 'jspdf-autotable';
 import { tr } from 'date-fns/locale';
 import { format } from 'date-fns';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
@@ -43,15 +47,15 @@ import Logo from 'src/assets/images/logos/logo.png';
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "N/A";
     try {
-        const date = new Date(dateString);
+        // برای حل مشکل فرمت ISO در برخی تاریخ‌ها
+        const date = new Date(dateString.length === 10 ? dateString : String(dateString));
         return format(date, 'dd MMMM yyyy', { locale: tr });
     } catch (e) {
-        console.log("Tarih biçimlendirilirken hata oluştu:", e);
         return "Geçersiz Tarih";
     }
 };
 
-
+// ... (Styled Components remain the same)
 const StyledToggleButton = styled(MuiToggleButton)(({ theme }) => ({
     "&.Mui-selected": { color: "white" },
     "&.Mui-selected[data-value='all']": {
@@ -89,16 +93,19 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// نوع‌های داده‌ای اصلی
-interface PersonnelLite { id: number; name: string; family: string; }
+// نوع‌های داده‌ای اصلی (با تغییرات)
+interface PersonnelLite {
+    id: number;
+    name: string;
+    family: string;
+    hasISG?: boolean; // NEW: برای فیلتر
+}
 interface PositionType { id: number; title: string; recordStatus?: number; createAt?: string }
 interface WarehouseType { id: number; name: string; code?: string; address?: string; recordStatus?: number; createAt?: string }
 interface WorkhouseType { id: number; name: string; code?: string; address?: string; recordStatus?: number; createAt?: string }
 interface CarWarehouseType { id: number; name: string; code?: string; address?: string; recordStatus?: number; createAt?: string }
 interface StoreType { id: number; name: string; code?: string; address?: string; recordStatus?: number; createAt?: string; workhouse?: { id: number; name: string } }
-// PlaceKind: فیلد محاسبه شده در فرانت برای نمایش و منطق فرم (0: WAREHOUSE, 1: WORKHOUSE, 2: WORKHOUSE_STORE, 3: FILO)
 type PlaceKind = 'WAREHOUSE' | 'WORKHOUSE' | 'WORKHOUSE_STORE' | 'FILO';
-
 
 type SortableKeys = keyof Pick<PersonnelWorkPlace, 'startDate' | 'endDate' | 'createAt'> | 'personnelName' | 'placeName';
 
@@ -106,40 +113,31 @@ interface PersonnelWorkPlace {
     id: number;
     personnel: { id: number; name: string; family: string };
     position?: { id: number; title: string } | null;
-    userRole?: { id: number; title: string } | null; // title: name of the role
+    userRole?: { id: number; title: string } | null;
 
-    placeId: number; // مطابق با پاسخ API
-    type: 0 | 1 | 2 | 3; // 4 نوع مختلف: 0: Depo, 1: Şantiye, 2: Şantiye Depo, 3: Filo
+    placeId: number;
+    type: 0 | 1 | 2 | 3;
 
     startDate: string;
-    endDate: string;
+    endDate: string | null; // می‌تواند null باشد
     description?: string;
     recordStatus?: number;
     createAt?: string;
 
-    // فیلدهای محاسبه شده برای سادگی در نمایش و فیلترینگ
-    placeKind: PlaceKind; // محاسبه شده از روی type
-    placeName: string; // نام واقعی مکان، محاسبه شده در fetchAssignments
-    personnelName: string; // محاسبه شده
+    placeKind: PlaceKind;
+    placeName: string;
+    personnelName: string;
 }
 
-interface RoleLite { id: string; role: { id: number; name: string; }; recordStatus: number; } // تعریف دقیق‌تر برای نقش‌های کاربر
-
+interface RoleLite { id: string; role: { id: number; name: string; }; recordStatus: number; }
 interface UserType {
-    id: string;
-    username: string;
-    email: string;
-    status: string;
-    recordStatus: number;
-    imageUrl: string;
-    // ⬅️ این پراپرتی باید اضافه شود تا خطا رفع شود
-    userRoles: RoleLite[]; // یا هر نوع دقیق‌تری که برای این آرایه در بک‌اند استفاده می‌شود
+    id: string; username: string; email: string; status: string; recordStatus: number; imageUrl: string;
+    userRoles: RoleLite[]; // اضافه شده برای رفع خطا
 }
-
 interface Role { id: string; name: string; recordStatus: number; }
 
 
-// توابع کمکی مرتب‌سازی
+// توابع کمکی مرتب‌سازی (unchanged)
 const descendingComparator = <T, Key extends keyof T>(a: T, b: T, orderBy: Key): number => {
     const valA = a[orderBy];
     const valB = b[orderBy];
@@ -168,8 +166,9 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 
 const ListPersonnelWorkPlaces: React.FC = () => {
     const navigate = useNavigate();
-
     const { allowedOperations } = useAuth();
+
+    // ... (Permission Checks)
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
@@ -178,20 +177,23 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
 
     // ------------------------------------
-    // States Form
+    // States Form (UPDATED for Single/Bulk & No End Date)
     // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
+    const [assignmentMode, setAssignmentMode] = useState<'single' | 'bulk'>('single'); // NEW
     const [personnelId, setPersonnelId] = useState<number | ''>('');
+    const [selectedPersonnelIds, setSelectedPersonnelIds] = useState<number[]>([]); // NEW
+
     const [positionId, setPositionId] = useState<number | ''>('');
     const [userId, setUserId] = useState<string | null>(null);
     const [userRoleId, setUserRoleId] = useState<number | null>(null);
-    const [placeKind, setPlaceKind] = useState<PlaceKind>('WAREHOUSE'); // Computed Field
+    const [placeKind, setPlaceKind] = useState<PlaceKind>('WAREHOUSE');
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | ''>('');
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | ''>('');
     const [selectedStoreId, setSelectedStoreId] = useState<number | ''>('');
     const [selectedCarWarehouseId, setSelectedCarWarehouseId] = useState<number | ''>('');
     const [startDate, setStartDate] = useState<Date | null>(null);
-    const [endDate, setEndDate] = useState<Date | null>(null);
+    // const [endDate, setEndDate] = useState<Date | null>(null); // REMOVED FROM FORM STATE
     const [description, setDescription] = useState<string>("");
 
     const [personnels, setPersonnels] = useState<PersonnelLite[]>([]);
@@ -203,7 +205,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const [usersList, setUsersList] = useState<UserType[]>([]);
     const [userRolesList, setUserRolesList] = useState<any[]>([]);
 
-    const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map()); // Cache for Store Names
+    const [storeNames, setStoreNames] = useState<Map<number, string>>(new Map());
 
     const [assignments, setAssignments] = useState<PersonnelWorkPlace[]>([]);
 
@@ -228,7 +230,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const [isUserRoleDisabled, setIsUserRoleDisabled] = useState(false);
 
     // ------------------------------------
-    // States Menu/Modals
+    // States Menu/Modals (UPDATED for End Cooperation)
     // ------------------------------------
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<PersonnelWorkPlace | null>(null);
@@ -243,10 +245,17 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [deleteName, setDeleteName] = useState<string>('');
 
+    // NEW: End Cooperation Modal States
+    const [openEndCooperationModal, setOpenEndCooperationModal] = useState(false);
+    const [rowForEndCooperation, setRowForEndCooperation] = useState<PersonnelWorkPlace | null>(null);
+    const [endCooperationDate, setEndCooperationDate] = useState<Date | null>(null);
+    const [endCoopError, setEndCoopError] = useState(false);
+
+
     const nameInputRef = useRef<HTMLInputElement>(null);
 
     // ------------------------------------
-    // Alert & Initialization Logic
+    // Alert & Initialization Logic (unchanged)
     // ------------------------------------
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -261,24 +270,35 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
     // ------------------------------------
-    // Data Fetching Functions
+    // Data Fetching Functions (UPDATED for ISG Filter & Dependency Fix)
     // ------------------------------------
     const fetchPersonnels = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
         try {
+            // API جدید پرسنل که hasISG را برمی‌گرداند
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels`, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
                 const data = res.data.data as any[];
-                const mapped = data.map(p => ({ id: Number(p.id), name: p.name, family: p.family })) as PersonnelLite[];
-                setPersonnels(mapped);
 
+                // CRITICAL: فیلتر کردن پرسنلی که hasISG = true دارند
+                const filteredAndMapped = data
+                    .filter(p => p.hasISG === true)
+                    .map(p => ({
+                        id: Number(p.id),
+                        name: p.name,
+                        family: p.family,
+                        hasISG: p.hasISG // ذخیره hasISG
+                    })) as PersonnelLite[];
 
-                //hazf shavad
-                setCarWarehousesList(mapped)
+                setPersonnels(filteredAndMapped);
+                // setCarWarehousesList با داده‌های پرسنل منطقی نیست، اگر Filo لیست دیگری است باید از API دیگری گرفته شود.
+                // اگر API کارواش ندارید، این خط را باید حذف کنید یا API را فعال کنید:
+                setCarWarehousesList(filteredAndMapped);
             } else { showAlert(res.data.message || 'Personel listesi alınamadı.', 'error'); }
         } catch (e) { showAlert('Personel listesi çekilirken bir hata oluştu.', 'error'); }
     }, [navigate]);
+
 
     const getListPositions = useCallback(() => {
         const authToken = localStorage.getItem('authToken');
@@ -397,6 +417,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
         }).then((result) => {
             if (result.data.httpStatusCode === 200) {
+                debugger
                 const userRoles = result.data.data.userRoles.filter((role: Role) => role.recordStatus === 0);
                 setUserRolesList(userRoles);
             } else {
@@ -425,7 +446,9 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     };
 
 
-    // (MODIFIED) Logic to fetch all assignments and compute placeName
+
+
+    // MODIFIED: Logic to fetch all assignments and compute placeName (Dependency fix)
     const fetchAssignments = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
@@ -446,40 +469,48 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                         id: Number(r.id),
                         personnel: r.personnel ? { id: Number(r.personnel.id), name: r.personnel.name, family: r.personnel.family } : { id: Number(r.personnelId), name: '', family: '' },
                         position: r.position ? { id: Number(r.position.id), title: r.position.title } : (r.positionId ? { id: Number(r.positionId), title: '' } : null),
-                        userRole: r.userRole ? { id: Number(r.userRole.id), title: r.userRole.role.name } : null,
+                        userRole: r.userRole ? { id: Number(r.userRole.id), title: r.userRole.role?.name } : null,
                         placeId: Number(r.placeId),
                         type: typeNum as 0 | 1 | 2 | 3,
-                        placeKind: kind, // Computed Field
+                        placeKind: kind,
                         startDate: r.startDate,
                         endDate: r.endDate,
                         description: r.description,
                         recordStatus: r.recordStatus,
                         createAt: r.createAt,
-                        placeName: '', // Will be filled in step 3
-                        personnelName: `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim(), // Computed Field
+                        placeName: '',
+                        personnelName: `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim(),
                     };
                 }) as PersonnelWorkPlace[];
 
-                // 2. Fetch Store Names (Workaround for N+1 until API is fixed)
+                // 2. Optimized Fetching/Caching for Store Names (Workhouse Stores)
+                // Collect unique Store IDs that need resolving
+                const storeIdsToFetch = Array.from(new Set(rawRows
+                    .filter(row => row.type === 2 && !storeNames.has(row.placeId))
+                    .map(row => row.placeId)
+                ));
+
+                const promises = storeIdsToFetch.map(id => fetchStoreNameById(id));
+                const fetchedNames = await Promise.all(promises);
+
                 const updatedStoreNames = new Map(storeNames);
-                for (let row of rawRows) {
-                    if (row.type === 2 && !updatedStoreNames.has(row.placeId)) {
-                        const storeName = await fetchStoreNameById(row.placeId); // ⬅️ هر ردیف یک درخواست جدید
-                        updatedStoreNames.set(row.placeId, storeName);
-                    }
-                }
+                storeIdsToFetch.forEach((id, index) => {
+                    updatedStoreNames.set(id, fetchedNames[index]);
+                });
                 setStoreNames(updatedStoreNames);
 
                 // 3. Compute final placeName for all rows
                 const finalRows = rawRows.map(row => {
                     let name = '-';
-                    if (row.type === 0) { // WAREHOUSE
+                    // NOTE: This logic relies on global lists (warehousesList, workhousesList, carWarehousesList)
+                    // being fetched BEFORE fetchAssignments is run.
+                    if (row.type === 0) {
                         name = warehousesList.find(w => w.id === row.placeId)?.name || '-';
-                    } else if (row.type === 1) { // WORKHOUSE
+                    } else if (row.type === 1) {
                         name = workhousesList.find(w => w.id === row.placeId)?.name || '-';
-                    } else if (row.type === 2) { // WORKHOUSE_STORE
+                    } else if (row.type === 2) {
                         name = updatedStoreNames.get(row.placeId) || '-';
-                    } else if (row.type === 3) { // FILO
+                    } else if (row.type === 3) {
                         name = carWarehousesList.find(w => w.id === row.placeId)?.name || '-';
                     }
 
@@ -491,36 +522,34 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 showAlert(res.data.message || 'Kayıtlar yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e) {
-            console.warn('Error fetching personnel work places:', e);
             showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, warehousesList, workhousesList]); // Added dependencies
+    }, [navigate])
+
+
 
     useEffect(() => {
-        // زمانی که هر سه لیست اصلی بارگذاری شدند (و تغییر کردند)، Assignmentها را بارگذاری کن
-        if (warehousesList.length > 0 || workhousesList.length > 0) {
-            fetchAssignments();
-        }
-    }, [warehousesList, workhousesList, fetchAssignments]);
-    // کد اصلاح شده برای بارگذاری اولیه
-    useEffect(() => {
-        // این توابع فقط باید یک بار در زمان Mount شدن کامپوننت اجرا شوند
+        // بارگذاری اولیه لیست‌های مرجع (فقط یک بار)
         fetchPersonnels();
         getListPositions();
         fetchWarehouses();
         fetchWorkhouses();
-        // fetchCarWarehouses();
+        // fetchCarWarehouses(); // اگر API Filo دارید، اینجا فراخوانی کنید
         getListUsers();
-        // fetchAssignments را از اینجا حذف کنید!
-    }, [fetchPersonnels, getListPositions, fetchWarehouses, fetchWorkhouses, getListUsers]);
-    // توجه: حتی بهتر است توابع useCallback را از این آرایه نیز حذف کنید و صرفاً یک آرایه خالی قرار دهید اگر مطمئنید که هیچ وابستگی خارجی ندارند.
+
+    }, []);
+    // CRITICAL FIX: Load all data first, then fetch assignments relying on the data.
+    useEffect(() => {
+        fetchAssignments();
+    }, [fetchAssignments]);
+
     // ------------------------------------
-    // Form Logic
+    // Form Logic (UPDATED)
     // ------------------------------------
     useEffect(() => {
-        // Clear non-relevant IDs when placeKind changes
+        // ... (PlaceKind dependency logic - unchanged)
         if (placeKind === 'WAREHOUSE') {
             setSelectedWorkhouseId(''); setSelectedStoreId(''); setSelectedCarWarehouseId('');
         }
@@ -545,11 +574,17 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const [positionError, setPositionError] = useState(false);
     const [placeError, setPlaceError] = useState(false);
     const [startError, setStartError] = useState(false);
-    const [endError, setEndError] = useState(false);
+    // const [endError, setEndError] = useState(false); // REMOVED
 
     const validateForm = (): boolean => {
         let ok = true;
-        if (!personnelId) { setPersonnelError(true); ok = false; } else setPersonnelError(false);
+
+        // NEW: اعتبارسنجی پرسنل بر اساس حالت Single/Bulk
+        const personnelSelection = assignmentMode === 'single' ? personnelId : selectedPersonnelIds.length;
+        if (!personnelSelection || personnelSelection === 0) {
+            setPersonnelError(true); ok = false;
+        } else setPersonnelError(false);
+
         if (!positionId) { setPositionError(true); ok = false; } else setPositionError(false);
 
         const computedPlaceId = placeKind === 'WAREHOUSE' ? selectedWarehouseId :
@@ -558,12 +593,8 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         if (!computedPlaceId) { setPlaceError(true); ok = false; } else setPlaceError(false);
 
         if (!startDate) { setStartError(true); ok = false; } else setStartError(false);
-        if (!endDate) { setEndError(true); ok = false; } else setEndError(false);
+        // if (!endDate) { setEndError(true); ok = false; } else setEndError(false); // REMOVED
 
-        if (startDate && endDate && endDate < startDate) {
-            showAlert('Bitiş tarihi başlangıç tarihinden küçük olamaz!', 'warning');
-            setEndError(true); ok = false;
-        }
         if (!ok) showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
         return ok;
     };
@@ -571,24 +602,27 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const resetForm = () => {
         setEditingId(null);
         setPersonnelId('');
+        setSelectedPersonnelIds([]); // NEW: Reset bulk select
+        // setEndDate(null); // REMOVED
+        setStartDate(null);
+        setAssignmentMode('single'); // NEW: Reset mode
+        // ... (Other resets remain the same)
         setPositionId('');
         setUserId(null);
         setUserRoleId(null);
-        // setCarWarehousesList(null)
         setPlaceKind('WAREHOUSE');
         setSelectedWarehouseId('');
         setSelectedWorkhouseId('');
         setSelectedStoreId('');
         setSelectedCarWarehouseId('');
-        setStartDate(null);
-        setEndDate(null);
         setDescription('');
-        setPersonnelError(false); setPositionError(false); setPlaceError(false); setStartError(false); setEndError(false);
+        setPersonnelError(false); setPositionError(false); setPlaceError(false); setStartError(false); // setEndError(false) REMOVED
         setIsFormVisible(false);
         setIsUserRoleDisabled(false);
     };
 
-    const buildPayload = () => {
+    // NEW/MODIFIED: Builds payload for Single (edit/insert) or Bulk
+    const buildPayload = (isBulk: boolean) => {
         const placeIdToSend = placeKind === 'WAREHOUSE' ? selectedWarehouseId :
             placeKind === 'WORKHOUSE' ? selectedWorkhouseId :
                 placeKind === 'WORKHOUSE_STORE' ? selectedStoreId : selectedCarWarehouseId;
@@ -597,27 +631,42 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             placeKind === 'WORKHOUSE' ? 1 :
                 placeKind === 'WORKHOUSE_STORE' ? 2 : 3;
 
-        return {
-            id: editingId ?? undefined,
-            personnelId: Number(personnelId),
+        const baseItem = {
             positionId: Number(positionId),
-            userRoleId: userRoleId ?? null,
+            userRoleId: userRoleId ?? 0,
             placeId: Number(placeIdToSend),
             type: typeToSend,
             startDate: startDate ? new Date(startDate).toISOString() : null,
-            endDate: endDate ? new Date(endDate).toISOString() : null,
+            endDate: null, // CRITICAL: Always null for registration/default
             description: description?.trim() || ''
         };
+
+        if (isBulk) {
+            // حالت گروهی: آرایه از اشیاء
+            return selectedPersonnelIds.map(pId => ({
+                ...baseItem,
+                personnelId: pId,
+            }));
+        } else {
+            // حالت تکی (برای ویرایش یا ثبت تکی)
+            return {
+                ...baseItem,
+                id: editingId ?? undefined,
+                personnelId: Number(personnelId),
+            };
+        }
     };
 
 
-    const insertAssignment = async () => {
+    const insertSingleAssignment = async () => {
+        debugger
         if (!validateForm()) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error'); setLoadingButton(false); return; }
+
         try {
-            const payload = buildPayload();
+            const payload = buildPayload(false);
             const res = await axios.post(`${server.baseurl}${server.hr}create-personnel-work-place`, payload, { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
             if (res.data.httpStatusCode === 201 || res.data.httpStatusCode === 200) {
                 showAlert('Görevlendirme başarıyla eklendi!', 'success');
@@ -629,13 +678,37 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
+    // NEW: Bulk Insert
+    const insertBulkAssignment = async () => {
+        debugger
+        if (!validateForm()) return;
+        setLoadingButton(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error'); setLoadingButton(false); return; }
+
+        try {
+            const payload = buildPayload(true); // isBulk = true
+            const res = await axios.post(`${server.baseurl}${server.hr}create-personnel-work-place-as-bulk`, payload, {
+                headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }
+            });
+
+            if (res.data.httpStatusCode === 201 || res.data.httpStatusCode === 200) {
+                showAlert(`${selectedPersonnelIds.length} adet görevlendirme başarıyla eklendi!`, 'success');
+                resetForm();
+                fetchAssignments();
+            } else { showAlert(res.data.message || 'Toplu görevlendirme eklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            showAlert(e?.response?.data?.message || 'Toplu görevlendirme eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        } finally { setLoadingButton(false); }
+    };
+
     const editAssignment = async () => {
         if (!validateForm() || !editingId) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error'); setLoadingButton(false); return; }
         try {
-            const payload = buildPayload();
+            const payload = buildPayload(false);
             const res = await axios.put(`${server.baseurl}${server.hr}update-personnel-work-place`, payload, { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
             if (res.data.httpStatusCode === 200) {
                 showAlert('Görevlendirme başarıyla güncellendi!', 'success');
@@ -648,6 +721,20 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
+    // NEW: Submit handler for form (directs to single or bulk)
+    const handleSubmitForm = () => {
+        if (editingId) {
+            editAssignment();
+        } else {
+            if (assignmentMode === 'single') {
+                insertSingleAssignment();
+            } else {
+                insertBulkAssignment();
+            }
+        }
+    };
+
+
     // (MODIFIED) handleEditClick to set placeId, type, and userId correctly
     const handleEditClick = () => {
         if (!selectedRowForMenu) return;
@@ -655,11 +742,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
         setEditingId(r.id);
         setPersonnelId(r.personnel?.id ?? '');
+        setSelectedPersonnelIds([]); // Clear bulk selection
+        setAssignmentMode('single'); // Always switch to single mode when editing
+
         setPositionId(r.position?.id ?? '');
         setUserRoleId(r.userRole?.id ?? null);
 
         // Find the User ID associated with the User Role ID in the list
-        const relatedUser = usersList.find(u => u.userRoles && u.userRoles.some(role => Number(role.id) === r.userRole?.id));
+        const relatedUser = usersList.find(u => u.userRoles && u.userRoles.some(role => Number(role.role.id) === r.userRole?.id));
         if (relatedUser) {
             setUserId(relatedUser.id);
             getUserRoles(relatedUser.id);
@@ -668,7 +758,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             setUserRolesList([]);
         }
 
-        setPlaceKind(r.placeKind); // Use the computed placeKind
+        setPlaceKind(r.placeKind);
 
         // Set Place ID based on type
         if (r.type === 0) { // WAREHOUSE
@@ -681,28 +771,24 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             setSelectedStoreId(r.placeId);
             setSelectedWarehouseId(''); setSelectedCarWarehouseId('');
 
-            // To populate the Workhouse dropdown for a Store, we need to find the Workhouse ID.
-            // If the storesList is comprehensive (including workhouse data), we can find it.
             const store = storesList.find(s => s.id === r.placeId);
             const workhouseId = store?.workhouse?.id ?? '';
             setSelectedWorkhouseId(workhouseId);
 
-            // Re-fetch stores for the selected Workhouse
             if (workhouseId && typeof workhouseId === 'number') {
                 fetchStoresByWorkhouseId(workhouseId);
             }
-
         } else if (r.type === 3) { // FILO
             setSelectedCarWarehouseId(r.placeId);
             setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId('');
         }
 
         setStartDate(r.startDate ? new Date(r.startDate) : null);
-        setEndDate(r.endDate ? new Date(r.endDate) : null);
+        // setEndDate(r.endDate ? new Date(r.endDate) : null); // REMOVED
         setDescription(r.description || '');
 
         setIsFormVisible(true);
-        setIsUserRoleDisabled(true); // Disable User/Role dropdowns when editing
+        setIsUserRoleDisabled(true);
 
         setTimeout(() => {
             nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -712,9 +798,40 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         handleCloseMenu();
     };
 
+    // NEW: Submit End Cooperation (Menu Action)
+    const submitEndCooperation = async () => {
+        if (!rowForEndCooperation || !endCooperationDate) {
+            setEndCoopError(true);
+            return;
+        }
+        setLoadingButton(true);
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const payload = {
+                id: rowForEndCooperation.id,
+                endDate: new Date(endCooperationDate).toISOString(),
+            };
+
+            const res = await axios.put(`${server.baseurl}${server.hr}update-personnel-work-place`, payload, { headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
+
+            if (res.data.httpStatusCode === 200) {
+                showAlert('İş birliği başarıyla sonlandırıldı!', 'success');
+                setOpenEndCooperationModal(false);
+                fetchAssignments();
+            } else {
+                showAlert(res.data.message || 'İş birliği sonlandırılamadı.', 'error');
+            }
+        } catch (e: any) {
+            showAlert(e?.response?.data?.message || 'İş birliği sonlandırılırken bir hata oluştu.', 'error');
+        } finally {
+            setLoadingButton(false);
+            setEndCoopError(false);
+        }
+    };
+
+    // ... (Table & Filter logic remains the same)
     const isFilterActive = useMemo(() => !!searchTerm.trim() || startFilter !== null || endFilter !== null || statusFilter !== 'all', [searchTerm, startFilter, endFilter, statusFilter]);
-
-
     const filteredAssignments = useMemo(() => {
         const list = assignments.filter(r => {
             const matchesSearch = r.personnelName.toLowerCase().includes(searchTerm.toLowerCase()) || r.placeName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -723,13 +840,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             const inRange = (!startFilter || (sDate && sDate >= startFilter)) && (!endFilter || (sDate && sDate <= endFilter));
             return matchesSearch && matchesStatus && inRange;
         });
-        // Note: The sorting functions must be updated to handle the new field names (e.g., personnelName, placeName)
         return stableSort(list, getComparator(order, orderBy));
     }, [assignments, searchTerm, statusFilter, order, orderBy, startFilter, endFilter]);
 
     const paginatedRows = useMemo(() => filteredAssignments.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredAssignments, page, rowsPerPage]);
 
-    // ... Menu Handlers remain the same
+    // Menu Handlers remain the same
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: PersonnelWorkPlace) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
@@ -737,6 +853,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         if (!selectedRowForMenu) return; setDeleteId(selectedRowForMenu.id); setDeleteName(`${selectedRowForMenu.personnel?.name ?? ''} ${selectedRowForMenu.personnel?.family ?? ''}`.trim()); setOpenDeleteModal(true); handleCloseMenu();
     };
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchAssignments(); };
+
 
 
     const exportToPdf = async (rows: PersonnelWorkPlace[], isFiltered: boolean) => {
@@ -1001,21 +1118,94 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Grid container spacing={2}>
-                            {/* Personnel */}
+
+                            {/* NEW: Toggle Single/Bulk Mode */}
+                            <Grid item xs={12}>
+                                <CustomFormLabel>Atama Modu</CustomFormLabel>
+                                <ToggleButtonGroup
+                                    value={assignmentMode}
+                                    exclusive
+                                    onChange={(_, v) => {
+                                        if (v) {
+                                            setAssignmentMode(v as 'single' | 'bulk');
+                                            // Reset selections on mode change
+                                            setPersonnelId('');
+                                            setSelectedPersonnelIds([]);
+                                        }
+                                    }}
+                                    sx={{ mb: 1, height: 40 }}
+                                    disabled={editingId !== null} // Cannot change mode when editing
+                                >
+                                    <MuiToggleButton value="single">Tek Tek Ekleme</MuiToggleButton>
+                                    <MuiToggleButton value="bulk">Toplu Ekleme</MuiToggleButton>
+                                </ToggleButtonGroup>
+                            </Grid>
+
+                            {/* Personnel (Single/Multi-Select) */}
                             <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Personel</CustomFormLabel>
+                                <CustomFormLabel required>Personel {assignmentMode === 'bulk' && <>(Çoklu Seçim)</>}</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={personnelError}>
                                     <InputLabel id="sel-personnel">Personel Seçin</InputLabel>
-                                    <Select
-                                        labelId="sel-personnel"
-                                        label="Personel Seçin"
-                                        value={personnelId}
 
-                                        disabled={isUserRoleDisabled}
-                                        onChange={(e) => { setPersonnelId(Number(e.target.value)); if (personnelError) setPersonnelError(false); }}>
-                                        {personnels.map(p => <MuiMenuItem key={p.id} value={p.id}>{p.name} {p.family}</MuiMenuItem>)}
-                                    </Select>
-                                    {personnelError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
+                                    {assignmentMode === 'single' ? (
+                                        // حالت تکی
+                                        <Select
+                                            labelId="sel-personnel" label="Personel Seçin" value={personnelId}
+                                            disabled={isUserRoleDisabled || editingId !== null}
+                                            onChange={(e) => { setPersonnelId(Number(e.target.value)); if (personnelError) setPersonnelError(false); }}
+                                        >
+                                            {personnels.map(p => <MuiMenuItem key={p.id} value={p.id}>{p.name} {p.family}</MuiMenuItem>)}
+                                        </Select>
+                                    ) : (
+                                        <Select
+                                            labelId="sel-personnel"
+                                            id="select-personnel-bulk"
+                                            multiple
+                                            value={selectedPersonnelIds}
+                                            onChange={(e: SelectChangeEvent<number[]>) => {
+                                                setSelectedPersonnelIds(e.target.value as number[]);
+                                                if (personnelError) setPersonnelError(false);
+                                            }}
+
+                                            input={<OutlinedInput id="select-multiple-chip" label="Personel Seçin" />}
+
+                                            renderValue={(selected) => (
+                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                    {selected.map((id) => {
+                                                        const p = personnels.find(prsnl => prsnl.id === id);
+
+                                                        // const handleDelete = (event: React.MouseEvent) => {
+                                                        //     event.stopPropagation();
+                                                        //     event.preventDefault();
+                                                        //     setSelectedPersonnelIds(prevIds => prevIds.filter(pid => pid !== id));
+                                                        // };
+
+                                                        return p ? (
+                                                            <Chip
+                                                                key={id}
+                                                                label={`${p.name} ${p.family}`}
+                                                                size="small"
+                                                                color="primary"
+                                                                variant="outlined"
+
+                                                            // onDelete={handleDelete}
+                                                            />
+                                                        ) : null;
+                                                    })}
+                                                </Box>
+                                            )}
+                                        >
+                                            {/* آیتم‌های منو: استفاده از Checkbox و ListItemText */}
+                                            {personnels.map((p) => (
+                                                <MuiMenuItem key={p.id} value={p.id}>
+                                                    <Checkbox checked={selectedPersonnelIds.indexOf(p.id) > -1} />
+                                                    <ListItemText primary={`${p.name} ${p.family}`} />
+                                                </MuiMenuItem>
+                                            ))}
+                                        </Select>
+
+                                    )}
+                                    {personnelError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur! (Sadece ISG=true olanlar listelenir)</Typography>}
                                 </FormControl>
                             </Grid>
 
@@ -1024,10 +1214,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                 <CustomFormLabel required>Pozisyon</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={positionError}>
                                     <InputLabel id="sel-position">Pozisyon Seçin</InputLabel>
-                                    <Select labelId="sel-position"
-                                        label="Pozisyon Seçin"
-                                        value={positionId}
-
+                                    <Select labelId="sel-position" label="Pozisyon Seçin" value={positionId}
                                         disabled={isUserRoleDisabled}
                                         onChange={(e) => { setPositionId(Number(e.target.value)); if (positionError) setPositionError(false); }}>
                                         {positionsList.map(pos => <MuiMenuItem key={pos.id} value={pos.id}>{pos.title}</MuiMenuItem>)}
@@ -1042,16 +1229,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                 <FormControl size="small" sx={{ width: '100%' }}>
                                     <InputLabel id="sel-user">Kullanıcı Seçin</InputLabel>
                                     <Select
-                                        labelId="sel-user"
-                                        label="Kullanıcı Seçin"
-                                        value={userId || ''}
+                                        labelId="sel-user" label="Kullanıcı Seçin" value={userId || ''}
                                         onChange={(e) => {
                                             const selectedUserId = String(e.target.value);
                                             setUserId(selectedUserId);
                                             getUserRoles(selectedUserId);
-                                            setUserRoleId(null); // Clear role on user change
+                                            setUserRoleId(null);
                                         }}
-                                        disabled={isUserRoleDisabled}
+                                        disabled={isUserRoleDisabled || assignmentMode === 'bulk'} // Disable in bulk mode
                                     >
                                         {usersList.map((user) => (
                                             <MuiMenuItem key={user.id} value={user.id}>{user.username}</MuiMenuItem>
@@ -1067,10 +1252,10 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                     <InputLabel id="sel-userrole">Kullanıcı Rolü</InputLabel>
                                     <Select labelId="sel-userrole" label="Kullanıcı Rolü" value={userRoleId || ''}
                                         onChange={(e) => setUserRoleId(Number(e.target.value))}
-                                        disabled={isUserRoleDisabled || userRolesList.length === 0}
+                                        disabled={isUserRoleDisabled || userRolesList.length === 0 || assignmentMode === 'bulk'} // Disable in bulk mode
                                     >
                                         {userRolesList.filter(role => role.recordStatus === 0).map((role) => (
-                                            <MuiMenuItem key={role.id} value={role.id}>{role.role.name}</MuiMenuItem>
+                                            <MuiMenuItem key={role.id} value={role.role.id}>{role.role.name}</MuiMenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -1091,7 +1276,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                 </FormControl>
                             </Grid>
 
-                            {/* Dynamic Place Selectors */}
+                            {/* Dynamic Place Selectors (Same logic as before) */}
                             {placeKind === 'WAREHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Depo</CustomFormLabel>
@@ -1158,7 +1343,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                 </Grid>
                             )}
 
-                            {/* Dates */}
+                            {/* Dates (EndDate REMOVED) */}
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Başlangıç Tarihi</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1168,16 +1353,10 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                         onChange={(v) => { setStartDate(v); if (startError) setStartError(false); }} renderInput={(params) => <TextField {...params} size="small" fullWidth error={startError} helperText={startError ? 'Zorunlu alan' : ''} />} />
                                 </LocalizationProvider>
                             </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Bitiş Tarihi</CustomFormLabel>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <DatePicker label="Bitiş Tarihi"
-                                        value={endDate}
-                                        inputFormat="dd/MM/yyyy"
-                                        minDate={startDate || undefined}
-                                        onChange={(v) => { setEndDate(v); if (endError) setEndError(false); }} renderInput={(params) => <TextField {...params} size="small" fullWidth error={endError} helperText={endError ? 'Zorunlu alan' : ''} />} />
-                                </LocalizationProvider>
-                            </Grid>
+                            {/* <Grid item xs={12} sm={4}>
+                                <CustomFormLabel>Bitiş Tarihi (Kayıt/Düzenleme formunda kaldırıldı)</CustomFormLabel>
+                                <TextField disabled size="small" fullWidth value="Kaldırıldı" />
+                            </Grid> */}
 
                             {/* Description */}
                             <Grid item xs={12}>
@@ -1191,7 +1370,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                     {editingId !== null ? (
                                         <>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Seçili görevlendirmeyi güncelle" : ""}>
-                                                <Button variant="contained" color="info" onClick={editAssignment} disabled={loadingButton}>{loadingButton ? <><IconHelmet fontSize={20} /> Bekleniyor...</> : 'Düzenle'}</Button>
+                                                <Button variant="contained" color="info" onClick={handleSubmitForm} disabled={loadingButton}>{loadingButton ? <><IconHelmet fontSize={20} /> Bekleniyor...</> : 'Düzenle'}</Button>
                                             </CustomTooltip>
                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Güncellemeyi iptal et ve yeni kayıt moduna dön" : ""}>
                                                 <Button variant="outlined" color="secondary" onClick={resetForm}>İptal Et</Button>
@@ -1201,7 +1380,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                         <>
                                             {hasCreatePermission && (
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni görevlendirme ekle" : ""}>
-                                                    <Button variant="contained" color="success" onClick={insertAssignment} disabled={loadingButton}>{loadingButton ? <><IconHelmet fontSize={20} /> Bekleniyor...</> : 'Yeni Görevlendirme Ekle'}</Button>
+                                                    <Button variant="contained" color="success" onClick={handleSubmitForm} disabled={loadingButton}>{loadingButton ? <><IconHelmet fontSize={20} /> Bekleniyor...</> : `Yeni ${assignmentMode === 'single' ? 'Görevlendirme' : 'Toplu Atama'} Ekle`}</Button>
                                                 </CustomTooltip>
                                             )}
                                         </>
@@ -1302,12 +1481,21 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                             <TableBody>
                                 {paginatedRows.length > 0 ? (
                                     paginatedRows.map((row) => (
-                                        <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                        // <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                        <TableRow
+                                            key={row.id}
+                                            sx={{
+                                                '&:last-child td, &:last-child th': { border: 0 },
+                                                ...(row.endDate && row.endDate !== "N/A"
+                                                    ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                    : {}
+                                                )
+                                            }}
+                                        >
                                             <StyledTableCell>{row.personnelName || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.position?.title || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.userRole ? row.userRole.title : '-'}</StyledTableCell>
 
-                                            {/* ستون Yer Türü (Type) - استفاده از فیلد محاسبه شده placeKind */}
                                             <StyledTableCell>
                                                 {row.placeKind === 'WAREHOUSE' ? 'Depo' :
                                                     row.placeKind === 'WORKHOUSE' ? 'Şantiye' :
@@ -1315,7 +1503,6 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                             row.placeKind === 'FILO' ? 'Filo' : '-'}
                                             </StyledTableCell>
 
-                                            {/* ستون Yer - استفاده از فیلد محاسبه شده placeName */}
                                             <StyledTableCell>
                                                 {row.placeName}
                                             </StyledTableCell>
@@ -1331,11 +1518,27 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                     <IconButton onClick={(e) => handleClickMenu(e, row)}><IconDots width={18} /></IconButton>
                                                 </CustomTooltip>
                                                 <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
+
                                                     {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
                                                             <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
+
+                                                    {/* NEW: İş Birliğini Sonlandır */}
+                                                    {hasEditPermission && !row.endDate && (
+                                                        <MuiMenuItem
+                                                            onClick={() => {
+                                                                setRowForEndCooperation(selectedRowForMenu);
+                                                                setEndCooperationDate(null);
+                                                                setOpenEndCooperationModal(true);
+                                                                handleCloseMenu();
+                                                            }}
+                                                        >
+                                                            <ListItemIcon><IconX width={18} color="red" /></ListItemIcon> İş Birliğini Sonlandır
+                                                        </MuiMenuItem>
+                                                    )}
+
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı sil" : ""}>
                                                             <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
@@ -1396,6 +1599,41 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 </DialogContent>
                 <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
+
+            {/* NEW: İş Birliğini Sonlandır Modal */}
+            <Dialog open={openEndCooperationModal} onClose={() => setOpenEndCooperationModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>İş Birliğini Sonlandır</DialogTitle>
+                <DialogContent>
+                    {rowForEndCooperation && (
+                        <Stack spacing={2}>
+                            <Typography>Personel: {rowForEndCooperation.personnelName}</Typography>
+                            <Typography>Pozisyon: {rowForEndCooperation.position?.title || '-'}</Typography>
+                            <Typography>Başlangıç Tarihi: {formatDateDisplay(rowForEndCooperation.startDate)}</Typography>
+
+                            <CustomFormLabel required>Bitiş Tarihi</CustomFormLabel>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <DatePicker label="Bitiş Tarihi Seçin"
+                                    value={endCooperationDate}
+                                    minDate={new Date(rowForEndCooperation.startDate)}
+                                    onChange={(v) => { setEndCooperationDate(v); setEndCoopError(false); }}
+                                    renderInput={(params) =>
+                                        <TextField {...params} size="small" fullWidth
+                                            error={endCoopError}
+                                            helperText={endCoopError ? 'Bitiş tarihi zorunludur' : ''}
+                                        />
+                                    }
+                                />
+                            </LocalizationProvider>
+                            <Alert severity="warning">Bu işlem, görevlendirmeyi sonlandıracaktır.</Alert>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenEndCooperationModal(false)} color="secondary">İptal</Button>
+                    <Button onClick={submitEndCooperation} color="error" disabled={loadingButton || !endCooperationDate}>Sonlandır</Button>
+                </DialogActions>
+            </Dialog>
+
 
             <DeletePersonnelWorkPlaces openModal={openDeleteModal} onClose={handleCloseDeleteModal} idToDelete={deleteId} nameToDelete={deleteName} onDeleteSuccess={() => fetchAssignments()} showAlert={showAlert} />
         </>

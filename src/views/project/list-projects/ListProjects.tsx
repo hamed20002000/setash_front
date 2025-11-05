@@ -273,6 +273,7 @@ const ListProjects = () => {
     // Menu & Modals
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<ProjectType | null>(null);
+
     // const openMenu = Boolean(anchorEl);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [projectIdToDelete, setProjectIdToDelete] = useState<number | null>(null);
@@ -1009,11 +1010,6 @@ const ListProjects = () => {
                         </Grid>
                     </Paper>
                 )}
-                {alertMessage && (
-                    <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
-                        <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
-                    </Stack>
-                )}
             </div>
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
@@ -1098,6 +1094,7 @@ const ListProjects = () => {
                                         label="Bitiş Tarihi"
                                         value={filterEndDate}
                                         inputFormat="dd/MM/yyyy"
+                                        minDate={filterStartDate || undefined}
                                         onChange={(newValue) => setFilterEndDate(newValue)}
                                         renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                     />
@@ -1121,6 +1118,14 @@ const ListProjects = () => {
                         </Grid>
                     </Grid>
                 </Box>
+                <>
+
+                    {alertMessage && (
+                        <Stack sx={{ width: '100%', mb: 3 }} spacing={2}>
+                            <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                        </Stack>
+                    )}
+                </>
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px">
                         <CircularProgress />

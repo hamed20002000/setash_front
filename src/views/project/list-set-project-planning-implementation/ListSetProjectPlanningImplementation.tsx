@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -55,6 +55,16 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     [theme.breakpoints.up('md')]: { fontSize: '1rem' },
 }));
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+
+    fontSize: '0.75rem', // مثلاً 12px
+    padding: '4px 8px', // برای جلوگیری از به هم ریختگی در فونت کوچک
+
+    [theme.breakpoints.up('sm')]: {
+        fontSize: '0.875rem', // مثلاً 14px
+        padding: '6px 12px',
+    },
+
+
     '&.Mui-selected': {
         color: 'white',
         ...(value === 'all' && selected && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }),
@@ -69,6 +79,14 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 }));
 const StatusToggleButton = styled(MuiToggleButton)<{ value: number, selected: boolean }>(({ theme, value, selected }) => ({
     width: '33%',
+    fontSize: '0.7rem', // مثلاً 12px
+    padding: '4px 8px', // برای جلوگیری از به هم ریختگی در فونت کوچک
+
+    [theme.breakpoints.up('sm')]: {
+        // ⬅️ اندازه فونت استاندارد برای تبلت و دسکتاپ
+        fontSize: '0.875rem', // مثلاً 14px
+        padding: '6px 12px',
+    },
     '&.Mui-selected': {
         color: 'white',
         ...(value === 1 && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
@@ -362,6 +380,8 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
     const [isFormVisible, setIsFormVisible] = useState(true);
     const [selectedCombo, setSelectedCombo] = useState<'channel' | 'transmission' | null>(null);
+    const [usedChannelIds, setUsedChannelIds] = useState<Set<number>>(new Set());
+    const [usedTransmissionIds, setUsedTransmissionIds] = useState<Set<number>>(new Set());
     const [isBlinking, setIsBlinking] = useState(true);
 
     // table ui
@@ -392,7 +412,19 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const hasDeletePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Silmek') ?? false, [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak') ?? false, [allowedOperations]);
 
-    /* Alerts */
+
+    const cableAmountRef = useRef<HTMLInputElement>(null);
+
+    const handleCableAmountFocus = useCallback((e: React.FocusEvent<HTMLInputElement>) => {
+        const target = e.target;
+        const currentValue = Number(target.value) || 0;
+
+        if (currentValue === 0) {
+            setTimeout(() => {
+                target.select();
+            }, 0);
+        }
+    }, []);
     const showAlert = useCallback((m: string, s: typeof alertSeverity) => { setAlertMessage(m); setAlertSeverity(s); }, []);
     const clearAlert = () => setAlertMessage(null);
 
@@ -400,9 +432,38 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const handleFormInputChange = (key: string, value: any) => setFormData((prev: any) => ({ ...prev, [key]: value }));
     const resetFormAndState = () => { setFormData({}); setEditingId(null); setIsFormVisible(false); setSelectedCombo(null); clearAlert(); };
 
-    /* Combo change (channel/transmission) */
-    const handleComboChange = (comboType: 'channel' | 'transmission', value: number | null) => {
-        const base: any = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => { (acc as any)[f.key] = 0; return acc; }, {
+
+
+    const handleComboChange = useCallback((comboType: 'channel' | 'transmission', value: number | null) => {
+
+        const isChannelUsed = value !== null && comboType === 'channel' && usedChannelIds.has(value);
+        const isTransmissionUsed = value !== null && comboType === 'transmission' && usedTransmissionIds.has(value);
+
+        const existingRow = (isChannelUsed || isTransmissionUsed)
+            ? implementationsList.find(r =>
+                (comboType === 'channel' && r.channelRowId === value) ||
+                (comboType === 'transmission' && r.transmissionRowId === value)
+            )
+            : null;
+
+        if (value !== null && existingRow) {
+            setEditingId(existingRow.id);
+            setIsFormVisible(true);
+            setSelectedCombo(comboType);
+
+            const base: any = { ...existingRow };
+            base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
+            setFormData(base);
+
+            showAlert(`Seçilen ${comboType === 'channel' ? 'Direk' : 'İletken'} daha önce kaydedilmiş. Düzenleme moduna geçildi.`, 'info');
+            return;
+        }
+        if (editingId !== null) setEditingId(null);
+
+        const base: any = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
+            (acc as any)[f.key] = 0;
+            return acc;
+        }, {
             description: formData.description || '',
             channelRowId: null,
             transmissionRowId: null,
@@ -411,15 +472,17 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
         if (comboType === 'channel' && value !== null) {
             setSelectedCombo('channel');
-            setFormData({ ...base, ...formData, channelRowId: value, transmissionRowId: null, cekilenKabloMiktari: 0 });
+            setFormData({ ...base, channelRowId: value, transmissionRowId: null, cekilenKabloMiktari: 0 });
         } else if (comboType === 'transmission' && value !== null) {
             setSelectedCombo('transmission');
-            setFormData({ ...base, ...formData, transmissionRowId: value, channelRowId: null });
+            setFormData({ ...base, transmissionRowId: value, channelRowId: null, cekilenKabloMiktari: formData.cekilenKabloMiktari || 0 });
         } else {
             setSelectedCombo(null);
             setFormData(base);
         }
-    };
+    }, [implementationsList, editingId, formData, showAlert]);
+
+
     const isCekilenKabloMiktariVisible = useMemo(() => selectedCombo === 'transmission' || selectedCombo === 'channel', [selectedCombo]);
 
     /* Fetch implementations (LIST) + filter by projectPlanningDateId */
@@ -434,9 +497,23 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
 
+            // const list: ApiImplementItem[] = res.data?.data || [];
+            // const filtered = list.filter(it => Number(it.projectPlanningImplementationDate?.id) === projectPlanningDateId);
+            // const rows = filtered.map(mapApiItemToRow);
+            // setImplementationsList(rows);
+
             const list: ApiImplementItem[] = res.data?.data || [];
             const filtered = list.filter(it => Number(it.projectPlanningImplementationDate?.id) === projectPlanningDateId);
             const rows = filtered.map(mapApiItemToRow);
+
+            // ⬅️ منطق جدید: جمع آوری ID های استفاده شده
+            const usedChannels = new Set(rows.map(r => r.channelRowId).filter(id => id !== null) as number[]);
+            const usedTransmissions = new Set(rows.map(r => r.transmissionRowId).filter(id => id !== null) as number[]);
+
+            // ⬅️ باید یک state برای نگهداری این ID ها اضافه کنیم
+            setUsedChannelIds(usedChannels);
+            setUsedTransmissionIds(usedTransmissions);
+
             setImplementationsList(rows);
         } catch (e) {
             showAlert('Uygulama verisi alınırken bir hata oluştu.', 'error');
@@ -781,26 +858,37 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 ) : (
                     <>
                         {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
-                            <Grid container spacing={4} sx={{ border: '1px solid #ddd', p: 3, borderRadius: '8px', mt: 2 }}>
+                            <Grid container spacing={4} sx={{ border: '1px solid #ddd', borderRadius: '8px', mt: 2 }}>
                                 <Grid item xs={12}>
                                     <Typography variant="h6" fontWeight="bold" mb={2} color="primary.main">1. Uygulama Tipi ve Değer Girişi</Typography>
                                     <Grid container spacing={3} alignItems="flex-start">
                                         <Grid item xs={12} md={4}>
                                             <AutocompleteCombo
                                                 label="Direkler"
-                                                options={channelOptions}
+                                                options={channelOptions.filter(o => editingId === null || o.id === formData.channelRowId)} // فیلتر لیست هنگام ویرایش (اگر نیاز به تغییر نوع نباشد)
                                                 value={formData.channelRowId || null}
                                                 onChange={(id) => handleComboChange('channel', id)}
-                                                disabled={selectedCombo === 'transmission' || isFormDisabled}
+                                                // disabled={selectedCombo === 'transmission' || isFormDisabled}
+                                                disabled={
+                                                    // 1. اگر هم‌اکنون Direkler انتخاب شده
+                                                    // selectedCombo === 'channel' ||
+                                                    isFormDisabled ||
+                                                    editingId !== null
+                                                }
                                             />
                                         </Grid>
                                         <Grid item xs={12} md={4}>
                                             <AutocompleteCombo
                                                 label="İletkenler"
-                                                options={transmissionOptions}
+                                                options={transmissionOptions.filter(o => editingId === null || o.id === formData.transmissionRowId)} // فیلتر لیست هنگام ویرایش
                                                 value={formData.transmissionRowId || null}
                                                 onChange={(id) => handleComboChange('transmission', id)}
-                                                disabled={selectedCombo === 'channel' || isFormDisabled}
+                                                // disabled={selectedCombo === 'channel' || isFormDisabled}
+                                                disabled={
+                                                    // selectedCombo === 'transmission' ||
+                                                    isFormDisabled ||
+                                                    editingId !== null
+                                                }
                                             />
                                         </Grid>
                                         <Grid item xs={12} md={4}>
@@ -811,7 +899,13 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                                         type="number"
                                                         value={formData.cekilenKabloMiktari || 0}
                                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFormInputChange('cekilenKabloMiktari', Number(e.target.value))}
-                                                        fullWidth size="small" inputProps={{ min: 0 }}
+
+                                                        onFocus={handleCableAmountFocus}
+
+                                                        inputRef={cableAmountRef}
+
+                                                        fullWidth size="small"
+                                                        inputProps={{ min: 0 }}
                                                         disabled={selectedCombo === 'channel' || isFormDisabled}
                                                         helperText={selectedCombo === 'channel' ? "Direkler seçildi, bu değer sıfır olarak gönderilecektir." : ""}
                                                     />

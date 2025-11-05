@@ -73,6 +73,8 @@ const DeleteProject = ({ openModal, projectIdToDelete, projectTitleToDelete, onC
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
                 navigate("/");
             }
+
+            onClose();
         } finally {
             setLoading(false);
         }

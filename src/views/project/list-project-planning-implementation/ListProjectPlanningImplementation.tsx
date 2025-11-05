@@ -336,6 +336,7 @@ const ListProjectPlanningImplementation = () => {
     const fetchImplementationByPlanning = useCallback(async (planningId: string, startISO: string, endISO: string) => {
         if (!authToken) { navigate("/"); return; }
         setLoading(true);
+        debugger
         try {
             const url = server.baseurl + server.warehouse + `get-project-planning-implementation-dates-by-project-planning-id/${planningId}`;
             const res = await axios.get<ApiResponse<any>>(url, { headers: { Authorization: `Bearer ${authToken}` } });
@@ -528,8 +529,8 @@ const ListProjectPlanningImplementation = () => {
                 if (mode === "normal") {
                     setIsForceMajor(false);
                     setForceMajorId(null);
-                    const newDateId = res.data?.data?.id || res.data?.data?.projectPlanningDateId || null;
-                    if (newDateId) setDetailDateId(Number(newDateId));
+                    // const newDateId = res.data?.data?.id || res.data?.data?.projectPlanningDateId || null;
+                    // if (newDateId) setDetailDateId(Number(newDateId));
                 }
             } else {
                 showAlert(res.data?.message || "Kayıt oluşturulamadı.", "error");
@@ -733,31 +734,34 @@ const ListProjectPlanningImplementation = () => {
                                             <Typography variant="body2">Mücbir Sebep?</Typography>
 
                                             {isForceMajor && (
-                                                <Autocomplete<ForceMajorType>
-                                                    options={forceMajors}
-                                                    getOptionLabel={(o) => o.title}
-                                                    value={forceMajors.find(f => Number(f.id) === forceMajorId) || null}
-                                                    onChange={(_, nv) => setForceMajorId(nv ? Number(nv.id) : null)}
-                                                    renderInput={(p) => <TextField {...p} size="small" placeholder="Mücbir sebep seçin" sx={{ minWidth: 220 }} />}
-                                                    isOptionEqualToValue={(a, b) => a.id === b?.id}
-                                                    disabled={isForceCheckboxDisabled}
-                                                />
+                                                <>
+
+                                                    <Autocomplete<ForceMajorType>
+                                                        options={forceMajors}
+                                                        getOptionLabel={(o) => o.title}
+                                                        value={forceMajors.find(f => Number(f.id) === forceMajorId) || null}
+                                                        onChange={(_, nv) => setForceMajorId(nv ? Number(nv.id) : null)}
+                                                        renderInput={(p) => <TextField {...p} size="small" placeholder="Mücbir sebep seçin" sx={{ minWidth: 220 }} />}
+                                                        isOptionEqualToValue={(a, b) => a.id === b?.id}
+                                                        disabled={isForceCheckboxDisabled}
+                                                    />
+                                                    <Button
+                                                        variant="contained"
+                                                        color={isForceMajor ? "error" : "success"}
+                                                        startIcon={<IconCheck />}
+                                                        disabled={
+                                                            !activePlanning ||
+                                                            !selectedDay ||
+                                                            !hasCreatePermission ||
+                                                            (isForceMajor && isForceCheckboxDisabled) // دکمه Force هم غیرفعال شود
+                                                        }
+                                                        onClick={() => handleSubmit(isForceMajor ? "force" : "normal")}
+                                                    >
+                                                        {isForceMajor ? "Mücbir Sebep Kaydet" : ""}
+                                                    </Button>
+                                                </>
                                             )}
 
-                                            <Button
-                                                variant="contained"
-                                                color={isForceMajor ? "error" : "success"}
-                                                startIcon={<IconCheck />}
-                                                disabled={
-                                                    !activePlanning ||
-                                                    !selectedDay ||
-                                                    !hasCreatePermission ||
-                                                    (isForceMajor && isForceCheckboxDisabled) // دکمه Force هم غیرفعال شود
-                                                }
-                                                onClick={() => handleSubmit(isForceMajor ? "force" : "normal")}
-                                            >
-                                                {isForceMajor ? "Mücbir Sebep Kaydet" : "Kaydet"}
-                                            </Button>
                                         </Stack>
                                     </Stack>
 
@@ -843,7 +847,7 @@ const ListProjectPlanningImplementation = () => {
                                                                     >
                                                                         Kaydet
                                                                     </Button>
-                                                                    <Button
+                                                                    {/* <Button
                                                                         size="small"
                                                                         variant="outlined"
                                                                         color="error"
@@ -853,7 +857,7 @@ const ListProjectPlanningImplementation = () => {
                                                                         sx={{ width: { xs: "100%", sm: "auto" } }}
                                                                     >
                                                                         Mücbir Sebep
-                                                                    </Button>
+                                                                    </Button> */}
                                                                 </Stack>
                                                             </ListItemSecondaryAction>
                                                         </ListItem>

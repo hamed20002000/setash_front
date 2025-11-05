@@ -257,7 +257,7 @@ const ListRequestReceipt: React.FC = () => {
                 // Talep ID'sini başlık alanına ekle
                 doc.setFontSize(10);
                 doc.setFont('Arial', 'normal');
-                doc.text(`Talep ID: ${requestData.id}`, 15, 32);
+                // doc.text(`Talep ID: ${requestData.id}`, 15, 32);
 
             },
             showHead: 'firstPage',
@@ -353,11 +353,7 @@ const ListRequestReceipt: React.FC = () => {
         debugger
         if (!selectedRowForMenu || newStatus === null) return;
 
-        // اگر رد شد و توضیحات ضروری است، اینجا اعتبار سنجی کنید
-        if (newStatus === 2 && !statusDescription.trim()) {
-            showAlert("Reddetme işlemi için açıklama girmelisiniz.", "warning");
-            return;
-        }
+
 
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
@@ -464,7 +460,7 @@ const ListRequestReceipt: React.FC = () => {
         <Box sx={{ p: 3, position: 'relative' }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5" sx={{ display: 'flex', alignItems: 'center' }}>
-                    <IconInbox style={{ marginRight: 8 }} /> Gelen Talep Onayları
+                    <IconInbox style={{ marginRight: 8 }} /> Gelen Talepler
                 </Typography>
             </Stack>
 
