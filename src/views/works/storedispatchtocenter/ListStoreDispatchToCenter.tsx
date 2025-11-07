@@ -1466,7 +1466,7 @@ const ListStoreDispatchToCenter = () => {
                             {notifIds.length > 0 && (
                                 <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
                                     <Chip
-                                        label={`Bildirim filtresi: ${notifIds.length} id`}
+                                        label={`Bildirim filtresi: ${notifIds.length}`}
                                         color="error"
                                         size="small"
                                     />

@@ -348,7 +348,6 @@ const ListRequestReceipt: React.FC = () => {
         setStatusDescription('');
     };
 
-    // ⬅️ API CALL: update-request-status
     const submitStatusUpdate = async () => {
         debugger
         if (!selectedRowForMenu || newStatus === null) return;

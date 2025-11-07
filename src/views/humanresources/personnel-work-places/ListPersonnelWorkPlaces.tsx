@@ -45,7 +45,7 @@ import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
 const formatDateDisplay = (dateString: string | null): string => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "-";
     try {
         // برای حل مشکل فرمت ISO در برخی تاریخ‌ها
         const date = new Date(dateString.length === 10 ? dateString : String(dateString));
@@ -134,7 +134,6 @@ interface UserType {
     id: string; username: string; email: string; status: string; recordStatus: number; imageUrl: string;
     userRoles: RoleLite[]; // اضافه شده برای رفع خطا
 }
-interface Role { id: string; name: string; recordStatus: number; }
 
 
 // توابع کمکی مرتب‌سازی (unchanged)
@@ -283,12 +282,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
                 // CRITICAL: فیلتر کردن پرسنلی که hasISG = true دارند
                 const filteredAndMapped = data
-                    .filter(p => p.hasISG === true)
+                    .filter(p => p.hasISG === true && (!p.workEndDate || p.workEndDate === null)) // <-- شرط workEndDate اضافه شد
                     .map(p => ({
                         id: Number(p.id),
                         name: p.name,
                         family: p.family,
-                        hasISG: p.hasISG // ذخیره hasISG
+                        hasISG: p.hasISG
                     })) as PersonnelLite[];
 
                 setPersonnels(filteredAndMapped);
@@ -411,15 +410,38 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         }).catch((_e) => { showAlert('Kullanıcı listesi alınırken bir hata oluştu.', 'error'); });
     }, [navigate]);
 
+    // const getUserRoles = (userId: string) => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`, {
+    //         headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+    //     }).then((result) => {
+    //         if (result.data.httpStatusCode === 200) {
+    //             debugger
+    //             const userRoles = result.data.data.userRoles.filter((role: Role) => role.recordStatus === 0);
+    //             setUserRolesList(userRoles);
+    //         } else {
+    //             showAlert(result.data.message || 'Kullanıcı rol listesi alınırken bir hata oluştu.', 'error');
+    //         }
+    //     }).catch((_e) => {
+    //         showAlert('Kullanıcı rol listesi alınırken bir hata oluştu.', 'error');
+    //     });
+    // };
+
+
+    // ListPersonnelWorkPlaces.tsx - حدود خط 344
     const getUserRoles = (userId: string) => {
         const authToken = localStorage.getItem('authToken');
         axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`, {
             headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
         }).then((result) => {
             if (result.data.httpStatusCode === 200) {
-                debugger
-                const userRoles = result.data.data.userRoles.filter((role: Role) => role.recordStatus === 0);
-                setUserRolesList(userRoles);
+                // debugger // <-- حذف شد
+                const userRoles = result.data.data.userRoles
+                    // 1. فیلتر کردن وضعیت RecordStatus=0
+                    .filter((role: RoleLite) => role.recordStatus === 0)
+                // 2. Map کردن به ساختار دلخواه اگر نیاز باشد، در غیر این صورت مستقیماً استفاده می‌کنیم
+
+                setUserRolesList(userRoles); // userRolesList اکنون RoleLite[] است
             } else {
                 showAlert(result.data.message || 'Kullanıcı rol listesi alınırken bir hata oluştu.', 'error');
             }
@@ -633,7 +655,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
         const baseItem = {
             positionId: Number(positionId),
-            userRoleId: userRoleId ?? 0,
+            userRoleId: isBulk ? null : (userRoleId ?? 0),
             placeId: Number(placeIdToSend),
             type: typeToSend,
             startDate: startDate ? new Date(startDate).toISOString() : null,
@@ -746,7 +768,8 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         setAssignmentMode('single'); // Always switch to single mode when editing
 
         setPositionId(r.position?.id ?? '');
-        setUserRoleId(r.userRole?.id ?? null);
+        // setUserRoleId(r.userRole?.id ?? null);
+        setUserRoleId(Number(r.userRole?.id) ?? null);
 
         // Find the User ID associated with the User Role ID in the list
         const relatedUser = usersList.find(u => u.userRoles && u.userRoles.some(role => Number(role.role.id) === r.userRole?.id));
@@ -1250,12 +1273,23 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                 <CustomFormLabel>Kullanıcı Rolü</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }}>
                                     <InputLabel id="sel-userrole">Kullanıcı Rolü</InputLabel>
-                                    <Select labelId="sel-userrole" label="Kullanıcı Rolü" value={userRoleId || ''}
+                                    {/* <Select labelId="sel-userrole" label="Kullanıcı Rolü" value={userRoleId || ''}
                                         onChange={(e) => setUserRoleId(Number(e.target.value))}
                                         disabled={isUserRoleDisabled || userRolesList.length === 0 || assignmentMode === 'bulk'} // Disable in bulk mode
                                     >
                                         {userRolesList.filter(role => role.recordStatus === 0).map((role) => (
                                             <MuiMenuItem key={role.id} value={role.role.id}>{role.role.name}</MuiMenuItem>
+                                        ))}
+                                    </Select> */}
+
+                                    <Select labelId="sel-userrole" label="Kullanıcı Rolü" value={userRoleId || ''}
+                                        onChange={(e) => setUserRoleId(Number(e.target.value))} // <-- مقدار عددی userRoleId
+                                        disabled={assignmentMode === 'bulk' || userRolesList.length === 0}
+                                    >
+                                        {userRolesList.filter(role => role.recordStatus === 0).map((roleItem) => (
+                                            <MuiMenuItem key={roleItem.id} value={roleItem.id}>
+                                                {roleItem.role.name}
+                                            </MuiMenuItem>
                                         ))}
                                     </Select>
                                 </FormControl>
@@ -1353,12 +1387,6 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                         onChange={(v) => { setStartDate(v); if (startError) setStartError(false); }} renderInput={(params) => <TextField {...params} size="small" fullWidth error={startError} helperText={startError ? 'Zorunlu alan' : ''} />} />
                                 </LocalizationProvider>
                             </Grid>
-                            {/* <Grid item xs={12} sm={4}>
-                                <CustomFormLabel>Bitiş Tarihi (Kayıt/Düzenleme formunda kaldırıldı)</CustomFormLabel>
-                                <TextField disabled size="small" fullWidth value="Kaldırıldı" />
-                            </Grid> */}
-
-                            {/* Description */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
                                 <CustomTextField placeholder="Açıklama" fullWidth value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} inputRef={nameInputRef} />
@@ -1508,7 +1536,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                             </StyledTableCell>
 
                                             <StyledTableCell>{formatDateDisplay(row.startDate)}</StyledTableCell>
-                                            <StyledTableCell>{formatDateDisplay(row.endDate)}</StyledTableCell>
+                                            <StyledTableCell>{row.endDate == 'N/A' ? '-' : formatDateDisplay(row.endDate)}</StyledTableCell>
 
                                             <StyledTableCell sx={{ maxWidth: 280 }}>
                                                 <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
@@ -1519,14 +1547,8 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                 </CustomTooltip>
                                                 <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
 
-                                                    {hasEditPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
-                                                            <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
-                                                        </CustomTooltip>
-                                                    )}
 
-                                                    {/* NEW: İş Birliğini Sonlandır */}
-                                                    {hasEditPermission && !row.endDate && (
+                                                    {hasEditPermission && selectedRowForMenu && selectedRowForMenu.endDate === null && (
                                                         <MuiMenuItem
                                                             onClick={() => {
                                                                 setRowForEndCooperation(selectedRowForMenu);
@@ -1535,8 +1557,13 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                                 handleCloseMenu();
                                                             }}
                                                         >
-                                                            <ListItemIcon><IconX width={18} color="red" /></ListItemIcon> İş Birliğini Sonlandır
+                                                            <ListItemIcon><IconX width={18} /></ListItemIcon> Görev Sonlandırma
                                                         </MuiMenuItem>
+                                                    )}
+                                                    {hasEditPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
+                                                            <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
+                                                        </CustomTooltip>
                                                     )}
 
                                                     {hasDeletePermission && (
@@ -1614,6 +1641,8 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <DatePicker label="Bitiş Tarihi Seçin"
                                     value={endCooperationDate}
+
+                                    inputFormat="dd/MM/yyyy"
                                     minDate={new Date(rowForEndCooperation.startDate)}
                                     onChange={(v) => { setEndCooperationDate(v); setEndCoopError(false); }}
                                     renderInput={(params) =>

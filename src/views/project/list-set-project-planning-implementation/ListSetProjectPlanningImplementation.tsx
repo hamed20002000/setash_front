@@ -837,7 +837,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
     return (
         <>
-            <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
+            <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 1px 30px 1px" }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
                     <Chip label="Plan Uygulama" color="primary" variant="filled" size="small" />
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
@@ -858,7 +858,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 ) : (
                     <>
                         {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
-                            <Grid container spacing={4} sx={{ border: '1px solid #ddd', borderRadius: '8px', mt: 2 }}>
+                            <Grid container sx={{ mt: 2 }}>
                                 <Grid item xs={12}>
                                     <Typography variant="h6" fontWeight="bold" mb={2} color="primary.main">1. Uygulama Tipi ve Değer Girişi</Typography>
                                     <Grid container spacing={3} alignItems="flex-start">
@@ -917,10 +917,10 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
                                 <Grid item xs={12}>
                                     <Typography variant="h6" fontWeight="bold" mb={2} color="primary.main">2. Proje Uygulama Durumları</Typography>
-                                    <Grid container spacing={1}>
+                                    <Grid container >
                                         {selectedCombo === 'channel' ? (
                                             ALL_IMPLEMENTATION_FIELDS.map(field => (
-                                                <Grid item xs={12} sm={6} key={field.key} sx={{ p: 2, border: '1px solid #e0e0e0', borderRadius: '8px', mb: 2 }}>
+                                                <Grid item xs={12} sm={6} key={field.key} sx={{ p: 1, border: '1px solid #e0e0e0', borderRadius: '8px', mb: 2 }}>
                                                     <CustomFormLabel>{field.label}</CustomFormLabel>
                                                     <ToggleButtonGroup
                                                         value={formData[field.key] || 0}
@@ -985,10 +985,10 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 <Grid item xs={12} sx={{ mt: 2 }}>
                     <Stack
                         direction={{ xs: "column", sm: "row" }}
-                        spacing={1}
+
                         alignItems={{ xs: "stretch", sm: "center" }}
                         justifyContent="flex-end"
-                        sx={{ mr: { sm: 2 }, textAlign: { xs: "left", sm: "right" } }}
+                        sx={{ mr: { sm: 2 }, textAlign: { xs: "left", sm: "right" }, p: 1 }}
                     >
                         {isFilterActive && hasDownloadPermission && (
                             <BlinkingButton

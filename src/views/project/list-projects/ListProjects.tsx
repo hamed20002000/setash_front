@@ -112,7 +112,7 @@ const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) 
 
 // === Utility Functions ===
 const formatDateDisplay = (dateString: string | null): string => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "-";
     try {
         const date = new Date(dateString);
         return format(date, 'dd MMMM yyyy', { locale: tr });
@@ -261,6 +261,10 @@ const ListProjects = () => {
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+
+    const [openEndProjectModal, setOpenEndProjectModal] = useState(false);
+    const [endProjectDate, setEndProjectDate] = useState<Date | null>(null);
+    const [endProjectError, setEndProjectError] = useState(false);
 
     // Table States
     const [page, setPage] = useState(0);
@@ -503,7 +507,7 @@ const ListProjects = () => {
             title, code, type,
             startDate: startDate?.toISOString(),
             predictEndDate: predictEndDate?.toISOString(),
-            endDate: endDate == null ? null : endDate?.toISOString(),
+            endDate: null,
             workhouseId: Number(selectedWorkhouseId),
             firmId: Number(selectedFirmId),
         };
@@ -611,6 +615,52 @@ const ListProjects = () => {
             handleCloseMenu();
         }
     };
+
+
+    // ListProjects.tsx - در کنار سایر توابع submit/edit (حدود خط 560)
+    const submitEndProject = async () => {
+        if (!selectedProjectForDownload || !endProjectDate) {
+            setEndProjectError(true);
+            showAlert('Lütfen gerçek bitiş tarihini seçin.', 'warning');
+            return;
+        }
+
+        // اعتبارسنجی: تاریخ پایان نباید از تاریخ شروع کمتر باشد
+        const startDate = new Date(selectedProjectForDownload.startDate);
+        if (endProjectDate < startDate) {
+            setEndProjectError(true);
+            showAlert('Gerçek bitiş tarihi, başlangıç tarihinden önce olamaz!', 'error');
+            return;
+        }
+
+        setEndProjectError(false);
+        setLoadingButton(true);
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const payload = {
+                id: Number(selectedProjectForDownload.id),
+                endDate: endProjectDate.toISOString()
+            };
+
+            const response = await axios.put(server.baseurl + server.warehouse + "update-project", payload, {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (response.data.httpStatusCode === 200) {
+                showAlert('Proje başarıyla sonlandırıldı ve güncellendi!', 'success');
+                setOpenEndProjectModal(false);
+                fetchProjects();
+            } else {
+                showAlert(response.data.message || 'Proje sonlandırılırken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert(e.response?.data?.message || 'Proje sonlandırılırken bir hata oluştu.', 'error');
+        } finally {
+            setLoadingButton(false);
+        }
+    };
+
     // Table Actions
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: ProjectType) => {
         setAnchorEl(event.currentTarget);
@@ -980,7 +1030,7 @@ const ListProjects = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
-                            <Grid item xs={12} sm={6}>
+                            {/* <Grid item xs={12} sm={6}>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                     <CustomFormLabel htmlFor="end-date">Gerçek Bitiş Tarihi</CustomFormLabel>
                                     <DatePicker
@@ -992,7 +1042,7 @@ const ListProjects = () => {
                                         renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                     />
                                 </LocalizationProvider>
-                            </Grid>
+                            </Grid> */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
                                     {editingId !== null ? (
@@ -1167,7 +1217,15 @@ const ListProjects = () => {
                             <TableBody>
                                 {paginatedProjects.length > 0 ? (
                                     paginatedProjects.map((row) => (
-                                        <TableRow key={row.id}>
+                                        <TableRow key={row.id}
+                                            sx={{
+                                                '&:last-child td, &:last-child th': { border: 0 },
+                                                ...(row.endDate && row.endDate !== "N/A"
+                                                    ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                    : {}
+                                                )
+                                            }}
+                                        >
                                             <StyledTableCell><Typography variant="body1">{row.title || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{mapProjectTypeToString(row.type)}</Typography></StyledTableCell>
@@ -1192,6 +1250,18 @@ const ListProjects = () => {
                                                             Planlama Sayfasına Git
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
+                                                    {hasEditPermission && row.recordStatus === 0 && row.endDate === null && (
+                                                        <MuiMenuItem
+                                                            onClick={() => {
+                                                                setSelectedProjectForDownload(row); // استفاده مجدد از state موقت
+                                                                setEndDate(null); // تاریخ پایان موقت را ریست می‌کنیم
+                                                                setOpenEndProjectModal(true); // مودال جدید
+                                                                handleCloseMenu();
+                                                            }}
+                                                        >
+                                                            <ListItemIcon><IconX width={18} /></ListItemIcon> Gerçek Bitiş Kaydet
+                                                        </MuiMenuItem>
+                                                    )}
                                                     {hasEditPermission && selectedRowForMenu?.recordStatus === 0 ? (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu projeyi pasif yap" : ""}>
                                                             <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 1)}>
@@ -1326,6 +1396,45 @@ const ListProjects = () => {
                 <DialogActions>
                     <Button onClick={handleCloseRowDownloadModal} color="secondary">
                         Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openEndProjectModal} onClose={() => setOpenEndProjectModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Gerçek Bitiş Tarihini Kaydet</DialogTitle>
+                <DialogContent>
+                    {selectedProjectForDownload && (
+                        <Stack spacing={2}>
+                            <Typography variant="h6">Proje: {selectedProjectForDownload.title} ({selectedProjectForDownload.code})</Typography>
+                            <Typography variant="body2">Başlangıç Tarihi: {formatDateDisplay(selectedProjectForDownload.startDate)}</Typography>
+                            <Typography variant="body2">Tahmini Bitiş Tarihi: {formatDateDisplay(selectedProjectForDownload.predictEndDate)}</Typography>
+
+                            <CustomFormLabel required>Gerçek Bitiş Tarihi Seçin</CustomFormLabel>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <DatePicker
+                                    label="Gerçek Bitiş Tarihi"
+                                    value={endProjectDate}
+                                    onChange={(v) => { setEndProjectDate(v); setEndProjectError(false); }}
+                                    inputFormat="dd/MM/yyyy"
+                                    minDate={new Date(selectedProjectForDownload.startDate)}
+                                    renderInput={(params) => (
+                                        <TextField {...params} size="small" fullWidth
+                                            error={endProjectError}
+                                            helperText={endProjectError ? 'Tarih zorunludur ve başlangıç tarihinden küçük olamaz.' : ''}
+                                        />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                            <Alert severity="info">Bu işlem projeyi pasif duruma alacaktır.</Alert>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenEndProjectModal(false)} color="secondary" disabled={loadingButton}>
+                        İptal
+                    </Button>
+                    <Button onClick={submitEndProject} color="success" disabled={loadingButton || !endProjectDate}>
+                        {loadingButton ? 'Kaydediliyor...' : 'Kaydet'}
                     </Button>
                 </DialogActions>
             </Dialog>

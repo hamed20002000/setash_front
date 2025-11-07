@@ -161,7 +161,7 @@ const Notifications = () => {
 
   // === Offline fetch (on mount & role change by storage)
   const fetchOfflineNotifs = useCallback(async () => {
-    debugger
+
     try {
       const authToken = localStorage.getItem('authToken');
       const role = localStorage.getItem('activeUserRoleName') || '';
@@ -345,7 +345,7 @@ const Notifications = () => {
     if (!authToken) return [];
 
     const base = server.baseurl + server.baseinfo;
-    debugger
+
     try {
       if (notifIds?.length) {
         const calls = notifIds.map((id) =>

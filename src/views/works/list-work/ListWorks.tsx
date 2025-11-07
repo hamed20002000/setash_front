@@ -12,7 +12,11 @@ import {
     CircularProgress, TableSortLabel, Autocomplete,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     ListItemIcon,
-    Paper
+    Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
@@ -71,7 +75,7 @@ interface WorkType {
     id: number;
     title: string;
     startDate: string;
-    endDate: string;
+    endDate: string | null;
     tenderId: number;
     tenderTitle?: string;
     createAt: string;
@@ -154,7 +158,7 @@ const ListWorks = () => {
     const navigate = useNavigate();
     const [title, setTitle] = useState<string>('');
     const [startDate, setStartDate] = useState<Date | null>(new Date());
-    const [endDate, setEndDate] = useState<Date | null>(new Date());
+    const [endDate, setEndDate] = useState<Date | null>(null);
     const [selectedTenderOption, setSelectedTenderOption] = useState<TenderOption | null>(null);
     const [tenderOptions, setTenderOptions] = useState<TenderOption[]>([]);
     const [worksList, setWorksList] = useState<WorkType[]>([]);
@@ -182,11 +186,16 @@ const ListWorks = () => {
     const workTitleInputRef = useRef<HTMLInputElement>(null);
     const [titleError, setTitleError] = useState<boolean>(false);
     const [startDateError, setStartDateError] = useState<boolean>(false);
-    const [endDateError, setEndDateError] = useState<boolean>(false);
+    // const [endDateError, setEndDateError] = useState<boolean>(false);
     const [tenderIdError, setTenderIdError] = useState<boolean>(false);
     const [formErrors, setFormErrors] = useState<string | null>(null);
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
+
+    const [openEndWorkModal, setOpenEndWorkModal] = useState(false);
+    const [workForEnd, setWorkForEnd] = useState<WorkType | null>(null);
+    const [endWorkDate, setEndWorkDate] = useState<Date | null>(null);
+    const [endWorkError, setEndWorkError] = useState(false);
 
 
 
@@ -279,18 +288,17 @@ const ListWorks = () => {
         if (selectedRowForMenu) {
             setTitle(selectedRowForMenu.title);
             setStartDate(new Date(selectedRowForMenu.startDate));
-            setEndDate(new Date(selectedRowForMenu.endDate));
-            debugger
+            // setEndDate(new Date(selectedRowForMenu.endDate));
             const foundTender = tenderOptions.find(t => Number(t.id) === selectedRowForMenu.tenderId);
             setSelectedTenderOption(foundTender || null);
             setOriginalTitle(selectedRowForMenu.title);
             setOriginalStartDate(new Date(selectedRowForMenu.startDate));
-            setOriginalEndDate(new Date(selectedRowForMenu.endDate));
+            // setOriginalEndDate(new Date(selectedRowForMenu.endDate));
             setOriginalSelectedTenderOption(foundTender || null);
             setEditingId(selectedRowForMenu.id);
             setTitleError(false);
             setStartDateError(false);
-            setEndDateError(false);
+            // setEndDateError(false);
             setTenderIdError(false);
             setFormErrors(null);
             setTimeout(() => {
@@ -308,7 +316,7 @@ const ListWorks = () => {
         clearAlert();
         setTitleError(false);
         setStartDateError(false);
-        setEndDateError(false);
+        // setEndDateError(false);
         setTenderIdError(false);
         setFormErrors(null);
     };
@@ -327,19 +335,7 @@ const ListWorks = () => {
         } else {
             setStartDateError(false);
         }
-        if (!endDate) {
-            setEndDateError(true);
-            isValid = false;
-        } else {
-            setEndDateError(false);
-        }
-        if (startDate && endDate && startDate > endDate) {
-            setEndDateError(true);
-            setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
-            isValid = false;
-        } else {
-            if (!endDateError) setFormErrors(null);
-        }
+
         if (editingId === null && (!selectedTenderOption || selectedTenderOption.id === 0)) {
             setTenderIdError(true);
             isValid = false;
@@ -364,7 +360,7 @@ const ListWorks = () => {
             const payload = {
                 title: title,
                 startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-                endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+                endDate: null,
                 tenderId: selectedTenderOption ? Number(selectedTenderOption.id) : 0,
             };
             const response = await axios.post(
@@ -422,7 +418,7 @@ const ListWorks = () => {
                 id: Number(editingId),
                 title: title,
                 startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-                endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+                endDate: selectedRowForMenu?.endDate || null,
                 tenderId: originalSelectedTenderOption ? Number(originalSelectedTenderOption.id) : 0,
             };
             const response = await axios.put(
@@ -496,6 +492,51 @@ const ListWorks = () => {
             handleCloseMenu();
         }
     };
+
+    // ListWorks.tsx - حدود خط 560
+    const submitEndWork = async () => {
+        if (!workForEnd || !endWorkDate) {
+            setEndWorkError(true);
+            showAlert('Lütfen bitiş tarihini seçin.', 'warning');
+            return;
+        }
+
+        const startDate = new Date(workForEnd.startDate);
+        if (endWorkDate < startDate) {
+            setEndWorkError(true);
+            showAlert('Bitiş tarihi başlangıç tarihinden önce olamaz!', 'error');
+            return;
+        }
+
+        setEndWorkError(false);
+        setLoadingButton(true);
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const payload = {
+                id: Number(workForEnd.id),
+                // فقط فیلدهای مورد نیاز
+                endDate: format(endWorkDate, 'yyyy-MM-dd')
+            };
+
+            const response = await axios.put(server.baseurl + server.initialoperations + "update-work", payload, {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (response.data.httpStatusCode === 200) {
+                showAlert('İş başarıyla sonlandırıldı ve güncellendi!', 'success');
+                setOpenEndWorkModal(false);
+                getListWork();
+            } else {
+                showAlert(response.data.message || 'İş sonlandırılırken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            showAlert(e.response?.data?.message || 'İş sonlandırılırken bir hata oluştu.', 'error');
+        } finally {
+            setLoadingButton(false);
+        }
+    };
+
     const handleSetActive = () => {
         if (selectedRowForMenu) {
             sendRecordStatusUpdate(selectedRowForMenu.id, 0);
@@ -509,7 +550,7 @@ const ListWorks = () => {
     const resetFormAndState = () => {
         setTitle('');
         setStartDate(new Date());
-        setEndDate(new Date());
+        setEndDate(null);
         setSelectedTenderOption(null);
         setEditingId(null);
         setOriginalTitle('');
@@ -518,7 +559,7 @@ const ListWorks = () => {
         setOriginalSelectedTenderOption(null);
         setTitleError(false);
         setStartDateError(false);
-        setEndDateError(false);
+        // setEndDateError(false);
         setTenderIdError(false);
         setFormErrors(null);
         setStatusFilter('all');
@@ -730,7 +771,7 @@ const ListWorks = () => {
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
 
                     <Grid container spacing={2}>
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="tender-selection" required>
                                 İhale Seç
                             </CustomFormLabel>
@@ -777,7 +818,7 @@ const ListWorks = () => {
                                 />
                             )}
                         </Grid>
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={4}>
                             <CustomFormLabel htmlFor="work-title" required>
                                 İş Başlığı
                             </CustomFormLabel>
@@ -800,7 +841,7 @@ const ListWorks = () => {
                             />
                         </Grid>
 
-                        <Grid item xs={12} sm={3}>
+                        <Grid item xs={12} sm={4}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <CustomFormLabel htmlFor="start-date" required>
                                     Başlangıç Tarihi
@@ -812,10 +853,10 @@ const ListWorks = () => {
                                         setStartDate(newValue);
                                         if (startDateError && newValue) setStartDateError(false);
                                         if (endDate && newValue && newValue > endDate) {
-                                            setEndDateError(true);
+                                            // setEndDateError(true);
                                             setFormErrors("Bitiş tarihi başlangıç tarihinden önce olamaz!");
                                         } else {
-                                            setEndDateError(false);
+                                            // setEndDateError(false);
                                             setFormErrors(null);
                                         }
                                     }}
@@ -833,7 +874,7 @@ const ListWorks = () => {
                                 />
                             </LocalizationProvider>
                         </Grid>
-                        <Grid item xs={12} sm={3}>
+                        {/* <Grid item xs={12} sm={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <CustomFormLabel htmlFor="end-date" required>
                                     Bitiş Tarihi
@@ -865,7 +906,7 @@ const ListWorks = () => {
                                     )}
                                 />
                             </LocalizationProvider>
-                        </Grid>
+                        </Grid> */}
                         <Grid item xs={12} sx={{ mt: { xs: 2, sm: 0 } }}>
                             <Stack direction="row" spacing={1} justifyContent="flex-end">
                                 {editingId !== null ? (
@@ -1047,7 +1088,14 @@ const ListWorks = () => {
                             <TableBody>
                                 {paginatedWorks.length > 0 ? (
                                     paginatedWorks.map((row) => (
-                                        <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                        <TableRow key={row.id}
+                                            sx={{
+                                                '&:last-child td, &:last-child th': { border: 0 },
+                                                ...(row.endDate && row.endDate !== "N/A"
+                                                    ? { backgroundColor: '#ffa7a76e' } // رنگ Hex مستقیم + Opacity
+                                                    : {}
+                                                )
+                                            }}>
                                             {/* سلول‌های اطلاعاتی */}
                                             <StyledTableCell>
                                                 <Typography variant="body1">{row.title}</Typography>
@@ -1113,6 +1161,21 @@ const ListWorks = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu?.endDate === null && (
+                                                        <MuiMenuItem
+                                                            onClick={() => {
+                                                                setWorkForEnd(selectedRowForMenu);
+                                                                setEndWorkDate(null);
+                                                                setOpenEndWorkModal(true);
+                                                                handleCloseMenu();
+                                                            }}
+                                                        >
+                                                            <ListItemIcon>
+                                                                <IconX width={18} />
+                                                            </ListItemIcon>
+                                                            İşi Sonlandır
+                                                        </MuiMenuItem>
+                                                    )}
                                                     {hasCreatePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu iş için yeni bir şantiye kaydı oluştur" : ""}>
                                                             <MuiMenuItem onClick={handleGoToWorkhouses}>
@@ -1183,6 +1246,48 @@ const ListWorks = () => {
                     labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`}
                 />
             </BlankCard>
+
+
+            <Dialog open={openEndWorkModal} onClose={() => setOpenEndWorkModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>İşi Sonlandır</DialogTitle>
+                <DialogContent>
+                    {workForEnd && (
+                        <Stack spacing={2}>
+                            <Typography variant="h6">İş Başlığı: {workForEnd.title}</Typography>
+                            <Typography variant="body2">İhale: {workForEnd.tenderTitle || `ID: ${workForEnd.tenderId}`}</Typography>
+                            <Typography variant="body2">Başlangıç Tarihi: {formatDateDisplay(workForEnd.startDate)}</Typography>
+
+                            <CustomFormLabel required>Bitiş Tarihi Seçin</CustomFormLabel>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <DatePicker
+                                    label="Bitiş Tarihi"
+                                    value={endWorkDate}
+                                    onChange={(v) => { setEndWorkDate(v); setEndWorkError(false); }}
+                                    inputFormat="dd/MM/yyyy"
+                                    // اعتبارسنجی: تاریخ پایان نمی‌تواند قبل از تاریخ شروع باشد
+                                    minDate={new Date(workForEnd.startDate)}
+                                    renderInput={(params) => (
+                                        <TextField {...params} size="small" fullWidth
+                                            error={endWorkError}
+                                            helperText={endWorkError ? 'Tarih zorunludur ve başlangıç tarihinden küçük olamaz.' : ''}
+                                        />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                            <Alert severity="info">Bu işlem işi pasif duruma alacaktır (Durum 1).</Alert>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenEndWorkModal(false)} color="secondary" disabled={loadingButton}>
+                        İptal
+                    </Button>
+                    <Button onClick={submitEndWork} color="error" disabled={loadingButton || !endWorkDate}>
+                        {loadingButton ? 'Kaydediliyor...' : 'Sonlandır'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             <DeleteWork
                 openModal={openDeleteModal}
                 onClose={handleClickCloseDeleteModal}

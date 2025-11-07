@@ -55,8 +55,8 @@ const ListLeaves = Loadable(lazy(() => import('../views/humanresources/leaves/Li
 const ListReceiptsSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-sended-from-store/ListReceiptsSendedFromStore')));
 const ListReceiptsDestructionSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-destruction-sended-from-store/ListReceiptsDestructionSendedFromStore')));
 const ListPersonnelWorkPlaces = Loadable(lazy(() => import('../views/humanresources/personnel-work-places/ListPersonnelWorkPlaces')));
-const ListRequests = Loadable(lazy(() => import('../views/works/list-request/ListRequests')));
-const ListRequestReceipt = Loadable(lazy(() => import('../views/works/list-request-receipt/ListRequestReceipt')));
+const RequestTabs = Loadable(lazy(() => import('../views/works/list-request/RequestTabs')));
+const RequestReceiptTabs = Loadable(lazy(() => import('../views/works/list-request-receipt/RequestReceiptTabs')));
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
 const Login2 = Loadable(lazy(() => import('../views/authentication/auth2/Login2')));
@@ -516,7 +516,7 @@ const Router = [
         path: '/store/list-requests/',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
-            <ListRequests />
+            <RequestTabs />
           </PermissionGuard>
         )
       },
@@ -524,7 +524,7 @@ const Router = [
         path: '/order/list-request-receipt/',
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
-            <ListRequestReceipt />
+            <RequestReceiptTabs />
           </PermissionGuard>
         )
       },

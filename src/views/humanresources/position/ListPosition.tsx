@@ -381,7 +381,7 @@ const ListPosition = () => {
         setLoadingButton(true);
         try {
             const response = await axios.put(
-                server.baseurl + server.hr + "update-position", // **API جدید**
+                server.baseurl + server.hr + "update-position",
                 { id: Number(editingId), title: title },
                 {
                     headers: {

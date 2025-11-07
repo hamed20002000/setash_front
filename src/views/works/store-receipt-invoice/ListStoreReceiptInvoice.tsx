@@ -862,7 +862,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
     return (
         <Box sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                <Typography variant="h5">Şantiye Fişleri (Fatura Kaynaklı)</Typography>
+                <Typography variant="h5">Doğrudan Teslimat (Fatura Kaynaklı)</Typography>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent={{ xs: "flex-start", sm: "flex-end" }}>
                     {!isFormVisible && hasCreatePermission && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Fatura Kaynaklı Fiş belgesi kaydetmek için tıklayınız" : ""}>

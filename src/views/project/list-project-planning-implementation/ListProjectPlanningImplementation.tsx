@@ -722,7 +722,7 @@ const ListProjectPlanningImplementation = () => {
                                         </Box>
 
                                         {/* Force major controls */}
-                                        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                                        <Stack direction="row" alignItems="center" flexWrap="wrap">
                                             <Checkbox
                                                 checked={isForceMajor}
                                                 onChange={e => {
@@ -731,7 +731,7 @@ const ListProjectPlanningImplementation = () => {
                                                 }}
                                                 disabled={isForceCheckboxDisabled}
                                             />
-                                            <Typography variant="body2">Mücbir Sebep?</Typography>
+                                            <Typography variant="body2" >Mücbir Sebep?</Typography>
 
                                             {isForceMajor && (
                                                 <>
@@ -749,11 +749,12 @@ const ListProjectPlanningImplementation = () => {
                                                         variant="contained"
                                                         color={isForceMajor ? "error" : "success"}
                                                         startIcon={<IconCheck />}
+                                                        sx={{ mt: { xs: 1, sm: 0 }, ml: { sm: 2 } }}
                                                         disabled={
                                                             !activePlanning ||
                                                             !selectedDay ||
                                                             !hasCreatePermission ||
-                                                            (isForceMajor && isForceCheckboxDisabled) // دکمه Force هم غیرفعال شود
+                                                            (isForceMajor && isForceCheckboxDisabled)
                                                         }
                                                         onClick={() => handleSubmit(isForceMajor ? "force" : "normal")}
                                                     >
@@ -802,7 +803,7 @@ const ListProjectPlanningImplementation = () => {
                                                         >
                                                             <ListItemText
                                                                 primary={
-                                                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ flexWrap: "wrap" }}>
+                                                                    <Stack direction="row" alignItems="center" sx={{ flexWrap: "wrap" }}>
                                                                         <DateChip
                                                                             label={fmt(r.date)}
                                                                             color={color as any}
@@ -811,7 +812,10 @@ const ListProjectPlanningImplementation = () => {
                                                                             style={{ margin: "0" }}
                                                                         />
                                                                         {r.status === "force" && (
-                                                                            <Chip label="Mücbir Sebep" color="error" size="small" variant="filled" />
+                                                                            <Chip label="Mücbir Sebep"
+
+                                                                                sx={{ ml: { xs: 0, sm: 1 }, mt: { xs: 1, sm: 0 } }}
+                                                                                color="error" size="small" variant="filled" />
                                                                         )}
                                                                     </Stack>
                                                                 }

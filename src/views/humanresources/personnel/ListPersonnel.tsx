@@ -1499,6 +1499,7 @@ const ListPersonnel: React.FC = () => {
                                     <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                         <DatePicker
                                             label="Başlangıç"
+                                            inputFormat="dd/MM/yyyy"
                                             value={form.workStartDate}
                                             onChange={(next: any) => setForm((f) => ({ ...f, workStartDate: next ? format(next, "yyyy-MM-dd") : null }))}
                                             renderInput={(params: any) => (
@@ -1519,7 +1520,7 @@ const ListPersonnel: React.FC = () => {
 
                                 {/* NEW: hasISG Radio Button */}
                                 <Grid item xs={12} sm={6} md={3}>
-                                    <FormLabel>İş Güvenliği (ISG)</FormLabel>
+                                    <FormLabel>İSG var mı?</FormLabel>
                                     <RadioGroup row value={form.hasISG === true ? "true" : "false"}
                                         onChange={(e) => setForm((f) => ({ ...f, hasISG: e.target.value === "true" }))}>
                                         <FormControlLabel value="true" control={<Radio />} label="Var (Evet)" />
@@ -1597,6 +1598,7 @@ const ListPersonnel: React.FC = () => {
                                     <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                         <DatePicker
                                             label="Doğum Tarihi"
+                                            inputFormat="dd/MM/yyyy"
                                             value={form.birthDate}
                                             onChange={(next: any) => setForm((f) => ({ ...f, birthDate: next ? format(next, "yyyy-MM-dd") : null }))}
                                             renderInput={(params: any) => (
@@ -1877,9 +1879,10 @@ const ListPersonnel: React.FC = () => {
                                                 </MuiMenuItem>
 
                                                 {/* NEW: İş Birliği Sonlandırma */}
-                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+
+                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && selectedRowForMenu.workEndDate === null && (
                                                     <MuiMenuItem onClick={() => { setPersonnelToEndCooperation(selectedRowForMenu); setEndDate(null); setOpenEndCooperationModal(true); handleCloseMenu(); }}>
-                                                        <ListItemIcon><IconX width={18} color="red" /></ListItemIcon> İş Birliği Sonlandırma
+                                                        <ListItemIcon><IconX width={18} /></ListItemIcon> İşten Ayrılma (Sonlandırma)
                                                     </MuiMenuItem>
                                                 )}
 
@@ -2249,7 +2252,8 @@ const ListPersonnel: React.FC = () => {
 
 
             <Dialog
-                maxWidth="md"
+                // maxWidth="md"
+                // sx={{ width: { xs: "100%", sm: "40%" } }}
                 fullWidth={true}
                 open={openAnnualLeaveModal} onClose={handleCloseAnnualLeaveModal}>
                 <DialogTitle>Yıllık İzin Bilgileri</DialogTitle>
@@ -2313,6 +2317,8 @@ const ListPersonnel: React.FC = () => {
                                 <DatePicker
                                     label="Bitiş Tarihi Seçin"
                                     value={endDate}
+                                    inputFormat="dd/MM/yyyy"
+                                    minDate={personnelToEndCooperation.workStartDate ? parseISO(personnelToEndCooperation.workStartDate) : undefined}
                                     onChange={(next: any) => setEndDate(next ? format(next, "yyyy-MM-dd") : null)}
                                     renderInput={(params: any) => (<TextField {...params} size="small" fullWidth />)}
                                 />

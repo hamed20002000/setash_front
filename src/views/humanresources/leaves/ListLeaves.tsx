@@ -19,15 +19,10 @@ import { useAuth } from "src/context/AuthContext";
 import { IconDots, IconTrash, IconSearch, IconFileDownload, IconX, IconRefresh } from "@tabler/icons-react";
 import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
 import DoNotDisturbOnRoundedIcon from "@mui/icons-material/DoNotDisturbOnRounded";
-
 import axios from "axios";
 import server from "src/assets/address.json";
-
 import DeleteLeaves from "./DeleteLeaves";
-
-// PDF & Excel
 import jsPDF from "jspdf";
-// @ts-ignore
 import { autoTable } from "jspdf-autotable";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
@@ -35,14 +30,12 @@ import Logo from "src/assets/images/logos/logo.png";
 import { NotoSansRegular } from "src/assets/fonts/NotoSans-Regular";
 import { TimesNewRoman } from "src/assets/fonts/Times";
 import { ArialFont } from "src/assets/fonts/Arial";
-
-// DateTime pickers
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { Autocomplete } from "@mui/material";
+import { differenceInMinutes, differenceInDays } from 'date-fns';
 
-// ------------- Utils -------------
 const fmtTR = (iso?: string | null) => {
     if (!iso) return "-";
     const d = new Date(iso);
@@ -59,7 +52,6 @@ const statusToColor = (s: number | undefined) =>
             ? (theme: any) => ({ bg: theme.palette.success.light, fg: theme.palette.success.main })
             : (theme: any) => ({ bg: theme.palette.error.light, fg: theme.palette.error.main });
 
-// ------------- Styled -------------
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: "NotoSans",
     fontSize: "0.8rem",
@@ -77,7 +69,6 @@ const BlinkingButton = styled(Button, {
     transition: "transform 0.3s ease-in-out",
 }));
 
-// ------------- Types -------------
 interface PersonnelType {
     id: string | number; name: string;
     family: string; identityNumber: string, insuranceNumber: string, workStartDate: string | null;
@@ -128,38 +119,76 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilized.map((el) => el[0]);
 };
 
-// ⬅️ نیاز به تعریف نوع ورودی برای TypeScript
+// const calculateLeaveDuration = (startDate: string, endDate: string): string => {
+//     const start = new Date(startDate);
+//     const end = new Date(endDate);
+
+//     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+//         return "Geçersiz Tarih";
+//     }
+
+//     const diffTime = Math.abs(end.getTime() - start.getTime());
+
+//    if (start.toDateString() === end.toDateString()) {
+//         const diffHours = Math.ceil(diffTime / (1000 * 60 * 60)); // ⬅️ گرد کردن به بالا
+//         if (diffHours < 1) {
+//             const diffMinutes = Math.ceil(diffTime / (1000 * 60)); // ⬅️ گرد کردن به بالا
+//             return `${diffMinutes} Dakika`;
+//         }
+//         return `${diffHours} Saat`; // ⬅️ محاسبه بر اساس ساعت گرد شده
+//     }
+
+//     else {
+//         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+//         if (diffDays <= 0) {
+//             return "1 Gün";
+//         }
+//         return `${diffDays} Gün`;
+//     }
+// };
+
+
 const calculateLeaveDuration = (startDate: string, endDate: string): string => {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || end.getTime() < start.getTime()) {
         return "Geçersiz Tarih";
     }
 
-    const diffTime = Math.abs(end.getTime() - start.getTime());
+    // اگر مرخصی چند روزه است
+    if (start.toDateString() !== end.toDateString()) {
+        // از differenceInDays استفاده می کنیم تا دقیق تر باشد
+        const diffDays = differenceInDays(end, start) + 1; // +1 برای پوشش روز اول
 
-    // اگر تاریخ شروع و پایان یکی باشد (برای مرخصی ساعتی)
-    if (start.toDateString() === end.toDateString()) {
-        const diffHours = Math.ceil(diffTime / (1000 * 60 * 60)); // تفاوت بر حسب ساعت
-        // نمایش بر حسب ساعت یا دقیقه (اگر کمتر از یک ساعت بود)
-        if (diffHours < 1) {
-            const diffMinutes = Math.ceil(diffTime / (1000 * 60));
-            return `${diffMinutes} Dakika`;
+        // اگر تاریخ شروع و پایان فقط یک روز تفاوت داشته باشند اما زمان در یک روز نباشد،
+        // همچنان باید به صورت روز نمایش داده شود، مگر اینکه بخواهیم پیچیدگی بیشتری اضافه کنیم.
+
+        if (diffDays <= 1) {
+            // اگر فقط اختلاف ساعت و دقیقه است، به بلوک پایین می رویم
+        } else {
+            return `${diffDays} Gün`;
         }
-        return `${diffHours} Saat`;
     }
 
-    // اگر تاریخ شروع و پایان متفاوت باشد (برای مرخصی روزانه)
-    else {
-        // محاسبه بر حسب روز (اضافه کردن یک روز کامل برای پوشش مرخصی‌های ۲۴ ساعته)
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        // اگر مرخصی بیش از یک ساعت باشد (حتی اگر اختلاف کمتر از ۲۴ ساعت باشد)، یک روز کامل را لحاظ می‌کنیم.
-        if (diffDays <= 0) {
-            return "1 Gün"; // حداقل ۱ روز برای تاریخ‌های متفاوت
-        }
-        return `${diffDays} Gün`;
+    // اگر مرخصی کمتر از یک روز است یا محاسبات دقیق ساعتی لازم است (نوع 2: Saatlik İzin)
+
+    // استفاده از differenceInMinutes برای دقت بالا
+    const totalMinutes = differenceInMinutes(end, start);
+
+    if (totalMinutes === 0) return "0 Dakika";
+
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+
+    if (hours > 0 && minutes > 0) {
+        return `${hours} Saat ${minutes} Dakika`;
     }
+    if (hours > 0) {
+        return `${hours} Saat`;
+    }
+    return `${minutes} Dakika`;
+
 };
 
 const leaveTypes = [
@@ -169,8 +198,6 @@ const leaveTypes = [
     { label: "Ücretsiz İzin", value: 3 },
     { label: "Mazeret İzin", value: 4 },
 ];
-
-
 
 const addFonts = (doc: jsPDF) => {
     (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
@@ -315,25 +342,18 @@ const generateLeavePDFHeader = (doc: jsPDF, row: LeaveType) => {
     const logoWidth = 80;
     const logoHeight = 50;
 
-    // رسم مستطیل برای هدر
-    doc.setDrawColor(0); // رنگ حاشیه
+    doc.setDrawColor(0);
     doc.setLineWidth(0.5);
     doc.rect(0, 0, headerWidth, headerHeight);
-
-    // لوگو در سمت چپ
     try {
         doc.addImage(Logo, "PNG", 20, 15, logoWidth, logoHeight);
     } catch (error) {
         console.error("Logo couldn't be added", error);
     }
-
-    // عنوان در وسط
     const leaveTypeTitle = getLeaveTypeTitle(row.type);
     doc.setFont("Arial", "normal");
     doc.setFontSize(12);
     doc.text(leaveTypeTitle, headerWidth / 2, 40, { align: "center" });
-
-    // مقادیر خالی DOKÜMAN NO و دیگر فیلدها در سمت راست
     doc.setFont("Arial", "normal");
     doc.setFontSize(10);
     doc.text("DOKÜMAN NO:", headerWidth - 150, 20);
@@ -342,20 +362,16 @@ const generateLeavePDFHeader = (doc: jsPDF, row: LeaveType) => {
     doc.text("REVİZYON NO:", headerWidth - 150, 65);
     doc.text("SAYFA NO:", headerWidth - 150, 80);
 
-    doc.text(" ", headerWidth - 110, 20); // مقدار خالی برای DOKÜMAN NO
-    doc.text(" ", headerWidth - 110, 35); // مقدار خالی برای YAYIN NO
-    doc.text(" ", headerWidth - 110, 50); // مقدار خالی برای REVİZYON TARİHİ
-    doc.text(" ", headerWidth - 110, 65); // مقدار خالی برای REVİZYON NO
-    doc.text("1/1", headerWidth - 80, 80); // مقدار خالی برای SAYFA NO
+    doc.text(" ", headerWidth - 110, 20);
+    doc.text(" ", headerWidth - 110, 35);
+    doc.text(" ", headerWidth - 110, 50);
+    doc.text(" ", headerWidth - 110, 65);
+    doc.text("1/1", headerWidth - 80, 80);
 };
 
-// تابع زیر هدر
 const generateLeavePDFSubHeader = (doc: jsPDF, row: LeaveType) => {
     const subHeaderYPosition = 130;
-
     const leaveTypedesc = getLeaveTypedesc(row.type);
-
-
     doc.setFont("Arial", "normal");
     doc.setFontSize(14);
     doc.text(leaveTypedesc.title1, 40, subHeaderYPosition);
@@ -367,19 +383,16 @@ const generateLeavePDFSubHeader = (doc: jsPDF, row: LeaveType) => {
     doc.setFont("Arial", "normal");
     doc.setFontSize(10);
     doc.text("ÜNVANI:", 40, subHeaderYPosition + 40);
-    doc.text("SETAŞ SİSTEM BİLİŞİM SAN. TİC. A.Ş.", 320, subHeaderYPosition + 40); // ÜNVANI
+    doc.text("SETAŞ SİSTEM BİLİŞİM SAN. TİC. A.Ş.", 320, subHeaderYPosition + 40);
 
     doc.text("ADRESİ:", 40, subHeaderYPosition + 55);
-    doc.text("Mansuroğlu Mah. 283/6 Sk. No:2 BAYRAKLI/ İZMİR", 320, subHeaderYPosition + 55); // ADRESİ
+    doc.text("Mansuroğlu Mah. 283/6 Sk. No:2 BAYRAKLI/ İZMİR", 320, subHeaderYPosition + 55);
 
     doc.text("İŞYERİ SSK NO:", 40, subHeaderYPosition + 70);
-    doc.text(" ", 120, subHeaderYPosition + 70); // İŞYERİ SSK NO
+    doc.text(" ", 120, subHeaderYPosition + 70);
 };
-
-// تابع اطلاعات پرسنل
 const generateLeavePDFPersonnelInfo = (doc: jsPDF, row: LeaveType) => {
     const personnelInfoYPosition = 230;
-    debugger
     doc.setFont("Arial", "normal");
     doc.setFontSize(12);
     doc.text("ÇALIŞAN PERSONELİN", 40, personnelInfoYPosition);
@@ -391,19 +404,18 @@ const generateLeavePDFPersonnelInfo = (doc: jsPDF, row: LeaveType) => {
     doc.text(`${row.personnel.name} ${row.personnel.family}`, 320, personnelInfoYPosition + 20);
 
     doc.text("T.C. KİMLİK NO:", 40, personnelInfoYPosition + 35);
-    doc.text(`${row.personnel.identityNumber}`, 320, personnelInfoYPosition + 35); // خالی برای T.C. KİMLİK NO
-
+    doc.text(`${row.personnel.identityNumber}`, 320, personnelInfoYPosition + 35);
     doc.text("SSK SİCİL NO:", 40, personnelInfoYPosition + 50);
-    doc.text(`${row.personnel.insuranceNumber}`, 320, personnelInfoYPosition + 50); // خالی برای SSK SİCİL NO
+    doc.text(`${row.personnel.insuranceNumber}`, 320, personnelInfoYPosition + 50);
 
     doc.text("İZNE AYRILMAK İSTENİLEN TARİH:", 40, personnelInfoYPosition + 65);
-    doc.text(fmtTR(row.startDate), 320, personnelInfoYPosition + 65); // خالی برای İZNE AYRILMAK İSTENİLEN TARİH
+    doc.text(fmtTR(row.startDate), 320, personnelInfoYPosition + 65);
 
     doc.text("İZİN BİTİŞ TARİHİ:", 40, personnelInfoYPosition + 80);
-    doc.text(fmtTR(row.endDate), 320, personnelInfoYPosition + 80); // نمایش تاریخ پایان مرخصی
+    doc.text(fmtTR(row.endDate), 320, personnelInfoYPosition + 80);
 
     doc.text("İŞE BAŞLAMA TARİHİ:", 40, personnelInfoYPosition + 95);
-    doc.text(fmtTR(row.personnel.workStartDate), 320, personnelInfoYPosition + 95); // نمایش تاریخ شروع کار
+    doc.text(fmtTR(row.personnel.workStartDate), 320, personnelInfoYPosition + 95);
 
     const duration = calculateLeaveDuration(row.startDate, row.endDate);
     doc.text("İZİN SÜRESİ:", 40, personnelInfoYPosition + 110);
@@ -418,16 +430,11 @@ const generateLeavePDFPersonnelInfo = (doc: jsPDF, row: LeaveType) => {
 
 
 const generateLeavePDFFooter = (doc: jsPDF, row: LeaveType) => {
-    const footerYPosition = 550;  // شروع موقعیت فوتر از پایین
-
-
+    const footerYPosition = 550;
     const leaveTypedesc = getLeaveTypedesc(row.type);
-    // بخش اول
     doc.setFont("Arial", "normal");
     doc.setFontSize(10);
     doc.text(leaveTypedesc.title3, 40, footerYPosition);
-
-    // بخش دوم (Onay ve Tarih)
     const approvalDateYPosition = footerYPosition + 20;
     doc.text("Onay", 320, approvalDateYPosition);
     const currentDate = new Date();
@@ -442,10 +449,9 @@ const generateLeavePDFFooter = (doc: jsPDF, row: LeaveType) => {
     const leavePeriodYPosition1 = leavePeriodYPosition + 20;
     doc.text(` ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)} tarihleri arasında kullandım.`, 40, leavePeriodYPosition1);
 
-    // بخش چهارم (Adı Soyadı / İmza)
     const signatureYPosition = leavePeriodYPosition1 + 80;
-    doc.text("Adı Soyadı", 380, signatureYPosition);  // محل برای نام پرسنل
-    doc.text("İmza", 380, signatureYPosition + 20);    // محل برای امضای پرسنل
+    doc.text("Adı Soyadı", 380, signatureYPosition);
+    doc.text("İmza", 380, signatureYPosition + 20);
 };
 
 const getLeaveTypeTitle = (leaveType: number) => {
@@ -523,14 +529,6 @@ const generateLeaveExcelHeaderAndDocInfo = (ws: ExcelWorksheet, row: LeaveType) 
     const leaveTypeTitle = getLeaveTypeTitle(row.type);
     const leaveTypedesc = getLeaveTypedesc(row.type);
 
-    // --- ردیف‌های ۱-۳: لوگو و فیلدهای سند (DOKÜMAN NO) ---
-    // شبیه‌سازی لوگو در Excel با فضای خالی بزرگ (A1:D3)
-    // ws.mergeCells('A1:D3');
-    // ws.getCell('A1').value = '⬅️ LOGO HERE (Please insert image manually) ➡️';
-    // ws.getCell('A1').alignment = { vertical: 'middle', horizontal: 'center' };
-    // ws.getCell('A1').font = { italic: true, size: 8 };
-
-    // فیلدهای DOKÜMAN NO و... در سمت راست (شبیه به PDF)
     ws.mergeCells('E1:F1'); ws.getCell('E1').value = 'DOKÜMAN NO:';
     ws.mergeCells('G1:H1'); ws.getCell('G1').value = ' ';
 
@@ -540,13 +538,11 @@ const generateLeaveExcelHeaderAndDocInfo = (ws: ExcelWorksheet, row: LeaveType) 
     ws.mergeCells('E3:F3'); ws.getCell('E3').value = 'REVİZYON TARİHİ:';
     ws.mergeCells('G3:H3'); ws.getCell('G3').value = ' ';
 
-    // تنظیم استایل برای DOKÜMAN NO
     for (let i = 1; i <= 3; i++) {
         ws.getCell(`E${i}`).style = { font: { bold: true, size: 10, name: 'Arial' }, alignment: { horizontal: 'left' } };
     }
 
-    // --- ردیف‌های ۴-۷: ادامه فیلدهای سند و عنوان اصلی ---
-    ws.mergeCells('A4:D4'); ws.getCell('A4').value = leaveTypeTitle; // عنوان اصلی در وسط
+    ws.mergeCells('A4:D4'); ws.getCell('A4').value = leaveTypeTitle;
     ws.getCell('A4').style = { font: { bold: true, size: 12, name: 'Arial' }, alignment: { vertical: 'middle', horizontal: 'center' } };
 
     ws.mergeCells('E4:F4'); ws.getCell('E4').value = 'REVİZYON NO:';
@@ -554,17 +550,15 @@ const generateLeaveExcelHeaderAndDocInfo = (ws: ExcelWorksheet, row: LeaveType) 
     ws.getCell('E4').style = { font: { bold: true, size: 10, name: 'Arial' }, alignment: { horizontal: 'left' } };
 
     ws.mergeCells('E5:F5'); ws.getCell('E5').value = 'SAYFA NO:';
-    ws.mergeCells('G5:H5'); ws.getCell('G5').value = '1/1'; // شبیه‌سازی "1/1"
+    ws.mergeCells('G5:H5'); ws.getCell('G5').value = '1/1';
     ws.getCell('E5').style = { font: { bold: true, size: 10, name: 'Arial' }, alignment: { horizontal: 'left' } };
 
-    ws.addRow([]); // ردیف ۶ خالی (فاصله)
-
-    // --- بخش ۷: title1 از SubHeader PDF ---
+    ws.addRow([]);
     ws.addRow([leaveTypedesc.title1]);
     ws.mergeCells('A7:H7');
     ws.getCell('A7').style = { font: { bold: true, size: 14, name: 'Arial' }, alignment: { horizontal: 'left' } };
 
-    ws.addRow([]); // ردیف ۸ خالی
+    ws.addRow([]);
 };
 
 const generateLeaveExcelSubHeaderAndPersonnelInfo = (ws: ExcelWorksheet, row: LeaveType) => {
@@ -572,30 +566,27 @@ const generateLeaveExcelSubHeaderAndPersonnelInfo = (ws: ExcelWorksheet, row: Le
     const duration = calculateLeaveDuration(row.startDate, row.endDate);
     const leaveTypedesc = getLeaveTypedesc(row.type);
 
-    // --- بخش SubHeader (اطلاعات محل کار) ---
     let nextRow = ws.lastRow ? ws.lastRow.number + 1 : 1;
     ws.addRow(["İŞ YERİNİN"]); ws.mergeCells(`A${nextRow}:H${nextRow}`);
     ws.getCell(`A${nextRow}`).style = { font: { bold: true, size: 12, name: 'Arial' } };
 
-    // اطلاعات کار
     nextRow++; ws.addRow(["ÜNVANI:", "SETAŞ SİSTEM BİLİŞİM SAN. TİC. A.Ş."]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`); ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
     nextRow++; ws.addRow(["ADRESİ:", "Mansuroğlu Mah. 283/6 Sk. No:2 BAYRAKLI/ İZMİR"]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`); ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    nextRow++; ws.addRow(["İŞYERİ SSK NO:", " "]); // مقدار خالی
+    nextRow++; ws.addRow(["İŞYERİ SSK NO:", " "]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`); ws.mergeCells(`D${nextRow}:H${nextRow}`);
-    ws.addRow([]); // فضای خالی
+    ws.addRow([]);
 
-    ws.addRow([]); // فضای خالی
+    ws.addRow([]);
     nextRow = ws.lastRow ? ws.lastRow.number + 1 : nextRow + 1;
 
     ws.addRow(["ÇALIŞAN PERSONELİN"]); ws.mergeCells(`A${nextRow}:H${nextRow}`);
     ws.getCell(`A${nextRow}`).style = { font: { bold: true, size: 12, name: 'Arial' } };
 
-    // اطلاعات پرسنل
-    nextRow++; ws.addRow(["ADI SOYADI:", "", "", fullName]); // ⬅️ اینجا fullName در ستون D قرار می‌گیرد
+    nextRow++; ws.addRow(["ADI SOYADI:", "", "", fullName]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
@@ -603,42 +594,35 @@ const generateLeaveExcelSubHeaderAndPersonnelInfo = (ws: ExcelWorksheet, row: Le
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    // SSK SİCİL NO:
     nextRow++; ws.addRow(["SSK SİCİL NO:", "", "", row.personnel.insuranceNumber || ' ']);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    // İZNE AYRILMAK İSTENİLEN TARİH:
     nextRow++; ws.addRow(["İZNE AYRILMAK İSTENİLEN TARİH:", "", "", fmtTR(row.startDate)]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    // İZİN BİTİŞ TARİHİ:
     nextRow++; ws.addRow(["İZİN BİTİŞ TARİHİ:", "", "", fmtTR(row.endDate)]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    // İŞE BAŞLAMA TARİHİ:
     nextRow++; ws.addRow(["İŞE BAŞLAMA TARİHİ:", "", "", row.personnel.workStartDate ? fmtTR(row.personnel.workStartDate) : ' ']);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    // İZİN SÜRESİ:
     nextRow++; ws.addRow(["İZİN SÜRESİ:", "", "", duration]);
     ws.mergeCells(`A${nextRow}:C${nextRow}`);
     ws.mergeCells(`D${nextRow}:H${nextRow}`);
 
-    ws.addRow([]); // فضای خالی
-
-    // توضیحات (title2)
-    ws.addRow([]); // فضای خالی
+    ws.addRow([]);
+    ws.addRow([]);
     nextRow = ws.lastRow ? ws.lastRow.number + 1 : nextRow + 1;
     ws.addRow([leaveTypedesc.title2]);
     ws.mergeCells(`A${nextRow}:H${nextRow}`);
     ws.getCell(`A${nextRow}`).style = { font: { size: 10, name: 'Arial' }, alignment: { horizontal: 'left' } };
-    ws.addRow([]); // فضای خالی
+    ws.addRow([]);
 
-    ws.addRow([]); // فضای خالی
+    ws.addRow([]);
     nextRow = ws.lastRow ? ws.lastRow.number + 1 : nextRow + 1;
     ws.addRow(["", "", "", "", "", "AD-SOYAD / İMZA"]);
     ws.mergeCells(`F${nextRow}:H${nextRow}`);
@@ -650,18 +634,15 @@ const generateLeaveExcelFooter = (ws: ExcelWorksheet, row: LeaveType) => {
     const currentDate = new Date();
     const formattedDate = `${currentDate.getDate() < 10 ? '0' + currentDate.getDate() : currentDate.getDate()}/${(currentDate.getMonth() + 1) < 10 ? '0' + (currentDate.getMonth() + 1) : (currentDate.getMonth() + 1)}/${currentDate.getFullYear()}`;
 
-    // --- بخش title3 ---
     let nextRow = ws.lastRow ? ws.lastRow.number + 2 : 1;
     ws.addRow([leaveTypedesc.title3]);
     ws.mergeCells(`A${nextRow}:H${nextRow}`);
     ws.getCell(`A${nextRow}`).style = { font: { size: 10, name: 'Arial' } };
 
-    // --- بخش Onay ve Tarih ---
     nextRow += 2;
     ws.addRow(["", "", "", "", "Onay", formattedDate]);
     ws.getCell(`E${nextRow}`).style = { font: { bold: true, size: 10, name: 'Arial' } };
 
-    // --- بخش دوره مرخصی ---
     nextRow += 3;
     ws.addRow([`${leaveTypeTitle} Mesai izinimi`]);
     ws.mergeCells(`A${nextRow}:H${nextRow}`);
@@ -672,7 +653,6 @@ const generateLeaveExcelFooter = (ws: ExcelWorksheet, row: LeaveType) => {
     ws.mergeCells(`A${nextRow}:H${nextRow}`);
     ws.getCell(`A${nextRow}`).style = { font: { size: 10, name: 'Arial' } };
 
-    // --- بخش امضا ---
     nextRow += 3;
     ws.addRow(["", "", "", "", "", "Adı Soyadı"]);
     ws.getCell(`F${nextRow}`).style = { font: { bold: true, size: 10, name: 'Arial' } };
@@ -686,17 +666,13 @@ const generateLeaveExcel = async (row: LeaveType) => {
     const wb = new Excel.Workbook();
     const ws = wb.addWorksheet("Izin Belgesi", { views: [{ rightToLeft: false }] });
 
-    // 1. فراخوانی توابع کمکی به ترتیب PDF
     generateLeaveExcelHeaderAndDocInfo(ws, row);
-    generateLeaveExcelSubHeaderAndPersonnelInfo(ws, row); // ادغام دو بخش SubHeader و PersonnelInfo
+    generateLeaveExcelSubHeaderAndPersonnelInfo(ws, row);
     generateLeaveExcelFooter(ws, row);
 
-    // 2. تنظیمات نهایی ستون‌ها (فقط عرض)
     ws.columns = [
         { width: 20 }, { width: 5 }, { width: 5 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 15 }
     ];
-
-    // 3. ذخیره فایل
     const filename = `İzin_Belgesi_${row.id}.xlsx`;
     const buf = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buf]), filename);
@@ -730,11 +706,9 @@ const ListLeaves: React.FC = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Silmek"), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "İndirmek ve Yazdırmak"), [allowedOperations]);
 
-    // data
     const [leaves, setLeaves] = useState<LeaveType[]>([]);
     const [personnels, setPersonnels] = useState<PersonnelType[]>([]);
 
-    // create form
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
     const [personnelId, setPersonnelId] = useState<string>("");
@@ -743,33 +717,28 @@ const ListLeaves: React.FC = () => {
     const [endError, setEndError] = useState<string>("");
     const [personnelError, setPersonnelError] = useState<string>("");
 
-    // filters
     const [filterStart, setFilterStart] = useState<Date | null>(null);
     const [filterEnd, setFilterEnd] = useState<Date | null>(null);
 
-    // table UX
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [orderBy, setOrderBy] = useState<keyof LeaveType>("createAt");
     const [order, setOrder] = useState<"asc" | "desc">("desc");
     const [searchTerm, setSearchTerm] = useState("");
 
-    // menus & modals
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRow, setSelectedRow] = useState<LeaveType | null>(null);
     const openMenu = Boolean(anchorEl);
 
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [leaveIdToDelete, setLeaveIdToDelete] = useState<string | number | null>(null);
-    const [type, setType] = useState<number>(0); // مقدار پیش‌فرض 0 (Fazla Mesai)
+    const [type, setType] = useState<number>(0);
 
 
-    // ----- DOWNLOAD MODAL (یک دکمه برای همه جا) -----
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
     const [downloadScope, setDownloadScope] = useState<"all" | "row">("all");
     const [rowForDownload, setRowForDownload] = useState<LeaveType | null>(null);
 
-    // alerts/loading
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<"success" | "error" | "warning" | "info">("info");
     const [loadingData, setLoadingData] = useState<boolean>(true);
@@ -784,7 +753,6 @@ const ListLeaves: React.FC = () => {
     useEffect(() => { if (!alertMessage) return; const t = setTimeout(clearAlert, 5000); return () => clearTimeout(t); }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // data fetch
     const getAllPersonnels = async () => {
         const authToken = localStorage.getItem("authToken");
         if (!authToken) { navigate("/"); return; }
@@ -800,23 +768,6 @@ const ListLeaves: React.FC = () => {
         }
     };
 
-
-    // const getAllLeaves = async () => {
-    //     const authToken = localStorage.getItem("authToken");
-    //     setLoadingData(true);
-    //     if (!authToken) { navigate("/"); setLoadingData(false); return; }
-    //     try {
-    //         const res = await axios.get(server.baseurl + server.hr + "get-all-leaves", {
-    //             headers: { Accept: "application/json", Authorization: `Bearer ${authToken}` },
-    //         });
-    //         if (res.data?.httpStatusCode === 200) setLeaves(res.data.data || []);
-    //         else showAlert(res.data?.message || "İzin listesi alınırken hata oluştu.", "error");
-    //     } catch (e: any) {
-    //         if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
-    //         showAlert("İzin listesi alınırken bir hata oluştu.", "error");
-    //     } finally { setLoadingData(false); }
-    // };
-
     const getAllLeaves = React.useCallback(async () => {
         const authToken = localStorage.getItem("authToken");
         setLoadingData(true);
@@ -827,8 +778,8 @@ const ListLeaves: React.FC = () => {
             });
             if (res.data?.httpStatusCode === 200) {
                 const newLeaves = res.data.data || [];
-                setLeaves(newLeaves); // State را بروزرسانی می‌کنیم
-                return newLeaves; // ⬅️ لیست جدید را برمی‌گردانیم
+                setLeaves(newLeaves);
+                return newLeaves;
             } else {
                 showAlert(res.data?.message || "İzin listesi alınırken hata oluştu.", "error");
                 return null;
@@ -841,7 +792,6 @@ const ListLeaves: React.FC = () => {
 
     useEffect(() => { getAllLeaves(); getAllPersonnels(); }, []);
 
-    // form validate/submit
     const validateForm = () => {
         let ok = true;
         setStartError(""); setEndError(""); setPersonnelError("");
@@ -851,51 +801,17 @@ const ListLeaves: React.FC = () => {
         if (!personnelId) { setPersonnelError("Personel seçimi zorunludur."); ok = false; }
         return ok;
     };
-    // const insertLeave = async () => {
-    //     if (!validateForm()) return;
-    //     const authToken = localStorage.getItem("authToken");
-    //     if (!authToken) { navigate("/"); return; }
-    //     setLoadingButton(true);
-    //     try {
-    //         const payload = {
-    //             startDate: startDate!.toISOString(),
-    //             endDate: endDate!.toISOString(),
-    //             personnelId: Number(personnelId),
-    //             type: type, // اضافه کردن type به payload
-    //         };
-    //         const res = await axios.post(server.baseurl + server.hr + "create-leave", payload, {
-    //             headers: { Accept: "application/json", "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
-    //         });
-    //         if (res.data?.httpStatusCode === 201 || res.data?.success) {
-    //             showAlert("İzin kaydı başarıyla eklendi!", "success");
-    //             setStartDate(null);
-    //             setEndDate(null);
-    //             setPersonnelId("");
-    //             setType(0); // reset type
-    //             setIsFormVisible(false);
-    //             getAllLeaves();
-    //         } else showAlert(res.data?.message || "İzin eklenirken hata oluştu.", "error");
-    //     } catch (e: any) {
-    //         if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
-    //         showAlert(e.response?.data?.message || "İzin eklenirken hata oluştu.", "error");
-    //     } finally { setLoadingButton(false); }
-    // };
 
-
-    // table helpers
-
-    // در ListLeaves.tsx (خطوط 522 تا 554)
     const insertLeave = async () => {
         if (!validateForm()) return;
         const authToken = localStorage.getItem("authToken");
         if (!authToken) { navigate("/"); return; }
         setLoadingButton(true);
 
-        // ذخیره موقت مشخصات مرخصی برای شناسایی پس از get
         const tempPersonnelId = Number(personnelId);
         const tempStartDate = startDate!.toISOString();
         const tempEndDate = endDate!.toISOString();
-        const tempType = type; // ذخیره نوع مرخصی
+        const tempType = type;
 
         try {
             const payload = {
@@ -911,10 +827,8 @@ const ListLeaves: React.FC = () => {
             if (res.data?.httpStatusCode === 201 || res.data?.success) {
                 showAlert("İzin kaydı başarıyla eklendi! İndirme formu açılıyor...", "success");
 
-                // 1. لیست جدید را دریافت می‌کنیم (و State را بروزرسانی می‌کنیم)
                 const updatedLeaves = await getAllLeaves();
 
-                // 2. اگر لیست جدید موجود بود، مرخصی را در آن پیدا می‌کنیم
                 if (updatedLeaves) {
                     const newLeave = updatedLeaves.find((l: LeaveType) =>
                         Number(l.personnel.id) === tempPersonnelId &&
@@ -923,7 +837,6 @@ const ListLeaves: React.FC = () => {
                         l.type === tempType
                     );
 
-                    // 3. اگر مرخصی پیدا شد، مودال دانلود را برای آن باز می‌کنیم
                     if (newLeave) {
                         setDownloadScope("row");
                         setRowForDownload(newLeave);
@@ -935,7 +848,6 @@ const ListLeaves: React.FC = () => {
                     showAlert("Liste güncellenemedi, lütfen yeniden deneyin.", "error");
                 }
 
-                // 4. ریست کردن فرم
                 setStartDate(null);
                 setEndDate(null);
                 setPersonnelId("");
@@ -976,7 +888,6 @@ const ListLeaves: React.FC = () => {
     const sorted = stableSort(filtered, getComparator(order, orderBy));
     const paginated = sorted.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // row menu
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: LeaveType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRow(row);
@@ -1025,7 +936,6 @@ const ListLeaves: React.FC = () => {
         }
         setOpenDownloadModal(false);
     };
-    // تابع به روز شده برای استفاده از generateLeaveExcel
     const handleDownloadChooseExcel = async () => {
         if (downloadScope === "all") {
             await exportExcel(sorted, "Izin_Listesi.xlsx");
@@ -1035,8 +945,6 @@ const ListLeaves: React.FC = () => {
         }
         setOpenDownloadModal(false);
     };
-
-
     const clearNotifFilter = () => {
         const next = new URLSearchParams(searchParams);
         next.delete('ids');
@@ -1049,11 +957,8 @@ const ListLeaves: React.FC = () => {
 
         setPage(0);
     };
-
-
     return (
         <>
-            {/* Top bar */}
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mt={2} mb={3} flexWrap="wrap" gap={2}>
                     <Typography variant="h5" mb={2}>Yeni İzin Kaydı</Typography>
@@ -1156,7 +1061,6 @@ const ListLeaves: React.FC = () => {
                 )}
             </div>
 
-            {/* Toolbar */}
             <BlankCard>
                 <Box sx={{ p: 2 }}>
 
@@ -1219,7 +1123,6 @@ const ListLeaves: React.FC = () => {
                     </Grid>
                 </Box>
 
-                {/* Table */}
                 <TableContainer>
                     <Table aria-label="leaves table">
                         <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
@@ -1350,7 +1253,6 @@ const ListLeaves: React.FC = () => {
                 />
             </BlankCard>
 
-            {/* Delete Modal */}
             <DeleteLeaves
                 openModal={openDeleteModal}
                 onClose={handleCloseDelete}
@@ -1359,7 +1261,6 @@ const ListLeaves: React.FC = () => {
                 showAlert={showAlert}
             />
 
-            {/* Download Modal — یکسان برای "همه" و "ردیف" */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)}>
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent>
