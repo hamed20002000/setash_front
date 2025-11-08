@@ -57,6 +57,7 @@ const ListReceiptsDestructionSendedFromStore = Loadable(lazy(() => import('../vi
 const ListPersonnelWorkPlaces = Loadable(lazy(() => import('../views/humanresources/personnel-work-places/ListPersonnelWorkPlaces')));
 const RequestTabs = Loadable(lazy(() => import('../views/works/list-request/RequestTabs')));
 const RequestReceiptTabs = Loadable(lazy(() => import('../views/works/list-request-receipt/RequestReceiptTabs')));
+const ListRollCalls = Loadable(lazy(() => import('../views/works/list-roll-calls/ListRollCalls')));
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
 const Login2 = Loadable(lazy(() => import('../views/authentication/auth2/Login2')));
@@ -525,6 +526,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <RequestReceiptTabs />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/list-roll-calls/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListRollCalls />
           </PermissionGuard>
         )
       },

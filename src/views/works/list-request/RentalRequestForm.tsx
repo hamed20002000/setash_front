@@ -27,12 +27,18 @@ interface RentalRequestFormProps {
     onCancel: () => void;
 }
 
-// ==============================================================================
-// 2. COMPONENT
-// ==============================================================================
+const formatPriceToString = (price: number | string): string | null => {
+    const cleanedPrice = String(price).replace(/[^0-9.]/g, '');
+    const numericPrice = parseFloat(cleanedPrice);
+
+    if (isNaN(numericPrice) || numericPrice <= 0) {
+        return null;
+    }
+
+    return numericPrice.toFixed(2);
+};
 
 const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemToEdit, workhouses, showAlert, onSuccess, onCancel }) => {
-    // ⬅️ استیت‌های فرم اجاره که قبلاً در RequestTabs بودند، اکنون اینجا هستند
     const [rentalTitle, setRentalTitle] = useState('');
     const [rentalDescription, setRentalDescription] = useState('');
     const [driverInfo, setDriverInfo] = useState('');
@@ -45,12 +51,10 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | string>('');
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
 
-    // Attachment States
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
     const [attachmentsInEdit, setAttachmentsInEdit] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // ⬅️ تابع Reset فرم
     const resetForm = useCallback(() => {
         setRentalTitle(''); setRentalDescription(''); setDriverInfo(''); setPrice(''); setCompany('');
         setRentStartDate(null); setRentEndDate(null); setRentStartDateError(false); setRentEndDateError(false);
@@ -58,7 +62,6 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
         if (fileInputRef.current) fileInputRef.current.value = '';
     }, []);
 
-    // ⬅️ Effect برای پر کردن فرم در حالت ویرایش
     useEffect(() => {
         if (isEditing && itemToEdit) {
             setRentalTitle(itemToEdit.title);
@@ -81,10 +84,6 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
             resetForm();
         }
     }, [isEditing, itemToEdit, resetForm]);
-
-    // ==============================================================================
-    // 3. CRUD LOGIC (Encapsulated)
-    // ==============================================================================
 
     const validateForm = (): boolean => {
         if (!rentalTitle.trim() || !selectedWorkhouseId || !rentStartDate || !rentEndDate) {
@@ -127,10 +126,13 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
         const attachmentsPayload = await uploadFiles(authToken);
         if (attachmentsPayload === null) { setLoadingButton(false); return; }
 
+        const formattedPrice = formatPriceToString(price);
+
         try {
             const payload = {
                 title: rentalTitle, description: rentalDescription, driverInfo: driverInfo,
-                price: Number(price) || 0, company: company, rentStartDate: rentStartDate,
+                price: formattedPrice,
+                company: company, rentStartDate: rentStartDate,
                 rentEndDate: rentEndDate, workhouseId: Number(selectedWorkhouseId),
                 attachments: attachmentsPayload,
             };
@@ -157,6 +159,9 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
         const newAttachmentsPayload = await uploadFiles(authToken);
         if (newAttachmentsPayload === null) { setLoadingButton(false); return; }
 
+        const formattedPrice = formatPriceToString(price);
+
+
         try {
             const keptExistingAttachments = itemToEdit.attachments
                 .filter(att => attachmentsInEdit.includes(att.fileUrl.split('/').pop() || ''))
@@ -165,7 +170,8 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
 
             const payload = {
                 id: Number(itemToEdit.id), title: rentalTitle, description: rentalDescription, driverInfo: driverInfo,
-                price: Number(price) || 0, company: company, rentStartDate: rentStartDate,
+                price: formattedPrice,
+                company: company, rentStartDate: rentStartDate,
                 rentEndDate: rentEndDate, workhouseId: Number(selectedWorkhouseId), attachments: finalAttachments,
             };
 
@@ -197,11 +203,6 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
         setAttachmentsInEdit(prev => prev.filter(file => file !== fileNameToRemove));
         setFilesToUpload(prev => prev.filter(file => file.name !== fileNameToRemove));
     };
-
-
-    // ==============================================================================
-    // 4. RENDER
-    // ==============================================================================
 
     return (
         <Paper elevation={3} sx={{ p: 3, mb: 3 }}>

@@ -41,7 +41,7 @@ import { useAuth } from 'src/context/AuthContext';
 
 
 const formatDateDisplay = (dateString: string | null): string => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "-";
     try {
         const date = new Date(dateString);
         return format(date, 'dd MMMM yyyy', { locale: tr });
@@ -1274,7 +1274,7 @@ const ListWorks = () => {
                                     )}
                                 />
                             </LocalizationProvider>
-                            <Alert severity="info">Bu işlem işi pasif duruma alacaktır (Durum 1).</Alert>
+                            {/* <Alert severity="info">Bu işlem işi pasif duruma alacaktır (Durum 1).</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>

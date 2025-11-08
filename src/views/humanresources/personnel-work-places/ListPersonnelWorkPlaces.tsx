@@ -1653,7 +1653,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                     }
                                 />
                             </LocalizationProvider>
-                            <Alert severity="warning">Bu işlem, görevlendirmeyi sonlandıracaktır.</Alert>
+                            {/* <Alert severity="warning">Bu işlem, görevlendirmeyi sonlandıracaktır.</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>

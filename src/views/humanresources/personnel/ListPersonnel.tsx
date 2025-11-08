@@ -2323,7 +2323,7 @@ const ListPersonnel: React.FC = () => {
                                     renderInput={(params: any) => (<TextField {...params} size="small" fullWidth />)}
                                 />
                             </LocalizationProvider>
-                            <Alert severity="warning">Seçilen tarih, personelin son çalışma tarihi olacaktır.</Alert>
+                            {/* <Alert severity="warning">Seçilen tarih, personelin son çalışma tarihi olacaktır.</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>

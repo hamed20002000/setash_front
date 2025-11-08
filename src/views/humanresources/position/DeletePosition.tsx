@@ -29,8 +29,6 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
     const [loading, setLoading] = useState<boolean>(false);
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // تغییر: وضعیت برای "سمت در حال استفاده"
-    const [openPositionInUseModal, setOpenPositionInUseModal] = useState<boolean>(false);
 
     // **********************************
     // ** تغییر: منطق حذف سمت (Position) **
@@ -92,9 +90,6 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
         }
     };
 
-    const handleClosePositionInUseModal = () => {
-        setOpenPositionInUseModal(false);
-    };
 
     return (
         <>
@@ -138,26 +133,7 @@ const DeletePosition = ({ openModal, positionIdToDelete, onClose, onDeleteSucces
                 </DialogActions>
             </Dialog>
 
-            <Dialog
-                open={openPositionInUseModal}
-                onClose={handleClosePositionInUseModal}
-                aria-labelledby="position-in-use-dialog-title"
-                aria-describedby="position-in-use-dialog-description"
-            >
-                <DialogTitle id="position-in-use-dialog-title">
-                    {"Hata: Pozisyon Silinemez!"}
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="position-in-use-dialog-description">
-                        Bu Pozisyon şu anda başka bir yerde kullanıldığı için silinemez. Lütfen önce ilgili kayıtları düzenleyin veya silin.
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleClosePositionInUseModal} autoFocus>
-                        Tamam
-                    </Button>
-                </DialogActions>
-            </Dialog>
+
         </>
     );
 }

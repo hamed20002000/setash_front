@@ -1425,7 +1425,7 @@ const ListProjects = () => {
                                     )}
                                 />
                             </LocalizationProvider>
-                            <Alert severity="info">Bu işlem projeyi pasif duruma alacaktır.</Alert>
+                            {/* <Alert severity="info">Bu işlem projeyi pasif duruma alacaktır.</Alert> */}
                         </Stack>
                     )}
                 </DialogContent>
