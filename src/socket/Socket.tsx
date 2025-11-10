@@ -29,7 +29,6 @@ const defaultOpts = {
     forceNew: false,
 } satisfies Partial<ManagerOptions & SocketOptions>;
 
-// —— فقط این هلسپر اضافه شد
 function readRoleFromStorage(): 'admin' | 'user' | '' {
     try {
         return (localStorage.getItem('activeUserRoleName') || '') as any;
@@ -41,14 +40,13 @@ function readRoleFromStorage(): 'admin' | 'user' | '' {
 export function getSocket(): Socket {
     if (socket) return socket;
 
-    // —— نقش از localStorage
     const role = readRoleFromStorage();
     currentRole = role as any;
 
     const url = joinBaseAndNs(BASE_URL, NAMESPACE);
     socket = io(url, {
         ...defaultOpts,
-        query: { role }, // بک‌اند از query می‌خونه
+        query: { role },
     });
 
     return socket;
@@ -61,7 +59,6 @@ export function connectIfNeeded() {
 }
 
 export function switchRole() {
-    // —— هر بار سوئیچ، نقش تازه از localStorage
     const role = readRoleFromStorage();
     currentRole = role as any;
 
@@ -88,7 +85,6 @@ export function disconnect() {
 }
 
 export function getCurrentRole() {
-    // —— مطمئن شیم آخرین مقدار رو برمی‌گردونیم
     currentRole = readRoleFromStorage() as any;
     return currentRole;
 }

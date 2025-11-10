@@ -185,10 +185,6 @@ const MaterialRequestForm: React.FC<MaterialRequestFormProps> = ({ isEditing, it
         setFilesToUpload(prev => prev.filter(file => file.name !== fileNameToRemove));
     };
 
-
-    // ==============================================================================
-    // 4. RENDER
-    // ==============================================================================
     return (
         <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" mb={2}>{isEditing ? `Malzeme Talebini Düzenle (ID: ${itemToEdit?.id})` : 'Yeni Malzeme Talep Oluştur'}</Typography>

@@ -1689,11 +1689,6 @@ const RequestTabs: React.FC = () => {
                     )}
                 </Box>
 
-                {alertMessage && (
-                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
-                        <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
-                    </Stack>
-                )}
 
                 {/* 3. Tab Contents */}
                 <TabPanel value="material" sx={{ p: 0 }}>
@@ -1703,7 +1698,14 @@ const RequestTabs: React.FC = () => {
                     <TableContent />
                 </TabPanel>
             </TabContext>
+            <>
 
+                {alertMessage && (
+                    <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>
+                        <Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert>
+                    </Stack>
+                )}
+            </>
             {/* Shared Dialogs (Modal) */}
 
             {/* Download Modal (Malzeme/Kiralama) */}

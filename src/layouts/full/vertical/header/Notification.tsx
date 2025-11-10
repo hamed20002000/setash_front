@@ -159,9 +159,7 @@ const Notifications = () => {
     return true;
   };
 
-  // === Offline fetch (on mount & role change by storage)
   const fetchOfflineNotifs = useCallback(async () => {
-
     try {
       const authToken = localStorage.getItem('authToken');
       const role = localStorage.getItem('activeUserRoleName') || '';
@@ -170,9 +168,12 @@ const Notifications = () => {
       const url = `${server.baseurl}${server.baseinfo}get-system-notification/${encodeURIComponent(role)}`;
       const resp = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
 
+      debugger
+
+
       if (resp.data?.httpStatusCode === 200 && Array.isArray(resp.data?.data)) {
-        // نگاشت به Noti
         const mapped: Noti[] = resp.data.data
+          // .filter((x: any) => Number(x.recordStatus) === 0)
           .filter(shouldKeepByNeed)
           .map((x: any): Noti => ({
             id: String(x.id),
@@ -186,11 +187,9 @@ const Notifications = () => {
             storeId: x.storeId ? String(x.storeId) : undefined,
           }));
 
-        // ادغام با آیتم‌های فعلی (socket + قبلی) و حذف تکراری‌ها بر اساس id
         setItems(prev => {
           const byId = new Map<string, Noti>();
           for (const n of [...mapped, ...prev]) byId.set(String(n.id), n);
-          // مرتب‌سازی جدیدترین بالا (بر اساس atISO اگر موجود)
           const merged = Array.from(byId.values()).sort((a, b) => {
             const ta = a.atISO ? Date.parse(a.atISO) : 0;
             const tb = b.atISO ? Date.parse(b.atISO) : 0;
@@ -204,7 +203,6 @@ const Notifications = () => {
     }
   }, []);
 
-  // Subscribe به سرویس سوکت (زنده)
   useEffect(() => {
     const unsub = subscribe((s) => {
       const list = s?.notis ?? [];
@@ -213,7 +211,9 @@ const Notifications = () => {
       setItems(prev => {
         // ادغام زنده + موجود
         const byId = new Map<string, Noti>();
-        for (const n of [...filtered, ...prev]) byId.set(String(n.id), n);
+        // for (const n of [...filtered, ...prev]) byId.set(String(n.id), n);
+        for (const n of prev) byId.set(String(n.id), n);
+        for (const n of filtered) byId.set(String(n.id), n);
         const merged = Array.from(byId.values()).sort((a, b) => {
           const ta = a.atISO ? Date.parse(a.atISO) : 0;
           const tb = b.atISO ? Date.parse(b.atISO) : 0;
@@ -225,7 +225,7 @@ const Notifications = () => {
     return () => { unsub(); };
   }, []);
 
-  // Role تغییر کرد؟ (بین تب‌ها/لاگین) → آفلاین‌ها رو دوباره بگیر
+  useEffect(() => { fetchOfflineNotifs(); }, [fetchOfflineNotifs]);
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === 'activeUserRoleName') fetchOfflineNotifs();
@@ -234,8 +234,6 @@ const Notifications = () => {
     return () => window.removeEventListener('storage', handler);
   }, [fetchOfflineNotifs]);
 
-  // Mount → آفلاین‌ها
-  useEffect(() => { fetchOfflineNotifs(); }, [fetchOfflineNotifs]);
 
   const getMeta = (t?: NotifyType) => (t && TYPE_META[t]) || DEFAULT_META;
 
@@ -291,7 +289,6 @@ const Notifications = () => {
     }));
   }, [items]);
 
-  // --- API fetchers برای مودال انتخاب ---
   const fetchWarehouses = useCallback(async () => {
     setSelectLoading(true);
     try {
@@ -356,29 +353,24 @@ const Notifications = () => {
         );
         const results = await Promise.all(calls);
 
-        // فیلتر کردن نوتیفیکیشن‌هایی که recordStatus برابر 1 دارند
         const updatedIds = results
           .flatMap(r => (Array.isArray(r.data?.data) ? r.data.data : []))
-          .filter((x: any) => Number(x.recordStatus) === 1)  // بررسی recordStatus
+          .filter((x: any) => Number(x.recordStatus) === 0)
           .map((x: any) => String(x.id));
 
-        // حذف نوتیفیکیشن‌هایی که recordStatus برابر 1 دارند
         setItems(prev => prev.filter(n => !updatedIds.includes(String(n.id))));
 
         return updatedIds;
       } else {
-        // اگر هیچ شناسه‌ای برای نوتیفیکیشن‌ها داده نشده باشد
         const resp = await axios.put(
           `${base}set-system-notification-read/` + type + `/` + role,
           null, { headers: { Authorization: `Bearer ${authToken}` } }
         );
         const arr: MarkReadResp = Array.isArray(resp.data?.data) ? resp.data.data : [];
 
-        // فیلتر کردن نوتیفیکیشن‌هایی که recordStatus برابر 1 دارند
-        const updatedIds = arr.filter(x => Number(x.recordStatus) === 1)
+        const updatedIds = arr.filter(x => Number(x.recordStatus) === 0)
           .map(x => String(x.id));
 
-        // حذف نوتیفیکیشن‌هایی که recordStatus برابر 1 دارند
         setItems(prev => prev.filter(n => !updatedIds.includes(String(n.id))));
 
         return updatedIds;
@@ -398,7 +390,6 @@ const Notifications = () => {
     const need = TYPES_NEED_ID[type];
     const meta = getMeta(type);
 
-    // نوع‌هایی که ID نمی‌خواهند → مستقیم برو
     if (!need) {
       const dest = typeof meta.to === 'function' ? meta.to(sample as Noti) : meta.to;
       await markNotisAsRead(type);
@@ -408,7 +399,6 @@ const Notifications = () => {
       return;
     }
 
-    // برای انواع نیازمند ID → مودال انتخاب
     setSelectType(type);
     setSelectEntityIds(entityIds);
     setSelectOpen(true);
@@ -427,7 +417,6 @@ const Notifications = () => {
   const totalCount = items.length;
   const chipText = totalCount > 0 ? `${totalCount} yeni` : 'Yeni yok';
 
-  // فهرست‌های فیلتر شده برای مودال انتخاب
   const filteredWarehouses = useMemo(
     () => warehouses.filter(w => selectEntityIds.includes(String(w.id))),
     [warehouses, selectEntityIds]

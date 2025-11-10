@@ -86,7 +86,7 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
     }, [isEditing, itemToEdit, resetForm]);
 
     const validateForm = (): boolean => {
-        if (!rentalTitle.trim() || !selectedWorkhouseId || !rentStartDate || !rentEndDate) {
+        if (!rentalTitle.trim() || !selectedWorkhouseId || !rentStartDate || !rentEndDate || !price) {
             if (!rentStartDate) setRentStartDateError(true);
             if (!rentEndDate) setRentEndDateError(true);
             showAlert("Lütfen gerekli (Konu, İşyeri, Başlangıç/Bitiş Tarihi) alanları doldurun.", "warning");
@@ -259,7 +259,7 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
                     </LocalizationProvider>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="rental-company">Şirket</CustomFormLabel>
+                    <CustomFormLabel htmlFor="rental-company">Kiralandığı Şirket</CustomFormLabel>
                     <CustomTextField id="rental-company" size="small" fullWidth value={company}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCompany(e.target.value)} />
                 </Grid>
@@ -269,7 +269,7 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDriverInfo(e.target.value)} />
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                    <CustomFormLabel htmlFor="rental-price">Fiyat</CustomFormLabel>
+                    <CustomFormLabel htmlFor="rental-price" required>Fiyat</CustomFormLabel>
                     <CustomTextField
                         id="rental-price" type="number" size="small" fullWidth value={price}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPrice(e.target.value)}

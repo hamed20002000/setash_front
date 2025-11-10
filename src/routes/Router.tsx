@@ -58,6 +58,11 @@ const ListPersonnelWorkPlaces = Loadable(lazy(() => import('../views/humanresour
 const RequestTabs = Loadable(lazy(() => import('../views/works/list-request/RequestTabs')));
 const RequestReceiptTabs = Loadable(lazy(() => import('../views/works/list-request-receipt/RequestReceiptTabs')));
 const ListRollCalls = Loadable(lazy(() => import('../views/works/list-roll-calls/ListRollCalls')));
+const ListConsignments = Loadable(lazy(() => import('../views/humanresources/Consignments/ListConsignments')));
+const ListPersonnelConsigneds = Loadable(lazy(() => import('../views/humanresources/PersonnelConsigneds/ListPersonnelConsigneds')));
+
+
+
 
 const Login = Loadable(lazy(() => import('../views/authentication/auth1/Login')));
 const Login2 = Loadable(lazy(() => import('../views/authentication/auth2/Login2')));
@@ -534,6 +539,22 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListRollCalls />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/list-consignments/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListConsignments />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/list-personal-consignments/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPersonnelConsigneds />
           </PermissionGuard>
         )
       },

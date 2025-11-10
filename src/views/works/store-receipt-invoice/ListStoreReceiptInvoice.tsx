@@ -1163,7 +1163,8 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                     />
                                     <DatePicker
                                         label="Bitiş Tarihi" value={endDate} inputFormat="dd/MM/yyyy"
-                                        onChange={(v) => setEndDate(v)} renderInput={(p) => (<TextField {...p} size="small" fullWidth />)}
+                                        onChange={(v) => setEndDate(v)}
+                                        renderInput={(p) => (<TextField {...p} size="small" fullWidth />)}
                                     />
                                     <IconButton onClick={handleClearDateFilters} aria-label="clear date filters"><IconX size={20} /></IconButton>
                                 </Stack>

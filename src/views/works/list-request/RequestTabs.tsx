@@ -215,9 +215,9 @@ const exportRequestPdf = (requestData: MaterialRequestType | WorkhouseRentReques
         ['Açıklama', stripHtml(requestData.description) || '-'],
         ...(!isMaterial ? [
             ['Şoför Bilgisi', (requestData as WorkhouseRentRequest).driverInfo || '-'],
-            ['Şirket', (requestData as WorkhouseRentRequest).company || '-'],
+            ['Kiralandığı Şirket', (requestData as WorkhouseRentRequest).company || '-'],
             ['Fiyat', (requestData as WorkhouseRentRequest).price + ' TL' || '-'],
-            ['İşyeri', (requestData as WorkhouseRentRequest).workhouseName || 'Bilinmiyor'],
+            ['Şantiye', (requestData as WorkhouseRentRequest).workhouseName || 'Bilinmiyor'],
             ['Başlangıç', formatDateDisplay((requestData as WorkhouseRentRequest).rentStartDate)],
             ['Bitiş', formatDateDisplay((requestData as WorkhouseRentRequest).rentEndDate)],
         ] : []),
@@ -271,9 +271,9 @@ const exportRequestExcel = async (requestData: MaterialRequestType | WorkhouseRe
 
     if (!isMaterial) {
         const rentalData = requestData as WorkhouseRentRequest;
-        worksheet.addRow({ key: 'İşyeri', value: rentalData.workhouseName || 'Bilinmiyor' });
+        worksheet.addRow({ key: 'Şantiye', value: rentalData.workhouseName || 'Bilinmiyor' });
         worksheet.addRow({ key: 'Şoför Bilgisi', value: rentalData.driverInfo || '-' });
-        worksheet.addRow({ key: 'Şirket', value: rentalData.company || '-' });
+        worksheet.addRow({ key: 'Kiralandığı Şirket', value: rentalData.company || '-' });
         worksheet.addRow({ key: 'Fiyat', value: rentalData.price + ' TL' });
         worksheet.addRow({ key: 'Kira Başlangıç', value: formatDateDisplay(rentalData.rentStartDate) });
         worksheet.addRow({ key: 'Kira Bitiş', value: formatDateDisplay(rentalData.rentEndDate) });
@@ -298,8 +298,6 @@ const exportRequestExcel = async (requestData: MaterialRequestType | WorkhouseRe
 const exportAllRequestsPdf = (dataList: (MaterialRequestType | WorkhouseRentRequest)[], title: string, isMaterial: boolean) => {
     const doc = new jsPDF('l');
 
-    // --- تنظیمات فونت و زبان ---
-    // @ts-ignore
     doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
     // @ts-ignore
     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -308,7 +306,7 @@ const exportAllRequestsPdf = (dataList: (MaterialRequestType | WorkhouseRentRequ
     // ----------------------------
 
     const materialColumns = ['ID', 'Başlık', 'Durum', 'Tarih', 'Açıklama'];
-    const rentalColumns = ['ID', 'Başlık', 'İşyeri', 'Başlangıç', 'Bitiş', 'Fiyat', 'Durum', 'Şirket'];
+    const rentalColumns = ['ID', 'Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat', 'Durum', 'Kiralandığı Şirket'];
 
     const head = [isMaterial ? materialColumns : rentalColumns];
 
@@ -396,12 +394,12 @@ const exportAllRequestsExcel = async (dataList: (MaterialRequestType | Workhouse
         worksheet.columns = [
             { header: 'ID', key: 'id', width: 10 },
             { header: 'Başlık', key: 'title', width: 25 },
-            { header: 'İşyeri', key: 'workhouseName', width: 25 },
+            { header: 'Şantiye', key: 'workhouseName', width: 25 },
             { header: 'Başlangıç', key: 'rentStartDate', width: 18 },
             { header: 'Bitiş', key: 'rentEndDate', width: 18 },
             { header: 'Fiyat (TL)', key: 'price', width: 15 },
             { header: 'Durum', key: 'status', width: 15 },
-            { header: 'Şirket', key: 'company', width: 20 },
+            { header: 'Kiralandığı Şirket', key: 'company', width: 20 },
         ];
         worksheet.addRows(dataList.map(r => ({
             id: r.id,
@@ -527,11 +525,6 @@ const RequestTabs: React.FC = () => {
         setMaterialPage(0);
     };
 
-
-    // ==============================================================================
-    // 5. FETCH LOGICS
-    // ==============================================================================
-
     const fetchMaterialRequests = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -613,11 +606,6 @@ const RequestTabs: React.FC = () => {
     }, [currentTab, searchParams, fetchMaterialRequests, fetchWorkhouses, fetchRentalRequests]);
 
 
-    // ==============================================================================
-    // 6. TABLE LOGICS & MEMOIZED DATA
-    // ==============================================================================
-
-    // Material Table Logic
     const filteredMaterialRequests = useMemo(() => {
         const q = materialSearchTerm.trim().toLowerCase();
         return requestsList.filter((r) => {
@@ -923,12 +911,12 @@ const RequestTabs: React.FC = () => {
                 {loadingData ? (
                     <Box display="flex" justifyContent="center" alignItems="center" height="200px"><CircularProgress /><Typography variant="h6" sx={{ ml: 2 }}>Kiralama talepleri yükleniyor...</Typography></Box>
                 ) : !selectedRentalWorkhouseId ? (
-                    <Box display="flex" justifyContent="center" alignItems="center" height="200px"><Typography variant="subtitle1" color="textSecondary">Lütfen tabloyu görmek için yukarıdan bir İşyeri seçiniz.</Typography></Box>
+                    <Box display="flex" justifyContent="center" alignItems="center" height="200px"><Typography variant="subtitle1" color="textSecondary">Lütfen tabloyu görmek için yukarıdan bir Şantiye seçiniz.</Typography></Box>
                 ) : (
                     <Table aria-label="Kiralama Talepleri tablosu">
                         <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                {(['Başlık', 'İşyeri', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', ''] as const).map((head, index) => (
+                                {(['Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', ''] as const).map((head, index) => (
                                     <StyledTableCell key={index} sx={{ color: "#171c23" }}>
                                         <TableSortLabel
                                             active={rentalOrderBy === (head === 'Başlık' ? 'title' : head === 'Başlangıç' ? 'rentStartDate' : head === 'Bitiş' ? 'rentEndDate' : head === 'Fiyat (TL)' ? 'price' : head === 'Durum' ? 'status' : 'createAt')}
