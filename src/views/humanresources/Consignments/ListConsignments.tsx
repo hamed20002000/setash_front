@@ -10,6 +10,8 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel,
     Dialog, DialogTitle, DialogContent, DialogActions,
+    Chip,
+    DialogContentText,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -19,7 +21,9 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch,
     IconFileSpreadsheet, IconFileText, IconX, IconFileDownload,
     IconBox,
-    IconQrcode
+    IconQrcode, IconDownload,
+    IconArrowRight,
+    IconArrowLeft
 } from '@tabler/icons-react';
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -41,13 +45,12 @@ import { format } from 'date-fns';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
-// --- Helper Functions and Styles ---
+
+// --- Helper Functions and Styles (Türkçe metinler korundu) ---
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
-        // تاریخ را به شیء Date تبدیل می‌کند
         const date = new Date(dateString.length === 10 ? dateString : String(dateString));
-        // اگر تاریخ نامعتبر بود، متن خطا برمی‌گرداند
         if (isNaN(date.getTime())) return "Geçersiz Tarih";
         return format(date, 'dd MMMM yyyy', { locale: tr });
     } catch (e) {
@@ -97,13 +100,16 @@ interface WarehouseType { id: number; name: string; }
 interface WorkhouseType { id: number; name: string; }
 interface CarWarehouseType { id: number; name: string; }
 interface StoreType { id: number; name: string; workhouse?: { id: number; name: string } }
+interface AttachmentType { fileUrl: string; }
 
-type PlaceKind = 'WAREHOUSE' | 'WORKHOUSE' | 'WORKHOUSE_STORE' | 'FILO' | 'UNKNOWN';
+type PlaceKind = 'WAREHOUSE' | 'WORKHOUSE' | 'WORKHOUSE_STORE' | 'FILO' | 'CENTER' | 'UNKNOWN';
 
 interface ConsignmentPayload {
     name: string;
     placeId: number;
+    description: string;
     placeType: 0 | 1 | 2 | 3 | 4;
+    attachments: AttachmentType[];
 }
 
 interface Consignment {
@@ -112,13 +118,19 @@ interface Consignment {
     code: string;
     placeId: number;
     type: 0 | 1 | 2 | 3 | 4;
-    description?: string;
+    description: string;
     recordStatus?: number;
     createAt?: string;
+    attachments: AttachmentType[];
 
-    // Computed Fields
     placeKind: PlaceKind;
     placeName: string;
+}
+
+interface QrDataType {
+    code: string;
+    name: string;
+    url: string; // این فیلد جدید، آدرس کامل است
 }
 
 type SortableKeys = 'id' | 'name' | 'code' | 'placeName' | 'createAt';
@@ -149,6 +161,225 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
+// --- Custom File Upload Component ---
+const ConsignmentFileUpload: React.FC<{ files: File[]; setFiles: (f: File[]) => void; error: boolean; currentAttachments: AttachmentType[]; setCurrentAttachments: (a: AttachmentType[]) => void; }> = ({ files, setFiles, error, currentAttachments, setCurrentAttachments }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const supportedTypes = "image/*";
+    const { isTooltipGloballyEnabled } = useTooltip();
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setFiles([...files, ...Array.from(e.target.files)]);
+        }
+    };
+
+    const handleRemoveNewFile = (index: number) => {
+        setFiles(files.filter((_, i) => i !== index));
+    };
+
+    const handleRemoveExistingAttachment = (index: number) => {
+        setCurrentAttachments(currentAttachments.filter((_, i) => i !== index));
+    };
+
+
+    return (
+        <Box mt={1} p={2} border={error ? '1px dashed red' : '1px dashed #ccc'} borderRadius={1}>
+            <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept={supportedTypes}
+                style={{ display: 'none' }}
+            />
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Button size="small" variant="outlined" startIcon={<IconBox />} onClick={() => fileInputRef.current?.click()}>
+                    Resim Seç
+                </Button>
+            </Stack>
+            {/* Display Existing Attachments */}
+            {currentAttachments.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                    <Typography variant="caption" sx={{ color: 'gray' }}>Mevcut ({currentAttachments.length}):</Typography>
+                    {currentAttachments.map((att, index) => (
+                        <CustomTooltip key={`exist-${index}`}
+                            title={isTooltipGloballyEnabled ? att.fileUrl.split('/').pop() : ''}>
+                            <Chip
+                                key={index}
+                                label={`Mevcut ${index + 1}`}
+                                onDelete={() => handleRemoveExistingAttachment(index)}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                                sx={{ m: 0.5, maxWidth: 120 }}
+                            />
+                        </CustomTooltip>
+
+                    ))}
+                </Stack>
+            )}
+
+            {/* Display New Files to Upload */}
+            {files.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                    {files.map((file, index) => (
+                        <CustomTooltip key={`new-${index}`} title={isTooltipGloballyEnabled ? file.name : ''}>
+                            <Chip
+                                key={index}
+                                label={`Yeni ${index + 1}`}
+                                onDelete={() => handleRemoveNewFile(index)}
+                                size="small"
+                                color="success"
+                                sx={{ maxWidth: 120 }}
+                            />
+                        </CustomTooltip>
+                    ))}
+                </Stack>
+            )}
+
+            {error && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Lütfen en az bir resim seçin.</Typography>}
+        </Box>
+    );
+};
+
+// تابع آپلود فایل
+const uploadFiles = async (
+    files: File[],
+    authToken: string,
+    showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void
+): Promise<string[] | null> => {
+
+    if (!files || files.length === 0) {
+        return [];
+    }
+
+    const formData = new FormData();
+    files.forEach(file => formData.append('files', file));
+
+    debugger
+
+    try {
+        const uploadResponse = await axios.post(
+            server.baseurl + server.baseinfo + "upload-files",
+            formData,
+            {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            }
+        );
+
+        if (uploadResponse.data.httpStatusCode === 201) {
+            return uploadResponse.data.data.files as string[];
+        } else {
+            showAlert(uploadResponse.data?.message || 'Dosya yüklenirken sunucu hatası oluştu.', 'error');
+            return null;
+        }
+    } catch (e: any) {
+        showAlert(e?.response?.data?.message || 'Dosya yüklenirken ağ hatası oluştu.', 'error');
+        return null;
+    }
+};
+
+
+const resizeImageBase64 = (base64String: string, maxWidth: number = 600, maxHeight: number = 600, quality: number = 0.7): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+
+        img.onload = () => {
+            let width = img.width;
+            let height = img.height;
+
+            // محاسبه ابعاد جدید با حفظ نسبت
+            if (width > height) {
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+            } else {
+                if (height > maxHeight) {
+                    width *= maxHeight / height;
+                    height = maxHeight;
+                }
+            }
+
+            // اگر تصویر کوچک بود، ابعاد اصلی را حفظ می‌کند
+            if (width < 1 || height < 1) {
+                resolve(base64String);
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            if (ctx) {
+                // پر کردن پس‌زمینه با سفید (برای جلوگیری از پس‌زمینه سیاه در صورت شفافیت)
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, width, height);
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // تبدیل مجدد به Base64 با کیفیت پایین‌تر (JPEG برای فشرده‌سازی بهتر)
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            } else {
+                // اگر Canvas در دسترس نباشد، Base64 اصلی را برمی‌گرداند
+                resolve(base64String);
+            }
+        };
+
+        img.onerror = () => {
+            console.error("Image loading failed for Base64 resizing.");
+            resolve(base64String); // در صورت خطا Base64 اصلی را برمی‌گرداند
+        };
+
+        // شروع بارگذاری تصویر
+        img.src = base64String;
+    });
+};
+
+const urlToBase64 = async (url: string, _mimeType: string, authToken: string): Promise<string | null> => {
+    try {
+        const fullUrl = url.startsWith('http') ? url : `${server.urldpwonload}${url}`;
+
+        // 1. واکشی فایل با توکن احراز هویت با استفاده از Fetch
+        const response = await fetch(fullUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+            // mode: 'cors' اگر مشکل از CORS باشد می‌تواند کمک کند
+        });
+
+        if (!response.ok) {
+            console.error(`Fetch error: ${response.status} ${response.statusText}`);
+            return null;
+        }
+
+        // 2. تبدیل پاسخ مستقیم به Blob
+        const blob = await response.blob();
+
+        // 3. تبدیل Blob به Base64 (Data URL)
+        const base64Result = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("FileReader failed to convert blob to Base64."));
+            reader.readAsDataURL(blob);
+        });
+
+        // 4. بهینه‌سازی حجم با تغییر اندازه (تابع resizeImageBase64 قبلی)
+        const optimizedBase64 = await resizeImageBase64(base64Result);
+
+        return optimizedBase64;
+
+    } catch (e: any) {
+        console.error("Error converting and optimizing image for PDF (Fetch API):", e?.message || e);
+        return null;
+    }
+};
+
+// 💡 نکته: تابع resizeImageBase64 را بدون تغییر نگه دارید.
 // --- Main Component ---
 const ListConsignments: React.FC = () => {
     const navigate = useNavigate();
@@ -167,11 +398,17 @@ const ListConsignments: React.FC = () => {
     // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
     const [consignmentName, setConsignmentName] = useState<string>('');
-    const [placeKind, setPlaceKind] = useState<PlaceKind>('WAREHOUSE');
+    const [description, setDescription] = useState<string>('');
+    const [placeKind, setPlaceKind] = useState<PlaceKind>('CENTER');
     const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | ''>('');
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | ''>('');
     const [selectedStoreId, setSelectedStoreId] = useState<number | ''>('');
     const [selectedCarWarehouseId, setSelectedCarWarehouseId] = useState<number | ''>('');
+
+    // State های مربوط به فایل‌ها 
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
+    const [attachmentError, setAttachmentError] = useState(false);
 
     // لیست‌های مرجع
     const [warehousesList, setWarehousesList] = useState<WarehouseType[]>([]);
@@ -197,7 +434,7 @@ const ListConsignments: React.FC = () => {
     const [orderBy, setOrderBy] = useState<SortableKeys>('name');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
-    // NEW: Date Filters for 'createAt'
+    // Date Filters for 'createAt'
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
@@ -224,8 +461,18 @@ const ListConsignments: React.FC = () => {
     const [placeError, setPlaceError] = useState(false);
 
     const [openQrModal, setOpenQrModal] = useState(false);
-    const [qrData, setQrData] = useState<{ code: string; name: string } | null>(null);
+    const [qrData, setQrData] = useState<QrDataType | null>(null);
     const [downloadLoading, setDownloadLoading] = useState(false);
+
+    // State های مودال پیوست ها
+    const [rowForAttachments, setRowForAttachments] = useState<Consignment | null>(null);
+    const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
+    const [attachmentsToView, setAttachmentsToView] = useState<AttachmentType[]>([]);
+    const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
     // --- Alert & Initialization Logic ---
@@ -241,7 +488,7 @@ const ListConsignments: React.FC = () => {
     }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // --- Data Fetching Functions (Reference Lists) ---
+    // --- Data Fetching: Reference Lists ---
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
@@ -264,9 +511,7 @@ const ListConsignments: React.FC = () => {
         } catch (e) { showAlert('Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
-    // Mocking CarWarehouses (یا استفاده از API واقعی Filo) - اگر API واقعی دارید، آن را فعال کنید
     const fetchCarWarehouses = useCallback(() => {
-        // فرض می‌کنیم این لیست از یک API دیگر یا لیست ثابت می‌آید
         setCarWarehousesList([{ id: 101, name: 'Filo Merkez' }, { id: 102, name: 'Filo Ankara' }] as CarWarehouseType[]);
     }, []);
 
@@ -282,8 +527,7 @@ const ListConsignments: React.FC = () => {
         } catch (e) { showAlert('Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
-
-    // Fetch Consignments (MODIFIED for Dependencies)
+    // --- Data Fetching: Main List (Consignments) ---
     const fetchConsignments = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
@@ -292,35 +536,49 @@ const ListConsignments: React.FC = () => {
         try {
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-consignments`, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
-                debugger
                 const rawRows = (res.data.data as any[]).map((r) => {
                     let name = '-';
+                    // API'den gelen verilerin string olabileceğini varsayarak Number() ile dönüştürüyoruz
+                    const placeIdNum = Number(r.placeId);
                     const typeNum = Number(r.placeType);
-                    const kind: PlaceKind = typeNum === 0 ? 'WAREHOUSE' : typeNum === 1 ? 'WORKHOUSE' : typeNum === 2 ? 'WORKHOUSE_STORE' : typeNum === 3 ? 'FILO' : 'UNKNOWN';
+                    const idNum = Number(r.id);
+                    const recordStatusNum = Number(r.recordStatus);
 
-                    // محاسبه PlaceName بر اساس لیست‌های مرجع (از State)
+                    const kind: PlaceKind =
+                        typeNum === 0 ? 'WAREHOUSE' :
+                            typeNum === 1 ? 'WORKHOUSE' :
+                                typeNum === 2 ? 'WORKHOUSE_STORE' :
+                                    typeNum === 3 ? 'FILO' :
+                                        typeNum === 4 ? 'CENTER' :
+                                            'UNKNOWN';
+
+
                     if (typeNum === 0) {
-                        name = warehousesList.find(w => w.id === Number(r.placeId))?.name || '-';
+                        name = warehousesList.find(w => w.id === placeIdNum)?.name || '-';
                     } else if (typeNum === 1) {
-                        name = workhousesList.find(w => w.id === Number(r.placeId))?.name || '-';
+                        name = workhousesList.find(w => w.id === placeIdNum)?.name || '-';
                     } else if (typeNum === 2) {
-                        name = storesList.find(s => s.id === Number(r.placeId))?.name || `Şantiye Deposu (ID: ${r.placeId})`;
+                        name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (ID: ${placeIdNum})`;
                     } else if (typeNum === 3) {
-                        name = carWarehousesList.find(w => w.id === Number(r.placeId))?.name || '-';
+                        name = carWarehousesList.find(w => w.id === placeIdNum)?.name || '-';
                     } else if (typeNum === 4) {
-                        name = 'Bilinmeyen Yer Türü 4';
+                        name = 'Merkez';
                     }
 
+                    // API'de attachments null gelebileceği için kontrol ekledik
+                    const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
+
                     return {
-                        id: Number(r.id),
+                        id: idNum,
                         name: r.name,
                         code: r.code || '-',
-                        placeId: Number(r.placeId),
+                        placeId: placeIdNum,
                         type: typeNum as Consignment['type'],
-                        placeKind: kind,
-                        description: r.description || '',
-                        recordStatus: r.recordStatus,
+                        description: r.description || '', // API'de yok, boş bırakıldı
+                        recordStatus: recordStatusNum,
                         createAt: r.createAt,
+                        attachments: attachments as AttachmentType[],
+                        placeKind: kind,
                         placeName: name,
                     };
                 }) as Consignment[];
@@ -334,25 +592,26 @@ const ListConsignments: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, warehousesList, workhousesList, carWarehousesList, storesList]); // <-- Dependencies برای رفع مشکل وابستگی‌ها
+    }, [navigate, warehousesList, workhousesList, storesList, carWarehousesList]); // <-- Eksiksiz bağımlılıklar
 
-    // **فراخوانی اولیه لیست‌های مرجع**
+    // **Faza 1: Referans Listelerinin Çağrılması**
     useEffect(() => {
         fetchWarehouses();
         fetchWorkhouses();
         fetchCarWarehouses();
     }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses]);
 
-    // **فراخوانی ثانویه Consignments (پس از بارگذاری لیست‌های مرجع)**
+    // **Faza 2: Ana Listenin Çağrılması (Referanslar yüklendikten sonra)**
     useEffect(() => {
-        // این useEffect تضمین می‌کند که fetchConsignments حداقل یک بار پس از پر شدن لیست‌های مرجع، اجرا شود.
-        fetchConsignments();
-    }, [fetchConsignments]);
+        if (warehousesList.length >= 0 && workhousesList.length >= 0) {
+            fetchConsignments();
+        }
+    }, [fetchConsignments, warehousesList, workhousesList, storesList, carWarehousesList]);
 
 
     // --- Form Logic (Cont.) ---
     useEffect(() => {
-        // منطق به‌روزرسانی لیست Store بر اساس Workhouse (برای WORKHOUSE_STORE)
+        // Mantık, önceki kontrolde olduğu gibi kaldı
         if (placeKind === 'WORKHOUSE_STORE') {
             setSelectedWarehouseId(''); setSelectedCarWarehouseId('');
             if (selectedWorkhouseId && typeof selectedWorkhouseId === 'number') {
@@ -369,30 +628,27 @@ const ListConsignments: React.FC = () => {
         if (placeKind === 'FILO') { setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId(''); }
     }, [placeKind, selectedWorkhouseId, fetchStoresByWorkhouseId]);
 
-
-
-    // قبل از return اصلی کامپوننت اضافه شود
+    const QR_BASE_URL = "https://setasportal.com/hr/list-consignments?code=";
+    // --- QR Code Logic (for New Record) ---
     const fetchLastConsignmentAndOpenQRModal = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
 
         try {
-            // ۱. آخرین رکورد ثبت شده را فچ کنید
-            // (اگر API مخصوص برای 'get-last' ندارید، get-all را بگیرید و بر اساس createAt مرتب کنید)
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-consignments`,
                 { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200 && res.data.data.length > 0) {
                 const rawRows = res.data.data as any[];
-                debugger
 
-                // پیدا کردن جدیدترین رکورد بر اساس createAt
+                // find the latest record based on createAt
                 const latestRecord = rawRows.sort((a, b) =>
                     new Date(b.createAt).getTime() - new Date(a.createAt).getTime())[0];
 
                 if (latestRecord && latestRecord.code && latestRecord.name) {
-                    console.log("QR Data Hazır:", latestRecord.code, latestRecord.name); // 👈 Console Log اضافه کنید
-                    setQrData({ code: latestRecord.code, name: latestRecord.name });
+                    const fullUrl = `${QR_BASE_URL}${latestRecord.code}`;
+
+                    setQrData({ code: latestRecord.code, name: latestRecord.name, url: fullUrl }); // افزودن url
                     setOpenQrModal(true);
                 } else {
                     showAlert('Yeni kayıt verileri (Kod ve Ad) eksik.', 'warning');
@@ -403,49 +659,79 @@ const ListConsignments: React.FC = () => {
         } catch (e) {
             showAlert('Son kaydı alırken bir hata oluştu.', 'error');
         }
-    }, [navigate, showAlert]);
+    }, [showAlert]);
 
     const validateForm = (): boolean => {
         let ok = true;
 
-        if (!consignmentName.trim()) { setNameError(true); ok = false; } else setNameError(false);
+        if (!consignmentName.trim()) {
+            setNameError(true);
+            ok = false;
+        } else {
+            setNameError(false);
+        }
 
-        const computedPlaceId = placeKind === 'WAREHOUSE' ? selectedWarehouseId :
-            placeKind === 'WORKHOUSE' ? selectedWorkhouseId :
-                placeKind === 'WORKHOUSE_STORE' ? selectedStoreId : selectedCarWarehouseId;
-        if (!computedPlaceId) { setPlaceError(true); ok = false; } else setPlaceError(false);
+        setPlaceError(false);
 
-        if (!ok) showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
+        if (placeKind !== 'CENTER') {
+            const computedPlaceId =
+                placeKind === 'WAREHOUSE' ? selectedWarehouseId :
+                    placeKind === 'WORKHOUSE' ? selectedWorkhouseId :
+                        placeKind === 'WORKHOUSE_STORE' ? selectedStoreId :
+                            placeKind === 'FILO' ? selectedCarWarehouseId : null;
+
+            if (!computedPlaceId) {
+                setPlaceError(true);
+                ok = false;
+            }
+        }
+        setAttachmentError(false);
+
+        if (!ok) {
+            showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
+        }
+
         return ok;
     };
-
     const resetForm = () => {
         setEditingId(null);
         setConsignmentName('');
-
-        setPlaceKind('WAREHOUSE');
+        setDescription(''); // ✨ تغییر: ریست کردن توضیحات
+        setPlaceKind('CENTER');
         setSelectedWarehouseId('');
         setSelectedWorkhouseId('');
         setSelectedStoreId('');
         setSelectedCarWarehouseId('');
+        setSelectedFiles([]);
+        setCurrentAttachments([]);
 
-        setNameError(false); setPlaceError(false);
+        setNameError(false); setPlaceError(false); setAttachmentError(false);
         setIsFormVisible(false);
     };
 
-    const buildPayload = (id?: number): ConsignmentPayload & { id?: number } => {
-        const placeIdToSend = placeKind === 'WAREHOUSE' ? selectedWarehouseId :
-            placeKind === 'WORKHOUSE' ? selectedWorkhouseId :
-                placeKind === 'WORKHOUSE_STORE' ? selectedStoreId : selectedCarWarehouseId;
+    const buildPayload = (id?: number, attachments: AttachmentType[] = []): ConsignmentPayload & { id?: number } => {
+        let placeIdToSend: number | null = null;
+        let typeToSend: ConsignmentPayload['placeType'] = 4;
 
-        const typeToSend = placeKind === 'WAREHOUSE' ? 0 :
-            placeKind === 'WORKHOUSE' ? 1 :
-                placeKind === 'WORKHOUSE_STORE' ? 2 : 3;
+        if (placeKind === 'WAREHOUSE') {
+            placeIdToSend = Number(selectedWarehouseId); typeToSend = 0;
+        } else if (placeKind === 'WORKHOUSE') {
+            placeIdToSend = Number(selectedWorkhouseId); typeToSend = 1;
+        } else if (placeKind === 'WORKHOUSE_STORE') {
+            placeIdToSend = Number(selectedStoreId); typeToSend = 2;
+        } else if (placeKind === 'FILO') {
+            placeIdToSend = Number(selectedCarWarehouseId); typeToSend = 3;
+        } else if (placeKind === 'CENTER') {
+            placeIdToSend = null;
+            typeToSend = 4;
+        }
 
         const payload: ConsignmentPayload & { id?: number } = {
             name: consignmentName.trim(),
+            description: description,
             placeId: Number(placeIdToSend),
-            placeType: typeToSend as ConsignmentPayload['placeType'],
+            placeType: typeToSend,
+            attachments: attachments,
         };
 
         if (id) payload.id = id;
@@ -459,8 +745,22 @@ const ListConsignments: React.FC = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error'); setLoadingButton(false); return; }
 
+        // 1. Yeni Dosyaların Yüklenmesi
+        let fileUrls: string[] | null = [];
+        if (selectedFiles.length > 0) {
+            showAlert('Dosyalar yükleniyor...', 'info');
+            fileUrls = await uploadFiles(selectedFiles, authToken, showAlert);
+            if (fileUrls === null) { setLoadingButton(false); return; }
+        }
+
+        // 2. Mevcut ve Yeni Dosyaların Birleştirilmesi
+        const finalAttachments: AttachmentType[] = [
+            ...currentAttachments,
+            ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])
+        ];
+
         const isEditing = editingId !== null;
-        const payload = buildPayload(editingId ?? undefined);
+        const payload = buildPayload(editingId ?? undefined, finalAttachments);
 
         const url = isEditing
             ? `${server.baseurl}${server.hr}update-consignment`
@@ -492,6 +792,9 @@ const ListConsignments: React.FC = () => {
         setEditingId(r.id);
         setConsignmentName(r.name);
         setPlaceKind(r.placeKind);
+        setDescription(r.description || '');
+        setCurrentAttachments(r.attachments);
+        setSelectedFiles([]);
 
         // Set Place ID based on type
         if (r.type === 0) {
@@ -510,6 +813,9 @@ const ListConsignments: React.FC = () => {
             }
         } else if (r.type === 3) {
             setSelectedCarWarehouseId(r.placeId); setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId('');
+        } else if (r.type === 4) {
+            setSelectedCarWarehouseId(''); setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId('');
+
         }
 
         setIsFormVisible(true);
@@ -541,7 +847,7 @@ const ListConsignments: React.FC = () => {
             // 2. Status Filter
             const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && r.recordStatus === 0) || (statusFilter === 'inactive' && r.recordStatus === 1);
 
-            // 3. Date Filter (NEW)
+            // 3. Date Filter
             const cDate = r.createAt ? new Date(r.createAt) : null;
             const inRange = (!startFilter || (cDate && cDate >= startFilter)) && (!endFilter || (cDate && cDate <= endFilter));
 
@@ -573,8 +879,36 @@ const ListConsignments: React.FC = () => {
     const handleRequestSort = (property: SortableKeys) => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); };
     const handleClearDateFilters = () => { setStartFilter(null); setEndFilter(null); };
 
+    // --- Attachments Modals ---
+    // ... (سایر توابع کمکی)
 
-    // --- Export Functions ---
+    // --- Attachments Modals ---
+    const handleOpenAttachmentsModal = (row: Consignment) => {
+        // 1. اطلاعات کامل ردیف را ذخیره می کنیم
+        setRowForAttachments(row);
+
+        // 2. پیوست ها و وضعیت اسلایدر را تنظیم می کنیم
+        setAttachmentsToView(row.attachments);
+        setCurrentSlideIndex(0);
+        setOpenAttachmentsModal(true);
+    };
+
+    const handleNextSlide = () => {
+        setCurrentSlideIndex(prev => (prev + 1) % attachmentsToView.length);
+    };
+
+    const handlePrevSlide = () => {
+        setCurrentSlideIndex(prev => (prev - 1 + attachmentsToView.length) % attachmentsToView.length);
+    };
+
+    const handleDownloadClick = (fileUrl: string) => {
+        if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; }
+        const url = `${server.urldpwonload}${fileUrl}`;
+        window.open(url, '_blank');
+        showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
+    };
+
+    // --- Export Functions (PDF/Excel) ---
     const exportToPdf = async (rows: Consignment[], isFiltered: boolean) => {
         if (!rows || rows.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
@@ -588,7 +922,7 @@ const ListConsignments: React.FC = () => {
         try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
         docAny.setFont('NotoSans');
 
-        const columns = ['Ambar/Mahsul Adı', 'Kod', 'Yer Türü', 'Yer', 'Kayıt Tarihi'];
+        const columns = ['Mal Adı', 'Kod', 'Yer Türü', 'Yer', 'Kayıt Tarihi'];
         const body = rows.map(r => [
             r.name || '-',
             r.code || '-',
@@ -597,7 +931,7 @@ const ListConsignments: React.FC = () => {
             formatDateDisplay(r.createAt || null),
         ]);
 
-        const title = isFiltered ? 'Filtrelenmiş Ambar/Mahsul Kayıtları Raporu' : 'Tüm Ambar/Mahsul Kayıtları Raporu';
+        const title = isFiltered ? 'Filtrelenmiş Mal Kayıtları Raporu' : 'Tüm Mal Kayıtları Raporu';
 
         autoTable(docAny, {
             head: [columns],
@@ -663,13 +997,13 @@ const ListConsignments: React.FC = () => {
                     if (lastRow) {
                         lastRow.getCell(1).alignment = { horizontal: 'center' };
                         lastRow.getCell(1).font = { name: 'Arial', size: 8, bold: false };
-                        ws.mergeCells(`A${lastRow.number}:F${lastRow.number}`); // 6 columns
+                        ws.mergeCells(`A${lastRow.number}:F${lastRow.number}`);
                     }
                 });
             };
 
-            const titleText = isFiltered ? 'Filtrelenmiş Ambar/Mahsul Kayıtları Raporu' : 'Tüm Ambar/Mahsul Kayıtları Raporu';
-            worksheet.addRow(['', '', '', '', '', '']); // 6 columns
+            const titleText = isFiltered ? 'Filtrelenmiş Mal Kayıtları Raporu' : 'Tüm Mal Kayıtları Raporu';
+            worksheet.addRow(['', '', '', '', '', '']);
             const titleRow = worksheet.addRow([titleText]);
             if (titleRow) { titleRow.font = { name: 'Times New Roman', size: 12, bold: true }; titleRow.getCell(1).alignment = { horizontal: 'center' }; }
             worksheet.mergeCells(`A${titleRow.number}:F${titleRow.number}`);
@@ -679,7 +1013,7 @@ const ListConsignments: React.FC = () => {
             if (dateRow) { dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false }; dateRow.getCell(1).alignment = { horizontal: 'left' }; }
             worksheet.addRow([]);
 
-            const tableHeaders = ['Ambar/Mahsul Adı', 'Kod', 'Yer Türü', 'Yer', 'Kayıt Tarihi'];
+            const tableHeaders = ['Mal Adı', 'Kod', 'Yer Türü', 'Yer', 'Kayıt Tarihi'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.eachCell((cell) => { cell.style = fullHeaderStyle; });
 
@@ -722,6 +1056,137 @@ const ListConsignments: React.FC = () => {
         }
     };
 
+    const exportRowWithImagesToPdf = async (row: Consignment) => {
+        if (!row) return;
+        setLoadingData(true);
+        showAlert('Malzeme ve resimler PDF olarak hazırlanıyor...', 'info');
+
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
+            setLoadingData(false);
+            return;
+        }
+
+        // @ts-ignore
+        const doc = new jsPDF();
+        const docAny = doc as any;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 10;
+        let currentY = 15;
+
+        try {
+            // ... (تنظیمات فونت و هدر و جدول مشخصات - بدون تغییر) ...
+            try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
+            docAny.setFont('NotoSans');
+            docAny.setFontSize(14);
+            docAny.text('Malzeme Kayıt Detayı ve Resim Raporu', pageWidth / 2, currentY, { align: 'center' });
+            currentY += 10;
+
+            const mainColumns = [['Alan', 'Değer']];
+            const mainBody = [
+                ['Mal Adı:', row.name || '-'],
+                ['Kod:', row.code || '-'],
+                ['Yer Türü:', getPlaceKindText(row.placeKind)],
+                ['Yer Adı:', row.placeName || '-'],
+                ['Kayıt Tarihi:', formatDateDisplay(row.createAt || null)],
+            ];
+
+            // فرض می‌کنیم autoTable قبلاً تعریف شده
+            autoTable(docAny, {
+                head: mainColumns,
+                body: mainBody,
+                startY: currentY,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+                headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
+                margin: { top: 15, left: margin, right: margin }
+            });
+            currentY = docAny.lastAutoTable.finalY + 10;
+
+            // 3. بخش عکس‌ها (منطق جدید برای مدیریت MimeType)
+            if (row.attachments && row.attachments.length > 0) {
+                docAny.setFontSize(12);
+                docAny.text(`Ekli Resimler (${row.attachments.length} adet):`, margin, currentY);
+                currentY += 5;
+
+                // تبدیل URL عکس‌ها به Base64 و استخراج MimeType
+                const imagesBase64Promises = row.attachments.map(att => {
+                    const fileName = att.fileUrl.split('/').pop()?.toLowerCase() || '';
+                    // تخمین MimeType بر اساس پسوند (می‌تواند از سرور دقیق‌تر باشد)
+                    const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+                    // واکشی Base64
+                    return urlToBase64(att.fileUrl, mimeType, authToken).then(base64 => ({ base64, mimeType, fileUrl: att.fileUrl }));
+                });
+
+                // دریافت Base64 و MimeType های موفقیت‌آمیز
+                const imageResults = (await Promise.all(imagesBase64Promises)).filter(img => img.base64 !== null) as { base64: string; mimeType: string; fileUrl: string }[];
+
+                if (imageResults.length === 0) {
+                    showAlert('Resimler yüklenirken bir sorun oluştu (Kimlik doğrulama veya sunucu hatası).', 'error');
+                    setLoadingData(false);
+                    return;
+                }
+
+                const imgWidth = 55;
+                const imgHeight = 40;
+                const padding = 5;
+                const imagesPerRow = Math.floor((pageWidth - 2 * margin) / (imgWidth + padding));
+                let x = margin;
+
+                for (let i = 0; i < imageResults.length; i++) {
+                    const { base64, mimeType, fileUrl } = imageResults[i];
+
+                    // 💡 مهم: استخراج فرمت تصویر (JPEG, PNG,...) برای آرگومان دوم addImage
+                    const imageType = mimeType.toUpperCase().split('/')[1] || 'JPEG';
+
+                    // بررسی صفحه‌بندی
+                    if (currentY + imgHeight + padding > pageHeight - margin) {
+                        docAny.addPage();
+                        currentY = margin;
+                        x = margin;
+                    }
+
+                    // بررسی اتمام ردیف
+                    if ((i > 0 && i % imagesPerRow === 0)) {
+                        currentY += imgHeight + 10;
+                        x = margin;
+                    }
+
+                    // افزودن عکس به PDF با استفاده از imageType صحیح
+                    docAny.addImage(base64, imageType, x, currentY, imgWidth, imgHeight);
+
+                    // افزودن نام فایل زیر عکس
+                    docAny.setFontSize(7);
+                    docAny.text(fileUrl.split('/').pop() || 'Dosya Adı', x, currentY + imgHeight + 3);
+
+                    x += imgWidth + padding;
+                }
+            } else {
+                docAny.setFontSize(10);
+                docAny.text('Bu kayıt için ekli resim bulunmamaktadır.', margin, currentY);
+            }
+
+            const fileName = `Mal_Raporu_ve_Resimler_${row.code}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+            docAny.save(fileName);
+            showAlert('Malzeme ve Resimler PDF olarak başarıyla indirildi.', 'success');
+        } catch (e) {
+            showAlert('Resimli PDF oluşturulurken kritik bir hata oluştu.', 'error');
+            console.error("Resimli PDF Hatası:", e);
+        } finally {
+            setLoadingData(false);
+        }
+    };
+
+    const handleDownloadRowWithImages = () => {
+        if (selectedRowForMenu) {
+            exportRowWithImagesToPdf(selectedRowForMenu);
+            handleCloseMenu();
+        }
+    };
+
     const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
     const handleCloseDownloadAllModal = () => setOpenDownloadAllModal(false);
     const handleOpenDownloadFilteredModal = () => setOpenDownloadFilteredModal(true);
@@ -733,7 +1198,7 @@ const ListConsignments: React.FC = () => {
     const handleDownloadFiltered = (format: 'pdf' | 'excel') => { format === 'pdf' ? exportToPdf(filteredConsignments, true) : exportToExcel(filteredConsignments, true); handleCloseDownloadFilteredModal(); };
     const handleDownloadRow = (format: 'pdf' | 'excel') => { if (!selectedRowForDownload) return; const rows = [selectedRowForDownload]; format === 'pdf' ? exportToPdf(rows, false) : exportToExcel(rows, false); handleCloseRowDownloadModal(); };
 
-
+    // --- QR Code Logic (Download) ---
     const downloadQRCodeAsPNG = (elementId: string, filename: string) => {
         const canvas = document.getElementById(elementId) as HTMLCanvasElement;
         if (canvas) {
@@ -747,26 +1212,23 @@ const ListConsignments: React.FC = () => {
         }
     };
 
-    // B. تابع کمکی برای دانلود PDF (با اطلاعات اضافه)
     const downloadQRCodeAsPDF = async (code: string, name: string) => {
         setDownloadLoading(true);
         const doc = new jsPDF('p', 'mm', 'a4');
         const docAny = doc as any;
 
-        // ۱. اضافه کردن فونت برای پشتیبانی از کاراکترهای ترکی/فارسی (بر اساس کد فعلی شما)
         try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
         docAny.setFont('NotoSans');
 
-        // ۲. دریافت تصویر QR Code از Canvas
         const canvas = document.getElementById('qr-code-canvas') as HTMLCanvasElement;
         const qrImage = canvas ? canvas.toDataURL('image/png') : null;
 
         docAny.setFontSize(12);
-        docAny.text(`Ambar Adı: ${name}`, 10, 15);
+        docAny.text(`Mal Adı: ${name}`, 10, 15);
         docAny.text(`Kod: ${code}`, 10, 25);
 
         if (qrImage) {
-            docAny.addImage(qrImage, 'PNG', 10, 35, 60, 60); // x, y, width, height
+            docAny.addImage(qrImage, 'PNG', 10, 35, 60, 60);
         } else {
             docAny.text('QR Kod görseli bulunamadı.', 10, 50);
         }
@@ -777,24 +1239,33 @@ const ListConsignments: React.FC = () => {
 
 
     const handleOpenQrModal = (row: Consignment) => {
-        // از داده‌های ردیف برای پر کردن وضعیت QR Code استفاده می‌کنیم
         if (row.code && row.name) {
-            setQrData({ code: row.code, name: row.name });
+            const fullUrl = `${QR_BASE_URL}${row.code}`; // ساخت آدرس
+
+            setQrData({ code: row.code, name: row.name, url: fullUrl }); // افزودن url
             setOpenQrModal(true);
         } else {
             showAlert('QR Kod oluşturmak için Kod ve Ad bilgisi eksik.', 'warning');
         }
-        handleCloseMenu(); // منوی عملیات را می‌بندیم
+        handleCloseMenu();
     };
 
-    // --- JSX Render ---
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
                     <Stack direction="row" alignItems="center" spacing={1}>
                         <IconBox width={24} height={24} />
-                        <Typography variant="h5" mb={0}>{editingId ? 'Ambar Kaydını Düzenle' : 'Yeni Ambar/Mahsul Kaydı'}</Typography>
+                        <Typography variant="h5" mb={0}>{editingId ? 'Mal Kaydını Düzenle' : 'Yeni Mal Kaydı'}</Typography>
                     </Stack>
 
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
@@ -816,7 +1287,7 @@ const ListConsignments: React.FC = () => {
 
                             {/* Consignment Name */}
                             <Grid item xs={12} sm={4}>
-                                <CustomFormLabel required>Ambar/Mahsul Adı</CustomFormLabel>
+                                <CustomFormLabel required>Mal Kayıt İsmi</CustomFormLabel>
                                 <CustomTextField placeholder="Adı Girin" size="small" fullWidth value={consignmentName}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                         setConsignmentName(e.target.value);
@@ -835,6 +1306,7 @@ const ListConsignments: React.FC = () => {
                                     <InputLabel id="sel-placekind">Yer Türü Seçin</InputLabel>
                                     <Select labelId="sel-placekind" label="Yer Türü Seçin" value={placeKind}
                                         onChange={(e) => setPlaceKind(e.target.value as PlaceKind)}>
+                                        <MuiMenuItem value="CENTER">Merkez</MuiMenuItem>
                                         <MuiMenuItem value="WAREHOUSE">Depo</MuiMenuItem>
                                         <MuiMenuItem value="WORKHOUSE">Şantiye</MuiMenuItem>
                                         <MuiMenuItem value="WORKHOUSE_STORE">Şantiyenin Deposu</MuiMenuItem>
@@ -899,7 +1371,7 @@ const ListConsignments: React.FC = () => {
                             {/* Dynamic Place Selectors (Filo) */}
                             {placeKind === 'FILO' && (
                                 <Grid item xs={12} sm={4}>
-                                    <CustomFormLabel required>Filo Depo (CarWarehouse)</CustomFormLabel>
+                                    <CustomFormLabel required>Filo Depo</CustomFormLabel>
                                     <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
                                         <InputLabel id="sel-carwarehouse">Filo Depo Seçin</InputLabel>
                                         <Select labelId="sel-carwarehouse" label="Filo Depo Seçin"
@@ -912,6 +1384,25 @@ const ListConsignments: React.FC = () => {
                                     </FormControl>
                                 </Grid>
                             )}
+                            <Grid item xs={12} sm={12}>
+                                <CustomFormLabel>Açıklama</CustomFormLabel>
+                                <CustomTextField placeholder="Açıklama Girin" size="small"
+                                    fullWidth value={description}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
+                                    multiline rows={4}
+                                />
+                            </Grid>
+                            {/* Attachments (for Images only) */}
+                            <Grid item xs={12} >
+                                <CustomFormLabel>Ekler (Sadece Resim)</CustomFormLabel>
+                                <ConsignmentFileUpload
+                                    files={selectedFiles}
+                                    setFiles={setSelectedFiles}
+                                    error={attachmentError}
+                                    currentAttachments={currentAttachments}
+                                    setCurrentAttachments={setCurrentAttachments}
+                                />
+                            </Grid>
 
                             {/* Form Actions */}
                             <Grid item xs={12}>
@@ -1021,7 +1512,7 @@ const ListConsignments: React.FC = () => {
                                     </StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}>
                                         <TableSortLabel active={orderBy === 'name'} direction={orderBy === 'name' ? order : 'asc'} onClick={() => handleRequestSort('name')} sx={{ color: 'inherit' }}>
-                                            <Typography variant="h6">Ambar/Mahsul Adı</Typography>
+                                            <Typography variant="h6">Mal Adı</Typography>
                                         </TableSortLabel>
                                     </StyledTableCell>
 
@@ -1032,14 +1523,15 @@ const ListConsignments: React.FC = () => {
                                             <Typography variant="h6">Yer</Typography>
                                         </TableSortLabel>
                                     </StyledTableCell>
-
-                                    {/* NEW: Kayıt Tarihi Column */}
                                     <StyledTableCell sx={{ color: "#171c23" }}>
                                         <TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} sx={{ color: 'inherit' }}>
                                             <Typography variant="h6">Kayıt Tarihi</Typography>
                                         </TableSortLabel>
                                     </StyledTableCell>
+                                    <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Açıklama</Typography></StyledTableCell>
 
+
+                                    <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Ekler</Typography></StyledTableCell>
 
                                     <StyledTableCell></StyledTableCell>
                                 </TableRow>
@@ -1058,6 +1550,28 @@ const ListConsignments: React.FC = () => {
                                             </StyledTableCell>
                                             <StyledTableCell>{row.placeName}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.createAt || null)}</StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
+
+                                                {row.description != null && row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                {row.attachments && row.attachments.length > 0 ? (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Ekleri görüntüle ve indir" : ""}>
+                                                        <IconButton onClick={() => handleOpenAttachmentsModal(row)} size="small">
+                                                            <IconDownload size={18} /><Chip label={row.attachments.length} color="primary" size="small" sx={{ ml: 1 }} />
+                                                        </IconButton>
+                                                    </CustomTooltip>
+                                                ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
+                                            </StyledTableCell>
 
                                             <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
@@ -1092,13 +1606,29 @@ const ListConsignments: React.FC = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
+                                                    {(selectedRowForMenu?.attachments.length || 0) > 0 && hasDownloadPermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Malzeme bilgilerini ve resimleri PDF olarak indir" : ""}>
+                                                            <MuiMenuItem onClick={handleDownloadRowWithImages}>
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>
+                                                                Mal ve Resim PDF İndir
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {(selectedRowForMenu?.attachments.length || 0) > 0 && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Resimleri Görüntüle ve İndir" : ""}>
+                                                            <MuiMenuItem onClick={() => handleOpenAttachmentsModal(selectedRowForMenu!)}>
+                                                                <ListItemIcon><IconDownload width={18} /></ListItemIcon>
+                                                                Resimleri Görüntüle ({selectedRowForMenu!.attachments.length})
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </StyledTableCell>
                                         </TableRow>
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <StyledTableCell colSpan={6} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç kayıt bulunamadı.</Typography></StyledTableCell>
+                                        <StyledTableCell colSpan={7} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç kayıt bulunamadı.</Typography></StyledTableCell>
                                     </TableRow>
                                 )}
                             </TableBody>
@@ -1108,6 +1638,8 @@ const ListConsignments: React.FC = () => {
 
                 <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredConsignments.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
+
+
 
             {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={handleCloseDownloadAllModal} maxWidth="xs">
@@ -1148,11 +1680,16 @@ const ListConsignments: React.FC = () => {
                 <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 4 }}>
                     {qrData && (
                         <>
-                            <Typography variant="h6" gutterBottom>Ambar/Mahsul: {qrData.name}</Typography>
+                            <Typography variant="h6" gutterBottom>Mal Kayıt İsmi: {qrData.name}</Typography>
                             <Typography variant="body1" color="textSecondary" mb={2}>Kod: {qrData.code}</Typography>
 
                             <Box sx={{ p: 2, border: '1px solid #ddd', borderRadius: 2, mb: 3 }}>
-                                <QRCodeCanvas id="qr-code-canvas" value={qrData.code} size={200} level="H" />
+                                <QRCodeCanvas
+                                    id="qr-code-canvas"
+                                    value={qrData.url} // 👈 استفاده از آدرس کامل
+                                    size={200}
+                                    level="H"
+                                />
                             </Box>
 
                             <Stack direction="row" spacing={2} justifyContent="center" width="100%">
@@ -1180,6 +1717,113 @@ const ListConsignments: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => { setOpenQrModal(false); setQrData(null); }} color="error" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+
+            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="md" fullWidth>
+
+                <DialogTitle>
+                    Ekler ({currentSlideIndex + 1} / {attachmentsToView.length} adet)
+                </DialogTitle>
+
+                {/* --- بخش جدید: نمایش مشخصات ردیف در بالای مودال --- */}
+                {rowForAttachments && (
+                    <Box sx={{ p: 2, borderBottom: '1px solid #eee', bgcolor: 'grey.50' }}>
+                        <Grid container spacing={1}>
+                            <Grid item xs={12} sm={4}>
+                                <Typography variant="body2">
+                                    Mal Adı:  {rowForAttachments.name}
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <Typography variant="body2">
+                                    Kod:  {rowForAttachments.code}
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <Typography variant="body2">
+                                    Yer:  {rowForAttachments.placeName} ({getPlaceKindText(rowForAttachments.placeKind)})
+                                </Typography>
+                            </Grid>
+                        </Grid>
+                    </Box>
+                )}
+
+                <DialogContent dividers sx={{ p: 0 }}>
+                    {attachmentsToView.length === 0 ? (
+                        <Typography variant="body1" align="center" p={3}>Bu kayıt için herhangi bir ek bulunmamaktadır.</Typography>
+                    ) : (
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ height: 500 }}>
+                            {/* Sol Buton */}
+                            <IconButton onClick={handlePrevSlide} disabled={attachmentsToView.length <= 1} size="large">
+                                {/* IconArrowLeft - Bu ikonun import edildiğini varsayıyoruz, IconDownload yerine IconArrowLeft kullanın*/}
+                                <IconArrowLeft size={24} />
+                            </IconButton>
+
+                            {/* İçerik / Resim */}
+                            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}>
+
+                                {/* Resim Alanı */}
+                                <Box sx={{ maxWidth: '90%', maxHeight: '80%', overflow: 'hidden', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {attachmentsToView[currentSlideIndex] && (
+                                        <img
+                                            src={`${server.urldpwonload}${attachmentsToView[currentSlideIndex].fileUrl}`}
+                                            alt={`Ek ${currentSlideIndex + 1}`}
+                                            style={{
+                                                maxWidth: '100%',
+                                                maxHeight: '100%',
+                                                objectFit: 'contain',
+                                                borderRadius: 4
+                                            }}
+                                        />
+                                    )}
+                                </Box>
+
+                                {/* Bilgi ve İndirme */}
+                                {attachmentsToView[currentSlideIndex] && (
+                                    <Stack direction="row" spacing={2} alignItems="center" mt={2}>
+                                        <Typography variant="body2" color="textSecondary">
+                                            Dosya Adı: {attachmentsToView[currentSlideIndex].fileUrl.split('/').pop()}
+                                        </Typography>
+                                        <Button variant="outlined" size="small" startIcon={<IconDownload />}
+                                            onClick={() => handleDownloadClick(attachmentsToView[currentSlideIndex].fileUrl)}>
+                                            İndir
+                                        </Button>
+                                    </Stack>
+                                )}
+                            </Box>
+
+                            {/* Sağ Buton */}
+                            <IconButton onClick={handleNextSlide} disabled={attachmentsToView.length <= 1} size="large">
+                                {/* IconArrowRight - Bu ikonun import edildiğini varsayıyoruz, IconDownload yerine IconArrowRight kullanın*/}
+                                <IconArrowRight size={24} />
+                            </IconButton>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAttachmentsModal(false)} color="error" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
 

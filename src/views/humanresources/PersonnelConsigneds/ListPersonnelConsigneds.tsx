@@ -11,6 +11,7 @@ import {
     TableSortLabel,
     Dialog, DialogTitle, DialogContent, DialogActions,
     Chip,
+    DialogContentText,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -23,7 +24,7 @@ import {
 } from '@tabler/icons-react';
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { DateTimePicker, DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import axios from 'axios';
 import server from 'src/assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -43,14 +44,23 @@ import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// --- Data Interfaces ---
 type RecordStatus = 0 | 1;
 interface PersonnelType {
     id: number; name: string; family: string; identityNumber: string; recordStatus: RecordStatus;
-    workEndDate: string | null; // Important filter: only those with workEndDate == null (active)
+    workEndDate: string | null;
 }
 interface ConsignmentType { id: number; name: string; code: string; }
 interface AttachmentType { fileUrl: string; }
+
+interface PersonnelConsignmentPersonnel {
+    id: string;
+    name: string; family: string; identityNumber: string;
+}
+
+interface PersonnelConsignmentConsignment {
+    id: string;
+    name: string; code: string;
+}
 
 interface PersonnelConsigned {
     id: number;
@@ -59,12 +69,10 @@ interface PersonnelConsigned {
     description: string;
     returnDate: string | null;
     attachments: AttachmentType[];
-    consignmentId: number;
-    personnelId: number;
+    consignment: PersonnelConsignmentConsignment | null;
+    personnel: PersonnelConsignmentPersonnel | null;
     parentId: number;
     recordStatus: RecordStatus;
-
-    // Computed Fields
     personnelName: string;
     consignmentNameWithCode: string;
     consignmentCode: string;
@@ -77,8 +85,8 @@ interface PersonnelConsignedPayload {
     attachments: AttachmentType[];
     consignmentId: number;
     personnelId: number;
-    parentId: number | null; // 0 for assignment, parentId for return
-    returnDate: string | null; // null for assignment, actual date for return
+    parentId: number | null;
+    returnDate: string | null;
 }
 
 type SortableKeys = 'id' | 'assignmentDate' | 'personnelName' | 'consignmentCode' | 'createAt';
@@ -91,7 +99,7 @@ const formatDateDisplay = (dateString: string | null): string => {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return "Geçersiz Tarih";
         // Display both date and time (using 'pp' for time)
-        return format(date, 'dd/MM/yyyy HH:mm', { locale: tr });
+        return format(date, 'dd/MM/yyyy', { locale: tr });
     } catch (e) {
         return "Geçersiz Tarih";
     }
@@ -239,7 +247,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     // States: Table/Filter
     // ------------------------------------
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const [orderBy, setOrderBy] = useState<SortableKeys>('assignmentDate');
@@ -267,6 +275,10 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
 
 
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+
     // --- Alert & Initialization Logic ---
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -291,17 +303,19 @@ const ListPersonnelConsigneds: React.FC = () => {
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels`, {
                 headers: { Authorization: `Bearer ${authToken}` },
             });
-            const list: PersonnelType[] = (res.data?.data ?? [])
-                .filter((x: any) => !x.workEndDate) // Filter active personnel
-                .map((x: any) => ({
-                    id: Number(x.id),
-                    name: x.name,
-                    family: x.family,
-                    identityNumber: x.identityNumber,
-                    recordStatus: Number(x.recordStatus ?? 0) as RecordStatus,
-                    workEndDate: x.workEndDate ? String(x.workEndDate).slice(0, 10) : null,
-                }));
-            setPersonnelList(list);
+            if (res.data.httpStatusCode === 200) {
+                const list: PersonnelType[] = (res.data?.data ?? [])
+                    .filter((x: any) => !x.workEndDate) // Filter active personnel
+                    .map((x: any) => ({
+                        id: Number(x.id),
+                        name: x.name,
+                        family: x.family,
+                        identityNumber: x.identityNumber,
+                        recordStatus: Number(x.recordStatus ?? 0) as RecordStatus,
+                        workEndDate: x.workEndDate ? String(x.workEndDate).slice(0, 10) : null,
+                    }));
+                setPersonnelList(list);
+            }
         } catch (e: any) {
             showAlert(e?.response?.data?.message || "Personel listesi alınamadı.", "error");
         }
@@ -318,8 +332,8 @@ const ListPersonnelConsigneds: React.FC = () => {
                     name: item.name,
                     code: item.code || 'KODSUZ',
                 })) as ConsignmentType[]);
-            } else { showAlert(res.data.message || 'Ambar/Mahsul listesi yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Ambar/Mahsul listesi yüklenirken bir hata oluştu.', 'error'); }
+            } else { showAlert(res.data.message || 'Mal  listesi yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e) { showAlert('Mal  listesi yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
 
@@ -330,12 +344,14 @@ const ListPersonnelConsigneds: React.FC = () => {
         if (!authToken) { navigate('/'); setLoadingData(false); return; }
 
         try {
-            const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnel-consigneds`, { headers: { Authorization: `Bearer ${authToken}` } });
+            const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnel-consigneds`,
+                { headers: { Authorization: `Bearer ${authToken}` } });
+
             if (res.data.httpStatusCode === 200) {
-                debugger
-                const rawRows = (res.data.data as any[]).map((r) => {
-                    const personnel = personnelList.find(p => p.id === Number(r.personnelId));
-                    const consignment = consignmentList.find(c => c.id === Number(r.consignmentId));
+                const rawRows: PersonnelConsigned[] = (res.data.data as any[]).map((r) => {
+                    // محاسبه فیلدهای نمایش بر اساس آبجکت‌های دریافتی
+                    const personnel = r.personnel;
+                    const consignment = r.consignment;
 
                     return {
                         id: Number(r.id),
@@ -344,12 +360,15 @@ const ListPersonnelConsigneds: React.FC = () => {
                         description: r.description || '-',
                         returnDate: r.returnDate || null,
                         attachments: (r.attachments as any[]).map(a => ({ fileUrl: a.fileUrl })) as AttachmentType[],
-                        consignmentId: Number(r.consignmentId),
-                        // personnelId: Number(r.personnelId),
+
+                        // ⭐️ از آبجکت‌های دریافتی استفاده کنید
+                        consignment: consignment,
+                        personnel: personnel,
+
                         parentId: Number(r.parentId || 0),
                         recordStatus: Number(r.recordStatus || 0) as RecordStatus,
 
-                        // Computed Fields
+                        // Computed Fields - استفاده از آبجکت‌های مستقیم
                         personnelName: personnel ? `${personnel.name} ${personnel.family} (${personnel.identityNumber})` : 'Bilinmeyen Personel',
                         consignmentNameWithCode: consignment ? `${consignment.name} (${consignment.code})` : 'Bilinmeyen Ambar',
                         consignmentCode: consignment?.code || '-',
@@ -357,15 +376,64 @@ const ListPersonnelConsigneds: React.FC = () => {
                 });
 
                 setPersonnelConsigneds(rawRows);
-            } else {
-                showAlert(res.data.message || 'Kayıtlar yüklenirken bir hata oluştu.', 'error');
             }
-        } catch (e) {
+        }
+        catch (e) {
             showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
-    }, [navigate]); // Dependencies ensure computed fields are correct
+    }, [navigate, personnelList]); // Dependencies ensure computed fields are correct
+
+
+    const activeConsignedConsignmentIds = useMemo(() => {
+        // رکوردهایی که واگذاری اصلی (parentId === 0) هستند و تاریخ عودت ندارند (هنوز فعالند)
+        return personnelConsigneds
+            .filter(r => r.parentId === 0 && r.returnDate === null)
+            .map(r => Number(r.consignment?.id)) // ⭐️ اصلاح: استفاده از آبجکت consignment و تبدیل ID (که رشته است) به عدد
+            .filter(id => !isNaN(id)); // فیلتر کردن رکوردهای با ID نامعتبر
+    }, [personnelConsigneds]);
+
+    // --- بعد از تعریف consignmentList ---
+    const availableConsignmentList = useMemo(() => {
+        if (isAssignmentMode) {
+            // فیلتر: فقط Consignmentهایی که در حال حاضر فعال نیستند (در لیست activeConsignedConsignmentIds نیستند)
+            return consignmentList.filter(c =>
+                !activeConsignedConsignmentIds.includes(c.id)
+            );
+        }
+        // اگر حالت İade باشد، لیست را خالی نگه می‌داریم تا بعداً پر شود (در بخش 2)
+        return consignmentList;
+    }, [consignmentList, isAssignmentMode, activeConsignedConsignmentIds]);
+
+    const activeConsignedsForSelectedPersonnel = useMemo(() => {
+        const personnelId = Number(selectedPersonnelId);
+        if (!personnelId || !personnelConsigneds.length) return [];
+
+        return personnelConsigneds.filter(r => {
+            // اطمینان از اینکه پرسنل وجود دارد و ID آن با پرسنل انتخابی مطابقت دارد
+            const matchPersonnel = Number(r.personnel?.id) === personnelId;
+
+            // فقط رکوردهای واگذاری اصلی (parentId=0) و فعال (returnDate=null)
+            const isActiveAssignment = r.parentId === 0 && r.returnDate === null;
+
+            return matchPersonnel && isActiveAssignment;
+        });
+    }, [personnelConsigneds, selectedPersonnelId]);
+
+
+    const consignmentOptionsForReturn = useMemo(() => {
+        return activeConsignedsForSelectedPersonnel
+            .filter(r => r.consignment != null) // اطمینان از وجود آبجکت مال
+            .map(r => {
+                const consignment = r.consignment!; // چون فیلتر کردیم، اینجا تضمین شده است
+                return {
+                    id: Number(consignment.id), // ID مال (برای مقدار کمبو)
+                    parentId: r.id,             // ID رکورد واگذاری فعال (برای ParentId رکورد جدید İade)
+                    name: `${consignment.name} (${consignment.code})`,
+                };
+            });
+    }, [activeConsignedsForSelectedPersonnel]); // ⚠️ `consignmentList` دیگر لازم نیست
 
     // **Step 1: Fetch Reference Lists**
     useEffect(() => {
@@ -378,7 +446,7 @@ const ListPersonnelConsigneds: React.FC = () => {
         if (personnelList.length > 0 && consignmentList.length > 0) {
             fetchPersonnelConsigneds();
         }
-    }, [fetchPersonnelConsigneds]); // Trigger when references load
+    }, [fetchPersonnelConsigneds, personnelList]); // Trigger when references load
 
     const uploadFiles = async (
         files: File[],
@@ -439,7 +507,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                 ok = false;
             }
             // Check attachments only in return mode as per user's likely need for proof of return
-            if (selectedFiles.length === 0 && currentAttachments.length === 0) { setAttachmentError(true); ok = false; }
+            // if (selectedFiles.length === 0 && currentAttachments.length === 0) { setAttachmentError(true); ok = false; }
         }
 
         if (!ok) showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
@@ -511,19 +579,20 @@ const ListPersonnelConsigneds: React.FC = () => {
 
         // Construct the payload based on mode
         const payload: PersonnelConsignedPayload = {
-            assignmentDate: assignmentDate ? assignmentDate.toISOString() : new Date().toISOString(),
+            // assignmentDate: assignmentDate ? assignmentDate.toISOString() : new Date().toISOString(),
+            assignmentDate: assignmentDate ? format(assignmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
             description: description.trim(),
             attachments: finalAttachments,
             consignmentId: Number(selectedConsignmentId),
             personnelId: Number(selectedPersonnelId),
 
-            // LOGIC FOR ASSIGNMENT (New/Edit Assignment)
             parentId: isAssignmentMode ? 0 : Number(selectedParentConsignedId),
-            returnDate: isAssignmentMode ? null : (returnDate ? returnDate.toISOString() : new Date().toISOString()),
+            returnDate: isAssignmentMode ? null : (returnDate ? format(returnDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')),
         };
+        debugger
+        if (isEditing) (payload as any).id = Number(editingId);
+        // if (isReturning) (payload as any).recordStatus = 1; 
 
-        if (isEditing) (payload as any).id = editingId;
-        if (isReturning) (payload as any).recordStatus = 1; // Mark return record as inactive if necessary (Check API logic, usually recordStatus: 0 is Active)
 
         try {
             const res = await axios.request({ method, url, data: payload, headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
@@ -546,54 +615,30 @@ const ListPersonnelConsigneds: React.FC = () => {
     const handleEditClick = () => {
         if (!selectedRowForMenu) return;
         const r = selectedRowForMenu;
+        handleCloseMenu(); // منو را ببندید
 
-        if (r.parentId !== 0) {
-            showAlert('Sadece başlangıç kayıtları (Ana Kayıtlar) düzenlenebilir.', 'warning');
-            handleCloseMenu();
-            return;
-        }
+        // ⭐️ تعیین حالت: اگر ParentId=0 باشد (واگذاری) -> Assignment Mode. در غیر این صورت (تحویل) -> Return Mode
+        const isAssignment = r.parentId === 0;
 
         setEditingId(r.id);
-        setIsAssignmentMode(true);
-        setSelectedPersonnelId(r.personnelId);
-        setSelectedConsignmentId(r.consignmentId);
+        setIsAssignmentMode(isAssignment); // تنظیم حالت فرم
+
+        // تنظیم شناسه‌ها از آبجکت‌های دریافتی در API
+        setSelectedPersonnelId(Number(r.personnel?.id) || '');
+        setSelectedConsignmentId(Number(r.consignment?.id) || '');
+
+        // تنظیم تاریخ‌ها
         setAssignmentDate(r.assignmentDate ? new Date(r.assignmentDate) : null);
+        setReturnDate(r.returnDate ? new Date(r.returnDate) : null); // تاریخ تحویل را نیز بارگذاری کند
+
         setDescription(r.description);
-        setCurrentAttachments(r.attachments); // Keep existing attachments
-        setSelectedFiles([]); // Clear new files
-
-        setIsFormVisible(true);
-        setReturnDate(null);
-        setSelectedParentConsignedId('');
-
-        handleCloseMenu();
-    };
-
-    const handleReturnClick = () => {
-        if (!selectedRowForMenu) return;
-        const r = selectedRowForMenu;
-
-        if (r.parentId !== 0 || r.returnDate !== null || r.recordStatus !== 0) {
-            showAlert('Bu öğe zaten teslim edilmiş veya teslim için uygun değil.', 'warning');
-            handleCloseMenu();
-            return;
-        }
-
-        // Set form for RETURN mode
-        setEditingId(null);
-        setIsAssignmentMode(false);
-        setSelectedParentConsignedId(r.id);
-        setSelectedPersonnelId(r.personnelId);
-        setSelectedConsignmentId(r.consignmentId);
-        setAssignmentDate(r.assignmentDate ? new Date(r.assignmentDate) : null); // Keep original assignment date for reference
-        setReturnDate(new Date()); // Pre-fill return date with current date
-        setDescription(r.description);
-        setCurrentAttachments(r.attachments); // Keep original attachments for continuity
+        setCurrentAttachments(r.attachments);
         setSelectedFiles([]);
+        setSelectedParentConsignedId(isAssignment ? '' : r.parentId); // اگر حالت Return است، ParentId را تنظیم کند
 
         setIsFormVisible(true);
-        handleCloseMenu();
     };
+
 
     const handleOpenAttachmentsModal = (attachments: AttachmentType[]) => {
         setCurrentAttachments(attachments);
@@ -669,7 +714,7 @@ const ListPersonnelConsigneds: React.FC = () => {
         try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
         docAny.setFont('NotoSans');
 
-        const columns = ['Personel', 'Ambar/Mahsul', 'Açıklama', 'Veriliş Tarihi', 'Teslim Tarihi'];
+        const columns = ['Personel', 'Mal ', 'Açıklama', 'Veriliş Tarihi', 'Teslim Tarihi'];
         const body = rows.map(r => [
             r.personnelName,
             r.consignmentNameWithCode,
@@ -751,7 +796,7 @@ const ListPersonnelConsigneds: React.FC = () => {
 
 
             // --- Table Headers ---
-            const tableHeaders = ['Personel', 'Ambar/Mahsul', 'Açıklama', 'Veriliş Tarihi', 'Teslim Tarihi'];
+            const tableHeaders = ['Personel', 'Mal ', 'Açıklama', 'Veriliş Tarihi', 'Teslim Tarihi'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.eachCell((cell) => { cell.style = fullHeaderStyle; });
 
@@ -818,6 +863,15 @@ const ListPersonnelConsigneds: React.FC = () => {
     const handleDownloadRow = (format: 'pdf' | 'excel') => { if (!selectedRowForDownload) return; const rows = [selectedRowForDownload]; format === 'pdf' ? exportToPdf(rows, false) : exportToExcel(rows, false); handleCloseRowDownloadModal(); };
 
 
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
 
     // --- JSX Render ---
     return (
@@ -846,51 +900,82 @@ const ListPersonnelConsigneds: React.FC = () => {
                         <Typography variant="h6" mb={2}>{isAssignmentMode ? (editingId ? 'Zimmet Kaydını Düzenle' : 'Yeni Zimmet (Veriliş)') : 'Zimmet Teslimi (İade)'}</Typography>
                         <Grid container spacing={2}>
 
-                            {/* Mode Toggle (Only show if not in editing/return) */}
-                            {editingId === null && (
-                                <Grid item xs={12} sm={12} >
-                                    <CustomFormLabel required>İşlem Türü</CustomFormLabel>
-                                    <ToggleButtonGroup
-                                        value={isAssignmentMode ? 'ASSIGN' : 'RETURN'}
-                                        exclusive
-                                        onChange={(_, v) => {
-                                            if (v !== null) {
-                                                setIsAssignmentMode(v === 'ASSIGN');
-                                                setSelectedParentConsignedId('');
-                                                setReturnDate(v === 'RETURN' ? new Date() : null);
-                                                setDescription('');
-                                            }
-                                        }}
-                                        aria-label="İşlem Modu"
-                                        fullWidth
-                                    >
-                                        <StyledToggleButton value="ASSIGN" data-value="all" sx={{ flex: 1 }}>Zimmet Ver (Yeni Kayıt)</StyledToggleButton>
-                                        <StyledToggleButton value="RETURN" data-value="inactive" sx={{ flex: 1 }}>Zimmet Al (İade)</StyledToggleButton>
-                                    </ToggleButtonGroup>
-                                </Grid>
-                            )}
+                            <Grid item xs={12} sm={12} >
+                                <CustomFormLabel required>İşlem Türü</CustomFormLabel>
+                                <ToggleButtonGroup
+                                    value={isAssignmentMode ? 'ASSIGN' : 'RETURN'}
+                                    exclusive
+                                    onChange={(_, v) => {
+                                        if (v !== null) {
+                                            setIsAssignmentMode(v === 'ASSIGN');
+                                            setSelectedParentConsignedId('');
+                                            setReturnDate(v === 'RETURN' ? new Date() : null);
+                                            setDescription('');
+                                        }
+                                    }}
+                                    aria-label="İşlem Modu"
+                                    fullWidth
+                                >
+                                    <StyledToggleButton value="ASSIGN" data-value="all" sx={{ flex: 1 }}>Zimmet Ver (Yeni Kayıt)</StyledToggleButton>
+                                    <StyledToggleButton value="RETURN" data-value="inactive" sx={{ flex: 1 }}>Zimmet Al (İade)</StyledToggleButton>
+                                </ToggleButtonGroup>
+                            </Grid>
 
                             {/* Personnel Selector */}
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>Personel</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={personnelError}>
                                     <InputLabel id="sel-personnel">Personel Seçin</InputLabel>
-                                    <Select labelId="sel-personnel" label="Personel Seçin" value={selectedPersonnelId} onChange={(e) => { setSelectedPersonnelId(Number(e.target.value)); if (personnelError) setPersonnelError(false); }}>
+                                    <Select labelId="sel-personnel" label="Personel Seçin"
+                                        value={selectedPersonnelId}
+                                        //  onChange={(e) => { setSelectedPersonnelId(Number(e.target.value)); 
+                                        //  if (personnelError) setPersonnelError(false); }}
+                                        onChange={(e) => {
+                                            const newPersonnelId = Number(e.target.value);
+                                            setSelectedPersonnelId(newPersonnelId);
+
+                                            if (!isAssignmentMode) { // فقط در حالت Iade
+                                                setSelectedConsignmentId('');      // ریست کردن کمبوی مال
+                                                setSelectedParentConsignedId('');  // ریست کردن Parent ID پنهان
+                                            }
+
+                                            if (personnelError) setPersonnelError(false);
+                                        }}
+                                    >
                                         {personnelList.map(p => <MuiMenuItem key={p.id} value={p.id}>{p.name} {p.family} ({p.identityNumber})</MuiMenuItem>)}
                                     </Select>
                                     {personnelError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Zorunlu alan!</Typography>}
                                 </FormControl>
                             </Grid>
 
-                            {/* Consignment Selector */}
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
-                                <CustomFormLabel required>Ambar/Mahsul</CustomFormLabel>
+                                <CustomFormLabel required>Mal </CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={consignmentError}>
-                                    <InputLabel id="sel-consignment">Ambar/Mahsul Seçin</InputLabel>
-                                    <Select labelId="sel-consignment" label="Ambar/Mahsul Seçin" value={selectedConsignmentId} onChange={(e) => { setSelectedConsignmentId(Number(e.target.value)); if (consignmentError) setConsignmentError(false); }}>
-                                        {consignmentList.map(c => <MuiMenuItem key={c.id} value={c.id}>{c.name} ({c.code})</MuiMenuItem>)}
+                                    <InputLabel id="sel-consignment">Mal Kayıt İsmi</InputLabel>
+                                    <Select
+                                        labelId="sel-consignment"
+                                        label="Mal Kayıt İsmi"
+                                        value={selectedConsignmentId}
+                                        onChange={(e) => {
+                                            const newConsignmentId = Number(e.target.value);
+                                            setSelectedConsignmentId(newConsignmentId);
+                                            if (consignmentError) setConsignmentError(false);
+
+                                            const selectedOption = consignmentOptionsForReturn.find(o => o.id === newConsignmentId);
+                                            setSelectedParentConsignedId(selectedOption?.parentId || '');
+                                        }}
+                                        disabled={!isAssignmentMode && !selectedPersonnelId}
+                                    >
+                                        {isAssignmentMode ?
+                                            availableConsignmentList.map(c => <MuiMenuItem key={c.id} value={c.id}>{c.name} ({c.code})</MuiMenuItem>)
+                                            :
+                                            consignmentOptionsForReturn.map(o => <MuiMenuItem key={o.id} value={o.id}>{o.name}</MuiMenuItem>)
+                                        }
                                     </Select>
                                     {consignmentError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Zorunlu alan!</Typography>}
+                                    {!isAssignmentMode && selectedPersonnelId && consignmentOptionsForReturn.length === 0 && (
+                                        <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }} color="warning.main">Bu personelde aktif zimmet bulunamadı.</Typography>
+                                    )}
                                 </FormControl>
                             </Grid>
 
@@ -917,8 +1002,8 @@ const ListPersonnelConsigneds: React.FC = () => {
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>{isAssignmentMode ? 'Veriliş Tarihi' : 'İade Kayıt Tarihi'}</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <DateTimePicker
-                                        label={isAssignmentMode ? 'Veriliş Tarihi ve Saati' : 'İade Tarihi ve Saati'}
+                                    <DatePicker
+                                        label={isAssignmentMode ? 'Veriliş Tarihi' : 'İade Tarihi'}
                                         value={isAssignmentMode ? assignmentDate : returnDate}
                                         onChange={(v) => {
                                             isAssignmentMode ? setAssignmentDate(v) : setReturnDate(v);
@@ -933,8 +1018,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                     (assignmentDateError ? 'Zorunlu alan!' : '') :
                                                     (returnDateError ? 'Zorunlu alan!' : '')} />
                                         }
-                                        inputFormat="dd/MM/yyyy HH:mm"
-                                    // disabled={!isAssignmentMode} // Only allow changing assignment date in assignment mode
+                                        inputFormat="dd/MM/yyyy" // <-- فقط تاریخ
                                     />
                                 </LocalizationProvider>
                             </Grid>
@@ -943,7 +1027,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                             {/* Description */}
                             <Grid item xs={12} >
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
-                                <CustomTextField placeholder="Açıklama" size="small" fullWidth multiline rows={1} value={description}
+                                <CustomTextField placeholder="Açıklama" size="small" fullWidth multiline rows={4} value={description}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} />
                             </Grid>
 
@@ -1060,7 +1144,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                                     </StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}>
                                         <TableSortLabel active={orderBy === 'consignmentCode'} direction={orderBy === 'consignmentCode' ? order : 'asc'} onClick={() => handleRequestSort('consignmentCode')} sx={{ color: 'inherit' }}>
-                                            <Typography variant="h6">Ambar/Mahsul</Typography>
+                                            <Typography variant="h6">Mal İsmi</Typography>
                                         </TableSortLabel>
                                     </StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Açıklama</Typography></StyledTableCell>
@@ -1080,9 +1164,21 @@ const ListPersonnelConsigneds: React.FC = () => {
                                         <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, backgroundColor: row.returnDate ? '#f1f1f1' : 'inherit' }}>
                                             <StyledTableCell>{row.personnelName}</StyledTableCell>
                                             <StyledTableCell>{row.consignmentNameWithCode}</StyledTableCell>
-                                            <StyledTableCell>{row.description || '-'}</StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
+
+                                                {row.description != null && row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.assignmentDate)}</StyledTableCell>
-                                            <StyledTableCell>{row.returnDate ? <Chip label={formatDateDisplay(row.returnDate)} color="error" size="small" /> : <Chip label="Aktif" color="success" size="small" />}</StyledTableCell>
+                                            <StyledTableCell>{row.returnDate ? <Chip label={formatDateDisplay(row.returnDate)} color="error" size="small" /> : '-'}</StyledTableCell>
                                             <StyledTableCell>
                                                 {row.attachments && row.attachments.length > 0 ? (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Ekleri görüntüle ve indir" : ""}>
@@ -1094,17 +1190,18 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                                                     <IconButton onClick={(e) => handleClickMenu(e, row)}><IconDots width={18} /></IconButton>
                                                 </CustomTooltip>
-                                                <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
-                                                    {hasEditPermission && row.parentId === 0 && row.returnDate === null && (
+                                                <Menu anchorEl={anchorEl} open={openMenu}
+                                                    onClose={handleCloseMenu}>
+                                                    {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
                                                             <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {hasEditPermission && row.parentId === 0 && row.returnDate === null && (
+                                                    {/* {hasEditPermission && row.returnDate !== null && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu zimmeti iade al" : ""}>
                                                             <MuiMenuItem onClick={handleReturnClick} sx={{ color: 'red' }}><ListItemIcon><IconDownload width={18} /></ListItemIcon>Teslim Al (İade)</MuiMenuItem>
                                                         </CustomTooltip>
-                                                    )}
+                                                    )} */}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı sil" : ""}>
                                                             <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
@@ -1184,6 +1281,25 @@ const ListPersonnelConsigneds: React.FC = () => {
                 <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Delete Modal */}
             <DeletePersonnelConsigneds

@@ -379,6 +379,8 @@ type State = {
     connected: boolean;
     role: Role;
     notis: Noti[];
+    needsRefresh: boolean;
+    liveUpdateCounter: number;
 } & Buckets;
 
 // ثابت‌ها و توابع مرتبط با ذخیره‌سازی محلی (localStorage) حذف شدند
@@ -411,6 +413,8 @@ const state: State = {
         return (r === 'admin' || r === 'user') ? r : 'admin';
     })(),
     notis: [],
+    needsRefresh: false,
+    liveUpdateCounter: 0,
     ...emptyBuckets(),
 };
 
@@ -446,8 +450,16 @@ const snapshot = (): Readonly<State> =>
         request: [...state.request],
     });
 
+// const emit = () => {
+//     const s = snapshot();
+//     listeners.forEach((l) => l(s));
+// };
+
+
 const emit = () => {
     const s = snapshot();
+    // 💡 پرچم پس از انتشار snapshot ریست می شود
+    state.needsRefresh = false;
     listeners.forEach((l) => l(s));
 };
 
@@ -513,7 +525,18 @@ function push(type: NotifyType, n: Noti) {
     }
 }
 
-// 💡 تابع جدید برای مدیریت رویدادهای اعلان سوکت
+// function onNotifyEvent(eventName: NotifyType, payload: any) {
+//     if (!payload?.type) {
+//         payload.type = eventName;
+//     }
+//     if (Number(payload.recordStatus) !== 0) {
+//         return;
+//     }
+//     const n = toNoti(payload);
+//     push(payload.type as NotifyType, n);
+//     emit();
+// }
+
 function onNotifyEvent(eventName: NotifyType, payload: any) {
     // 1. اطمینان از تنظیم بودن 'type'
     if (!payload?.type) {
@@ -530,10 +553,19 @@ function onNotifyEvent(eventName: NotifyType, payload: any) {
 
     // 3. افزودن اعلان
     push(payload.type as NotifyType, n);
+
+    // 💡 گام مهم: افزایش شمارنده برای تضمین Re-render در UI (حل مشکل صفحه ثابت)
+    state.liveUpdateCounter++;
+
     emit();
 }
 
-function onConnect() { state.connected = true; emit(); }
+// function onConnect() { state.connected = true; emit(); }
+function onConnect() {
+    state.connected = true;
+    state.needsRefresh = true; // ⬅️ پس از هر اتصال موفق، نیاز به واکشی داریم
+    emit();
+}
 function onDisconnect() { state.connected = false; emit(); }
 function onConnectError(err: any) { console.log('connect_error', err?.message, err); }
 
@@ -591,17 +623,41 @@ export function stopNotifyService({ disconnect = true }: { disconnect?: boolean 
     if (disconnect) socket.disconnect();
 }
 
+// export function switchRoleInService(_role?: Role, { clearLists = false }: { clearLists?: boolean } = {}) {
+//     const strict = toStrictRole(readRoleFromStorage());
+//     if (toStrictRole(state.role) === strict) return;
+
+//     state.role = strict;
+
+//     // 💡 از آنجا که persist حذف شد، تغییر نقش معمولاً باید لیست‌ها را پاک کند
+//     if (clearLists) {
+//         state.notis = [];
+//         Object.assign(state, emptyBuckets());
+//     }
+//     emit();
+//     switchSocketRole();
+// }
+
 export function switchRoleInService(_role?: Role, { clearLists = false }: { clearLists?: boolean } = {}) {
     const strict = toStrictRole(readRoleFromStorage());
-    if (toStrictRole(state.role) === strict) return;
+    // اگر نقش تغییر نکرده باشد، اما این تابع به صورت دستی فراخوانی شود (مثلاً پس از ثبت)
+    // باز هم می‌توانیم refresh کنیم.
 
-    state.role = strict;
+    const roleChanged = toStrictRole(state.role) !== strict;
 
-    // 💡 از آنجا که persist حذف شد، تغییر نقش معمولاً باید لیست‌ها را پاک کند
-    if (clearLists) {
+    if (roleChanged) {
+        state.role = strict;
+    }
+
+    if (clearLists || roleChanged) {
         state.notis = [];
         Object.assign(state, emptyBuckets());
     }
+
+    // 💡 پرچم را تنظیم می‌کنیم تا کامپوننت UI بداند که باید واکشی کند
+    state.needsRefresh = true;
     emit();
+
+    // 💡 مهم: اتصال سوکت باید پس از تغییر نقش در سرویس برقرار شود
     switchSocketRole();
 }

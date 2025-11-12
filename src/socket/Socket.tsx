@@ -88,3 +88,21 @@ export function getCurrentRole() {
     currentRole = readRoleFromStorage() as any;
     return currentRole;
 }
+
+
+
+
+export function reEstablishConnection() {
+    const s = getSocket(); // مطمئن می‌شویم سوکت ایجاد شده باشد
+    const role = readRoleFromStorage();
+    currentRole = role as any;
+
+    // به‌روزرسانی پارامترهای Query قبل از اتصال
+    // این کار تضمین می‌کند که پارامتر 'role' جدید به سرور Socket.IO ارسال شود.
+    const opts = (s.io.opts as any) || {};
+    opts.query = { ...(opts.query || {}), role };
+
+    // اگر متصل است، قطع و وصل مجدد کن
+    if (s.connected) s.disconnect();
+    s.connect();
+}

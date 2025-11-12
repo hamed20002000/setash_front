@@ -13,7 +13,8 @@ import {
     OutlinedInput,
     Checkbox,
     ListItemText,
-    SelectChangeEvent
+    SelectChangeEvent,
+    DialogContentText
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -118,7 +119,7 @@ interface PersonnelWorkPlace {
 
     startDate: string;
     endDate: string | null; // می‌تواند null باشد
-    description?: string;
+    description: string;
     recordStatus?: number;
     createAt?: string;
 
@@ -247,6 +248,11 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const [rowForEndCooperation, setRowForEndCooperation] = useState<PersonnelWorkPlace | null>(null);
     const [endCooperationDate, setEndCooperationDate] = useState<Date | null>(null);
     const [endCoopError, setEndCoopError] = useState(false);
+
+
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -546,7 +552,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate])
+    }, [navigate, warehousesList])
 
 
 
@@ -563,7 +569,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     // CRITICAL FIX: Load all data first, then fetch assignments relying on the data.
     useEffect(() => {
         fetchAssignments();
-    }, [fetchAssignments]);
+    }, [fetchAssignments, warehousesList]);
 
     // ------------------------------------
     // Form Logic (UPDATED)
@@ -1115,6 +1121,17 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const handleRequestSort = (property: SortableKeys) => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); };
     const handleClearDateFilters = () => { setStartFilter(null); setEndFilter(null); };
 
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
     // ------------------------------------
     // JSX Render
     // ------------------------------------
@@ -1387,7 +1404,8 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                             </Grid>
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
-                                <CustomTextField placeholder="Açıklama" fullWidth value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} inputRef={nameInputRef} />
+                                <CustomTextField placeholder="Açıklama" fullWidth multiline rows={4}
+                                    value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} inputRef={nameInputRef} />
                             </Grid>
 
                             {/* Form Actions */}
@@ -1538,6 +1556,16 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
                                             <StyledTableCell sx={{ maxWidth: 280 }}>
                                                 <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
+
+                                                {row.description != null && row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                            handleOpenDescriptionModal(row.description);
+                                                        }}>
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                )}
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
@@ -1658,6 +1686,26 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 <DialogActions>
                     <Button onClick={() => setOpenEndCooperationModal(false)} color="secondary">İptal</Button>
                     <Button onClick={submitEndCooperation} color="error" disabled={loadingButton || !endCooperationDate}>Sonlandır</Button>
+                </DialogActions>
+            </Dialog>
+
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
 

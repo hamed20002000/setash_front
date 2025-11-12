@@ -790,8 +790,7 @@ const ListRollCalls = () => {
         <>
             <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
                 <Grid container justifyContent="space-between" alignItems="center" mb={3}>
-                    <Grid item>
-                        {/* 👈 تغییر: نمایش selectedDailyDate در عنوان */}
+                    <Grid item mb={2}>
                         <Typography variant="h5">
                             Yoklama Onayı ({formatDateDisplay(selectedDailyDate?.toISOString())})
                         </Typography>

@@ -1,6 +1,3 @@
-
-
-
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconButton, Box, Badge, Menu, MenuItem, Avatar, Typography, Button, Chip, Stack,
@@ -148,6 +145,9 @@ const Notifications = () => {
   const [stores, setStores] = useState<StoreType[]>([]);
   const [projects, setProjects] = useState<ProjectType[]>([]);
 
+  const [liveUpdates, setLiveUpdates] = useState(0);
+
+
   // === Helper: فیلتر براساس نیاز به ID
   const shouldKeepByNeed = (n: { type?: string; warehouseId?: any; storeId?: any; projectId?: any }) => {
     const t = (n.type || 'order') as NotifyType;
@@ -203,15 +203,64 @@ const Notifications = () => {
     }
   }, []);
 
+  //   useEffect(() => {
+
+
+  //     const unsub = subscribe((s) => {
+
+  // if (s.liveUpdateCounter !== liveUpdates) {
+  //           setLiveUpdates(s.liveUpdateCounter);
+  //       }
+
+  //       const list = s?.notis ?? [];
+  //       // فیلتر براساس نیاز ID (برای همخوانی با رفتار آفلاین)
+  //       const filtered = list.filter(shouldKeepByNeed);
+
+
+  //       if (s.needsRefresh) {
+  //         fetchOfflineNotifs();
+  //       }
+
+  //       setItems(prev => {
+  //         // ادغام زنده + موجود
+  //         const byId = new Map<string, Noti>();
+  //         // for (const n of [...filtered, ...prev]) byId.set(String(n.id), n);
+  //         for (const n of prev) byId.set(String(n.id), n);
+  //         for (const n of filtered) byId.set(String(n.id), n);
+  //         const merged = Array.from(byId.values()).sort((a, b) => {
+  //           const ta = a.atISO ? Date.parse(a.atISO) : 0;
+  //           const tb = b.atISO ? Date.parse(b.atISO) : 0;
+  //           return tb - ta;
+  //         });
+  //         return merged.slice(0, 200);
+  //       });
+  //     });
+  //     return () => { unsub(); };
+  //   }, []);
+
+
   useEffect(() => {
     const unsub = subscribe((s) => {
+
+      // 💡 اگر شمارنده سرویس تغییر کرد، وضعیت محلی را به‌روزرسانی کن
+      // این خط ری‌رندر را تضمین می‌کند.
+      if (s.liveUpdateCounter !== liveUpdates) {
+        setLiveUpdates(s.liveUpdateCounter);
+      }
+
       const list = s?.notis ?? [];
+
+      // 💡 منطق واکشی آفلاین پس از اتصال مجدد یا تغییر نقش
+      if (s.needsRefresh) {
+        fetchOfflineNotifs();
+      }
+
       // فیلتر براساس نیاز ID (برای همخوانی با رفتار آفلاین)
       const filtered = list.filter(shouldKeepByNeed);
+
       setItems(prev => {
-        // ادغام زنده + موجود
+        // ادغام و مرتب سازی
         const byId = new Map<string, Noti>();
-        // for (const n of [...filtered, ...prev]) byId.set(String(n.id), n);
         for (const n of prev) byId.set(String(n.id), n);
         for (const n of filtered) byId.set(String(n.id), n);
         const merged = Array.from(byId.values()).sort((a, b) => {
@@ -222,10 +271,15 @@ const Notifications = () => {
         return merged.slice(0, 200);
       });
     });
+
+    // 💡 liveUpdates باید در وابستگی‌ها باشد تا اگر این مقدار تغییر کرد، useEffect دوباره اجرا شود 
+    // و به آخرین مقدار liveUpdates دسترسی داشته باشد.
     return () => { unsub(); };
-  }, []);
+  }, [fetchOfflineNotifs, liveUpdates]);
+
 
   useEffect(() => { fetchOfflineNotifs(); }, [fetchOfflineNotifs]);
+
   useEffect(() => {
     const handler = (e: StorageEvent) => {
       if (e.key === 'activeUserRoleName') fetchOfflineNotifs();

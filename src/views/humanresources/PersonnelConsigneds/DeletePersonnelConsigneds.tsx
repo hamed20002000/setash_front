@@ -35,9 +35,10 @@ export const DeletePersonnelConsigneds = ({ openModal, idToDelete, nameToDelete,
             return;
         }
 
+        debugger
+
         setLoading(true);
         try {
-            // **API Endpoint به‌روزرسانی شد:** delete-personnel-consigned
             const response = await axios.delete(`${server.baseurl}${server.hr}delete-personnel-consigned/${idToDelete}`, {
                 headers: {
                     Accept: 'application/json',
