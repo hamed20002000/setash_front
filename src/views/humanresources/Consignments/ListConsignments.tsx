@@ -970,7 +970,7 @@ const ListConsignments: React.FC = () => {
         if (placeKind === 'FILO') { setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId(''); }
     }, [placeKind, selectedWorkhouseId, fetchStoresByWorkhouseId]);
 
-    const QR_BASE_URL = "http://localhost:3001/hr/list-consignments";
+    const QR_BASE_URL = "https://setasportal.com/hr/list-consignments";
     // --- QR Code Logic (for New Record) ---
     const fetchLastConsignmentAndOpenQRModal = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
