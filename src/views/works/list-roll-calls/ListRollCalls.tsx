@@ -801,6 +801,7 @@ const ListRollCalls = () => {
                                 label="Kayıt Tarihi Seçin"
                                 value={selectedDailyDate}
                                 inputFormat="dd/MM/yyyy"
+                                maxDate={new Date()}
                                 onChange={(newValue) => {
                                     setSelectedDailyDate(newValue);
                                 }}

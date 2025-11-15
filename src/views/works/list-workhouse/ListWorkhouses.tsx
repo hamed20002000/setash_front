@@ -394,8 +394,12 @@ const ListWorkhouses = () => {
     const [regionSearchQuery, setRegionSearchQuery] = useState('');
 
 
-    const [isFormVisible, setIsFormVisible] = useState(false);
-    const [isBlinking, setIsBlinking] = useState(true);
+    // const [isFormVisible, setIsFormVisible] = useState(false);
+    // const [isBlinking, setIsBlinking] = useState(true);
+
+    const [isFormVisible, setIsFormVisible] = useState(workId !== undefined); // اگر workId در آدرس باشد، true شود
+    const [isBlinking, setIsBlinking] = useState(workId === undefined);
+
     const [isFilterActive, setIsFilterActive] = useState(false);
 
     const [startDate, setStartDate] = useState<Date | null>(null);
@@ -1301,18 +1305,28 @@ const ListWorkhouses = () => {
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
                 {(workId && workInfo) && (
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'stretch', sm: 'center' }}
+                        spacing={{ xs: 2, sm: 1 }}
+                        mb={4}
+                    >
+                        {/* 1. گروه اطلاعات (چیپ‌ها) - بدون تغییر */}
                         <Stack direction="row" spacing={1} flexWrap="wrap">
-                            <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />
-                            <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />
+                            {/* فرض می‌کنیم workInfo تعریف شده است */}
+                            {workInfo && <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />}
+                            {workInfo && <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />}
                         </Stack>
+
                         <Stack
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={1}
                             alignItems="stretch"
-                            flexGrow={1}
+                            width={{ xs: '100%', sm: '30%' }}
                             justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                         >
+                            {/* دکمه "Yeni Şantiyeyi Kaydet" */}
                             {!isFormVisible && hasCreatePermission && (
                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyeyi Belgesi kaydetmek için tıklayınız" : ""}>
                                     <BlinkingButton
@@ -1320,35 +1334,108 @@ const ListWorkhouses = () => {
                                         color="primary"
                                         onClick={() => setIsFormVisible(true)}
                                         isBlinking={isBlinking}
-                                        fullWidth={false}
+                                        fullWidth={true} // 👈 در موبایل تمام عرض
                                     >
                                         Yeni Şantiyeyi Kaydet
                                     </BlinkingButton>
                                 </CustomTooltip>
                             )}
+
+                            {/* دکمه "Gizle" */}
                             {isFormVisible && (
                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
                                     <Button
                                         variant="contained"
                                         color="error"
                                         onClick={resetFormAndState}
-                                        // disabled={loadingButton}
-                                        fullWidth={false}
+                                        fullWidth={true} // 👈 در موبایل تمام عرض
                                         startIcon={<IconX size={20} />}
                                     >
                                         Gizle
                                     </Button>
                                 </CustomTooltip>
                             )}
+
+                            {/* دکمه "Geri Dön" */}
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
-                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
-                                    endIcon={<IconArrowRight size={20} />}>
+                                <Button
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => navigate(-1)}
+                                    fullWidth={true} // 👈 در موبایل تمام عرض
+                                    endIcon={<IconArrowRight size={20} />}
+                                >
                                     Geri Dön
                                 </Button>
                             </CustomTooltip>
-
                         </Stack>
                     </Stack>
+
+                    // <Stack
+                    //     direction={{ xs: 'column', sm: 'row' }} // 👈 در موبایل عمودی، در صفحات بزرگ افقی
+                    //     justifyContent={{ xs: 'flex-start', sm: 'space-between' }} // 👈 در موبایل چپ‌چین، در صفحات بزرگ توزیع شده
+                    //     alignItems={{ xs: 'stretch', sm: 'center' }} // 👈 در موبایل تمام عرض، در صفحات بزرگ وسط‌چین
+                    //     spacing={2} // 👈 افزایش فاصله بین بلوک‌ها در حالت عمودی
+                    //     mb={4}
+                    // >
+                    //     {/* 1. اطلاعات کار و مناقصه (Work & Tender Info) */}
+                    //     <Stack direction="row" spacing={1} flexWrap="wrap" flexGrow={{ xs: 1, sm: 0 }} minWidth={0}>
+                    //         <Chip label={`İş: ${workInfo.title}`} color="primary" variant="filled" size="small" />
+                    //         <Chip label={`İhale: ${workInfo.tenderTitle}`} color="success" variant="filled" size="small" />
+                    //     </Stack>
+
+                    //     {/* 2. دکمه‌های کنترلی (Control Buttons) */}
+                    //     <Stack
+                    //         direction={{ xs: 'column', sm: 'row' }}
+                    //         spacing={1}
+                    //         alignItems="stretch"
+                    //         flexGrow={1} // 👈 این باعث می‌شود در صفحات بزرگ به سمت راست هل داده شوند
+                    //         justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                    //     >
+                    //         {/* دکمه "Yeni Şantiyeyi Kaydet" */}
+                    //         {!isFormVisible && hasCreatePermission && (
+                    //             <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyeyi Belgesi kaydetmek için tıklayınız" : ""}>
+                    //                 <BlinkingButton
+                    //                     variant="contained"
+                    //                     color="primary"
+                    //                     onClick={() => setIsFormVisible(true)}
+                    //                     isBlinking={isBlinking}
+                    //                     fullWidth={true} // 👈 در موبایل تمام عرض
+                    //                 >
+                    //                     Yeni Şantiyeyi Kaydet
+                    //                 </BlinkingButton>
+                    //             </CustomTooltip>
+                    //         )}
+
+                    //         {/* دکمه "Gizle" */}
+                    //         {isFormVisible && (
+                    //             <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
+                    //                 <Button
+                    //                     variant="contained"
+                    //                     color="error"
+                    //                     onClick={resetFormAndState}
+                    //                     fullWidth={true} // 👈 در موبایل تمام عرض
+                    //                     startIcon={<IconX size={20} />}
+                    //                 >
+                    //                     Gizle
+                    //                 </Button>
+                    //             </CustomTooltip>
+                    //         )}
+
+                    //         {/* دکمه "Geri Dön" */}
+                    //         <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                    //             <Button
+                    //                 variant="outlined"
+                    //                 color="error"
+                    //                 onClick={() => navigate(-1)}
+                    //                 fullWidth={true} // 👈 در موبایل تمام عرض
+                    //                 endIcon={<IconArrowRight size={20} />}
+                    //             >
+                    //                 Geri Dön
+                    //             </Button>
+                    //         </CustomTooltip>
+                    //     </Stack>
+                    // </Stack>
                 )}
                 {(!workId) && (
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>

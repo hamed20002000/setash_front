@@ -86,10 +86,22 @@ const RentalRequestForm: React.FC<RentalRequestFormProps> = ({ isEditing, itemTo
     }, [isEditing, itemToEdit, resetForm]);
 
     const validateForm = (): boolean => {
-        if (!rentalTitle.trim() || !selectedWorkhouseId || !rentStartDate || !rentEndDate || !price) {
+        if (!rentalTitle.trim()) {
+            showAlert("Lütfen gerekli (Konu / Başlık) alanları doldurun.", "warning");
+            return false;
+        }
+        if (!selectedWorkhouseId) {
+            showAlert("Lütfen gerekli (Şantiye) alanları doldurun.", "warning");
+            return false;
+        }
+        if (!rentStartDate || !rentEndDate) {
             if (!rentStartDate) setRentStartDateError(true);
             if (!rentEndDate) setRentEndDateError(true);
-            showAlert("Lütfen gerekli (Konu, İşyeri, Başlangıç/Bitiş Tarihi) alanları doldurun.", "warning");
+            showAlert("Lütfen gerekli (Başlangıç/Bitiş Tarihi) alanları doldurun.", "warning");
+            return false;
+        }
+        if (!price) {
+            showAlert("Lütfen gerekli (Fiyat) alanları doldurun.", "warning");
             return false;
         }
         if (rentStartDate! > rentEndDate!) {

@@ -6,12 +6,13 @@ import {
     MenuItem as MuiMenuItem,
     Typography, Menu, IconButton, ListItemIcon, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
-    CircularProgress, Paper, FormControl, InputLabel, Select,
+    CircularProgress, Paper,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel,
     Dialog, DialogTitle, DialogContent, DialogActions,
     Chip,
     DialogContentText,
+    Autocomplete,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -250,7 +251,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [orderBy, setOrderBy] = useState<SortableKeys>('assignmentDate');
+    const [orderBy, setOrderBy] = useState<SortableKeys>('createAt');
     const [order, setOrder] = useState<'desc' | 'asc'>('desc');
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
@@ -337,7 +338,6 @@ const ListPersonnelConsigneds: React.FC = () => {
     }, [navigate]);
 
 
-    // --- Data Fetching: Main List ---
     const fetchPersonnelConsigneds = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
@@ -383,40 +383,31 @@ const ListPersonnelConsigneds: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, personnelList]); // Dependencies ensure computed fields are correct
+    }, [navigate, personnelList, consignmentList]);
 
 
     const activeConsignedConsignmentIds = useMemo(() => {
-        // رکوردهایی که واگذاری اصلی (parentId === 0) هستند و تاریخ عودت ندارند (هنوز فعالند)
         return personnelConsigneds
             .filter(r => r.parentId === 0 && r.returnDate === null)
-            .map(r => Number(r.consignment?.id)) // ⭐️ اصلاح: استفاده از آبجکت consignment و تبدیل ID (که رشته است) به عدد
-            .filter(id => !isNaN(id)); // فیلتر کردن رکوردهای با ID نامعتبر
+            .map(r => Number(r.consignment?.id))
+            .filter(id => !isNaN(id));
     }, [personnelConsigneds]);
 
-    // --- بعد از تعریف consignmentList ---
     const availableConsignmentList = useMemo(() => {
         if (isAssignmentMode) {
-            // فیلتر: فقط Consignmentهایی که در حال حاضر فعال نیستند (در لیست activeConsignedConsignmentIds نیستند)
             return consignmentList.filter(c =>
                 !activeConsignedConsignmentIds.includes(c.id)
             );
         }
-        // اگر حالت İade باشد، لیست را خالی نگه می‌داریم تا بعداً پر شود (در بخش 2)
         return consignmentList;
     }, [consignmentList, isAssignmentMode, activeConsignedConsignmentIds]);
 
     const activeConsignedsForSelectedPersonnel = useMemo(() => {
         const personnelId = Number(selectedPersonnelId);
         if (!personnelId || !personnelConsigneds.length) return [];
-
         return personnelConsigneds.filter(r => {
-            // اطمینان از اینکه پرسنل وجود دارد و ID آن با پرسنل انتخابی مطابقت دارد
             const matchPersonnel = Number(r.personnel?.id) === personnelId;
-
-            // فقط رکوردهای واگذاری اصلی (parentId=0) و فعال (returnDate=null)
             const isActiveAssignment = r.parentId === 0 && r.returnDate === null;
-
             return matchPersonnel && isActiveAssignment;
         });
     }, [personnelConsigneds, selectedPersonnelId]);
@@ -428,9 +419,10 @@ const ListPersonnelConsigneds: React.FC = () => {
             .map(r => {
                 const consignment = r.consignment!; // چون فیلتر کردیم، اینجا تضمین شده است
                 return {
-                    id: Number(consignment.id), // ID مال (برای مقدار کمبو)
-                    parentId: r.id,             // ID رکورد واگذاری فعال (برای ParentId رکورد جدید İade)
+                    id: Number(consignment.id),
+                    parentId: r.id,
                     name: `${consignment.name} (${consignment.code})`,
+                    code: consignment.code,
                 };
             });
     }, [activeConsignedsForSelectedPersonnel]); // ⚠️ `consignmentList` دیگر لازم نیست
@@ -922,7 +914,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                             </Grid>
 
                             {/* Personnel Selector */}
-                            <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
+                            {/* <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>Personel</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={personnelError}>
                                     <InputLabel id="sel-personnel">Personel Seçin</InputLabel>
@@ -946,9 +938,45 @@ const ListPersonnelConsigneds: React.FC = () => {
                                     </Select>
                                     {personnelError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Zorunlu alan!</Typography>}
                                 </FormControl>
-                            </Grid>
+                            </Grid> */}
+
 
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
+                                <CustomFormLabel required>Personel</CustomFormLabel>
+                                <Autocomplete
+                                    // 1. داده‌ها
+                                    options={personnelList}
+                                    // 2. نحوه نمایش آیتم در لیست
+                                    getOptionLabel={(option) => `${option.name} ${option.family} (${option.identityNumber})`}
+                                    // 3. پیدا کردن مقدار فعلی (برای ویرایش)
+                                    value={personnelList.find(p => p.id === selectedPersonnelId) || null}
+                                    // 4. مدیریت تغییر
+                                    onChange={(_, newValue) => {
+                                        const newPersonnelId = newValue ? newValue.id : '';
+                                        setSelectedPersonnelId(newPersonnelId);
+
+                                        if (!isAssignmentMode) {
+                                            setSelectedConsignmentId('');
+                                            setSelectedParentConsignedId('');
+                                        }
+                                        if (personnelError) setPersonnelError(false);
+                                    }}
+                                    // 5. رابط کاربری
+                                    renderInput={(params) => (
+                                        <CustomTextField
+                                            {...params}
+                                            label="Personel Seçin"
+                                            size="small"
+                                            error={personnelError}
+                                            helperText={personnelError ? 'Zorunlu alan!' : ''}
+                                        />
+                                    )}
+                                />
+                            </Grid>
+
+
+
+                            {/* <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>Mal </CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={consignmentError}>
                                     <InputLabel id="sel-consignment">Mal Kayıt İsmi</InputLabel>
@@ -977,7 +1005,45 @@ const ListPersonnelConsigneds: React.FC = () => {
                                         <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }} color="warning.main">Bu personelde aktif zimmet bulunamadı.</Typography>
                                     )}
                                 </FormControl>
+                            </Grid> */}
+
+
+                            <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
+                                <CustomFormLabel required>Mal </CustomFormLabel>
+                                <Autocomplete
+                                    options={isAssignmentMode ? availableConsignmentList : consignmentOptionsForReturn}
+                                    getOptionLabel={(option) => isAssignmentMode ? `${option.name} (${option.code})` : option.name}
+
+                                    value={
+                                        isAssignmentMode ?
+                                            availableConsignmentList.find(c => c.id === selectedConsignmentId) || null :
+                                            consignmentOptionsForReturn.find(c => c.id === selectedConsignmentId) || null
+                                    }
+
+                                    onChange={(_, newValue) => {
+                                        const newConsignmentId = newValue ? newValue.id : '';
+                                        setSelectedConsignmentId(newConsignmentId);
+                                        if (consignmentError) setConsignmentError(false);
+
+                                        if (!isAssignmentMode) {
+                                            const parentId = (newValue as any)?.parentId || '';
+                                            setSelectedParentConsignedId(parentId);
+                                        }
+                                    }}
+                                    disabled={!isAssignmentMode && !selectedPersonnelId}
+                                    renderInput={(params) => (
+                                        <CustomTextField
+                                            {...params}
+                                            label="Mal Kayıt İsmi"
+                                            size="small"
+                                            error={consignmentError}
+                                            helperText={consignmentError ? 'Zorunlu alan!' : ''}
+                                        />
+                                    )}
+                                    noOptionsText={!isAssignmentMode && selectedPersonnelId ? "Bu personelde aktif zimmet bulunamadı." : "Seçenek yok"}
+                                />
                             </Grid>
+
 
                             {/* Parent ID (Only for Return Mode) */}
                             {/* {!isAssignmentMode && (

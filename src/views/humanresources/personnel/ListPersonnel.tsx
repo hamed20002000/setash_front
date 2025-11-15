@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
@@ -319,6 +318,12 @@ const ListPersonnel: React.FC = () => {
     const [profileRawFile, setProfileRawFile] = useState<File | null>(null); // NEW: raw file for upload
     const [attachmentsRawFiles, setAttachmentsRawFiles] = useState<File[]>([]); // NEW: raw files for upload
     const [profileImageUrl, setProfileImageUrl] = useState<string>(DEFAULT_IMAGE_URL); // for display
+
+
+    const [openActiveConsignmentsModal, setOpenActiveConsignmentsModal] = useState(false); // NEW
+    const [activeConsignments, setActiveConsignments] = useState<any[]>([]); // NEW: برای نگهداری اموال فعال
+    const [activeConsignmentImageUrls, setActiveConsignmentImageUrls] = useState<string[]>([]); // NEW: برای اسلایدر (اگر تصمیم به نمایش در همین مودال بگیریم)
+    const [openImageSlider, setOpenImageSlider] = useState(false);
 
 
     const initialForm: PersonnelType = {
@@ -1371,6 +1376,62 @@ const ListPersonnel: React.FC = () => {
         setPage(0);
     };
 
+
+    const handleEndCooperationCheck = async (personnel: PersonnelType) => {
+        // ... (کدهای اولیه و چک authToken) ...
+        handleCloseMenu();
+        setPersonnelToEndCooperation(personnel);
+
+        if (!authToken) { showAlert("Lütfen giriş yapın.", "warning"); navigate("/"); return; }
+
+        showAlert("Zimmet kayıtları kontrol ediliyor...", "info");
+        setLoadingButton(true);
+
+        try {
+            const checkRes = await axios.get(
+                `${server.baseurl}${server.hr}ckeck-personnel-consignments/${personnel.id}`,
+                { headers: { Authorization: `Bearer ${authToken}` } }
+            );
+
+            if (checkRes.data?.httpStatusCode === 200 && checkRes.data?.data) {
+
+                // 1. فیلتر کردن برای اموال واگذار شده و هنوز مرجوع نشده (returnDate === null)
+                const activeConsignmentsList = (checkRes.data.data as any[])
+                    .filter(item => item.returnDate === null)
+                    .map(item => ({
+                        // ساختار ساده شده برای نمایش در مودال
+                        id: item.id,
+                        assignmentDate: item.assignmentDate,
+                        description: item.description,
+                        // 💡 ضمیمه‌ها از آبجکت consignment استخراج می‌شوند.
+                        attachments: item.consignment?.attachments || [],
+                        consignmentName: item.consignment?.name || 'Bilinmiyor',
+                        consignmentCode: item.consignment?.code || '-',
+                    }));
+
+                if (activeConsignmentsList.length > 0) {
+                    // 2. اگر اموال فعال وجود دارد: مودال هشدار را باز کن.
+                    setActiveConsignments(activeConsignmentsList);
+                    setOpenActiveConsignmentsModal(true);
+                    showAlert(`Personelin ${activeConsignmentsList.length} adet teslim etmediği zimmeti bulunmaktadır!`, "error");
+                } else {
+                    // 3. اگر اموال فعال وجود نداشت: مستقیماً مودال تاریخ اتمام همکاری را باز کن.
+                    setEndDate(null);
+                    setOpenEndCooperationModal(true);
+                    showAlert("Zimmet kontrolü başarılı. İşten ayrılma tarihi belirlenebilir.", "success");
+                }
+            } else {
+                // 4. اگر API خطا داد یا داده برگشتی نامعتبر بود:
+                showAlert(checkRes.data?.message || "Zimmet kontrolü sırasında bir hata oluştu.", "error");
+            }
+
+        } catch (e: any) {
+            showAlert(e?.response?.data?.message || "Sunucuya bağlanılamadı.", "error");
+        } finally {
+            setLoadingButton(false);
+        }
+    };
+
     const renderTopBar = (
         <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} mt={2} mb={3} flexWrap="wrap" gap={2}>
@@ -1880,8 +1941,14 @@ const ListPersonnel: React.FC = () => {
 
                                                 {/* NEW: İş Birliği Sonlandırma */}
 
-                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && selectedRowForMenu.workEndDate === null && (
+                                                {/* {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && (
                                                     <MuiMenuItem onClick={() => { setPersonnelToEndCooperation(selectedRowForMenu); setEndDate(null); setOpenEndCooperationModal(true); handleCloseMenu(); }}>
+                                                        <ListItemIcon><IconX width={18} /></ListItemIcon> İşten Ayrılma (Sonlandırma)
+                                                    </MuiMenuItem>
+                                                )} */}
+
+                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && (
+                                                    <MuiMenuItem onClick={() => handleEndCooperationCheck(selectedRowForMenu)}>
                                                         <ListItemIcon><IconX width={18} /></ListItemIcon> İşten Ayrılma (Sonlandırma)
                                                     </MuiMenuItem>
                                                 )}
@@ -2358,6 +2425,110 @@ const ListPersonnel: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenAttachmentsModal(false)}>Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+
+            {/* Aktif Zimmetler Uyarısı Modal */}
+            <Dialog open={openActiveConsignmentsModal} onClose={() => setOpenActiveConsignmentsModal(false)} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ backgroundColor: 'error.main', color: 'white' }}>
+                    Personelin Teslim Edilmemiş Zimmetleri Bulunmaktadır!
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="subtitle1" gutterBottom>
+                        Bu personelin iş birliğini sonlandırmadan önce aşağıdaki zimmetleri iade etmesi gerekmektedir.
+                    </Typography>
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow>
+                                    <StyledTableCell>Mal İsmi (Kod)</StyledTableCell>
+                                    <StyledTableCell>Veriliş Tarihi</StyledTableCell>
+                                    <StyledTableCell>Açıklama</StyledTableCell>
+                                    <StyledTableCell>Ekler ({/* Hata: تعداد کل ضمیمه‌ها را نمی‌توان اینجا به راحتی شمرد. */} )</StyledTableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {activeConsignments.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <StyledTableCell>{item.consignmentName} ({item.consignmentCode})</StyledTableCell>
+                                        <StyledTableCell>{formatDateDisplay(item.assignmentDate)}</StyledTableCell>
+                                        <StyledTableCell>{item.description || '-'}</StyledTableCell>
+                                        <StyledTableCell>
+                                            {item.attachments?.length > 0 ? (
+                                                // 💡 نمایش دکمه با تعداد و باز کردن مودال اسلایدر
+                                                <Button
+                                                    size="small"
+                                                    variant="contained"
+                                                    color="secondary"
+                                                    startIcon={<IconFile size={16} />}
+                                                    onClick={() => {
+                                                        const urls = item.attachments.map((a: Attachment) => `${server.urldpwonload}${a.fileUrl}`);
+                                                        setActiveConsignmentImageUrls(urls);
+                                                        setOpenImageSlider(true);
+                                                    }}
+                                                >
+                                                    {item.attachments.length} Ek
+                                                </Button>
+                                            ) : (
+                                                '-'
+                                            )}
+                                        </StyledTableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenActiveConsignmentsModal(false)} color="secondary" variant="contained">
+                        Kapat ve İptal Et
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Ek Belgeler Önizleme/İndirme Modal (Slider Modal Adı Değiştirildi) */}
+            <Dialog open={openImageSlider} onClose={() => setOpenImageSlider(false)} maxWidth="md" fullWidth>
+                <DialogTitle>Zimmet Ek Belgeleri ({activeConsignmentImageUrls.length} Adet)</DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2}>
+                        {activeConsignmentImageUrls.length > 0 ? (
+                            activeConsignmentImageUrls.map((fullUrl, index) => {
+                                const fileName = fullUrl.split('/').pop();
+                                const isImage = fullUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i); // 💡 تشخیص بهتر فرمت عکس
+                                return (
+                                    <Box key={index} sx={{ border: '1px solid #ddd', p: 2, borderRadius: 1 }}>
+                                        <Typography variant="body2" fontWeight="bold" gutterBottom>{fileName}</Typography>
+                                        {isImage ? (
+                                            // 💡 پیش‌نمایش عکس
+                                            <CardMedia component="img" image={fullUrl} sx={{ maxHeight: 300, objectFit: 'contain', mt: 1, mb: 1 }} alt={fileName} />
+                                        ) : (
+                                            // 💡 اگر عکس نبود، فقط آیکون و هشدار
+                                            <Typography variant="caption" color="textSecondary" display="block">Önizleme mevcut değil. İndirmek için tıklayınız.</Typography>
+                                        )}
+                                        <Button
+                                            variant="contained"
+                                            color="primary"
+                                            href={fullUrl}
+                                            target="_blank"
+                                            // 💡 اضافه کردن attribute download برای دانلود مستقیم
+                                            download={fileName}
+                                            startIcon={<IconFileDownload />}
+                                            size="small"
+                                            sx={{ mt: 1 }}
+                                        >
+                                            İndir
+                                        </Button>
+                                    </Box>
+                                );
+                            })
+                        ) : (
+                            <Typography>Seçili kayıtta dosya bulunmamaktadır.</Typography>
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenImageSlider(false)} color="primary">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

@@ -70,6 +70,10 @@ const AuthLogin = ({ title, subtext }: loginType) => {
 
   const { loadAuthData } = useAuth();
 
+  const params = new URLSearchParams(window.location.search);
+  const redirectUrl = params.get('url');
+
+
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
@@ -114,11 +118,8 @@ const AuthLogin = ({ title, subtext }: loginType) => {
         }
       );
 
-      // بررسی وضعیت HTTP از پاسخ axios
-      // Axios به طور پیش فرض خطاهای HTTP (4xx, 5xx) را به عنوان خطا پرتاب می کند
-      // پس فقط کافی است موفقیت عملیات داخلی را بررسی کنیم.
-      if (response.data.success) { // بررسی فیلد 'success' در پاسخ سرور
-        const token = response.data.data; // توکن در response.data.data قرار دارد
+      if (response.data.success) {
+        const token = response.data.data;
         debugger
         if (token) {
           localStorage.setItem('authToken', token); // ذخیره توکن
@@ -126,7 +127,24 @@ const AuthLogin = ({ title, subtext }: loginType) => {
           loadAuthData();
           showAlert('Giriş başarılı!', 'success');
 
-          navigate('/dashboards/dashboard'); // هدایت به صفحه اصلی یا داشبورد
+          if (redirectUrl) {
+            // 1. آدرس کامل encoded را Decode می‌کنیم
+            const decodedUrl = decodeURIComponent(redirectUrl);
+
+            // 2. ساخت یک شیء URL برای استخراج مسیر و پارامترها
+            const urlObject = new URL(decodedUrl);
+
+            // 3. استخراج مسیر داخلی (pathname + search query)
+            // نتیجه: /hr/list-consignments?id=21&code=000008
+            const internalPath = urlObject.pathname + urlObject.search;
+
+            // 4. هدایت به مسیر داخلی
+            navigate(internalPath);
+
+          } else {
+            // در غیر این صورت، به صفحه پیش‌فرض هدایت کن
+            navigate('/dashboards/dashboard');
+          }
         } else {
           // اگر 'success' true بود ولی 'data' (توکن) خالی بود
           throw new Error('Sunucudan geçerli bir token alınamadı.');

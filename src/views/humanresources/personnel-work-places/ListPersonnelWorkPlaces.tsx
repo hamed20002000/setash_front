@@ -14,7 +14,8 @@ import {
     Checkbox,
     ListItemText,
     SelectChangeEvent,
-    DialogContentText
+    DialogContentText,
+    Autocomplete
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -1186,14 +1187,32 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                     <InputLabel id="sel-personnel">Personel Seçin</InputLabel>
 
                                     {assignmentMode === 'single' ? (
-                                        // حالت تکی
-                                        <Select
-                                            labelId="sel-personnel" label="Personel Seçin" value={personnelId}
+                                        <Autocomplete
+                                            options={personnels}
+                                            size="small"
+                                            getOptionLabel={(option) => `${option.name} ${option.family}`}
+
+                                            value={personnels.find(p => p.id === personnelId) || null}
+
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                            onChange={(_, newValue) => {
+                                                const newId = newValue ? newValue.id : '';
+                                                setPersonnelId(newId);
+                                                if (personnelError) setPersonnelError(false);
+                                            }}
+
                                             disabled={isUserRoleDisabled || editingId !== null}
-                                            onChange={(e) => { setPersonnelId(Number(e.target.value)); if (personnelError) setPersonnelError(false); }}
-                                        >
-                                            {personnels.map(p => <MuiMenuItem key={p.id} value={p.id}>{p.name} {p.family}</MuiMenuItem>)}
-                                        </Select>
+
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="Personel Seçin"
+                                                    error={personnelError}
+                                                    helperText={personnelError ? 'Zorunlu alan!' : ''}
+                                                />
+                                            )}
+                                        />
                                     ) : (
                                         <Select
                                             labelId="sel-personnel"
@@ -1211,13 +1230,6 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                                     {selected.map((id) => {
                                                         const p = personnels.find(prsnl => prsnl.id === id);
-
-                                                        // const handleDelete = (event: React.MouseEvent) => {
-                                                        //     event.stopPropagation();
-                                                        //     event.preventDefault();
-                                                        //     setSelectedPersonnelIds(prevIds => prevIds.filter(pid => pid !== id));
-                                                        // };
-
                                                         return p ? (
                                                             <Chip
                                                                 key={id}
@@ -1225,15 +1237,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                                 size="small"
                                                                 color="primary"
                                                                 variant="outlined"
-
-                                                            // onDelete={handleDelete}
                                                             />
                                                         ) : null;
                                                     })}
                                                 </Box>
                                             )}
                                         >
-                                            {/* آیتم‌های منو: استفاده از Checkbox و ListItemText */}
                                             {personnels.map((p) => (
                                                 <MuiMenuItem key={p.id} value={p.id}>
                                                     <Checkbox checked={selectedPersonnelIds.indexOf(p.id) > -1} />
@@ -1246,68 +1255,104 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                     {personnelError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur! (Sadece ISG=true olanlar listelenir)</Typography>}
                                 </FormControl>
                             </Grid>
-
-                            {/* Position */}
+                            {/* Position - تبدیل به Autocomplete */}
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Pozisyon</CustomFormLabel>
-                                <FormControl size="small" sx={{ width: '100%' }} error={positionError}>
-                                    <InputLabel id="sel-position">Pozisyon Seçin</InputLabel>
-                                    <Select labelId="sel-position" label="Pozisyon Seçin" value={positionId}
-                                        disabled={isUserRoleDisabled}
-                                        onChange={(e) => { setPositionId(Number(e.target.value)); if (positionError) setPositionError(false); }}>
-                                        {positionsList.map(pos => <MuiMenuItem key={pos.id} value={pos.id}>{pos.title}</MuiMenuItem>)}
-                                    </Select>
-                                    {positionError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                </FormControl>
-                            </Grid>
+                                <Autocomplete
+                                    options={positionsList}
+                                    size="small"
+                                    // 💡 نحوه نمایش برچسب
+                                    getOptionLabel={(option) => option.title}
 
-                            {/* User (Kullanıcı) */}
+                                    // 💡 یافتن مقدار فعلی بر اساس ID
+                                    value={positionsList.find(pos => pos.id === positionId) || null}
+
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                    onChange={(_, newValue) => {
+                                        const newId = newValue ? newValue.id : '';
+                                        setPositionId(newId); // فرض می‌کنیم setPositionId می‌تواند string/number را بپذیرد
+                                        if (positionError) setPositionError(false);
+                                    }}
+
+                                    disabled={isUserRoleDisabled}
+
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Pozisyon Seçin"
+                                            error={positionError}
+                                            helperText={positionError ? 'Bu alan zorunludur!' : ''}
+                                        />
+                                    )}
+                                />
+                            </Grid>
+                            {/* User (Kullanıcı) - تبدیل به Autocomplete */}
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel>Kullanıcı</CustomFormLabel>
-                                <FormControl size="small" sx={{ width: '100%' }}>
-                                    <InputLabel id="sel-user">Kullanıcı Seçin</InputLabel>
-                                    <Select
-                                        labelId="sel-user" label="Kullanıcı Seçin" value={userId || ''}
-                                        onChange={(e) => {
-                                            const selectedUserId = String(e.target.value);
-                                            setUserId(selectedUserId);
+                                <Autocomplete
+                                    options={usersList}
+                                    size="small"
+                                    getOptionLabel={(option) => option.username}
+
+                                    // 💡 یافتن مقدار فعلی بر اساس ID (User ID معمولا string است)
+                                    value={usersList.find(user => user.id === userId) || null}
+
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                    onChange={(_, newValue) => {
+                                        const selectedUser = newValue;
+                                        const selectedUserId = selectedUser ? selectedUser.id : '';
+
+                                        setUserId(selectedUserId); // ID کاربر (string)
+                                        setUserRoleId(null); // ریست کردن نقش
+
+                                        // 💡 فراخوانی API مرتبط فقط اگر کاربری انتخاب شده باشد
+                                        if (selectedUserId) {
                                             getUserRoles(selectedUserId);
-                                            setUserRoleId(null);
-                                        }}
-                                        disabled={isUserRoleDisabled || assignmentMode === 'bulk'} // Disable in bulk mode
-                                    >
-                                        {usersList.map((user) => (
-                                            <MuiMenuItem key={user.id} value={user.id}>{user.username}</MuiMenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                        }
+                                    }}
+
+                                    disabled={isUserRoleDisabled || assignmentMode === 'bulk'}
+
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Kullanıcı Seçin"
+                                        />
+                                    )}
+                                />
                             </Grid>
 
-                            {/* User Role (Kullanıcı Rolü) */}
+                            {/* User Role (Kullanıcı Rolü) - تبدیل به Autocomplete */}
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel>Kullanıcı Rolü</CustomFormLabel>
-                                <FormControl size="small" sx={{ width: '100%' }}>
-                                    <InputLabel id="sel-userrole">Kullanıcı Rolü</InputLabel>
-                                    {/* <Select labelId="sel-userrole" label="Kullanıcı Rolü" value={userRoleId || ''}
-                                        onChange={(e) => setUserRoleId(Number(e.target.value))}
-                                        disabled={isUserRoleDisabled || userRolesList.length === 0 || assignmentMode === 'bulk'} // Disable in bulk mode
-                                    >
-                                        {userRolesList.filter(role => role.recordStatus === 0).map((role) => (
-                                            <MuiMenuItem key={role.id} value={role.role.id}>{role.role.name}</MuiMenuItem>
-                                        ))}
-                                    </Select> */}
+                                <Autocomplete
+                                    // 💡 ابتدا آیتم‌های فعال را فیلتر کنید
+                                    options={userRolesList.filter(role => role.recordStatus === 0)}
+                                    size="small"
+                                    // 💡 نمایش نام نقش (role.name)
+                                    getOptionLabel={(option) => option.role.name}
 
-                                    <Select labelId="sel-userrole" label="Kullanıcı Rolü" value={userRoleId || ''}
-                                        onChange={(e) => setUserRoleId(Number(e.target.value))} // <-- مقدار عددی userRoleId
-                                        disabled={assignmentMode === 'bulk' || userRolesList.length === 0}
-                                    >
-                                        {userRolesList.filter(role => role.recordStatus === 0).map((roleItem) => (
-                                            <MuiMenuItem key={roleItem.id} value={roleItem.id}>
-                                                {roleItem.role.name}
-                                            </MuiMenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                    // 💡 یافتن مقدار فعلی بر اساس userRoleId (عدد)
+                                    value={userRolesList.find(item => item.id === userRoleId) || null}
+
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                    onChange={(_, newValue) => {
+                                        const newRoleId = newValue ? newValue.id : null;
+                                        setUserRoleId(newRoleId); // ذخیره ID نقش (عدد)
+                                    }}
+
+                                    disabled={assignmentMode === 'bulk' || userRolesList.length === 0}
+
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Kullanıcı Rolü"
+                                        />
+                                    )}
+                                />
                             </Grid>
 
                             {/* Place Kind Selector */}
@@ -1329,66 +1374,139 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                             {placeKind === 'WAREHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Depo</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                        <InputLabel id="sel-warehouse">Depo Seçin</InputLabel>
-                                        <Select labelId="sel-warehouse" label="Depo Seçin" value={selectedWarehouseId} onChange={(e) => { setSelectedWarehouseId(Number(e.target.value)); if (placeError) setPlaceError(false); }}>
-                                            {warehousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                        </Select>
-                                        {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                    </FormControl>
+                                    <Autocomplete
+                                        options={warehousesList}
+                                        size="small"
+                                        // 💡 نمایش نام
+                                        getOptionLabel={(option) => option.name}
+                                        // 💡 مقدار فعلی
+                                        value={warehousesList.find(w => w.id === selectedWarehouseId) || null}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                        onChange={(_, newValue) => {
+                                            const newId = newValue ? newValue.id : '';
+                                            setSelectedWarehouseId(newId);
+                                            if (placeError) setPlaceError(false);
+                                        }}
+
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Depo Seçin"
+                                                error={placeError}
+                                                helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                            />
+                                        )}
+                                    />
                                 </Grid>
                             )}
-
                             {placeKind === 'WORKHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Şantiye</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                        <InputLabel id="sel-workhouse">Şantiye Seçin</InputLabel>
-                                        <Select labelId="sel-workhouse" label="Şantiye Seçin" value={selectedWorkhouseId} onChange={(e) => { setSelectedWorkhouseId(Number(e.target.value)); if (placeError) setPlaceError(false); }}>
-                                            {workhousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                        </Select>
-                                        {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                    </FormControl>
+                                    <Autocomplete
+                                        options={workhousesList}
+                                        size="small"
+                                        getOptionLabel={(option) => option.name}
+                                        value={workhousesList.find(w => w.id === selectedWorkhouseId) || null}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                        onChange={(_, newValue) => {
+                                            const newId = newValue ? newValue.id : '';
+                                            setSelectedWorkhouseId(newId);
+                                            if (placeError) setPlaceError(false);
+                                        }}
+
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Şantiye Seçin"
+                                                error={placeError}
+                                                helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                            />
+                                        )}
+                                    />
                                 </Grid>
                             )}
-
                             {placeKind === 'WORKHOUSE_STORE' && (
                                 <>
                                     <Grid item xs={12} sm={4}>
                                         <CustomFormLabel required>Şantiye (İlişkili)</CustomFormLabel>
-                                        <FormControl size="small" sx={{ width: '100%' }}>
-                                            <InputLabel id="sel-workhouse-2">Şantiye Seçin</InputLabel>
-                                            <Select labelId="sel-workhouse-2" label="Şantiye Seçin" value={selectedWorkhouseId} onChange={(e) => { const v = Number(e.target.value); setSelectedWorkhouseId(v); if (v) fetchStoresByWorkhouseId(v); setSelectedStoreId(''); }}>
-                                                {workhousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                            </Select>
-                                        </FormControl>
+                                        <Autocomplete
+                                            options={workhousesList}
+                                            size="small"
+                                            getOptionLabel={(option) => option.name}
+                                            value={workhousesList.find(w => w.id === selectedWorkhouseId) || null}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                            onChange={(_, newValue) => {
+                                                const newId = newValue ? newValue.id : '';
+                                                setSelectedWorkhouseId(newId);
+                                                setSelectedStoreId(''); // ریست کردن Deposu
+                                                if (newId) fetchStoresByWorkhouseId(Number(newId)); // فراخوانی لیست جدید
+                                            }}
+
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Şantiye Seçin" />
+                                            )}
+                                        />
                                     </Grid>
                                     <Grid item xs={12} sm={4}>
                                         <CustomFormLabel required>Şantiyenin Deposu</CustomFormLabel>
-                                        <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                            <InputLabel id="sel-store">Depo Seçin</InputLabel>
-                                            <Select labelId="sel-store" label="Depo Seçin" value={selectedStoreId} onChange={(e) => { setSelectedStoreId(Number(e.target.value)); if (placeError) setPlaceError(false); }}>
-                                                {storesList.map(s => <MuiMenuItem key={s.id} value={s.id}>{s.name}</MuiMenuItem>)}
-                                            </Select>
-                                            {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                        </FormControl>
+                                        <Autocomplete
+                                            options={storesList}
+                                            size="small"
+                                            getOptionLabel={(option) => option.name}
+                                            value={storesList.find(s => s.id === selectedStoreId) || null}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                            onChange={(_, newValue) => {
+                                                const newId = newValue ? newValue.id : '';
+                                                setSelectedStoreId(newId);
+                                                if (placeError) setPlaceError(false);
+                                            }}
+
+                                            disabled={!selectedWorkhouseId || storesList.length === 0}
+
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="Depo Seçin"
+                                                    error={placeError}
+                                                    helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                                />
+                                            )}
+                                        />
+                                        {selectedWorkhouseId && storesList.length === 0 && (
+                                            <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }} color="warning.main">Seçili şantiyeye ait depo bulunamadı.</Typography>
+                                        )}
                                     </Grid>
                                 </>
                             )}
-
                             {placeKind === 'FILO' && (
                                 <Grid item xs={12} sm={4}>
-                                    <CustomFormLabel required>Filo Depo (CarWarehouse)</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                        <InputLabel id="sel-carwarehouse">Filo Depo Seçin</InputLabel>
-                                        <Select labelId="sel-carwarehouse" label="Filo Depo Seçin"
-                                            value={selectedCarWarehouseId}
-                                            onChange={(e) => { setSelectedCarWarehouseId(Number(e.target.value)); if (placeError) setPlaceError(false); }}
-                                        >
-                                            {carWarehousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                        </Select>
-                                        {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                    </FormControl>
+                                    <CustomFormLabel required>Filo Depo</CustomFormLabel>
+                                    <Autocomplete
+                                        options={carWarehousesList}
+                                        size="small"
+                                        getOptionLabel={(option) => option.name}
+                                        value={carWarehousesList.find(w => w.id === selectedCarWarehouseId) || null}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+
+                                        onChange={(_, newValue) => {
+                                            const newId = newValue ? newValue.id : '';
+                                            setSelectedCarWarehouseId(newId);
+                                            if (placeError) setPlaceError(false);
+                                        }}
+
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Filo Depo Seçin"
+                                                error={placeError}
+                                                helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                            />
+                                        )}
+                                    />
                                 </Grid>
                             )}
 
@@ -1574,7 +1692,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                 <Menu anchorEl={anchorEl} open={openMenu} onClose={handleCloseMenu}>
 
 
-                                                    {hasEditPermission && selectedRowForMenu && selectedRowForMenu.endDate === null && (
+                                                    {hasEditPermission && selectedRowForMenu && (
                                                         <MuiMenuItem
                                                             onClick={() => {
                                                                 setRowForEndCooperation(selectedRowForMenu);

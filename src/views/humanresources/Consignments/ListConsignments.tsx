@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -12,6 +12,7 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Chip,
     DialogContentText,
+    Autocomplete,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -95,6 +96,112 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
+
+
+// --- 1. Styled Component for Hover Effect ---
+const StyledHoverBox = styled(Box)(({ theme }) => ({
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0,
+    transition: 'opacity 0.3s ease-in-out',
+    borderRadius: theme.shape.borderRadius,
+    '&:hover': { opacity: 1 },
+}));
+
+// --- 2. Custom Image Slider Component (for better encapsulation) ---
+interface ImageSlideAndHoverDownloadProps {
+    attachments: AttachmentType[];
+    currentSlideIndex: number;
+    handlePrevSlide: () => void;
+    handleNextSlide: () => void;
+    handleDownloadClick: (url: string) => void;
+}
+
+const ImageSlideAndHoverDownload: React.FC<ImageSlideAndHoverDownloadProps> = ({
+    attachments,
+    currentSlideIndex,
+    handlePrevSlide,
+    handleNextSlide,
+    handleDownloadClick
+}) => {
+    const currentAttachment = attachments[currentSlideIndex];
+
+    return (
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ height: '100%' }}>
+
+            <IconButton onClick={handlePrevSlide} disabled={attachments.length <= 1} size="large" sx={{ ml: 1 }}>
+                <IconArrowLeft size={30} />
+            </IconButton>
+
+            {/* Viewer Box */}
+            <Box sx={{
+                flexGrow: 1,
+                height: '100%',
+                overflow: 'hidden',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                p: 2,
+            }}>
+                {/* Image & Hover Effect Container */}
+                <Box
+                    sx={{
+                        width: '100%',
+                        maxHeight: 'calc(100% - 40px)', // Leave space for counter
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative',
+                    }}
+                >
+                    <img
+                        src={`${server.urldpwonload}${currentAttachment.fileUrl}`}
+                        alt={`Ek ${currentSlideIndex + 1}`}
+                        style={{
+                            maxWidth: '100%',
+                            maxHeight: '100%',
+                            objectFit: 'contain',
+                            borderRadius: 6,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}
+                    />
+                    {/* Hover Overlay for Download Button */}
+                    <StyledHoverBox>
+                        <Button
+                            variant="contained"
+                            color="info"
+                            size="large"
+                            startIcon={<IconDownload size={24} />}
+                            onClick={() => handleDownloadClick(currentAttachment.fileUrl)}
+                        >
+                            Resmi İndir
+                        </Button>
+                    </StyledHoverBox>
+                </Box>
+
+                {/* Counter */}
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                    {currentSlideIndex + 1} / {attachments.length}
+                </Typography>
+            </Box>
+
+            <IconButton onClick={handleNextSlide} disabled={attachments.length <= 1} size="large" sx={{ mr: 1 }}>
+                <IconArrowRight size={30} />
+            </IconButton>
+        </Stack>
+    );
+};
+
+
 // --- Data Interfaces (Consignment) ---
 interface WarehouseType { id: number; name: string; }
 interface WorkhouseType { id: number; name: string; }
@@ -128,6 +235,7 @@ interface Consignment {
 }
 
 interface QrDataType {
+    id: number;
     code: string;
     name: string;
     url: string; // این فیلد جدید، آدرس کامل است
@@ -343,13 +451,11 @@ const urlToBase64 = async (url: string, _mimeType: string, authToken: string): P
     try {
         const fullUrl = url.startsWith('http') ? url : `${server.urldpwonload}${url}`;
 
-        // 1. واکشی فایل با توکن احراز هویت با استفاده از Fetch
         const response = await fetch(fullUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${authToken}`
             }
-            // mode: 'cors' اگر مشکل از CORS باشد می‌تواند کمک کند
         });
 
         if (!response.ok) {
@@ -357,10 +463,7 @@ const urlToBase64 = async (url: string, _mimeType: string, authToken: string): P
             return null;
         }
 
-        // 2. تبدیل پاسخ مستقیم به Blob
         const blob = await response.blob();
-
-        // 3. تبدیل Blob به Base64 (Data URL)
         const base64Result = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
@@ -379,8 +482,12 @@ const urlToBase64 = async (url: string, _mimeType: string, authToken: string): P
     }
 };
 
-// 💡 نکته: تابع resizeImageBase64 را بدون تغییر نگه دارید.
-// --- Main Component ---
+
+const useQueryParams = () => {
+    const { search } = useLocation();
+    return useMemo(() => new URLSearchParams(search), [search]);
+};
+
 const ListConsignments: React.FC = () => {
     const navigate = useNavigate();
     const { allowedOperations } = useAuth();
@@ -431,7 +538,7 @@ const ListConsignments: React.FC = () => {
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-    const [orderBy, setOrderBy] = useState<SortableKeys>('name');
+    const [orderBy, setOrderBy] = useState<SortableKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
     // Date Filters for 'createAt'
@@ -474,6 +581,9 @@ const ListConsignments: React.FC = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
+    const query = useQueryParams();
+    const initialId = query.get('id');
+    const initialCode = query.get('code');
 
     // --- Alert & Initialization Logic ---
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -487,6 +597,85 @@ const ListConsignments: React.FC = () => {
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
+
+
+
+    // useEffect(() => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     const params = new URLSearchParams(window.location.search);
+    //     const initialId = params.get('id');
+    //     const currentPath = window.location.pathname;
+
+    //     if (!authToken) {
+
+    //         if (initialId) {
+    //             const currentFullUrl = window.location.href;
+    //             const encodedUrl = encodeURIComponent(currentFullUrl);
+
+    //             navigate(`/auth/login?url=${encodedUrl}`, { replace: true });
+
+    //             return;
+    //         }
+
+    //         else if (currentPath.includes('/hr/')) {
+    //             navigate('/auth/login', { replace: true });
+    //             return;
+    //         }
+
+    //     }
+    // }, [navigate]);
+
+    const mapApiDataToConsignment = (
+        r: any,
+        warehousesList: WarehouseType[],
+        workhousesList: WorkhouseType[],
+        storesList: StoreType[],
+        carWarehousesList: CarWarehouseType[]
+    ): Consignment => {
+        let name = '-';
+        const placeIdNum = Number(r.placeId);
+        const typeNum = Number(r.placeType);
+        const idNum = Number(r.id);
+        const recordStatusNum = Number(r.recordStatus);
+
+        const kind: PlaceKind =
+            typeNum === 0 ? 'WAREHOUSE' :
+                typeNum === 1 ? 'WORKHOUSE' :
+                    typeNum === 2 ? 'WORKHOUSE_STORE' :
+                        typeNum === 3 ? 'FILO' :
+                            typeNum === 4 ? 'CENTER' :
+                                'UNKNOWN';
+
+        if (typeNum === 0) {
+            name = warehousesList.find(w => w.id === placeIdNum)?.name || 'Depo (Bilinmiyor)';
+        } else if (typeNum === 1) {
+            name = workhousesList.find(w => w.id === placeIdNum)?.name || 'Şantiye (Bilinmiyor)';
+        } else if (typeNum === 2) {
+            name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (ID: ${placeIdNum})`;
+        } else if (typeNum === 3) {
+            name = carWarehousesList.find(w => w.id === placeIdNum)?.name || 'Filo (Bilinmiyor)';
+        } else if (typeNum === 4) {
+            name = 'Merkez';
+        }
+
+        const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
+
+        return {
+            id: idNum,
+            name: r.name,
+            code: r.code || '-',
+            placeId: placeIdNum,
+            type: typeNum as Consignment['type'],
+            description: r.description || '',
+            recordStatus: recordStatusNum,
+            createAt: r.createAt,
+            attachments: attachments as AttachmentType[],
+            placeKind: kind,
+            placeName: name,
+        };
+    };
+
+
 
     // --- Data Fetching: Reference Lists ---
     const fetchWarehouses = useCallback(async () => {
@@ -527,7 +716,74 @@ const ListConsignments: React.FC = () => {
         } catch (e) { showAlert('Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
-    // --- Data Fetching: Main List (Consignments) ---
+    // const fetchConsignments = useCallback(async () => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     setLoadingData(true);
+    //     if (!authToken) { navigate('/'); setLoadingData(false); return; }
+
+    //     try {
+    //         const res = await axios.get(`${server.baseurl}${server.hr}get-all-consignments`, { headers: { Authorization: `Bearer ${authToken}` } });
+    //         if (res.data.httpStatusCode === 200) {
+    //             const rawRows = (res.data.data as any[]).map((r) => {
+    //                 let name = '-';
+    //                 // API'den gelen verilerin string olabileceğini varsayarak Number() ile dönüştürüyoruz
+    //                 const placeIdNum = Number(r.placeId);
+    //                 const typeNum = Number(r.placeType);
+    //                 const idNum = Number(r.id);
+    //                 const recordStatusNum = Number(r.recordStatus);
+
+    //                 const kind: PlaceKind =
+    //                     typeNum === 0 ? 'WAREHOUSE' :
+    //                         typeNum === 1 ? 'WORKHOUSE' :
+    //                             typeNum === 2 ? 'WORKHOUSE_STORE' :
+    //                                 typeNum === 3 ? 'FILO' :
+    //                                     typeNum === 4 ? 'CENTER' :
+    //                                         'UNKNOWN';
+
+
+    //                 if (typeNum === 0) {
+    //                     name = warehousesList.find(w => w.id === placeIdNum)?.name || '-';
+    //                 } else if (typeNum === 1) {
+    //                     name = workhousesList.find(w => w.id === placeIdNum)?.name || '-';
+    //                 } else if (typeNum === 2) {
+    //                     name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (ID: ${placeIdNum})`;
+    //                 } else if (typeNum === 3) {
+    //                     name = carWarehousesList.find(w => w.id === placeIdNum)?.name || '-';
+    //                 } else if (typeNum === 4) {
+    //                     name = 'Merkez';
+    //                 }
+
+    //                 // API'de attachments null gelebileceği için kontrol ekledik
+    //                 const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
+
+    //                 return {
+    //                     id: idNum,
+    //                     name: r.name,
+    //                     code: r.code || '-',
+    //                     placeId: placeIdNum,
+    //                     type: typeNum as Consignment['type'],
+    //                     description: r.description || '', // API'de yok, boş bırakıldı
+    //                     recordStatus: recordStatusNum,
+    //                     createAt: r.createAt,
+    //                     attachments: attachments as AttachmentType[],
+    //                     placeKind: kind,
+    //                     placeName: name,
+    //                 };
+    //             }) as Consignment[];
+
+    //             setConsignments(rawRows);
+    //         } else {
+    //             showAlert(res.data.message || 'Kayıtlar yüklenirken bir hata oluştu.', 'error');
+    //         }
+    //     } catch (e) {
+    //         showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingData(false);
+    //     }
+    // }, [navigate, warehousesList, workhousesList, storesList, carWarehousesList]);
+
+    // ... در داخل ListConsignments:
+
     const fetchConsignments = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
@@ -535,52 +791,17 @@ const ListConsignments: React.FC = () => {
 
         try {
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-consignments`, { headers: { Authorization: `Bearer ${authToken}` } });
+
             if (res.data.httpStatusCode === 200) {
                 const rawRows = (res.data.data as any[]).map((r) => {
-                    let name = '-';
-                    // API'den gelen verilerin string olabileceğini varsayarak Number() ile dönüştürüyoruz
-                    const placeIdNum = Number(r.placeId);
-                    const typeNum = Number(r.placeType);
-                    const idNum = Number(r.id);
-                    const recordStatusNum = Number(r.recordStatus);
-
-                    const kind: PlaceKind =
-                        typeNum === 0 ? 'WAREHOUSE' :
-                            typeNum === 1 ? 'WORKHOUSE' :
-                                typeNum === 2 ? 'WORKHOUSE_STORE' :
-                                    typeNum === 3 ? 'FILO' :
-                                        typeNum === 4 ? 'CENTER' :
-                                            'UNKNOWN';
-
-
-                    if (typeNum === 0) {
-                        name = warehousesList.find(w => w.id === placeIdNum)?.name || '-';
-                    } else if (typeNum === 1) {
-                        name = workhousesList.find(w => w.id === placeIdNum)?.name || '-';
-                    } else if (typeNum === 2) {
-                        name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (ID: ${placeIdNum})`;
-                    } else if (typeNum === 3) {
-                        name = carWarehousesList.find(w => w.id === placeIdNum)?.name || '-';
-                    } else if (typeNum === 4) {
-                        name = 'Merkez';
-                    }
-
-                    // API'de attachments null gelebileceği için kontrol ekledik
-                    const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
-
-                    return {
-                        id: idNum,
-                        name: r.name,
-                        code: r.code || '-',
-                        placeId: placeIdNum,
-                        type: typeNum as Consignment['type'],
-                        description: r.description || '', // API'de yok, boş bırakıldı
-                        recordStatus: recordStatusNum,
-                        createAt: r.createAt,
-                        attachments: attachments as AttachmentType[],
-                        placeKind: kind,
-                        placeName: name,
-                    };
+                    // ⭐️ استفاده از تابع نگاشت برای هر ردیف
+                    return mapApiDataToConsignment(
+                        r,
+                        warehousesList,
+                        workhousesList,
+                        storesList,
+                        carWarehousesList
+                    );
                 }) as Consignment[];
 
                 setConsignments(rawRows);
@@ -592,16 +813,137 @@ const ListConsignments: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, warehousesList, workhousesList, storesList, carWarehousesList]); // <-- Eksiksiz bağımlılıklar
+    }, [navigate, warehousesList, workhousesList, storesList]); // وابستگی‌ها
 
-    // **Faza 1: Referans Listelerinin Çağrılması**
+
+    const fetchSingleConsignment = useCallback(async (id: number, authToken: string): Promise<Consignment | null> => {
+        try {
+            setLoadingData(true);
+            showAlert(`Kayıt ID: ${id} yükleniyor...`, 'info');
+
+            const res = await axios.get(`${server.baseurl}${server.hr}get-consignments-by-id/${id}`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+
+            if (res.data.httpStatusCode === 200 && res.data.data) {
+                const rawData = res.data.data;
+
+                const mappedConsignment: Consignment = mapApiDataToConsignment(
+                    rawData,
+                    warehousesList,
+                    workhousesList,
+                    storesList,
+                    carWarehousesList
+                );
+
+                return mappedConsignment;
+            }
+            return null;
+        } catch (e) {
+            showAlert('Tek kayıt yüklenirken hata oluştu.', 'error');
+            console.error('Fetch Single Consignment Error:', e);
+            return null;
+        } finally {
+            setLoadingData(false);
+        }
+    }, [
+        warehousesList,
+        workhousesList,
+        storesList
+    ]);
+
+
     useEffect(() => {
         fetchWarehouses();
         fetchWorkhouses();
         fetchCarWarehouses();
     }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses]);
 
-    // **Faza 2: Ana Listenin Çağrılması (Referanslar yüklendikten sonra)**
+
+    const handleOpenAttachmentsModal = (row: Consignment) => {
+        setRowForAttachments(row);
+
+        setAttachmentsToView(row.attachments);
+        setCurrentSlideIndex(0);
+        setOpenAttachmentsModal(true);
+    };
+
+    useEffect(() => {
+        // 1. چک کردن شرایط اجرا: آیا احراز هویت انجام شده و آیا ID در آدرس هست؟
+        const authToken = localStorage.getItem('authToken');
+        const idToFetch = Number(initialId); // initialId از useQueryParams می آید
+
+        if (authToken && initialId && idToFetch) {
+
+            // 2. چک کردن وابستگی‌ها: مطمئن شوید لیست‌های مرجع لود شده‌اند.
+            const isReferenceDataLoaded =
+                warehousesList.length >= 0
+                && workhousesList.length >= 0
+                && carWarehousesList.length >= 0;
+
+            if (isReferenceDataLoaded) {
+
+                fetchSingleConsignment(idToFetch, authToken)
+                    .then(consignment => {
+                        if (consignment) {
+                            handleOpenAttachmentsModal(consignment);
+                            showAlert(`Kod: ${initialCode} kaydı başarıyla yüklendi.`, 'success');
+
+                            // ⭐️ مهم: پارامترها را از آدرس پاک کن
+                            window.history.replaceState({}, document.title, window.location.pathname);
+                        } else {
+                            showAlert(`Mal kaydı bulunamadı (ID: ${initialId}).`, 'warning');
+                        }
+                    })
+                    .catch(_e => {
+                        showAlert('Kayıt yüklenirken خطا oluştu.', 'error');
+                    });
+            }
+        }
+    }, [
+        warehousesList,
+        workhousesList,
+        carWarehousesList
+    ]);
+
+    //  useEffect(() => {
+
+    //     const idToFetch = Number(initialId);
+    //     const authToken = localStorage.getItem('authToken');
+    //     const isReferenceDataLoaded =
+    //         warehousesList.length >= 0
+    //         && workhousesList.length >= 0
+    //         && carWarehousesList.length >= 0;
+
+    //     if (initialId && idToFetch && authToken && isReferenceDataLoaded) {
+
+    //         fetchSingleConsignment(idToFetch, authToken)
+    //             .then(consignment => {
+    //                 if (consignment) {
+    //                     handleOpenAttachmentsModal(consignment);
+    //                     window.history.replaceState({}, document.title, window.location.pathname);
+    //                 } else {
+    //                     showAlert(`Mal kaydı bulunamadı (ID: ${initialId}).`, 'warning');
+    //                 }
+    //             })
+    //             .catch(e => {
+    //                 showAlert('Kayıt yüklenirken kritik hata oluştu.', 'error');
+    //             });
+    //     }
+    // }, [
+    //     warehousesList,
+    //     workhousesList,
+    //     carWarehousesList,
+    //     fetchSingleConsignment,
+
+    // ]);
+
+
+    // در داخل کامپوننت ListConsignments، در اولین useEffect که وظیفه چک کردن احراز هویت را دارد:
+
+    // ⭐️ منطق احراز هویت عمومی (باید در بالاترین سطح، احتمالاً در Router اصلی، اجرا شود. 
+
+
     useEffect(() => {
         if (warehousesList.length >= 0 && workhousesList.length >= 0) {
             fetchConsignments();
@@ -628,7 +970,7 @@ const ListConsignments: React.FC = () => {
         if (placeKind === 'FILO') { setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId(''); }
     }, [placeKind, selectedWorkhouseId, fetchStoresByWorkhouseId]);
 
-    const QR_BASE_URL = "https://setasportal.com/hr/list-consignments?code=";
+    const QR_BASE_URL = "http://localhost:3001/hr/list-consignments";
     // --- QR Code Logic (for New Record) ---
     const fetchLastConsignmentAndOpenQRModal = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -646,9 +988,15 @@ const ListConsignments: React.FC = () => {
                     new Date(b.createAt).getTime() - new Date(a.createAt).getTime())[0];
 
                 if (latestRecord && latestRecord.code && latestRecord.name) {
-                    const fullUrl = `${QR_BASE_URL}${latestRecord.code}`;
-
-                    setQrData({ code: latestRecord.code, name: latestRecord.name, url: fullUrl }); // افزودن url
+                    // const fullUrl = `${QR_BASE_URL}${latestRecord.code}`;
+                    const fullUrl = `${QR_BASE_URL}?id=${latestRecord.id}&code=${latestRecord.code}`;
+                    // setQrData({ code: latestRecord.code, name: latestRecord.name, url: fullUrl }); // افزودن url
+                    setQrData({
+                        id: Number(latestRecord.id), // 👈 اینجا id را تنظیم می‌کنیم
+                        code: latestRecord.code,
+                        name: latestRecord.name,
+                        url: fullUrl
+                    });
                     setOpenQrModal(true);
                 } else {
                     showAlert('Yeni kayıt verileri (Kod ve Ad) eksik.', 'warning');
@@ -879,27 +1227,36 @@ const ListConsignments: React.FC = () => {
     const handleRequestSort = (property: SortableKeys) => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); };
     const handleClearDateFilters = () => { setStartFilter(null); setEndFilter(null); };
 
-    // --- Attachments Modals ---
-    // ... (سایر توابع کمکی)
 
-    // --- Attachments Modals ---
-    const handleOpenAttachmentsModal = (row: Consignment) => {
-        // 1. اطلاعات کامل ردیف را ذخیره می کنیم
-        setRowForAttachments(row);
 
-        // 2. پیوست ها و وضعیت اسلایدر را تنظیم می کنیم
-        setAttachmentsToView(row.attachments);
-        setCurrentSlideIndex(0);
-        setOpenAttachmentsModal(true);
-    };
+    const handleNextSlide = useCallback(() => {
+        if (attachmentsToView.length > 0) {
+            setCurrentSlideIndex(prev => (prev + 1) % attachmentsToView.length);
+        }
+    }, [attachmentsToView.length]);
 
-    const handleNextSlide = () => {
-        setCurrentSlideIndex(prev => (prev + 1) % attachmentsToView.length);
-    };
+    const handlePrevSlide = useCallback(() => {
+        if (attachmentsToView.length > 0) {
+            setCurrentSlideIndex(prev => (prev - 1 + attachmentsToView.length) % attachmentsToView.length);
+        }
+    }, [attachmentsToView.length]);
 
-    const handlePrevSlide = () => {
-        setCurrentSlideIndex(prev => (prev - 1 + attachmentsToView.length) % attachmentsToView.length);
-    };
+    useEffect(() => {
+        let intervalId: NodeJS.Timeout | null = null;
+        const intervalDuration = 5000;
+
+        if (openAttachmentsModal && attachmentsToView.length > 1) {
+            intervalId = setInterval(() => {
+                handleNextSlide();
+            }, intervalDuration);
+        }
+        return () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+        };
+    }, [openAttachmentsModal, attachmentsToView.length, handleNextSlide]);
+
 
     const handleDownloadClick = (fileUrl: string) => {
         if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; }
@@ -1240,9 +1597,16 @@ const ListConsignments: React.FC = () => {
 
     const handleOpenQrModal = (row: Consignment) => {
         if (row.code && row.name) {
-            const fullUrl = `${QR_BASE_URL}${row.code}`; // ساخت آدرس
+            // const fullUrl = `${QR_BASE_URL}${row.code}`; // ساخت آدرس
+            const fullUrl = `${QR_BASE_URL}?id=${row.id}&code=${row.code}`;
 
-            setQrData({ code: row.code, name: row.name, url: fullUrl }); // افزودن url
+            // setQrData({ code: row.code, name: row.name, url: fullUrl }); // افزودن url
+            setQrData({
+                id: row.id, // 👈 اینجا id را تنظیم می‌کنیم
+                code: row.code,
+                name: row.name,
+                url: fullUrl
+            });
             setOpenQrModal(true);
         } else {
             showAlert('QR Kod oluşturmak için Kod ve Ad bilgisi eksik.', 'warning');
@@ -1312,20 +1676,42 @@ const ListConsignments: React.FC = () => {
                                         <MuiMenuItem value="WORKHOUSE_STORE">Şantiyenin Deposu</MuiMenuItem>
                                         <MuiMenuItem value="FILO">Filo</MuiMenuItem>
                                     </Select>
+
                                 </FormControl>
                             </Grid>
 
                             {/* Dynamic Place Selectors (Depo) */}
+                            {/* کد جایگزین با Autocomplete: */}
                             {placeKind === 'WAREHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Depo</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                        <InputLabel id="sel-warehouse">Depo Seçin</InputLabel>
-                                        <Select labelId="sel-warehouse" label="Depo Seçin" value={selectedWarehouseId} onChange={(e) => { setSelectedWarehouseId(Number(e.target.value)); if (placeError) setPlaceError(false); }}>
-                                            {warehousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                        </Select>
-                                        {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                    </FormControl>
+                                    <Autocomplete
+                                        // 1. لیست گزینه‌ها
+                                        options={warehousesList}
+                                        // 2. تنظیمات کلیدی
+                                        getOptionLabel={(option) => option.name}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        // 3. مقدار فعلی
+                                        value={warehousesList.find(w => w.id === selectedWarehouseId) || null}
+                                        // 4. تغییر مقدار
+                                        onChange={(_, newValue) => {
+                                            const newId = newValue ? newValue.id : '';
+                                            setSelectedWarehouseId(newId);
+                                            if (placeError) setPlaceError(false);
+                                        }}
+                                        // 5. نمایش TextField
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Depo Seçin"
+                                                size="small"
+                                                fullWidth
+                                                // 💡 حالت خطا برای اعتبارسنجی
+                                                error={placeError}
+                                                helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                            />
+                                        )}
+                                    />
                                 </Grid>
                             )}
 
@@ -1333,37 +1719,82 @@ const ListConsignments: React.FC = () => {
                             {placeKind === 'WORKHOUSE' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Şantiye</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                        <InputLabel id="sel-workhouse">Şantiye Seçin</InputLabel>
-                                        <Select labelId="sel-workhouse" label="Şantiye Seçin" value={selectedWorkhouseId} onChange={(e) => { setSelectedWorkhouseId(Number(e.target.value)); if (placeError) setPlaceError(false); }}>
-                                            {workhousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                        </Select>
-                                        {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                    </FormControl>
+                                    <Autocomplete
+                                        options={workhousesList}
+                                        size="small"
+                                        // یافتن مقدار فعلی بر اساس ID ذخیره شده در State
+                                        value={workhousesList.find(w => w.id === selectedWorkhouseId) || null}
+                                        getOptionLabel={(option) => option.name}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        onChange={(_, newValue) => {
+                                            const newId = newValue ? newValue.id : '';
+                                            setSelectedWorkhouseId(newId);
+                                            if (placeError) setPlaceError(false);
+                                        }}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Şantiye Seçin"
+                                                error={placeError}
+                                                helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                            />
+                                        )}
+                                    />
                                 </Grid>
                             )}
 
                             {/* Dynamic Place Selectors (Şantiyenin Deposu) */}
                             {placeKind === 'WORKHOUSE_STORE' && (
                                 <>
+                                    {/* Şantiye (İlişkili) - این فیلد باید Autocomplete باشد تا به راحتی انتخاب شود */}
                                     <Grid item xs={12} sm={4}>
                                         <CustomFormLabel required>Şantiye (İlişkili)</CustomFormLabel>
-                                        <FormControl size="small" sx={{ width: '100%' }}>
-                                            <InputLabel id="sel-workhouse-2">Şantiye Seçin</InputLabel>
-                                            <Select labelId="sel-workhouse-2" label="Şantiye Seçin" value={selectedWorkhouseId} onChange={(e) => { const v = Number(e.target.value); setSelectedWorkhouseId(v); setSelectedStoreId(''); }}>
-                                                {workhousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                            </Select>
-                                        </FormControl>
+                                        <Autocomplete
+                                            options={workhousesList}
+                                            size="small"
+                                            value={workhousesList.find(w => w.id === selectedWorkhouseId) || null}
+                                            getOptionLabel={(option) => option.name}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            onChange={(_, newValue) => {
+                                                const newId = newValue ? newValue.id : '';
+                                                setSelectedWorkhouseId(newId);
+                                                // 💡 با تغییر شانتيه، Depo باید ریست شود
+                                                setSelectedStoreId('');
+                                            }}
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Şantiye Seçin" />
+                                            )}
+                                        />
                                     </Grid>
+
+                                    {/* Şantiyenin Deposu (Stores) - این فیلد وابسته به انتخاب شانتيه است */}
                                     <Grid item xs={12} sm={4}>
                                         <CustomFormLabel required>Şantiyenin Deposu</CustomFormLabel>
-                                        <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                            <InputLabel id="sel-store">Depo Seçin</InputLabel>
-                                            <Select labelId="sel-store" label="Depo Seçin" value={selectedStoreId} onChange={(e) => { setSelectedStoreId(Number(e.target.value)); if (placeError) setPlaceError(false); }}>
-                                                {storesList.map(s => <MuiMenuItem key={s.id} value={s.id}>{s.name}</MuiMenuItem>)}
-                                            </Select>
-                                            {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                        </FormControl>
+                                        <Autocomplete
+                                            options={storesList}
+                                            size="small"
+                                            // 💡 در حالت ویرایش، اگر storesList هنوز لود نشده باشد، آیتم موجود را نشان می‌دهد
+                                            value={storesList.find(s => s.id === selectedStoreId) || null}
+                                            getOptionLabel={(option) => option.name}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            onChange={(_, newValue) => {
+                                                const newId = newValue ? newValue.id : '';
+                                                setSelectedStoreId(newId);
+                                                if (placeError) setPlaceError(false);
+                                            }}
+                                            disabled={!selectedWorkhouseId || storesList.length === 0}
+                                            renderInput={(params) => (
+                                                <TextField
+                                                    {...params}
+                                                    label="Depo Seçin"
+                                                    error={placeError}
+                                                    helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                                />
+                                            )}
+                                        />
+                                        {selectedWorkhouseId && storesList.length === 0 && (
+                                            <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }} color="warning.main">Seçili şantiyeye ait depo bulunamadı.</Typography>
+                                        )}
                                     </Grid>
                                 </>
                             )}
@@ -1372,16 +1803,26 @@ const ListConsignments: React.FC = () => {
                             {placeKind === 'FILO' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Filo Depo</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={placeError}>
-                                        <InputLabel id="sel-carwarehouse">Filo Depo Seçin</InputLabel>
-                                        <Select labelId="sel-carwarehouse" label="Filo Depo Seçin"
-                                            value={selectedCarWarehouseId}
-                                            onChange={(e) => { setSelectedCarWarehouseId(Number(e.target.value)); if (placeError) setPlaceError(false); }}
-                                        >
-                                            {carWarehousesList.map(w => <MuiMenuItem key={w.id} value={w.id}>{w.name}</MuiMenuItem>)}
-                                        </Select>
-                                        {placeError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Bu alan zorunludur!</Typography>}
-                                    </FormControl>
+                                    <Autocomplete
+                                        options={carWarehousesList}
+                                        size="small"
+                                        value={carWarehousesList.find(w => w.id === selectedCarWarehouseId) || null}
+                                        getOptionLabel={(option) => option.name}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        onChange={(_, newValue) => {
+                                            const newId = newValue ? newValue.id : '';
+                                            setSelectedCarWarehouseId(newId);
+                                            if (placeError) setPlaceError(false);
+                                        }}
+                                        renderInput={(params) => (
+                                            <TextField
+                                                {...params}
+                                                label="Filo Depo Seçin"
+                                                error={placeError}
+                                                helperText={placeError ? 'Bu alan zorunludur!' : ''}
+                                            />
+                                        )}
+                                    />
                                 </Grid>
                             )}
                             <Grid item xs={12} sm={12}>
@@ -1546,7 +1987,8 @@ const ListConsignments: React.FC = () => {
                                                 {row.placeKind === 'WAREHOUSE' ? 'Depo' :
                                                     row.placeKind === 'WORKHOUSE' ? 'Şantiye' :
                                                         row.placeKind === 'WORKHOUSE_STORE' ? 'Şantiyenin Deposu' :
-                                                            row.placeKind === 'FILO' ? 'Filo' : '-'}
+                                                            row.placeKind === 'FILO' ? 'Filo' :
+                                                                row.placeKind === 'CENTER' ? 'Merkaz' : '-'}
                                             </StyledTableCell>
                                             <StyledTableCell>{row.placeName}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.createAt || null)}</StyledTableCell>
@@ -1614,11 +2056,11 @@ const ListConsignments: React.FC = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {(selectedRowForMenu?.attachments.length || 0) > 0 && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Resimleri Görüntüle ve İndir" : ""}>
+                                                    {(selectedRowForMenu) && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kayıt detaylarını ve eklerini görüntüle" : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenAttachmentsModal(selectedRowForMenu!)}>
                                                                 <ListItemIcon><IconDownload width={18} /></ListItemIcon>
-                                                                Resimleri Görüntüle ({selectedRowForMenu!.attachments.length})
+                                                                Detayları ve Ekleri Görüntüle ({selectedRowForMenu.attachments.length})
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
@@ -1720,92 +2162,105 @@ const ListConsignments: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-
-            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="md" fullWidth>
-
+            {/* <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="lg" fullWidth>
                 <DialogTitle>
-                    Ekler ({currentSlideIndex + 1} / {attachmentsToView.length} adet)
+                    {attachmentsToView.length > 0
+                        ? `Ekler (${currentSlideIndex + 1} / ${attachmentsToView.length} adet)`
+                        : 'Kayıt Detayları (Ek Yok)'}
                 </DialogTitle>
 
-                {/* --- بخش جدید: نمایش مشخصات ردیف در بالای مودال --- */}
                 {rowForAttachments && (
                     <Box sx={{ p: 2, borderBottom: '1px solid #eee', bgcolor: 'grey.50' }}>
                         <Grid container spacing={1}>
-                            <Grid item xs={12} sm={4}>
-                                <Typography variant="body2">
-                                    Mal Adı:  {rowForAttachments.name}
-                                </Typography>
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <Typography variant="body2">
-                                    Kod:  {rowForAttachments.code}
-                                </Typography>
-                            </Grid>
-                            <Grid item xs={12} sm={4}>
-                                <Typography variant="body2">
-                                    Yer:  {rowForAttachments.placeName} ({getPlaceKindText(rowForAttachments.placeKind)})
-                                </Typography>
-                            </Grid>
+                            <Grid item xs={12} sm={4}><Typography variant="body2">Mal Adı: {rowForAttachments.name}</Typography></Grid>
+                            <Grid item xs={12} sm={4}><Typography variant="body2">Kod: {rowForAttachments.code}</Typography></Grid>
+                            <Grid item xs={12} sm={4}><Typography variant="body2">Yer: {rowForAttachments.placeName} ({getPlaceKindText(rowForAttachments.placeKind)})</Typography></Grid>
                         </Grid>
                     </Box>
                 )}
 
                 <DialogContent dividers sx={{ p: 0 }}>
-                    {attachmentsToView.length === 0 ? (
-                        <Typography variant="body1" align="center" p={3}>Bu kayıt için herhangi bir ek bulunmamaktadır.</Typography>
-                    ) : (
-                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ height: 500 }}>
-                            {/* Sol Buton */}
-                            <IconButton onClick={handlePrevSlide} disabled={attachmentsToView.length <= 1} size="large">
-                                {/* IconArrowLeft - Bu ikonun import edildiğini varsayıyoruz, IconDownload yerine IconArrowLeft kullanın*/}
-                                <IconArrowLeft size={24} />
-                            </IconButton>
 
-                            {/* İçerik / Resim */}
-                            <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}>
+                    <Grid container spacing={0}>
 
-                                {/* Resim Alanı */}
-                                <Box sx={{ maxWidth: '90%', maxHeight: '80%', overflow: 'hidden', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {attachmentsToView[currentSlideIndex] && (
-                                        <img
-                                            src={`${server.urldpwonload}${attachmentsToView[currentSlideIndex].fileUrl}`}
-                                            alt={`Ek ${currentSlideIndex + 1}`}
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '100%',
-                                                objectFit: 'contain',
-                                                borderRadius: 4
-                                            }}
-                                        />
-                                    )}
-                                </Box>
+                        <Grid item
+                            xs={12}
+                            md={attachmentsToView.length > 0 ? 4 : 12} // اگر عکس هست ۴ ستون، اگر نیست ۱۲ ستون
+                            sx={{ borderRight: attachmentsToView.length > 0 ? '1px solid #eee' : 'none' }}
+                        >
+                            <Box sx={{ p: 3 }}>
+                                <Typography variant="h6" gutterBottom>Kayıt Detayları</Typography>
+                                <Stack spacing={1}>
+                                    <Typography variant="body2">
+                                        <span style={{ fontWeight: 'bold' }}>Açıklama:</span> {rowForAttachments?.description || 'Açıklama yok'}
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        <span style={{ fontWeight: 'bold' }}>Kayıt Durumu:</span> {rowForAttachments?.recordStatus === 0 ? 'Aktif' : 'Pasif'}
+                                    </Typography>
+                                    <Typography variant="body2">
+                                        <span style={{ fontWeight: 'bold' }}>Kayıt Tarihi:</span> {formatDateDisplay(rowForAttachments?.createAt || null)}
+                                    </Typography>
 
-                                {/* Bilgi ve İndirme */}
-                                {attachmentsToView[currentSlideIndex] && (
-                                    <Stack direction="row" spacing={2} alignItems="center" mt={2}>
-                                        <Typography variant="body2" color="textSecondary">
-                                            Dosya Adı: {attachmentsToView[currentSlideIndex].fileUrl.split('/').pop()}
-                                        </Typography>
-                                        <Button variant="outlined" size="small" startIcon={<IconDownload />}
-                                            onClick={() => handleDownloadClick(attachmentsToView[currentSlideIndex].fileUrl)}>
-                                            İndir
-                                        </Button>
-                                    </Stack>
-                                )}
+                                </Stack>
                             </Box>
+                        </Grid>
 
-                            {/* Sağ Buton */}
-                            <IconButton onClick={handleNextSlide} disabled={attachmentsToView.length <= 1} size="large">
-                                {/* IconArrowRight - Bu ikonun import edildiğini varsayıyoruz, IconDownload yerine IconArrowRight kullanın*/}
-                                <IconArrowRight size={24} />
-                            </IconButton>
-                        </Stack>
+                        {attachmentsToView.length > 0 && (
+                            <Grid item xs={12} md={8}>
+                                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ height: 500, bgcolor: '#fafafa' }}>
+
+                                    <IconButton onClick={handlePrevSlide} disabled={attachmentsToView.length <= 1} size="large">
+                                        <IconArrowLeft size={24} />
+                                    </IconButton>
+
+                                    <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}>
+                                        {attachmentsToView[currentSlideIndex] && (
+                                            <>
+                                                <Box sx={{ maxWidth: '90%', maxHeight: '80%', overflow: 'hidden', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <img
+                                                        src={`${server.urldpwonload}${attachmentsToView[currentSlideIndex].fileUrl}`}
+                                                        alt={`Ek ${currentSlideIndex + 1}`}
+                                                        style={{
+                                                            maxWidth: '100%',
+                                                            maxHeight: '100%',
+                                                            objectFit: 'contain',
+                                                            borderRadius: 4
+                                                        }}
+                                                    />
+                                                </Box>
+                                                <Stack direction="row" spacing={2} alignItems="center" mt={2}>
+                                                    <Typography variant="body2" color="textSecondary">
+                                                        Dosya Adı: {attachmentsToView[currentSlideIndex].fileUrl.split('/').pop()}
+                                                    </Typography>
+                                                    <Button variant="outlined" size="small" startIcon={<IconDownload />}
+                                                        onClick={() => handleDownloadClick(attachmentsToView[currentSlideIndex].fileUrl)}>
+                                                        İndir
+                                                    </Button>
+                                                </Stack>
+                                            </>
+                                        )}
+                                    </Box>
+
+                                    <IconButton onClick={handleNextSlide} disabled={attachmentsToView.length <= 1} size="large">
+                                        <IconArrowRight size={24} />
+                                    </IconButton>
+                                </Stack>
+                            </Grid>
+                        )}
+
+                    </Grid>
+
+                    {attachmentsToView.length === 0 && (
+                        <Box sx={{ p: 3, textAlign: 'center', bgcolor: '#f5f5f5' }}>
+                            <Typography variant="body1" color="textSecondary">Bu kayıt için herhangi bir ek dosya (resim) bulunmamaktadır.</Typography>
+                        </Box>
                     )}
+
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenAttachmentsModal(false)} color="error" variant="outlined">Kapat</Button>
                 </DialogActions>
-            </Dialog>
+            </Dialog> */}
 
 
             <Dialog
@@ -1826,6 +2281,91 @@ const ListConsignments: React.FC = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+
+            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="lg" fullWidth>
+
+                {/* ⭐️ عنوان کلی مودال ⭐️ */}
+                <DialogTitle sx={{ bgcolor: 'primary.light', color: 'primary.main', py: 1.5 }}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                        <IconBox />
+                        <Typography variant="h6">Mal Kayıt Detayları ve Ekler</Typography>
+                    </Stack>
+                </DialogTitle>
+
+                <DialogContent dividers sx={{ p: 0, height: { xs: 'auto', md: 700 }, overflowX: 'hidden' }}>
+
+                    <Grid container spacing={0} sx={{ height: { xs: 'auto', md: '100%' } }}>
+
+                        {/* ⭐️⭐️ ستون سمت چپ: اطلاعات کامل (5/12) ⭐️⭐️ */}
+                        <Grid item
+                            xs={12}
+                            md={5}
+                            sx={{
+                                borderRight: { xs: 'none', md: '1px solid #eee' },
+                                bgcolor: '#fcfcfc',
+                                overflowY: 'auto'
+                            }}
+                        >
+                            <Box sx={{ p: 3 }}>
+                                <Typography variant="h5" mb={3} color="primary.dark">Genel Bilgiler</Typography>
+
+                                {/* ⭐️ اطلاعات یکجا شده در ستون چپ ⭐️ */}
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12}>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Mal Adı:</Typography>
+                                        <Typography variant="subtitle1" gutterBottom>{rowForAttachments?.name || '-'}</Typography>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Kod:</Typography>
+                                        <Chip label={rowForAttachments?.code || '-'} color="secondary" size="medium" sx={{ mb: 1 }} />
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Yer:</Typography>
+                                        <Typography variant="body2">{rowForAttachments?.placeName} ({getPlaceKindText(rowForAttachments?.placeKind || 'UNKNOWN')})</Typography>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Kayıt Tarihi:</Typography>
+                                        <Typography variant="body2">{formatDateDisplay(rowForAttachments?.createAt || null)}</Typography>
+                                    </Grid>
+                                </Grid>
+
+                                {/* Açıklama */}
+                                <Box mt={3} p={2} sx={{ bgcolor: '#eee', borderRadius: 1 }}>
+                                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Açıklama:</Typography>
+                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{rowForAttachments?.description || 'Açıklama yok'}</Typography>
+                                </Box>
+
+                            </Box>
+                        </Grid>
+
+                        {/* ⭐️⭐️ ستون سمت راست: اسلایدر (7/12) ⭐️⭐️ */}
+                        <Grid item xs={12} md={7} sx={{ height: { xs: 400, md: '100%' } }}>
+
+                            {attachmentsToView.length > 0 ? (
+                                <ImageSlideAndHoverDownload
+                                    attachments={attachmentsToView}
+                                    currentSlideIndex={currentSlideIndex}
+                                    handlePrevSlide={handlePrevSlide}
+                                    handleNextSlide={handleNextSlide}
+                                    handleDownloadClick={handleDownloadClick}
+                                />
+                            ) : (
+                                <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3, bgcolor: '#fafafa' }}>
+                                    <Typography variant="h6" color="textSecondary">Bu kayıt için ekli resim bulunmamaktadır.</Typography>
+                                </Box>
+                            )}
+                        </Grid>
+
+                    </Grid>
+
+                </DialogContent>
+
+                <DialogActions>
+                    <Button onClick={() => setOpenAttachmentsModal(false)} color="error" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
 
             {/* Delete Modal */}
             <DeleteConsignment
