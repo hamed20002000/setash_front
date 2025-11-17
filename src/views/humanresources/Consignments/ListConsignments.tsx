@@ -24,7 +24,8 @@ import {
     IconBox,
     IconQrcode, IconDownload,
     IconArrowRight,
-    IconArrowLeft
+    IconArrowLeft,
+    IconLink
 } from '@tabler/icons-react';
 import { QRCodeCanvas } from "qrcode.react";
 
@@ -1992,10 +1993,18 @@ const ListConsignments: React.FC = () => {
                                             </StyledTableCell>
                                             <StyledTableCell>{row.placeName}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.createAt || null)}</StyledTableCell>
-                                            <StyledTableCell>
-                                                <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
-
-                                                {row.description != null && row.description.length > 50 && (
+                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                                <Box sx={{
+                                                    maxHeight: '5em',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: 'vertical',
+                                                }}>
+                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
+                                                </Box>
+                                                {row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
@@ -2009,7 +2018,7 @@ const ListConsignments: React.FC = () => {
                                                 {row.attachments && row.attachments.length > 0 ? (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Ekleri görüntüle ve indir" : ""}>
                                                         <IconButton onClick={() => handleOpenAttachmentsModal(row)} size="small">
-                                                            <IconDownload size={18} /><Chip label={row.attachments.length} color="primary" size="small" sx={{ ml: 1 }} />
+                                                            <IconLink size={18} /><Chip label={row.attachments.length} color="primary" size="small" sx={{ ml: 1 }} />
                                                         </IconButton>
                                                     </CustomTooltip>
                                                 ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
@@ -2162,105 +2171,7 @@ const ListConsignments: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="lg" fullWidth>
-                <DialogTitle>
-                    {attachmentsToView.length > 0
-                        ? `Ekler (${currentSlideIndex + 1} / ${attachmentsToView.length} adet)`
-                        : 'Kayıt Detayları (Ek Yok)'}
-                </DialogTitle>
 
-                {rowForAttachments && (
-                    <Box sx={{ p: 2, borderBottom: '1px solid #eee', bgcolor: 'grey.50' }}>
-                        <Grid container spacing={1}>
-                            <Grid item xs={12} sm={4}><Typography variant="body2">Mal Adı: {rowForAttachments.name}</Typography></Grid>
-                            <Grid item xs={12} sm={4}><Typography variant="body2">Kod: {rowForAttachments.code}</Typography></Grid>
-                            <Grid item xs={12} sm={4}><Typography variant="body2">Yer: {rowForAttachments.placeName} ({getPlaceKindText(rowForAttachments.placeKind)})</Typography></Grid>
-                        </Grid>
-                    </Box>
-                )}
-
-                <DialogContent dividers sx={{ p: 0 }}>
-
-                    <Grid container spacing={0}>
-
-                        <Grid item
-                            xs={12}
-                            md={attachmentsToView.length > 0 ? 4 : 12} // اگر عکس هست ۴ ستون، اگر نیست ۱۲ ستون
-                            sx={{ borderRight: attachmentsToView.length > 0 ? '1px solid #eee' : 'none' }}
-                        >
-                            <Box sx={{ p: 3 }}>
-                                <Typography variant="h6" gutterBottom>Kayıt Detayları</Typography>
-                                <Stack spacing={1}>
-                                    <Typography variant="body2">
-                                        <span style={{ fontWeight: 'bold' }}>Açıklama:</span> {rowForAttachments?.description || 'Açıklama yok'}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        <span style={{ fontWeight: 'bold' }}>Kayıt Durumu:</span> {rowForAttachments?.recordStatus === 0 ? 'Aktif' : 'Pasif'}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        <span style={{ fontWeight: 'bold' }}>Kayıt Tarihi:</span> {formatDateDisplay(rowForAttachments?.createAt || null)}
-                                    </Typography>
-
-                                </Stack>
-                            </Box>
-                        </Grid>
-
-                        {attachmentsToView.length > 0 && (
-                            <Grid item xs={12} md={8}>
-                                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ height: 500, bgcolor: '#fafafa' }}>
-
-                                    <IconButton onClick={handlePrevSlide} disabled={attachmentsToView.length <= 1} size="large">
-                                        <IconArrowLeft size={24} />
-                                    </IconButton>
-
-                                    <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', overflow: 'hidden' }}>
-                                        {attachmentsToView[currentSlideIndex] && (
-                                            <>
-                                                <Box sx={{ maxWidth: '90%', maxHeight: '80%', overflow: 'hidden', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <img
-                                                        src={`${server.urldpwonload}${attachmentsToView[currentSlideIndex].fileUrl}`}
-                                                        alt={`Ek ${currentSlideIndex + 1}`}
-                                                        style={{
-                                                            maxWidth: '100%',
-                                                            maxHeight: '100%',
-                                                            objectFit: 'contain',
-                                                            borderRadius: 4
-                                                        }}
-                                                    />
-                                                </Box>
-                                                <Stack direction="row" spacing={2} alignItems="center" mt={2}>
-                                                    <Typography variant="body2" color="textSecondary">
-                                                        Dosya Adı: {attachmentsToView[currentSlideIndex].fileUrl.split('/').pop()}
-                                                    </Typography>
-                                                    <Button variant="outlined" size="small" startIcon={<IconDownload />}
-                                                        onClick={() => handleDownloadClick(attachmentsToView[currentSlideIndex].fileUrl)}>
-                                                        İndir
-                                                    </Button>
-                                                </Stack>
-                                            </>
-                                        )}
-                                    </Box>
-
-                                    <IconButton onClick={handleNextSlide} disabled={attachmentsToView.length <= 1} size="large">
-                                        <IconArrowRight size={24} />
-                                    </IconButton>
-                                </Stack>
-                            </Grid>
-                        )}
-
-                    </Grid>
-
-                    {attachmentsToView.length === 0 && (
-                        <Box sx={{ p: 3, textAlign: 'center', bgcolor: '#f5f5f5' }}>
-                            <Typography variant="body1" color="textSecondary">Bu kayıt için herhangi bir ek dosya (resim) bulunmamaktadır.</Typography>
-                        </Box>
-                    )}
-
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenAttachmentsModal(false)} color="error" variant="outlined">Kapat</Button>
-                </DialogActions>
-            </Dialog> */}
 
 
             <Dialog

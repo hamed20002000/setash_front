@@ -19,7 +19,9 @@ import BlankCard from 'src/components/shared/BlankCard';
 import CustomFormLabel from 'src/components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from 'src/components/forms/theme-elements/CustomTextField';
 import {
-    IconDots, IconEdit, IconTrash, IconSearch,
+    IconDots,
+    // IconEdit,
+    IconTrash, IconSearch,
     IconFileSpreadsheet, IconFileText, IconX, IconFileDownload,
     IconClipboardList, IconLink, IconDownload, IconFile
 } from '@tabler/icons-react';
@@ -306,7 +308,9 @@ const ListPersonnelConsigneds: React.FC = () => {
             });
             if (res.data.httpStatusCode === 200) {
                 const list: PersonnelType[] = (res.data?.data ?? [])
-                    .filter((x: any) => !x.workEndDate) // Filter active personnel
+                    // .filter((x: any) => !x.workEndDate) // Filter active 
+                    .filter((p: any) => p.hasISG === true && (!p.workEndDate || p.workEndDate === null)) // <-- شرط workEndDate اضافه شد
+
                     .map((x: any) => ({
                         id: Number(x.id),
                         name: x.name,
@@ -604,32 +608,32 @@ const ListPersonnelConsigneds: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
-    const handleEditClick = () => {
-        if (!selectedRowForMenu) return;
-        const r = selectedRowForMenu;
-        handleCloseMenu(); // منو را ببندید
+    // const handleEditClick = () => {
+    //     if (!selectedRowForMenu) return;
+    //     const r = selectedRowForMenu;
+    //     handleCloseMenu(); // منو را ببندید
 
-        // ⭐️ تعیین حالت: اگر ParentId=0 باشد (واگذاری) -> Assignment Mode. در غیر این صورت (تحویل) -> Return Mode
-        const isAssignment = r.parentId === 0;
+    //     // ⭐️ تعیین حالت: اگر ParentId=0 باشد (واگذاری) -> Assignment Mode. در غیر این صورت (تحویل) -> Return Mode
+    //     const isAssignment = r.parentId === 0;
 
-        setEditingId(r.id);
-        setIsAssignmentMode(isAssignment); // تنظیم حالت فرم
+    //     setEditingId(r.id);
+    //     setIsAssignmentMode(isAssignment); // تنظیم حالت فرم
 
-        // تنظیم شناسه‌ها از آبجکت‌های دریافتی در API
-        setSelectedPersonnelId(Number(r.personnel?.id) || '');
-        setSelectedConsignmentId(Number(r.consignment?.id) || '');
+    //     // تنظیم شناسه‌ها از آبجکت‌های دریافتی در API
+    //     setSelectedPersonnelId(Number(r.personnel?.id) || '');
+    //     setSelectedConsignmentId(Number(r.consignment?.id) || '');
 
-        // تنظیم تاریخ‌ها
-        setAssignmentDate(r.assignmentDate ? new Date(r.assignmentDate) : null);
-        setReturnDate(r.returnDate ? new Date(r.returnDate) : null); // تاریخ تحویل را نیز بارگذاری کند
+    //     // تنظیم تاریخ‌ها
+    //     setAssignmentDate(r.assignmentDate ? new Date(r.assignmentDate) : null);
+    //     setReturnDate(r.returnDate ? new Date(r.returnDate) : null); // تاریخ تحویل را نیز بارگذاری کند
 
-        setDescription(r.description);
-        setCurrentAttachments(r.attachments);
-        setSelectedFiles([]);
-        setSelectedParentConsignedId(isAssignment ? '' : r.parentId); // اگر حالت Return است، ParentId را تنظیم کند
+    //     setDescription(r.description);
+    //     setCurrentAttachments(r.attachments);
+    //     setSelectedFiles([]);
+    //     setSelectedParentConsignedId(isAssignment ? '' : r.parentId); // اگر حالت Return است، ParentId را تنظیم کند
 
-        setIsFormVisible(true);
-    };
+    //     setIsFormVisible(true);
+    // };
 
 
     const handleOpenAttachmentsModal = (attachments: AttachmentType[]) => {
@@ -1258,11 +1262,11 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                 </CustomTooltip>
                                                 <Menu anchorEl={anchorEl} open={openMenu}
                                                     onClose={handleCloseMenu}>
-                                                    {hasEditPermission && (
+                                                    {/* {hasEditPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
                                                             <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
                                                         </CustomTooltip>
-                                                    )}
+                                                    )} */}
                                                     {/* {hasEditPermission && row.returnDate !== null && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu zimmeti iade al" : ""}>
                                                             <MuiMenuItem onClick={handleReturnClick} sx={{ color: 'red' }}><ListItemIcon><IconDownload width={18} /></ListItemIcon>Teslim Al (İade)</MuiMenuItem>

@@ -13,7 +13,7 @@ import {
   IconArrowsExchange, IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar,
   IconFileDollar, IconTimeline, IconBriefcase, IconHierarchy, IconFileExport,
   IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime, IconQuestionMark,
-  IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode
+  IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab
 } from '@tabler/icons-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 // === Type Definitions
@@ -129,7 +129,7 @@ const IconComponents: { [key: string]: React.ElementType } = {
   IconHelmet: IconHelmet, IconBuildingStore: IconBuildingStore, IconArrowsExchange,
   IconFolders, IconBulb, IconTornado, IconListCheck, IconCalendar, IconTimeline,
   IconFileOff, IconReportAnalytics, IconUsersGroup, IconCalendarTime, IconQuestionMark,
-  IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode
+  IconInbox, IconClockHour3, IconTag, IconUserX, IconBarcode, IconTruck, IconParking, IconHandGrab
 };
 
 const getIconComponent = (iconName: string): React.ElementType => IconComponents[iconName.trim()] || IconPlus;

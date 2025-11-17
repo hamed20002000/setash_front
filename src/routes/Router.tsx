@@ -60,6 +60,10 @@ const RequestReceiptTabs = Loadable(lazy(() => import('../views/works/list-reque
 const ListRollCalls = Loadable(lazy(() => import('../views/works/list-roll-calls/ListRollCalls')));
 const ListConsignments = Loadable(lazy(() => import('../views/humanresources/Consignments/ListConsignments')));
 const ListPersonnelConsigneds = Loadable(lazy(() => import('../views/humanresources/PersonnelConsigneds/ListPersonnelConsigneds')));
+const ListCarWarehouse = Loadable(lazy(() => import('../views/carwarehouse/list-carwarehouse/ListCareWarehouse')));
+const ListDetailsCarWarehouse = Loadable(lazy(() => import('../views/carwarehouse/list-details-carwarehouse/ListDetailsCarWarehouse')));
+const ListConsignedCarwarehouse = Loadable(lazy(() => import('../views/carwarehouse/consigned-carwarehouse/ListConsignedCarwarehouse')));
+
 
 
 
@@ -555,6 +559,30 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListPersonnelConsigneds />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/care-warehouse/list-care-warehouse/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListCarWarehouse />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/care-warehouse/list-details-care-warehouse/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListDetailsCarWarehouse />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/care-warehouse/list-consigned-care-warehouse/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListConsignedCarwarehouse />
           </PermissionGuard>
         )
       },

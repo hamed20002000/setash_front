@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material';
+import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
+
 import axios from 'axios';
-import server from '../../../assets/address.json';
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+// @ts-ignore
+import server from '../../../assets/address.json'; // فرض می‌کنیم آدرس صحیح است
+// @ts-ignore
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فرض می‌کنیم Context وجود دارد
 
 // Define the component props for type safety
 type DeleteProps = {
@@ -12,15 +15,15 @@ type DeleteProps = {
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد (ListConsignments) می‌آید
+    // تابع نمایش هشدار که از کامپوننت والد می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// نام کامپوننت به DeleteConsignment تغییر یافت
-export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
+const DeleteConsignedCarwarehouse = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const { isTooltipGloballyEnabled } = useTooltip();
+    // @ts-ignore
+    const { isTooltipGloballyEnabled } = useTooltip(); // استفاده از Context Tooltip
 
     const handleDelete = async () => {
         if (idToDelete === null) {
@@ -32,29 +35,41 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
+            navigate('/');
             return;
         }
 
         setLoading(true);
         try {
-            // **API Endpoint به 'delete-consignment' تغییر داده شد**
+            // ⭐️ API Endpoint: server.baseurl + server.warehouse + "delete-consigned-car"
+            const url = `${server.baseurl}${server.warehouse}delete-consigned-car`;
+
+            // ⭐️ ارسال ID در بدنه درخواست (Body) برای متد DELETE
             const response = await axios.delete(
-                `${server.baseurl}${server.hr}delete-consignment/${idToDelete}`,
-                { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}` } }
+                url,
+                {
+                    headers: {
+                        'Content-Type': 'application/json', // تنظیم نوع محتوا برای ارسال JSON
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    data: { id: idToDelete } // ⬅️ ID مورد نظر برای حذف
+                }
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Ambar kaydı başarıyla silindi!', 'success');
-                onDeleteSuccess();
+                showAlert('Emanet araç kaydı başarıyla silindi!', 'success');
+                onDeleteSuccess(); // فراخوانی تابع واکشی مجدد داده‌ها در والد
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج
+            // مدیریت خطاهای رایج (شامل خطای 500 برای وابستگی و 401 برای احراز هویت)
             if (e.response && e.response.status === 500) {
-                showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
+                // اگر API پیام دقیق‌تری ندارد، پیام عمومی وابستگی را نمایش می‌دهیم.
+                showAlert(e.response?.data?.message || 'Bu kayıt başka bir işlemde kullanıldığı için silinemeyebilir.', 'error');
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
@@ -68,16 +83,16 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
     };
 
     return (
-        <Dialog open={openModal} onClose={onClose} aria-labelledby="delete-consignment-title" aria-describedby="delete-consignment-desc" maxWidth="sm" fullWidth>
+        <Dialog open={openModal} onClose={onClose} aria-labelledby="delete-consigned-car-title" aria-describedby="delete-consigned-car-desc" maxWidth="sm" fullWidth>
 
-            <DialogTitle id="delete-consignment-title">
-                "{nameToDelete}" kaydını silmek istediğinizden emin misiniz?
+            <DialogTitle id="delete-consigned-car-title" sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="h6">Emanet Kaydı Silme Onayı</Typography>
             </DialogTitle>
 
             <DialogContent>
                 <DialogContentText id="delete-consignment-desc">
-                    Seçtiğiniz <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>"{nameToDelete}"</span>
-                    kaydını silerseniz bu işlem geri alınamaz. Lütfen onaylayın.
+                    Seçtiğiniz <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>{nameToDelete}</span>
+                    emanet kaydını silerseniz bu işlem geri alınamaz. Lütfen onaylayın.
                 </DialogContentText>
             </DialogContent>
 
@@ -98,4 +113,4 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
     );
 };
 
-export default DeleteConsignment;
+export default DeleteConsignedCarwarehouse;

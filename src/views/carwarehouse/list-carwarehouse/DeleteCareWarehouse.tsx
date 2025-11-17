@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress } from '@mui/material';
+import { Button, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, CircularProgress, Typography } from '@mui/material';
+
 import axios from 'axios';
-import server from '../../../assets/address.json';
-import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
+import server from '../../../assets/address.json'; // فرض می‌کنیم آدرس صحیح است
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فرض می‌کنیم Context وجود دارد
 
 // Define the component props for type safety
 type DeleteProps = {
@@ -12,12 +13,11 @@ type DeleteProps = {
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
-    // تابع نمایش هشدار که از کامپوننت والد (ListConsignments) می‌آید
+    // تابع نمایش هشدار که از کامپوننت والد می‌آید
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-// نام کامپوننت به DeleteConsignment تغییر یافت
-export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
+const DeleteCarWarehouse = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const { isTooltipGloballyEnabled } = useTooltip();
@@ -32,27 +32,31 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Lütfen giriş yapın.', 'warning');
+            // در صورت نبود توکن، بهتر است به صفحه لاگین هدایت شود
+            navigate('/');
             return;
         }
 
         setLoading(true);
         try {
-            // **API Endpoint به 'delete-consignment' تغییر داده شد**
+            // ⭐️ API Endpoint: server.baseurl + server.initialoperations + "delete-car-warehouse/carwarehouseid"
+            const url = `${server.baseurl}${server.initialoperations}delete-car-warehouse/${idToDelete}`;
+
             const response = await axios.delete(
-                `${server.baseurl}${server.hr}delete-consignment/${idToDelete}`,
+                url,
                 { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}` } }
             );
 
             if (response.data.httpStatusCode === 200) {
-                showAlert('Ambar kaydı başarıyla silindi!', 'success');
-                onDeleteSuccess();
+                showAlert('Araç Depo kaydı başarıyla silindi!', 'success');
+                onDeleteSuccess(); // فراخوانی تابع واکشی مجدد داده‌ها در والد
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج
+            // مدیریت خطاهای رایج (برگرفته از نمونه کد شما)
             if (e.response && e.response.status === 500) {
                 showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {
@@ -68,15 +72,16 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
     };
 
     return (
-        <Dialog open={openModal} onClose={onClose} aria-labelledby="delete-consignment-title" aria-describedby="delete-consignment-desc" maxWidth="sm" fullWidth>
+        <Dialog open={openModal} onClose={onClose} aria-labelledby="delete-car-warehouse-title" aria-describedby="delete-car-warehouse-desc" maxWidth="sm" fullWidth>
 
-            <DialogTitle id="delete-consignment-title">
-                "{nameToDelete}" kaydını silmek istediğinizden emin misiniz?
+            <DialogTitle id="delete-car-warehouse-title" sx={{ display: 'flex', alignItems: 'center' }}>
+
+                <Typography variant="h6">Silme Onayı</Typography>
             </DialogTitle>
 
             <DialogContent>
                 <DialogContentText id="delete-consignment-desc">
-                    Seçtiğiniz <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>"{nameToDelete}"</span>
+                    Seçtiğiniz <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>{nameToDelete}</span>
                     kaydını silerseniz bu işlem geri alınamaz. Lütfen onaylayın.
                 </DialogContentText>
             </DialogContent>
@@ -98,4 +103,4 @@ export const DeleteConsignment = ({ openModal, idToDelete, nameToDelete, onClose
     );
 };
 
-export default DeleteConsignment;
+export default DeleteCarWarehouse;
