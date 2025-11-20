@@ -413,7 +413,8 @@ const ListCarWarehouse: React.FC = () => {
         if (!authToken) { navigate('/'); setLoadingData(false); return; }
 
         try {
-            const res = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`, { headers: { Authorization: `Bearer ${authToken}` } });
+            const res = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`,
+                { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
                 const rawRows = (res.data.data as CarWarehouseApiData[]).map(mapApiDataToCarWarehouse);
                 setCarWarehouses(rawRows);
@@ -797,7 +798,13 @@ const ListCarWarehouse: React.FC = () => {
                                     <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmitForm} disabled={loadingButton} size="small">
                                         {loadingButton ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Bekleniyor...</> : editingId ? 'Düzenle' : 'Yeni Kayıt Ekle'}
                                     </Button>
-                                    <Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button>
+                                    {editingId ? (
+                                        <Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button>
+
+                                    ) : (
+                                        <></>
+                                    )
+                                    }
                                 </Stack>
                             </Grid>
                         </Grid>

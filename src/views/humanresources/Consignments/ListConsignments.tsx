@@ -452,12 +452,13 @@ const urlToBase64 = async (url: string, _mimeType: string, authToken: string): P
     try {
         const fullUrl = url.startsWith('http') ? url : `${server.urldpwonload}${url}`;
 
-        const response = await fetch(fullUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        });
+        const response =
+            await fetch(fullUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
 
         if (!response.ok) {
             console.error(`Fetch error: ${response.status} ${response.statusText}`);
@@ -472,7 +473,6 @@ const urlToBase64 = async (url: string, _mimeType: string, authToken: string): P
             reader.readAsDataURL(blob);
         });
 
-        // 4. بهینه‌سازی حجم با تغییر اندازه (تابع resizeImageBase64 قبلی)
         const optimizedBase64 = await resizeImageBase64(base64Result);
 
         return optimizedBase64;
@@ -600,32 +600,6 @@ const ListConsignments: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
 
-
-    // useEffect(() => {
-    //     const authToken = localStorage.getItem('authToken');
-    //     const params = new URLSearchParams(window.location.search);
-    //     const initialId = params.get('id');
-    //     const currentPath = window.location.pathname;
-
-    //     if (!authToken) {
-
-    //         if (initialId) {
-    //             const currentFullUrl = window.location.href;
-    //             const encodedUrl = encodeURIComponent(currentFullUrl);
-
-    //             navigate(`/auth/login?url=${encodedUrl}`, { replace: true });
-
-    //             return;
-    //         }
-
-    //         else if (currentPath.includes('/hr/')) {
-    //             navigate('/auth/login', { replace: true });
-    //             return;
-    //         }
-
-    //     }
-    // }, [navigate]);
-
     const mapApiDataToConsignment = (
         r: any,
         warehousesList: WarehouseType[],
@@ -701,10 +675,24 @@ const ListConsignments: React.FC = () => {
         } catch (e) { showAlert('Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
-    const fetchCarWarehouses = useCallback(() => {
-        setCarWarehousesList([{ id: 101, name: 'Filo Merkez' }, { id: 102, name: 'Filo Ankara' }] as CarWarehouseType[]);
-    }, []);
-
+    const fetchCarWarehouses = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { navigate('/'); return; }
+        try {
+            // API: get-car-warehouses
+            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`, { headers: { Authorization: `Bearer ${authToken}` } });
+            if (response.data.httpStatusCode === 200) {
+                const all = response.data.data as any[];
+                const mapped = all
+                    .filter((item: any) => item.recordStatus === 0) // فقط رکوردهای فعال
+                    .map((item: any) => ({
+                        id: Number(item.id),
+                        name: `${item.name} (${item.code})`, // نمایش نام و کد
+                    })) as CarWarehouseType[];
+                setCarWarehousesList(mapped);
+            } else { showAlert(response.data.message || 'Filo listesi alınamadı.', 'error'); }
+        } catch (e) { showAlert('Filo listesi çekilirken bir hata oluştu.', 'error'); }
+    }, [navigate]);
 
     const fetchStoresByWorkhouseId = useCallback(async (workhouseId: number) => {
         const authToken = localStorage.getItem('authToken');
@@ -717,73 +705,6 @@ const ListConsignments: React.FC = () => {
         } catch (e) { showAlert('Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
-    // const fetchConsignments = useCallback(async () => {
-    //     const authToken = localStorage.getItem('authToken');
-    //     setLoadingData(true);
-    //     if (!authToken) { navigate('/'); setLoadingData(false); return; }
-
-    //     try {
-    //         const res = await axios.get(`${server.baseurl}${server.hr}get-all-consignments`, { headers: { Authorization: `Bearer ${authToken}` } });
-    //         if (res.data.httpStatusCode === 200) {
-    //             const rawRows = (res.data.data as any[]).map((r) => {
-    //                 let name = '-';
-    //                 // API'den gelen verilerin string olabileceğini varsayarak Number() ile dönüştürüyoruz
-    //                 const placeIdNum = Number(r.placeId);
-    //                 const typeNum = Number(r.placeType);
-    //                 const idNum = Number(r.id);
-    //                 const recordStatusNum = Number(r.recordStatus);
-
-    //                 const kind: PlaceKind =
-    //                     typeNum === 0 ? 'WAREHOUSE' :
-    //                         typeNum === 1 ? 'WORKHOUSE' :
-    //                             typeNum === 2 ? 'WORKHOUSE_STORE' :
-    //                                 typeNum === 3 ? 'FILO' :
-    //                                     typeNum === 4 ? 'CENTER' :
-    //                                         'UNKNOWN';
-
-
-    //                 if (typeNum === 0) {
-    //                     name = warehousesList.find(w => w.id === placeIdNum)?.name || '-';
-    //                 } else if (typeNum === 1) {
-    //                     name = workhousesList.find(w => w.id === placeIdNum)?.name || '-';
-    //                 } else if (typeNum === 2) {
-    //                     name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (ID: ${placeIdNum})`;
-    //                 } else if (typeNum === 3) {
-    //                     name = carWarehousesList.find(w => w.id === placeIdNum)?.name || '-';
-    //                 } else if (typeNum === 4) {
-    //                     name = 'Merkez';
-    //                 }
-
-    //                 // API'de attachments null gelebileceği için kontrol ekledik
-    //                 const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
-
-    //                 return {
-    //                     id: idNum,
-    //                     name: r.name,
-    //                     code: r.code || '-',
-    //                     placeId: placeIdNum,
-    //                     type: typeNum as Consignment['type'],
-    //                     description: r.description || '', // API'de yok, boş bırakıldı
-    //                     recordStatus: recordStatusNum,
-    //                     createAt: r.createAt,
-    //                     attachments: attachments as AttachmentType[],
-    //                     placeKind: kind,
-    //                     placeName: name,
-    //                 };
-    //             }) as Consignment[];
-
-    //             setConsignments(rawRows);
-    //         } else {
-    //             showAlert(res.data.message || 'Kayıtlar yüklenirken bir hata oluştu.', 'error');
-    //         }
-    //     } catch (e) {
-    //         showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // }, [navigate, warehousesList, workhousesList, storesList, carWarehousesList]);
-
-    // ... در داخل ListConsignments:
 
     const fetchConsignments = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -795,7 +716,6 @@ const ListConsignments: React.FC = () => {
 
             if (res.data.httpStatusCode === 200) {
                 const rawRows = (res.data.data as any[]).map((r) => {
-                    // ⭐️ استفاده از تابع نگاشت برای هر ردیف
                     return mapApiDataToConsignment(
                         r,
                         warehousesList,
@@ -814,7 +734,7 @@ const ListConsignments: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, warehousesList, workhousesList, storesList]); // وابستگی‌ها
+    }, [navigate]);
 
 
     const fetchSingleConsignment = useCallback(async (id: number, authToken: string): Promise<Consignment | null> => {
@@ -870,13 +790,11 @@ const ListConsignments: React.FC = () => {
     };
 
     useEffect(() => {
-        // 1. چک کردن شرایط اجرا: آیا احراز هویت انجام شده و آیا ID در آدرس هست؟
         const authToken = localStorage.getItem('authToken');
-        const idToFetch = Number(initialId); // initialId از useQueryParams می آید
+        const idToFetch = Number(initialId);
 
         if (authToken && initialId && idToFetch) {
 
-            // 2. چک کردن وابستگی‌ها: مطمئن شوید لیست‌های مرجع لود شده‌اند.
             const isReferenceDataLoaded =
                 warehousesList.length >= 0
                 && workhousesList.length >= 0
@@ -907,49 +825,12 @@ const ListConsignments: React.FC = () => {
         carWarehousesList
     ]);
 
-    //  useEffect(() => {
-
-    //     const idToFetch = Number(initialId);
-    //     const authToken = localStorage.getItem('authToken');
-    //     const isReferenceDataLoaded =
-    //         warehousesList.length >= 0
-    //         && workhousesList.length >= 0
-    //         && carWarehousesList.length >= 0;
-
-    //     if (initialId && idToFetch && authToken && isReferenceDataLoaded) {
-
-    //         fetchSingleConsignment(idToFetch, authToken)
-    //             .then(consignment => {
-    //                 if (consignment) {
-    //                     handleOpenAttachmentsModal(consignment);
-    //                     window.history.replaceState({}, document.title, window.location.pathname);
-    //                 } else {
-    //                     showAlert(`Mal kaydı bulunamadı (ID: ${initialId}).`, 'warning');
-    //                 }
-    //             })
-    //             .catch(e => {
-    //                 showAlert('Kayıt yüklenirken kritik hata oluştu.', 'error');
-    //             });
-    //     }
-    // }, [
-    //     warehousesList,
-    //     workhousesList,
-    //     carWarehousesList,
-    //     fetchSingleConsignment,
-
-    // ]);
-
-
-    // در داخل کامپوننت ListConsignments، در اولین useEffect که وظیفه چک کردن احراز هویت را دارد:
-
-    // ⭐️ منطق احراز هویت عمومی (باید در بالاترین سطح، احتمالاً در Router اصلی، اجرا شود. 
-
 
     useEffect(() => {
         if (warehousesList.length >= 0 && workhousesList.length >= 0) {
             fetchConsignments();
         }
-    }, [fetchConsignments, warehousesList, workhousesList, storesList, carWarehousesList]);
+    }, [fetchConsignments, warehousesList]);
 
 
     // --- Form Logic (Cont.) ---
@@ -1094,7 +975,6 @@ const ListConsignments: React.FC = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error'); setLoadingButton(false); return; }
 
-        // 1. Yeni Dosyaların Yüklenmesi
         let fileUrls: string[] | null = [];
         if (selectedFiles.length > 0) {
             showAlert('Dosyalar yükleniyor...', 'info');
@@ -1102,7 +982,6 @@ const ListConsignments: React.FC = () => {
             if (fileUrls === null) { setLoadingButton(false); return; }
         }
 
-        // 2. Mevcut ve Yeni Dosyaların Birleştirilmesi
         const finalAttachments: AttachmentType[] = [
             ...currentAttachments,
             ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])
@@ -1178,7 +1057,6 @@ const ListConsignments: React.FC = () => {
     };
 
 
-    // --- Table & Filter Logic ---
     const isFilterActive = useMemo(() => !!searchTerm.trim() || statusFilter !== 'all' || startFilter !== null || endFilter !== null, [searchTerm, statusFilter, startFilter, endFilter]);
 
     const getPlaceKindText = (kind: PlaceKind) => {
@@ -1800,21 +1678,23 @@ const ListConsignments: React.FC = () => {
                                 </>
                             )}
 
-                            {/* Dynamic Place Selectors (Filo) */}
                             {placeKind === 'FILO' && (
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Filo Depo</CustomFormLabel>
                                     <Autocomplete
                                         options={carWarehousesList}
                                         size="small"
+                                        getOptionLabel={(option) => `${option.name}`}
                                         value={carWarehousesList.find(w => w.id === selectedCarWarehouseId) || null}
-                                        getOptionLabel={(option) => option.name}
                                         isOptionEqualToValue={(option, value) => option.id === value.id}
+
                                         onChange={(_, newValue) => {
+                                            // 💡 ID ذخیره شده در State شما number است
                                             const newId = newValue ? newValue.id : '';
                                             setSelectedCarWarehouseId(newId);
                                             if (placeError) setPlaceError(false);
                                         }}
+
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}

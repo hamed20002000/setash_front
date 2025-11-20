@@ -11,7 +11,7 @@ import { useTooltip, CustomTooltip } from 'src/context/TooltipContext'; // فر�
 // Define the component props for type safety
 type DeleteProps = {
     openModal: boolean;
-    idToDelete: number | null;
+    idToDelete: number | string | null;
     nameToDelete: string;
     onClose: () => void;
     onDeleteSuccess: () => void;
@@ -19,11 +19,11 @@ type DeleteProps = {
     showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
 };
 
-const DeleteConsignedCarwarehouse = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
+// ⭐️ نام کامپوننت به DeleteCourses تغییر یافت ⭐️
+const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteSuccess, showAlert }: DeleteProps) => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    // @ts-ignore
-    const { isTooltipGloballyEnabled } = useTooltip(); // استفاده از Context Tooltip
+    const { isTooltipGloballyEnabled } = useTooltip();
 
     const handleDelete = async () => {
         if (idToDelete === null) {
@@ -41,26 +41,30 @@ const DeleteConsignedCarwarehouse = ({ openModal, idToDelete, nameToDelete, onCl
 
         setLoading(true);
         try {
-            const url = `${server.baseurl}${server.warehouse}delete-consigned-car/${Number(idToDelete)}`;
+            const url = `${server.baseurl}${server.education}delete-course/${idToDelete}`;
 
             const response = await axios.delete(
                 url,
-                { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}` } }
+                {
+                    headers: {
+                        Accept: 'application/json',
+                        Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json'
+                    }
+                }
             );
-
             if (response.data.httpStatusCode === 200) {
-                showAlert('Emanet araç kaydı başarıyla silindi!', 'success');
-                onDeleteSuccess(); // فراخوانی تابع واکشی مجدد داده‌ها در والد
+                // ⭐️ اصلاح پیام موفقیت برای دوره ⭐️
+                showAlert('Kurs kaydı başarıyla silindi!', 'success');
+                onDeleteSuccess();
                 onClose();
             } else {
                 showAlert(response.data.message || 'Kayıt silinirken bir hata oluştu.', 'error');
                 onClose();
             }
         } catch (e: any) {
-            // مدیریت خطاهای رایج (شامل خطای 500 برای وابستگی و 401 برای احراز هویت)
+            // مدیریت خطاهای رایج
             if (e.response && e.response.status === 500) {
-                // اگر API پیام دقیق‌تری ندارد، پیام عمومی وابستگی را نمایش می‌دهیم.
-                showAlert(e.response?.data?.message || 'Bu kayıt başka bir işlemde kullanıldığı için silinemeyebilir.', 'error');
+                showAlert('Bu kayıt başka bir işlemde kullanıldığı için silinemez.', 'error');
             } else if (e.response && e.response.status === 401) {
                 localStorage.removeItem('authToken');
                 showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
@@ -74,16 +78,26 @@ const DeleteConsignedCarwarehouse = ({ openModal, idToDelete, nameToDelete, onCl
     };
 
     return (
-        <Dialog open={openModal} onClose={onClose} aria-labelledby="delete-consigned-car-title" aria-describedby="delete-consigned-car-desc" maxWidth="sm" fullWidth>
+        <Dialog
+            open={openModal}
+            onClose={onClose}
+            // ⭐️ به‌روزرسانی شناسه Dialog ⭐️
+            aria-labelledby="delete-course-title"
+            aria-describedby="delete-course-desc"
+            maxWidth="sm"
+            fullWidth
+        >
 
-            <DialogTitle id="delete-consigned-car-title" sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography variant="h6">Emanet Kaydı Silme Onayı</Typography>
+            <DialogTitle id="delete-course-title" sx={{ display: 'flex', alignItems: 'center' }}>
+                <Typography variant="h6">Silme Onayı</Typography>
             </DialogTitle>
 
             <DialogContent>
-                <DialogContentText id="delete-consignment-desc">
-                    Seçtiğiniz <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>{nameToDelete}</span>
-                    emanet kaydını silerseniz bu işlem geri alınamaz. Lütfen onaylayın.
+                <DialogContentText id="delete-course-desc">
+                    Seçtiğiniz
+                    <span style={{ fontSize: 16, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>{nameToDelete}</span>
+                    {/* ⭐️ اصلاح متن تأیید ⭐️ */}
+                    kurs kaydını silerseniz bu işlem geri alınamaz. Lütfen onaylayın.
                 </DialogContentText>
             </DialogContent>
 
@@ -104,4 +118,4 @@ const DeleteConsignedCarwarehouse = ({ openModal, idToDelete, nameToDelete, onCl
     );
 };
 
-export default DeleteConsignedCarwarehouse;
+export default DeleteCourses;

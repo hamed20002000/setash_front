@@ -79,7 +79,7 @@ export const DeletePersonnelConsigneds = ({ openModal, idToDelete, nameToDelete,
             aria-labelledby="delete-consigned-title"
             aria-describedby="delete-consigned-desc"
         >
-            <DialogTitle id="delete-consigned-title">Bu zimmet kaydını silmek istediğinizden emin misiniz? 🗑️</DialogTitle>
+            <DialogTitle id="delete-consigned-title">Bu zimmet kaydını silmek istediğinizden emin misiniz? </DialogTitle>
             <DialogContent>
                 <DialogContentText id="delete-consigned-desc">
                     <span style={{ fontSize: 18, fontWeight: 'bold', color: '#FA896B', margin: '0 5px' }}>{nameToDelete}</span>

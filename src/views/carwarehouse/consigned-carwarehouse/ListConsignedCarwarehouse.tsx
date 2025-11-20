@@ -11,7 +11,7 @@ import {
 
 import {
     IconDots, IconTrash, IconSearch, IconFileDownload, IconX,
-    IconFileSpreadsheet, IconFileText, IconBox, IconLink
+    IconFileSpreadsheet, IconFileText, IconBox, IconLink, IconGasStation
 } from '@tabler/icons-react';
 import DirectionsCarFilledRoundedIcon from '@mui/icons-material/DirectionsCarFilledRounded';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
@@ -36,29 +36,61 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 // @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import BlankCard from "src/components/shared/BlankCard";
 
 
-// --- Interfaces ---
+// --- Interfaces (با اعمال اصلاحات لازم برای سازگاری با JSON جدید) ---
 type RecordStatus = 0 | 1;
+
+interface RegionType { id: string; name: string; depth: number; createAt: string; recordStatus: RecordStatus; }
+
+interface CarWarehouse {
+    id: string;
+    name: string;
+    code: string;
+    address: string;
+    createAt: string;
+    recordStatus: RecordStatus;
+    region: RegionType;
+}
+
 interface AttachmentType { fileUrl: string; }
 interface CarWarehouseApi { id: string; name: string; code: string; recordStatus: number; }
+
 interface CarDetail {
-    id: number;
+    id: number | string;
     brand: string;
-    model: string; // 👈 مطمئن شوید این فیلدها وجود دارند
-    plaque: string; // 👈 مطمئن شوید این فیلدها وجود دارند
+    model: string;
+    plaque: string;
     available: boolean;
     recordStatus: RecordStatus;
+
+    // فیلدهای جدید/تکمیلی از JSON
+    manufactureDate: string;
+    description: string;
+    attacments: AttachmentType[];
+    createAt: string;
+    carWarehouse: CarWarehouse;
 }
+
 interface PersonnelType { id: number; name: string; family: string; identityNumber: string; workEndDate: string | null; }
 
-interface ConsignedCarPayload { date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number; personnelId: number; consigned: boolean; }
+interface ConsignedCarPayload {
+    date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number | string;
+    personnelId: number; consigned: boolean;
+}
 interface ConsignedCarRecord {
-    id: number; date: string; description: string; kilometer: number; consigned: boolean;
-    carWarhouseDetailId: number; personnelId: number;
+    id: number | string;
+    date: string;
+    description: string;
+    kilometer: number;
+    consigned: boolean;
+    // carWarhouseDetailId و personnelId دیگر در این سطح لازم نیستند
+
     carWarhouseDetail: CarDetail;
+    // 💡 فرض می‌کنیم فیلد Personnel در پاسخ اصلی وجود دارد 💡
     personnel: PersonnelType;
     attachments: AttachmentType[];
     createAt: string;
@@ -186,6 +218,7 @@ const addPdfHeader = (doc: jsPDF, title: string) => {
     const docAny = doc as any;
     try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans'); } catch (e) { }
 
+    docAny.addImage(Logo, 'PNG', pageWidth - 80, 5, 70, 35);
     doc.setFontSize(14);
     doc.text(title, pageWidth / 2, 15, { align: 'center' });
     doc.setFontSize(10);
@@ -199,13 +232,17 @@ const addPdfFooter = (doc: jsPDF) => {
 
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
-    const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
-    let footerY = pageHeight - 30;
-    companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
+    let footerY = pageHeight - 50;
+    companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 10; });
 
     doc.setFontSize(10);
     doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    doc.line(pageWidth - 65, pageHeight - 20, pageWidth - 15, pageHeight - 20);
 
     const pageCount = docAny.internal.getNumberOfPages();
     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
@@ -219,12 +256,13 @@ const exportToPdf = (data: ConsignedCarRecord[], title: string, showAlert: (m: s
     const doc = new jsPDF();
     const docAny = doc as any;
 
-    const columns = ['Tarih', 'Plaka', 'Personel', 'Kilometre', 'Durum'];
+    const columns = ['Tarih', 'Plaka', 'Personel', 'Kilometre', 'Açıklama', 'Durum'];
     const body = data.map(r => [
         formatDateDisplay(r.date || null),
         r.carWarhouseDetail.plaque || '-',
         `${r.personnel.name} ${r.personnel.family}` || '-',
         r.kilometer.toLocaleString() || '-',
+        r.description || '-',
         r.consigned ? 'Emanette' : 'Geri Alındı',
     ]);
 
@@ -264,7 +302,12 @@ const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength
 };
 
 const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
-    const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
+    // const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
     let rowNum = startRow;
     companyInfo.forEach(line => {
         const row = worksheet.getRow(rowNum);
@@ -337,6 +380,9 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const navigate = useNavigate();
     const { allowedOperations } = useAuth();
 
+
+    const { isTooltipGloballyEnabled } = useTooltip();
+
     // Permissions (مجوزها)
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
@@ -383,7 +429,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const [isFormVisible, setIsFormVisible] = useState<boolean>(false);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
-    const [orderBy, setOrderBy] = useState<SortableKeys>('date');
+    const [orderBy, setOrderBy] = useState<SortableKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -393,6 +439,21 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const [deleteName, setDeleteName] = useState<string>('');
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<ConsignedCarRecord | null>(null);
+
+
+    const [openReturnModal, setOpenReturnModal] = useState(false);
+    const [rowToReturn, setRowToReturn] = useState<ConsignedCarRecord | null>(null);
+    const [returnKilometer, setReturnKilometer] = useState<number | ''>('');
+    const [returnDescription, setReturnDescription] = useState<string>('');
+    const [returnDate, setReturnDate] = useState<Date | null>(new Date());
+    const [returnFiles, setReturnFiles] = useState<File[]>([]);
+    const [returnAttachments, setReturnAttachments] = useState<AttachmentType[]>([]);
+    const [returnKilometerError, setReturnKilometerError] = useState(false);
+    const [returnButtonLoading, setReturnButtonLoading] = useState(false);
+
+
+
+
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [attachmentsToView, setAttachmentsToView] = useState<AttachmentType[]>([]);
     const [isBlinking, setIsBlinking] = useState<boolean>(true); // برای دکمه 'Yeni Emanet Kaydı Ekle'
@@ -408,6 +469,16 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedRowForDownload, setSelectedRowForDownload] = useState<ConsignedCarRecord | null>(null);
 
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+
+    const [lastSubmittedPayload, setLastSubmittedPayload] = useState<ConsignedCarPayload | null>(null);
+    const [lastRecordDetail, setLastRecordDetail] = useState<ConsignedCarRecord | null>(null);
+    const [openLastRecordModal, setOpenLastRecordModal] = useState(false);
+
+    const [isListReadyToSearch, setIsListReadyToSearch] = useState(false);
 
     // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -473,11 +544,18 @@ const ListConsignedCarwarehouse: React.FC = () => {
                     .map((car: any): CarDetail => ({ // 👈 اطمینان از نوع خروجی map
                         id: Number(car.id),
                         brand: String(car.brand),
-                        model: String(car.model),   // 👈 اضافه کردن فیلدهای گمشده
-                        plaque: String(car.plaque), // 👈 اضافه کردن فیلدهای گمشده
-                        available: Boolean(car.available), // تبدیل به boolean
+                        model: String(car.model),
+                        plaque: String(car.plaque),
+                        available: Boolean(car.available),
 
                         recordStatus: (Number(car.recordStatus) === 0 ? 0 : 1) as RecordStatus,
+
+                        // فیلدهای جدید/تکمیلی
+                        manufactureDate: String(car.manufactureDate),
+                        description: String(car.description),
+                        attacments: car.attacments || [], // فرض می‌کنیم این لیست است
+                        createAt: String(car.createAt),
+                        carWarehouse: car.carWarehouse, // فرض می‌کنیم آبجکت کامل ارسال می‌شود
                     }));
 
                 setCarDetailsList(filteredList);
@@ -502,19 +580,23 @@ const ListConsignedCarwarehouse: React.FC = () => {
                     .map((car: any): CarDetail => ({ // 👈 اطمینان از نوع خروجی map
                         id: Number(car.id),
                         brand: String(car.brand),
-                        model: String(car.model),   // 👈 اضافه کردن فیلدهای گمشده
-                        plaque: String(car.plaque), // 👈 اضافه کردن فیلدهای گمشده
-                        available: Boolean(car.available), // تبدیل به boolean
-
-                        // 👈 تبدیل صریح به RecordStatus
+                        model: String(car.model),
+                        plaque: String(car.plaque),
+                        available: Boolean(car.available),
                         recordStatus: (Number(car.recordStatus) === 0 ? 0 : 1) as RecordStatus,
+                        // فیلدهای جدید/تکمیلی
+                        manufactureDate: String(car.manufactureDate),
+                        description: String(car.description),
+                        attacments: car.attacments || [], // فرض می‌کنیم این لیست است
+                        createAt: String(car.createAt),
+                        carWarehouse: car.carWarehouse, // فرض می‌کنیم آبجکت کامل ارسال می‌شود
                     }));
                 setFilterCarDetailsList(filteredList);
             }
         } catch (e) { /* Hata yönetimi */ }
     }, []);
 
-    const fetchConsignedCars = useCallback(async (carDetailId: number | null) => {
+    const fetchConsignedCars = useCallback(async (carDetailId: number | string | null) => {
         if (!carDetailId) { setConsignedCars([]); setLoadingData(false); return; }
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -525,6 +607,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200) {
+                // فرض می‌کنیم داده‌های personnel در این پاسخ وجود دارند.
                 setConsignedCars(res.data.data as ConsignedCarRecord[]);
             } else { showAlert(res.data.message || 'Araç kayıtları yüklenemedi.', 'error'); }
         } catch (e) { showAlert('Araç kayıtları yüklenirken bir hata oluştu.', 'error'); } finally { setLoadingData(false); }
@@ -537,10 +620,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
     useEffect(() => { fetchCarDetailsForForm(selectedWarehouse?.id || null); setSelectedCarDetail(null); }, [selectedWarehouse, fetchCarDetailsForForm]);
     useEffect(() => { fetchCarDetailsForFilter(selectedFilterWarehouse?.id || null); setSelectedFilterCarDetail(null); }, [selectedFilterWarehouse, fetchCarDetailsForFilter]);
     useEffect(() => { fetchConsignedCars(selectedFilterCarDetail?.id || null); }, [selectedFilterCarDetail, fetchConsignedCars]);
-
-    // ------------------------------------
-    // Form & Action Handlers (ثبت و برگشت)
-    // ------------------------------------
 
     const validateForm = (): boolean => {
         let ok = true;
@@ -588,57 +667,160 @@ const ListConsignedCarwarehouse: React.FC = () => {
         const finalAttachments: AttachmentType[] = [...currentAttachments, ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])];
 
         const consignedStatus = !isReturnMode;
-        const personnelToSend = isReturnMode ? originalRecord!.personnelId : selectedPersonnel!.id;
+
+        // 💡 اصلاح: personnelId از personnelId رکورد اصلی یا selectedPersonnel جدید گرفته می‌شود
+        const personnelToSend = isReturnMode ? originalRecord!.personnel.id : selectedPersonnel!.id;
 
         const payload: ConsignedCarPayload = {
             date: date ? date.toISOString() : new Date().toISOString(),
             attachments: finalAttachments,
             description: description,
             kilometer: Number(kilometer),
-            carWarhouseDetailId: selectedCarDetail!.id,
-            personnelId: personnelToSend,
+            carWarhouseDetailId: Number(selectedCarDetail!.id), // 💡 تبدیل به number برای ارسال به بک‌اند
+            personnelId: Number(personnelToSend),
             consigned: consignedStatus,
         };
 
-        debugger
+
         const url = `${server.baseurl}${server.warehouse}create-consigned-car`;
 
         try {
             const res = await axios.post(url, payload, { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
 
+            // if (res.data.httpStatusCode === 201) {
+            //     showAlert(`Araç başarıyla ${consignedStatus ? 'emanet edildi' : 'geri alındı'}!`, 'success');
+            //     resetForm();
+            //     fetchConsignedCars(selectedFilterCarDetail?.id || null);
+            //     fetchCarDetailsForForm(selectedWarehouse?.id || null);
+            // } else 
             if (res.data.httpStatusCode === 201) {
-                showAlert(`Araç başarıyla ${consignedStatus ? 'emanet edildi' : 'geri alındı'}!`, 'success');
-                resetForm();
+                showAlert(`Araç başarıyla emanet edildi!`, 'success');
+
+                setLastSubmittedPayload(payload);
+
+                setIsListReadyToSearch(true);
+
                 fetchConsignedCars(selectedFilterCarDetail?.id || null);
+
                 fetchCarDetailsForForm(selectedWarehouse?.id || null);
+
+                resetForm();
+
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
             showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally { setLoadingButton(false); }
     };
 
-    // ------------------------------------
-    // Table Action Handlers
-    // ------------------------------------
-
     const handleReturnCar = (row: ConsignedCarRecord) => {
-        setOriginalRecord(row);
-        setIsReturnMode(true);
+        setRowToReturn(row);
+        setReturnKilometer(''); // پر کردن کیلومتر قبلی به عنوان مقدار اولیه
+        setReturnDescription('');
+        setReturnAttachments([]); // پیوست‌های قبلی را بیاورید
+        setReturnFiles([]); // فایل‌های جدید را ریست کنید
+        setReturnDate(new Date()); // تاریخ را به امروز تنظیم کنید
+        setReturnKilometerError(false);
 
-        const currentWarehouse = warehousesList.find(w => w.id === String(row.carWarhouseDetailId)) || null;
-
-        setSelectedWarehouse(currentWarehouse);
-        setSelectedCarDetail(row.carWarhouseDetail);
-        setSelectedPersonnel(row.personnel);
-
-        setDate(new Date());
-        setKilometer('');
-        setDescription(row.description);
-        setCurrentAttachments(row.attachments);
-
-        setIsFormVisible(true);
+        setOpenReturnModal(true);
         handleCloseMenu();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+
+
+    useEffect(() => {
+        if (lastSubmittedPayload && isListReadyToSearch && consignedCars.length > 0) {
+
+            const targetConsignedStatus = lastSubmittedPayload.consigned;
+            // پیدا کردن رکورد جدید (بر اساس تطابق کامل Payload)
+            const newRecord = consignedCars.find(r =>
+                String(r.carWarhouseDetail.id) === String(lastSubmittedPayload.carWarhouseDetailId) &&
+                String(r.personnel.id) === String(lastSubmittedPayload.personnelId) &&
+                r.kilometer === lastSubmittedPayload.kilometer &&
+                r.consigned === targetConsignedStatus // ✅ تطابق بر اساس وضعیت مورد انتظار
+            );
+
+            if (newRecord) {
+                setLastRecordDetail(newRecord);
+                setOpenLastRecordModal(true);
+
+                // ✅ پاکسازی Flagها
+                setLastSubmittedPayload(null);
+                setIsListReadyToSearch(false);
+            } else {
+                // در صورت عدم یافتن (ممکن است بخواهید یک پیغام خطا بدهید یا دوباره صبر کنید)
+                console.warn("New record not found in the refreshed list. Waiting for next sync or API delay.");
+                // بهتر است Flag را در اینجا پاک نکنیم تا اگر API بعداً Sync شد، مجدداً چک شود.
+            }
+        } else if (isListReadyToSearch && !loadingData) {
+            // اگر جستجو کامل شد و رکورد پیدا نشد و loading تمام شد، Flag را پاک کنیم.
+            setIsListReadyToSearch(false);
+        }
+    }, [consignedCars, lastSubmittedPayload, isListReadyToSearch, loadingData]); // وابستگی‌ها
+
+    const handleReturnSubmit = async () => {
+        if (!rowToReturn || returnKilometer === '' || Number(returnKilometer) <= 0) {
+            setReturnKilometerError(true);
+            showAlert('Lütfen kilometre bilgisini doğru girin.', 'warning');
+            return;
+        }
+
+        setReturnButtonLoading(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Kimlik doğrulama hatası.', 'error'); setReturnButtonLoading(false); return; }
+
+        let fileUrls: string[] | null = [];
+        if (returnFiles.length > 0) {
+            showAlert('Dosyalar yükleniyor...', 'info');
+            // 💡 استفاده از تابع آپلود فایل موجود
+            fileUrls = await uploadFiles(returnFiles, authToken, showAlert);
+            if (fileUrls === null) { setReturnButtonLoading(false); return; }
+        }
+
+        // پیوست‌های موجود + پیوست‌های جدید آپلود شده
+        const finalAttachments: AttachmentType[] = [...returnAttachments, ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])];
+
+        const payload: ConsignedCarPayload = {
+            date: returnDate ? returnDate.toISOString() : new Date().toISOString(),
+            attachments: finalAttachments,
+            description: returnDescription,
+            kilometer: Number(returnKilometer),
+            carWarhouseDetailId: Number(rowToReturn.carWarhouseDetail.id),
+            personnelId: Number(rowToReturn.personnel.id),
+            consigned: false, // ⭐️ مهم: Consigned = False (برگشت داده شد)
+        };
+
+        const url = `${server.baseurl}${server.warehouse}create-consigned-car`;
+
+        try {
+            const res = await axios.post(url, payload, { headers: { Authorization: `Bearer ${authToken}` } });
+
+            if (res.data.httpStatusCode === 201) {
+                showAlert(`Araç başarıyla geri alındı! (Consigned: False)`, 'success');
+                setLastSubmittedPayload(payload);
+                // ✅ فعال‌سازی Flag جستجو
+                setIsListReadyToSearch(true);
+
+                handleCloseReturnModal(); // بستن Modal بازپس‌گیری اصلی
+                fetchConsignedCars(selectedFilterCarDetail?.id || null);
+                // fetchCarDetailsForForm(rowToReturn.carWarhouseDetail.carWarehouse.id || null); // به‌روزرسانی لیست موجودی برای فرم امانت
+            } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+        } finally { setReturnButtonLoading(false); }
+    };
+
+    const handleCloseReturnModal = () => {
+        setOpenReturnModal(false);
+        setRowToReturn(null);
+        setReturnKilometerError(false);
+        setReturnButtonLoading(false);
+    };
+
+    const handleRegisterFuel = (row: ConsignedCarRecord) => {
+
+        const route = `/car-warehouse/list-car-fuels/${row.id}`;
+        navigate(route);
+        handleCloseMenu();
     };
 
 
@@ -667,7 +849,15 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
     const handleRequestSort = useCallback((property: SortableKeys) => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); }, [order, orderBy]);
-    const handleClickOpenDeleteModal = () => { if (!selectedRowForMenu) return; setDeleteId(selectedRowForMenu.id); setDeleteName(`${selectedRowForMenu.carWarhouseDetail.plaque} / ${selectedRowForMenu.personnel.name} ${selectedRowForMenu.personnel.family}`); setOpenDeleteModal(true); handleCloseMenu(); };
+    const handleClickOpenDeleteModal = () => {
+        if (!selectedRowForMenu) return;
+        setDeleteId(Number(selectedRowForMenu.id));
+        setDeleteName(`${selectedRowForMenu.carWarhouseDetail.plaque}
+            
+             `);
+        setOpenDeleteModal(true);
+        handleCloseMenu();
+    };
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchConsignedCars(selectedFilterCarDetail?.id || null); };
     const handleOpenAttachmentsModal = (attachments: AttachmentType[]) => { setAttachmentsToView(attachments); setOpenAttachmentsModal(true); handleCloseMenu(); };
     const handleDownloadLinkClick = (fileUrl: string) => { if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; } const url = `${server.urldpwonload}${fileUrl}`; window.open(url, '_blank'); showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info'); };
@@ -706,6 +896,104 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setOpenDownloadFilteredModal(false);
     };
 
+    // توجه: این تابع نیاز به دسترسی به توابع addPdfHeader، addPdfFooter، formatDateDisplay و آبجکت‌های Logo/NotoSansRegular دارد.
+
+    const createSingleConsignmentPdf = (record: ConsignedCarRecord, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
+        // 1. تنظیمات اولیه
+        const title = "ARAÇ EMANET KAYDI RAPORU";
+
+        // jsPDF instantiation
+        // (ابعاد A4 بر حسب pt)
+        const doc = new jsPDF("p", "pt", "a4");
+        const docAny = doc as any;
+
+        try {
+            // تنظیم فونت NotoSans برای پشتیبانی از ترکی
+            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+        } catch (e) {
+            showAlert('PDF font hatası! Rapor düzgün görünmeyebilir.', 'error');
+        }
+
+        const sideMargin = 20;
+        let finalY = 70; // شروع محتوای اصلی بعد از هدر
+
+        // 2. افزودن هدر
+        addPdfHeader(doc, title);
+
+        // 3. اطلاعات پرسنل و خودرو (متن)
+        doc.setFontSize(12);
+
+        // Personel Bilgileri
+        doc.text(`Emanet Alan: ${record.personnel.name} ${record.personnel.family} (${record.personnel.identityNumber})`, sideMargin, finalY);
+        finalY += 16;
+
+        // Araç Bilgileri
+        doc.text(`Plaka: ${record.carWarhouseDetail.plaque}`, sideMargin, finalY);
+        finalY += 16;
+        doc.text(`Marka/Model: ${record.carWarhouseDetail.brand} / ${record.carWarhouseDetail.model}`, sideMargin, finalY);
+        finalY += 25;
+
+        // 4. جدول جزئیات رکورد
+        doc.setFontSize(14);
+        doc.text("Emanet İşlem Detayları", sideMargin, finalY);
+        finalY += 10;
+
+        const detailBody = [
+            ["İşlem Tipi", record.consigned ? "ARAÇ EMANETİ (VERME)" : "ARAÇ GERİ ALMA"],
+            ["İşlem Tarihi", formatDateDisplay(record.date)],
+            ["Kilometre", record.kilometer.toLocaleString() + ' km'],
+            ["Durum", record.consigned ? "Emanette" : "Geri Alındı"],
+            ["Açıklama", record.description || "-"],
+        ];
+
+        autoTable((doc as any), {
+            startY: finalY,
+            head: [["Alan", "Değer"]],
+            body: detailBody,
+            theme: "grid",
+            styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
+            headStyles: { fillColor: [200, 220, 250], textColor: [0, 0, 0] },
+            columnStyles: { 0: { cellWidth: 150 }, 1: { cellWidth: 'auto' } },
+            margin: { left: sideMargin, right: sideMargin },
+            didDrawPage: (_data: any) => {
+                addPdfHeader(doc, title);
+                addPdfFooter(doc);
+            },
+        });
+
+        finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
+
+        // 5. کادر امضا (قبول/تحویل)
+        doc.setFontSize(10);
+
+        // خط اول امضا
+        doc.text("Personel İmzası:", sideMargin, finalY);
+        doc.line(sideMargin + 100, finalY, sideMargin + 250, finalY);
+
+        // خط دوم امضا (کنترلر/انبار)
+        doc.text("Yetkili / Depo Sorumlusu İmzası:", sideMargin + 300, finalY);
+        doc.line(sideMargin + 450, finalY, sideMargin + 600, finalY);
+
+
+        // 6. ذخیره فایل
+        const fileName = `Emanet_Rapor_${record.carWarhouseDetail.plaque}_${formatDateDisplay(record.date)}.pdf`;
+        doc.save(fileName);
+        showAlert('Emanet raporu başarıyla oluşturuldu ve indiriliyor.', 'info');
+    };
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -714,8 +1002,13 @@ const ListConsignedCarwarehouse: React.FC = () => {
                         {isReturnMode ? 'Araç Geri Alma Kaydı' : 'Araç Emanet Kayıtları'}
                     </Typography>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" flexGrow={1} justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
-                        {!isFormVisible && hasCreatePermission && (<BlinkingButton variant="contained" color="primary" onClick={() => setIsFormVisible(true)} isBlinking={isBlinking} fullWidth={false} startIcon={<DirectionsCarFilledRoundedIcon fontSize="small" />}>Yeni Emanet Kaydı Ekle</BlinkingButton>)}
-                        {isFormVisible && (<Button variant="contained" color="error" onClick={resetForm} disabled={loadingButton} fullWidth={false} startIcon={<IconX size={20} />}>İptal Et</Button>)}
+                        {!isFormVisible && hasCreatePermission &&
+                            (<BlinkingButton variant="contained" color="primary"
+                                onClick={() => setIsFormVisible(true)} isBlinking={isBlinking} fullWidth={false}
+                            >
+                                Yeni Emanet Kaydı Ekle</BlinkingButton>)}
+                        {isFormVisible && (<Button variant="contained" color="error" onClick={resetForm}
+                            disabled={loadingButton} fullWidth={false} startIcon={<IconX size={20} />}>Gizle</Button>)}
                     </Stack>
                 </Stack>
                 {isFormVisible && (
@@ -729,7 +1022,16 @@ const ListConsignedCarwarehouse: React.FC = () => {
                             <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>Kilometre</CustomFormLabel><TextField placeholder="Kilometre" type="number" size="small" fullWidth value={kilometer} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setKilometer(Number(e.target.value)); setKilometerError(false); }} error={kilometerError} helperText={kilometerError ? 'Zorunlu alan.' : ''} disabled={loadingButton} /></Grid>
                             <Grid item xs={12} sm={12} md={12}><CustomFormLabel>Açıklama</CustomFormLabel><TextField placeholder="Detaylı Açıklama" size="small" fullWidth value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} multiline rows={2} disabled={loadingButton} /></Grid>
                             <Grid item xs={12}><CustomFormLabel>Ekler (Resim/PDF/Excel)</CustomFormLabel><ConsignmentFileUpload files={selectedFiles} setFiles={setSelectedFiles} error={false} currentAttachments={currentAttachments} setCurrentAttachments={setCurrentAttachments} /></Grid>
-                            <Grid item xs={12}><Stack direction="row" spacing={1} justifyContent="flex-end"><Button variant="contained" color={isReturnMode ? "warning" : "success"} onClick={handleSubmit} disabled={loadingButton || !selectedCarDetail || (isReturnMode && !originalRecord)} size="small">{loadingButton ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Bekleniyor...</> : isReturnMode ? 'Geri Almayı Kaydet (Consigned: False)' : 'Emanet Kaydet (Consigned: True)'}</Button><Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button></Stack></Grid>
+                            <Grid item xs={12}><Stack direction="row" spacing={1} justifyContent="flex-end">
+                                <Button variant="contained" color={isReturnMode ? "warning" : "success"}
+                                    onClick={handleSubmit}
+                                    disabled={loadingButton || !selectedCarDetail || (isReturnMode && !originalRecord)}
+                                    size="small">{loadingButton ? <><CircularProgress size={20}
+                                        color="inherit" sx={{ mr: 1 }} /> Bekleniyor...</> :
+                                        isReturnMode ? 'Geri Almayı Kaydet' : 'Emanet Kaydet '}</Button>
+
+                                <Button variant="outlined" color="secondary"
+                                    onClick={resetForm} size="small">İptal Et</Button></Stack></Grid>
                         </Grid>
                     </Paper>
                 )}
@@ -752,7 +1054,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
                             <CustomFormLabel required>Filtre Araç Plakası</CustomFormLabel>
                             <Autocomplete size="small" options={filterCarDetailsList} getOptionLabel={(option) => `${option.brand} - ${option.plaque}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedFilterCarDetail} onChange={(_, newValue) => { setSelectedFilterCarDetail(newValue); }} renderInput={(params) => (<TextField {...params} label="Plaka Seçin" />)} disabled={!selectedFilterWarehouse} />
                         </Grid>
-
 
 
                         {/* 7. دکمه‌های دانلود (متصل به مودال) */}
@@ -783,7 +1084,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                             />
                         </Grid>
 
-                        {/* 4. Tarih Başlangıç (فیلتر تاریخ شروع) ⭐️ */}
+                        {/* 4. Tarih Başلنگ (فیلتر تاریخ شروع) ⭐️ */}
                         <Grid item xs={12} sm={6} md={3}>
                             <CustomFormLabel>Tarih Aralığı (Başlangıç)</CustomFormLabel>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -831,9 +1132,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                     <StyledTableCell><Typography variant="h6">Plaka</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Personel</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'kilometer'} direction={orderBy === 'kilometer' ? order : 'asc'} onClick={() => handleRequestSort('kilometer')}><Typography variant="h6">Kilometre</Typography></TableSortLabel></StyledTableCell>
+
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'consigned'} direction={orderBy === 'consigned' ? order : 'asc'} onClick={() => handleRequestSort('consigned')}><Typography variant="h6">Durum</Typography></TableSortLabel></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">İşlem</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6"></Typography></StyledTableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -844,12 +1147,33 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                             <StyledTableCell>{row.carWarhouseDetail.plaque || '-'}</StyledTableCell>
                                             <StyledTableCell>{`${row.personnel.name} ${row.personnel.family}` || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.kilometer.toLocaleString() || '-'}</StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                                <Box sx={{
+                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                                                }}>
+                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
+                                                </Box>
+                                                {row.description.length > 50 && (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => { handleOpenDescriptionModal(row.description); }}>Devamını Oku</Button>
+                                                    </CustomTooltip>
+                                                )}
+                                            </StyledTableCell>
                                             <StyledTableCell><IconButton onClick={() => handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary" size="small"></Chip></IconButton></StyledTableCell>
                                             <StyledTableCell><Chip label={row.consigned ? 'Emanette' : 'Geri Alındı'} color={row.consigned ? 'error' : 'success'} size="small" /></StyledTableCell>
                                             <StyledTableCell>
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
                                                     {row.consigned && hasCreatePermission && (<MuiMenuItem onClick={() => handleReturnCar(row)}><ListItemIcon><DirectionsCarFilledRoundedIcon fontSize="small" /></ListItemIcon> Geri Al</MuiMenuItem>)}
+
+                                                    {hasCreatePermission && (
+                                                        <MuiMenuItem onClick={() => handleRegisterFuel(row)}>
+                                                            <ListItemIcon><IconGasStation fontSize="small" /></ListItemIcon>
+                                                            Araç Yakıtları Kayıt Et
+                                                        </MuiMenuItem>
+                                                    )}
+
                                                     {hasDeletePermission && (<MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>)}
 
                                                     {hasDownloadPermission && (<MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir</MuiMenuItem>)}
@@ -900,6 +1224,164 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 <DialogTitle>Dosya Formatını Seçin</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadRow('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadRow('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
                 <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={openDescriptionModal} onClose={handleCloseDescriptionModal} maxWidth="md" fullWidth>
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* --- NEW: Modal for Returning Car (Geri Al) --- */}
+            <Dialog open={openReturnModal} onClose={handleCloseReturnModal} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ backgroundColor: 'warning.light', color: 'warning.dark' }}>
+                    Araç Geri Alma Onayı (Geri Al)
+                </DialogTitle>
+                <DialogContent dividers>
+                    {rowToReturn && (
+                        <Stack spacing={2}>
+                            <Alert severity="info">
+                                {rowToReturn.carWarhouseDetail.plaque} plakalı araç {rowToReturn.personnel.name} {rowToReturn.personnel.family} adına emanetten geri alınacaktır.
+                            </Alert>
+
+                            <Grid container spacing={1}>
+                                <Grid item xs={12} sm={6}>
+                                    <CustomFormLabel required>Geri Alma Tarihi</CustomFormLabel>
+                                    <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                        <DatePicker
+                                            label="Tarih"
+                                            value={returnDate}
+                                            onChange={(v) => setReturnDate(v)}
+                                            inputFormat="dd/MM/yyyy"
+                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                            disabled={returnButtonLoading}
+                                        />
+                                    </LocalizationProvider>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                    <CustomFormLabel required>Kilometre (Mevcut)</CustomFormLabel>
+                                    <TextField
+                                        placeholder={`Önceki: ${rowToReturn.kilometer.toLocaleString()}`}
+                                        type="number"
+                                        size="small"
+                                        fullWidth
+                                        value={returnKilometer}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            setReturnKilometer(Number(e.target.value));
+                                            setReturnKilometerError(false);
+                                        }}
+                                        error={returnKilometerError}
+                                        helperText={returnKilometerError ? 'Kilometre zorunludur ve 0\'dan büyük olmalıdır.' : ''}
+                                        disabled={returnButtonLoading}
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <CustomFormLabel>Açıklama</CustomFormLabel>
+                                    <TextField
+                                        placeholder="Geri alma ile ilgili açıklama"
+                                        size="small"
+                                        fullWidth
+                                        value={returnDescription}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setReturnDescription(e.target.value)}
+                                        multiline rows={2}
+                                        disabled={returnButtonLoading}
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <CustomFormLabel>Ekler (Resim/PDF/Excel)</CustomFormLabel>
+                                    <ConsignmentFileUpload
+                                        files={returnFiles}
+                                        setFiles={setReturnFiles}
+                                        error={false}
+                                        currentAttachments={returnAttachments}
+                                        setCurrentAttachments={setReturnAttachments}
+                                    />
+                                </Grid>
+                            </Grid>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseReturnModal} color="secondary" disabled={returnButtonLoading}>İptal</Button>
+                    <Button
+                        onClick={handleReturnSubmit}
+                        color="warning"
+                        variant="contained"
+                        disabled={returnButtonLoading || !returnDate || !returnKilometer || Number(returnKilometer) <= 0}
+                    >
+                        {returnButtonLoading ? <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> : "Geri Almayı Kaydet"}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* --- Modal 4: Son Kayıt Detayları (Yeni Emanet/Geri Alma) --- */}
+            <Dialog open={openLastRecordModal} onClose={() => setOpenLastRecordModal(false)} maxWidth="md" fullWidth>
+                {/* 💡 عنوان و رنگ Modal بر اساس وضعیت رکورد */}
+                <DialogTitle sx={{
+                    backgroundColor: lastRecordDetail?.consigned === false ? 'warning.main' : 'success.main',
+                    color: 'white'
+                }}>
+                    {lastRecordDetail?.consigned === false ?
+                        'Araç Geri Alma Kaydı Başarıyla Oluşturuldu!' :
+                        'Yeni Araç Emanet Kaydı Başarıyla Oluşturuldu!'}
+                </DialogTitle>
+                <DialogContent dividers>
+                    {lastRecordDetail ? (
+                        <Stack spacing={2}>
+                            {/* ... (نمایش جزئیات رکورد) ... */}
+                            <Grid container spacing={2}>
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Plaka:</Typography></Grid>
+                                <Grid item xs={12} sm={8}><Typography>{lastRecordDetail.carWarhouseDetail.plaque}</Typography></Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Personel:</Typography></Grid>
+                                <Grid item xs={12} sm={8}><Typography>{lastRecordDetail.personnel.name} {lastRecordDetail.personnel.family}</Typography></Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Kilometre:</Typography></Grid>
+                                <Grid item xs={12} sm={8}><Typography>{lastRecordDetail.kilometer.toLocaleString()}</Typography></Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Tarih:</Typography></Grid>
+                                <Grid item xs={12} sm={8}><Typography>{formatDateDisplay(lastRecordDetail.date)}</Typography></Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Durum:</Typography></Grid>
+                                <Grid item xs={12} sm={8}>
+                                    <Chip
+                                        label={lastRecordDetail.consigned ? "Emanette (Yeni Kayıt)" : "Geri Alındı"}
+                                        color={lastRecordDetail.consigned ? "success" : "warning"}
+                                        size="small"
+                                    />
+                                </Grid>
+                            </Grid>
+                            <Alert severity={lastRecordDetail.consigned ? "success" : "warning"} sx={{ mt: 2 }}>
+                                {lastRecordDetail.consigned ?
+                                    'Emanet işlemi tamamlanmıştır.' :
+                                    'Araç başarıyla envantere geri alınmıştır.'}
+                            </Alert>
+                        </Stack>
+                    ) : (
+                        <Box display="flex" justifyContent="center"><CircularProgress /></Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    {lastRecordDetail && (
+                        <Button
+                            // ✅ دکمه دانلود در کنار دکمه بستن
+                            onClick={() => createSingleConsignmentPdf(lastRecordDetail, showAlert)}
+                            color="primary"
+                            variant="contained"
+                            startIcon={<IconFileDownload />}
+                            sx={{ mr: 1 }}
+                        >
+                            Raporu İndir
+                        </Button>
+                    )}
+                    <Button onClick={() => setOpenLastRecordModal(false)} color="secondary" variant="outlined">Kapat</Button>
+                </DialogActions>
             </Dialog>
         </>
     );

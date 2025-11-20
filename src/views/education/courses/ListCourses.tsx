@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom"; // ⭐️ useParams حذف شد
+import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -9,7 +9,7 @@ import {
     TableSortLabel, MenuItem as MuiMenuItem,
     Dialog, DialogTitle, DialogContent, DialogActions,
     DialogContentText,
-    Autocomplete, // ⭐️ کامپوننت Autocomplete اضافه شد
+    Autocomplete,
 } from '@mui/material';
 
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
@@ -44,43 +44,66 @@ import Logo from 'src/assets/images/logos/logo.png';
 // @ts-ignore
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 
-// Import components (باید به طور دستی در پروژه شما ایجاد شوند)
-import DeleteDetailsCarWarehouse from './DeleteDetailsCarWarehouse';
+// @ts-ignore
+import DeleteCourses from './DeleteCourses';
+// @ts-ignore
+import ListCourseDateTimes from '../course-date-times/ListCourseDateTimes';
+// @ts-ignore
+import ListCourseParticipants from '../course-participants/ListCourseParticipants';
 
-
-// =====================================================================================
-// === COMMON HELPERS (برای استقلال کد، اینجا تعریف شدند) ===
-// =====================================================================================
-
-// --- Interfaces ---
 interface AttachmentType { fileUrl: string; }
-interface CarDetail {
-    id: number;
-    brand: string;
-    model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number;
-    attachments: AttachmentType[];
-    recordStatus: 0 | 1; createAt: string;
-}
-// interface CarWarehouseInfo { id: number; name: string; code: string; address: string; } // ⭐️ id: number تغییر به string در API جدید
-interface CarWarehouseApi { // ⭐️ اینترفیس جدید برای API لیست انبارها
-    id: string; // ⭐️ از string استفاده می‌کنیم چون از API string برمی‌گردد
-    name: string;
-    code: string;
-    address: string;
-    createAt: string;
-    recordStatus: number;
-    region: { id: string; name: string; depth: number; createAt: string; recordStatus: number; };
-}
-type SortableKeys = 'brand' | 'model' | 'plaque' | 'manufactureDate' | 'createAt';
+interface TeacherApi { id: string; name: string; surname: string; field: string; recordStatus: 0 | 1; createAt: string; }
 
-// ... (Styles, Date & Sorting, File Helpers, ConsignmentFileUpload, uploadFiles, PDF/Excel Helpers - بدون تغییر)
-// ... (توابع کمکی مشترک بالا را اینجا قرار دهید) ...
+interface UserDetail {
+    id: string;
+    username: string;
+    imageSrc: string | null;
+    userId: string;
+}
+interface WorkhouseDetail {
+    id: string;
+    name: string;
+}
+
+interface CourseDetail {
+    id: number;
+    title: string;
+    description: string;
+    startDateTime: string;
+    endDateTime: string;
+    attachments: AttachmentType[];
+    teacherId: number; // این فیلد در واقع حذف شده و توسط teacher جایگزین شده اما برای امنیت حفظ می‌شود
+    recordStatus: 0 | 1;
+    createAt: string;
+
+    teacher: TeacherApi; // یا ساختار کامل Teacher
+    user: UserDetail;
+    workhouse: WorkhouseDetail | null;
+}
+type SortableKeys = 'title' | 'startDateTime' | 'endDateTime' | 'createAt';
+
+
+// =====================================================================================
+// === COMMON HELPERS (کپی شده از فایل قبلی برای حفظ ساختار) ===
+// =====================================================================================
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: { fontSize: '1rem' },
 }));
-// ... (StyledToggleButton) ...
+const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
+    '&.Mui-selected': {
+        color: 'white',
+        ...(value === 'all' && selected && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }),
+        ...(value === 'active' && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
+        ...(value === 'inactive' && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
+    },
+    '&:not(.Mui-selected)': {
+        color: theme.palette.text.primary,
+        borderColor: theme.palette.divider,
+        '&:hover': { backgroundColor: theme.palette.action.hover },
+    },
+}));
 const blinkAnimation = keyframes`
     0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
     50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
@@ -94,8 +117,9 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
-        const date = new Date(dateString.length === 10 ? dateString : String(dateString));
+        const date = new Date(dateString);
         if (isNaN(date.getTime())) return "Geçersiz Tarih";
+        // ⭐️ زمان از فرمت نمایش حذف شد ⭐️
         return format(date, 'dd MMMM yyyy', { locale: tr });
     } catch (e) { return "Geçersiz Tarih"; }
 };
@@ -125,131 +149,19 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// ... (ConsignmentFileUpload و توابع مربوط به فایل) ...
 const getFileIcon = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return <IconFileText size={20} />;
-    if (ext === 'xlsx' || ext === 'xls') return <IconFileSpreadsheet size={20} />;
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <IconBox size={20} />;
+    if (ext === 'pdf') return <IconFileText size={20} />; // ✅ PDF
+    if (ext === 'xlsx' || ext === 'xls') return <IconFileSpreadsheet size={20} />; // ✅ Excel
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <IconBox size={20} />; // ✅ Image
     return <IconFileDownload size={20} />;
 };
 
 const getFileColor = (fileName: string) => {
     const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return 'error';
-    if (ext === 'xlsx' || ext === 'xls') return 'success';
-    return 'primary';
-};
-
-const ConsignmentFileUpload: React.FC<{
-    files: File[];
-    setFiles: (f: File[]) => void;
-    error: boolean;
-    currentAttachments: AttachmentType[];
-    setCurrentAttachments: (a: AttachmentType[]) => void;
-}> = ({ files, setFiles, error, currentAttachments, setCurrentAttachments }) => {
-
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    // const supportedTypes = "image/*, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xlsx";
-    const supportedTypes = "image/*";
-    const { isTooltipGloballyEnabled } = useTooltip();
-
-    const getFileIcon = (fileName: string) => {
-        const ext = fileName.split('.').pop()?.toLowerCase();
-        if (ext === 'pdf') return <IconFileText size={18} />;
-        if (ext === 'xlsx' || ext === 'xls') return <IconFileSpreadsheet size={18} />;
-        if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <IconBox size={18} />;
-        return <IconFileDownload size={18} />;
-    };
-
-    const getFileColor = (fileName: string) => {
-        const ext = fileName.split('.').pop()?.toLowerCase();
-        if (ext === 'pdf') return 'error';
-        if (ext === 'xlsx' || ext === 'xls') return 'success';
-        return 'primary';
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setFiles([...files, ...Array.from(e.target.files)]);
-        }
-        if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-        }
-    };
-
-    const handleRemoveNewFile = (index: number) => {
-        setFiles(files.filter((_, i) => i !== index));
-    };
-
-    const handleRemoveExistingAttachment = (index: number) => {
-        setCurrentAttachments(currentAttachments.filter((_, i) => i !== index));
-    };
-
-
-    return (
-        <Box mt={1} p={2} border={error ? '1px dashed red' : '1px dashed #ccc'} borderRadius={1}>
-            <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept={supportedTypes}
-                style={{ display: 'none' }}
-            />
-            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                <Button size="small" variant="outlined" startIcon={<IconFileDownload />} onClick={() => fileInputRef.current?.click()}>
-                    Dosya Seç (Resim)
-                </Button>
-            </Stack>
-
-            {/* Display Existing Attachments */}
-            {currentAttachments.length > 0 && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                    <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Mevcut Dosyalar ({currentAttachments.length}):</Typography>
-                    {currentAttachments.map((att, index) => {
-                        const fileName = att.fileUrl.split('/').pop() || 'dosya';
-                        return (
-                            <CustomTooltip key={`exist-${index}`} title={isTooltipGloballyEnabled ? fileName : ''}>
-                                <Chip
-                                    key={index}
-                                    label={`Mevcut ${index + 1}`}
-                                    icon={getFileIcon(fileName)}
-                                    onDelete={() => handleRemoveExistingAttachment(index)}
-                                    size="small"
-                                    color={getFileColor(fileName)}
-                                    variant="outlined"
-                                    sx={{ m: 0.5, maxWidth: 150 }}
-                                />
-                            </CustomTooltip>
-                        );
-                    })}
-                </Stack>
-            )}
-
-            {/* Display New Files to Upload */}
-            {files.length > 0 && (
-                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
-                    <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Yüklenecek Yeni Dosyalar ({files.length}):</Typography>
-                    {files.map((file, index) => (
-                        <CustomTooltip key={`new-${index}`} title={isTooltipGloballyEnabled ? file.name : ''}>
-                            <Chip
-                                key={index}
-                                label={`Yeni ${index + 1}`}
-                                icon={getFileIcon(file.name)}
-                                onDelete={() => handleRemoveNewFile(index)}
-                                size="small"
-                                color={getFileColor(file.name)}
-                                sx={{ maxWidth: 150 }}
-                            />
-                        </CustomTooltip>
-                    ))}
-                </Stack>
-            )}
-
-            {error && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Lütfen dosya seçin veya hataları düzeltin.</Typography>}
-        </Box>
-    );
+    if (ext === 'pdf') return 'error'; // ✅ PDF (قرمز)
+    if (ext === 'xlsx' || ext === 'xls') return 'success'; // ✅ Excel (سبز)
+    return 'primary'; // برای تصاویر
 };
 
 const uploadFiles = async (
@@ -258,9 +170,7 @@ const uploadFiles = async (
     showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void
 ): Promise<string[] | null> => {
 
-    if (!files || files.length === 0) {
-        return [];
-    }
+    if (!files || files.length === 0) { return []; }
 
     const formData = new FormData();
     files.forEach(file => formData.append('files', file));
@@ -304,7 +214,11 @@ const addPdfFooter = (doc: jsPDF) => {
 
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
-    const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
     let footerY = pageHeight - 30;
     companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
 
@@ -329,7 +243,11 @@ const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength
     worksheet.addRow([]);
 };
 const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, columnsLength: number) => {
-    const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
     let rowNum = startRow;
     companyInfo.forEach(line => {
         const row = worksheet.getRow(rowNum);
@@ -341,16 +259,114 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
     });
 };
 
+// =====================================================================================
+// === ConsignmentFileUpload Component (کپی شده از کد اصلی شما) ===
+// =====================================================================================
+const ConsignmentFileUpload: React.FC<{
+    files: File[];
+    setFiles: (f: File[]) => void;
+    error: boolean;
+    currentAttachments: AttachmentType[];
+    setCurrentAttachments: (a: AttachmentType[]) => void;
+}> = ({ files, setFiles, error, currentAttachments, setCurrentAttachments }) => {
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const supportedTypes = "image/*, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, .xlsx";
+
+    const { isTooltipGloballyEnabled } = useTooltip();
+
+    // از توابع کمکی مشترک استفاده می‌کند
+    const iconGetter = getFileIcon;
+    const colorGetter = getFileColor;
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
+            setFiles([...files, ...Array.from(e.target.files)]);
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleRemoveNewFile = (index: number) => {
+        setFiles(files.filter((_, i) => i !== index));
+    };
+
+    const handleRemoveExistingAttachment = (index: number) => {
+        setCurrentAttachments(currentAttachments.filter((_, i) => i !== index));
+    };
+
+
+    return (
+        <Box mt={1} p={2} border={error ? '1px dashed red' : '1px dashed #ccc'} borderRadius={1}>
+            <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept={supportedTypes}
+                style={{ display: 'none' }}
+            />
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Button size="small" variant="outlined" startIcon={<IconFileDownload />} onClick={() => fileInputRef.current?.click()}>
+                    Dosya Seç (Resim/pdf/excel)
+                </Button>
+            </Stack>
+
+            {/* Display Existing Attachments */}
+            {currentAttachments.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                    <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Mevcut Dosyalar ({currentAttachments.length}):</Typography>
+                    {currentAttachments.map((att, index) => {
+                        const fileName = att.fileUrl.split('/').pop() || 'dosya';
+                        return (
+                            <CustomTooltip key={`exist-${index}`} title={isTooltipGloballyEnabled ? fileName : ''}>
+                                <Chip
+                                    label={`Mevcut ${index + 1}`}
+                                    icon={iconGetter(fileName)}
+                                    onDelete={() => handleRemoveExistingAttachment(index)}
+                                    size="small"
+                                    color={colorGetter(fileName)}
+                                    variant="outlined"
+                                    sx={{ m: 0.5, maxWidth: 150 }}
+                                />
+                            </CustomTooltip>
+                        );
+                    })}
+                </Stack>
+            )}
+
+            {/* Display New Files to Upload */}
+            {files.length > 0 && (
+                <Stack direction="row" spacing={1} flexWrap="wrap" mt={1}>
+                    <Typography variant="caption" sx={{ color: 'gray', width: '100%' }}>Yüklenecek Yeni Dosyalar ({files.length}):</Typography>
+                    {files.map((file, index) => (
+                        <CustomTooltip key={`new-${index}`} title={isTooltipGloballyEnabled ? file.name : ''}>
+                            <Chip
+                                label={`Yeni ${index + 1}`}
+                                icon={iconGetter(file.name)}
+                                onDelete={() => handleRemoveNewFile(index)}
+                                size="small"
+                                color={colorGetter(file.name)}
+                                sx={{ maxWidth: 150 }}
+                            />
+                        </CustomTooltip>
+                    ))}
+                </Stack>
+            )}
+
+            {error && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Lütfen dosya seçin veya hataları düzeltin.</Typography>}
+        </Box>
+    );
+};
+
 
 // =====================================================================================
-// === Main Component: ListDetailsCarWarehouse ===
+// === Main Component: ListCourses ===
 // =====================================================================================
 
-const ListDetailsCarWarehouse: React.FC = () => {
+const ListCourses: React.FC = () => {
     const navigate = useNavigate();
-    // ⭐️ حذف: const { carwarehouseid } = useParams<{ carwarehouseid: string }>();
-    // ⭐️ حذف: const carWarehouseId = useMemo(() => Number(carwarehouseid), [carwarehouseid]);
-
     const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -360,51 +376,38 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-
     // ------------------------------------
     // States Form
     // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [brand, setBrand] = useState<string>('');
-    const [model, setModel] = useState<string>('');
-    const [manufactureDate, setManufactureDate] = useState<Date | null>(null);
-    const [plaque, setPlaque] = useState<string>('');
+    const [title, setTitle] = useState<string>('');
     const [description, setDescription] = useState<string>('');
+    const [startDateTime, setStartDateTime] = useState<Date | null>(null);
+    const [endDateTime, setEndDateTime] = useState<Date | null>(null);
+
+    const [teachersList, setTeachersList] = useState<TeacherApi[]>([]);
+    const [selectedTeacher, setSelectedTeacher] = useState<TeacherApi | null>(null);
 
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
     const [attachmentError, setAttachmentError] = useState(false);
 
     // Form Validation States
-    const [brandError, setBrandError] = useState(false);
-    const [modelError, setModelError] = useState(false);
-    const [plaqueError, setPlaqueError] = useState(false);
-    const [dateError, setDateError] = useState(false);
+    const [titleError, setTitleError] = useState(false);
+    const [teacherError, setTeacherError] = useState(false);
+    const [startDateTimeError, setStartDateTimeError] = useState(false);
+    const [endDateTimeError, setEndDateTimeError] = useState(false);
 
     // Global States
-    const [carWarehousesList, setCarWarehousesList] = useState<CarWarehouseApi[]>([]); // ⭐️ لیست انبارها
-    const [selectedCarWarehouse, setSelectedCarWarehouse] = useState<CarWarehouseApi | null>(null); // ⭐️ انبار انتخاب شده
-    const [warehouseError, setWarehouseError] = useState(false); // ⭐️ خطای انتخاب انبار
-
-    const [tableCarWarehouse, setTableCarWarehouse] = useState<CarWarehouseApi | null>(null);
-    // ⭐️ حذف: const [carWarehouseInfo, setCarWarehouseInfo] = useState<CarWarehouseInfo | null>(null);
-
-    const [carDetails, setCarDetails] = useState<CarDetail[]>([]);
+    const [courses, setCourses] = useState<CourseDetail[]>([]);
     const [loadingData, setLoadingData] = useState<boolean>(true);
     const [loadingButton, setLoadingButton] = useState<boolean>(false);
     const [isFormVisible, setIsFormVisible] = useState<boolean>(false);
     const [isBlinking, setIsBlinking] = useState<boolean>(true);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-    const brandInputRef = useRef<HTMLInputElement>(null);
 
-
-    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
-    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
-
-    // ------------------------------------
-    // States Table/Filter/Modals
-    // ------------------------------------
+    // Table/Filter/Modals States
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');
@@ -414,19 +417,33 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [selectedRowForMenu, setSelectedRowForMenu] = useState<CarDetail | null>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<CourseDetail | null>(null);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [deleteId, setDeleteId] = useState<number | null>(null);
     const [deleteName, setDeleteName] = useState<string>('');
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
-    const [selectedRowForDownload, setSelectedRowForDownload] = useState<CarDetail | null>(null);
+    const [selectedRowForDownload, setSelectedRowForDownload] = useState<CourseDetail | null>(null);
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [attachmentsToView, setAttachmentsToView] = useState<AttachmentType[]>([]);
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
-    // --- Utility Functions ---
+    const [openDateTimesModal, setOpenDateTimesModal] = useState(false);
+    const [courseIdForModal, setCourseIdForModal] = useState<number | null>(null);
+    const [courseTitleForModal, setCourseTitleForModal] = useState('');
+
+    const [courseStartForModal, setCourseStartForModal] = useState<string | null>(null);
+    const [courseEndForModal, setCourseEndForModal] = useState<string | null>(null);
+
+    // State for Course Participants Modal
+    const [openParticipantsModal, setOpenParticipantsModal] = useState(false);
+    // const [dateTimesCount, setDateTimesCount] = useState<number | null>(null);
+
+
+    // --- Utility Functions (Alerts) ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -439,97 +456,88 @@ const ListDetailsCarWarehouse: React.FC = () => {
     }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // --- Data Mapping ---
-    const mapApiDataToCarDetail = (r: any): CarDetail => ({
-        id: Number(r.id),
-        brand: r.brand,
-        model: r.model,
-        manufactureDate: r.manufactureDate,
-        plaque: r.plaque,
+
+    const mapApiDataToCourseDetail = (r: any): CourseDetail => ({
+        id: Number(r.id), // تبدیل ID به عدد
+        title: r.title,
         description: r.description || '',
-        carWarehouseId: Number(r.carWarehouseId),
+        startDateTime: r.startDateTime,
+        endDateTime: r.endDateTime,
         attachments: (r.attachments || r.attacments || []).map((a: any) => ({ fileUrl: a.fileUrl })),
+        teacherId: Number(r.teacher?.id), // ⭐️ استخراج teacherId از آبجکت teacher
         recordStatus: Number(r.recordStatus) as 0 | 1,
         createAt: r.createAt,
+        // ⭐️ فیلدهای جدید/تأیید شده ⭐️
+        teacher: r.teacher as TeacherApi,
+        user: r.user as UserDetail,
+        workhouse: r.workhouse || null,
     });
 
-    // --- Data Fetching: Get Car Warehouses List ⭐️ ---
-    const fetchCarWarehouses = useCallback(async () => {
+    const fetchTeachers = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
 
         try {
-            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`, { headers: { "Authorization": `Bearer ${authToken}` } });
+            const url = `${server.baseurl}${server.education}get-all-teachers/`;
+            const response = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
-                const activeWarehouses = response.data.data.filter((w: CarWarehouseApi) => w.recordStatus === 0);
-                setCarWarehousesList(activeWarehouses);
-                // ⭐️ تنظیم انبار پیش‌فرض به اولین مورد
-                if (activeWarehouses.length > 0) {
-                    const defaultWarehouse = activeWarehouses[0];
+                const activeTeachers = response.data.data
+                    .filter((t: any) => t.recordStatus === 0)
+                    .map((t: any) => ({ ...t, id: String(t.id) } as TeacherApi));
 
-                    // ۱. مقداردهی کمبوی فیلتر جدول (وضعیت B)
-                    setTableCarWarehouse(defaultWarehouse);
-                }
+                setTeachersList(activeTeachers);
             } else {
-                showAlert('Araç Depo listesi alınamadı.', 'error');
+                showAlert('Öğretmen listesi alınamadı.', 'error');
             }
         } catch (e) {
-            showAlert('Araç Depo listesi yüklenirken bir hata oluştu.', 'error');
+            showAlert('Öğretmen listesi yüklenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 
-    // --- Data Fetching: Get Car Details ⭐️ ---
-    const fetchCarDetails = useCallback(async (warehouseId: string | null) => {
-        if (!warehouseId) {
-            setCarDetails([]);
-            setLoadingData(false);
-            return;
-        }
-
+    const fetchCourses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); setLoadingData(false); return; }
 
         try {
-            // API: get-car-warehouse-details-by-warehouseId/warehouseId
-            const url = `${server.baseurl}${server.warehouse}get-car-warehouse-details-by-warehouseId/${warehouseId}`;
+            const url = `${server.baseurl}${server.education}get-all-courses`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
-                const rawRows = (res.data.data as any[]).map(mapApiDataToCarDetail);
-                setCarDetails(rawRows);
+                const rawRows = (res.data.data as any[]).map(mapApiDataToCourseDetail);
+                setCourses(rawRows);
             } else {
-                showAlert(res.data.message || 'Araç detayları yüklenirken bir hata oluştu.', 'error');
+                showAlert(res.data.message || 'Kurs detayları yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e) {
-            showAlert('Araç detayları yüklenirken bir hata oluştu.', 'error');
+            showAlert('Kurs detayları yüklenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
     }, [navigate, showAlert]);
 
-    // --- Initial Load Effect ⭐️ ---
+    // --- Initial Load Effect ---
     useEffect(() => {
-        fetchCarWarehouses();
-    }, [fetchCarWarehouses]);
-
-    // --- Fetch Details on Warehouse Change Effect ⭐️ ---
-    useEffect(() => {
-        setPage(0);
-        // ⬅️ فقط بر اساس وضعیت B (tableCarWarehouse) داده‌ها را واکشی کند.
-        fetchCarDetails(tableCarWarehouse ? tableCarWarehouse.id : null);
-    }, [tableCarWarehouse, fetchCarDetails]);
+        fetchTeachers();
+        fetchCourses();
+    }, [fetchTeachers, fetchCourses]);
 
 
+    // ------------------------------------
     // --- Form Logic ---
+    // ------------------------------------
     const validateForm = (): boolean => {
         let ok = true;
-        setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false); // ⭐️ خطای انبار اضافه شد
+        setTitleError(false); setTeacherError(false); setStartDateTimeError(false); setEndDateTimeError(false);
 
-        if (!selectedCarWarehouse) { setWarehouseError(true); ok = false; } // ⭐️ اعتبارسنجی انبار
-        if (!brand.trim()) { setBrandError(true); ok = false; }
-        if (!model.trim()) { setModelError(true); ok = false; }
-        if (!plaque.trim()) { setPlaqueError(true); ok = false; }
-        if (!manufactureDate) { setDateError(true); ok = false; }
+        if (!title.trim()) { setTitleError(true); ok = false; }
+        if (!selectedTeacher) { setTeacherError(true); ok = false; }
+        if (!startDateTime) { setStartDateTimeError(true); ok = false; }
+        if (!endDateTime) { setEndDateTimeError(true); ok = false; }
+        if (startDateTime && endDateTime && startDateTime >= endDateTime) {
+            setEndDateTimeError(true);
+            showAlert('Bitiş tarihi başlangıç tarihinden sonra olmalıdır.', 'warning');
+            ok = false;
+        }
 
         if (!ok) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return ok;
@@ -537,46 +545,48 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
     const resetForm = useCallback(() => {
         setEditingId(null);
-        setBrand('');
-        setModel('');
-        setManufactureDate(null);
-        setAttachmentError(false);
-        setPlaque('');
+        setTitle('');
         setDescription('');
+        setStartDateTime(null);
+        setEndDateTime(null);
+        setSelectedTeacher(null);
         setSelectedFiles([]);
         setCurrentAttachments([]);
-        setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false); // ⭐️ خطای انبار اضافه شد
+        setTitleError(false); setTeacherError(false); setStartDateTimeError(false); setEndDateTimeError(false);
         setIsFormVisible(false);
     }, []);
 
-    const buildPayload = (id?: number, finalAttachments: AttachmentType[] = []): { id?: number; brand: string; model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } => {
-        // ⭐️ carWarehouseId از انبار انتخاب شده می‌آید
-        const currentWarehouseId = selectedCarWarehouse ? Number(selectedCarWarehouse.id) : 0;
-
-        const payload: { id?: number; brand: string; model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } = {
-            brand: brand.trim(),
-            model: model.trim(),
-            manufactureDate: manufactureDate ? manufactureDate.toISOString() : '',
-            plaque: plaque.trim(),
+    const buildPayload = (id?: number, finalAttachments: AttachmentType[] = [], currentStatus?: 0 | 1): any => {
+        const payload: any = {
+            title: title.trim(),
             description: description,
-            carWarehouseId: currentWarehouseId, // ⭐️ استفاده از ID انبار انتخاب شده
+            startDateTime: startDateTime?.toISOString(),
+            endDateTime: endDateTime?.toISOString(),
+            teacherId: selectedTeacher ? Number(selectedTeacher.id) : 0,
             attachments: finalAttachments,
         };
         if (id) payload.id = id;
+        if (currentStatus !== undefined) payload.recordStatus = currentStatus;
         return payload;
     };
 
     const handleSubmitForm = async () => {
-        if (!validateForm()) return;
+        if (!validateForm() || !selectedTeacher) return;
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Kimlik doğrulama hatası.', 'error'); setLoadingButton(false); return; }
 
         let fileUrls: string[] | null = [];
+        setAttachmentError(false);
         if (selectedFiles.length > 0) {
             showAlert('Dosyalar yükleniyor...', 'info');
             fileUrls = await uploadFiles(selectedFiles, authToken, showAlert);
-            if (fileUrls === null) { setLoadingButton(false); return; }
+            if (fileUrls === null) {
+                // اگر آپلود شکست بخورد
+                setAttachmentError(true); // ⭐️ تنظیم خطا
+                setLoadingButton(false);
+                return;
+            }
         }
 
         const finalAttachments: AttachmentType[] = [
@@ -585,53 +595,51 @@ const ListDetailsCarWarehouse: React.FC = () => {
         ];
 
         const isEditing = editingId !== null;
-        const singlePayloadObject = buildPayload(editingId ?? undefined, finalAttachments);
+        const currentStatus = isEditing ? courses.find(c => c.id === editingId)?.recordStatus : undefined;
 
-        let finalDataToSend: any;
+        const finalPayloadObject = buildPayload(editingId ?? undefined, finalAttachments, currentStatus);
+
         const url = isEditing
-            ? `${server.baseurl}${server.warehouse}update-car-warehouse-detail`
-            : `${server.baseurl}${server.warehouse}create-car-warehouse-detail`;
+            ? `${server.baseurl}${server.education}update-course`
+            : `${server.baseurl}${server.education}create-course`;
         const method = isEditing ? 'put' : 'post';
 
-        if (isEditing) {
-            finalDataToSend = singlePayloadObject;
-        } else {
-            finalDataToSend = [singlePayloadObject];
-        }
-
+        const finalDataToSend = finalPayloadObject
+        debugger
         try {
             const res = await axios.request({
-                method,
-                url,
-                data: finalDataToSend,
+                method, url, data: finalDataToSend,
                 headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }
             });
             const successStatus = isEditing ? 200 : 201;
 
             if (res.data.httpStatusCode === successStatus || res.data.httpStatusCode === 200) {
-                showAlert(`Araç detayı başarıyla ${isEditing ? 'güncellendi' : 'eklendi'}!`, 'success');
+                showAlert(`Kurs başarıyla ${isEditing ? 'güncellendi' : 'eklendi'}!`, 'success');
                 resetForm();
-                fetchCarDetails(selectedCarWarehouse!.id); // ⭐️ واکشی مجدد داده‌های انبار انتخابی
+                fetchCourses();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
             showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally { setLoadingButton(false); }
     };
 
-    const handleEditClick = (row: CarDetail) => {
-        // ⭐️ در حالت ویرایش، انبار موجود باید در Autocomplete نمایش داده شود.
-        // با فرض اینکه ID در row.carWarehouseId با ID در لیست انبارها مطابقت دارد.
-        const warehouseToSelect = carWarehousesList.find(w => Number(w.id) === row.carWarehouseId);
-        if (warehouseToSelect) {
-            setSelectedCarWarehouse(warehouseToSelect);
+
+    const handleEditClick = (row: CourseDetail) => {
+        const teacherToSelect = teachersList.find(t =>
+            t.id === row.teacher.id
+        );
+
+        if (teacherToSelect) {
+            setSelectedTeacher(teacherToSelect);
+        } else {
+            setSelectedTeacher(null);
         }
 
         setEditingId(row.id);
-        setBrand(row.brand);
-        setModel(row.model);
-        setManufactureDate(row.manufactureDate ? new Date(row.manufactureDate) : null);
-        setPlaque(row.plaque);
+        setTitle(row.title);
         setDescription(row.description);
+        setStartDateTime(row.startDateTime ? new Date(row.startDateTime) : null);
+        setEndDateTime(row.endDateTime ? new Date(row.endDateTime) : null);
         setCurrentAttachments(row.attachments);
         setSelectedFiles([]);
 
@@ -647,47 +655,50 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
         try {
             const response = await axios.put(
-                `${server.baseurl}${server.warehouse}update-car-warehouse-detail`,
+                `${server.baseurl}${server.education}update-course`,
                 { id: Number(id), recordStatus: statusValue },
                 { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, 'Content-Type': 'application/json' } }
             );
             if (response.data.httpStatusCode === 200) {
                 const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
-                showAlert(`Araç detayı başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                showAlert(`Kurs başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 resetForm();
-                fetchCarDetails(selectedCarWarehouse!.id); // ⭐️ واکشی مجدد داده‌ها
+                fetchCourses();
             } else {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            }
             showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally {
             handleCloseMenu();
         }
     };
 
+
+    // ------------------------------------
     // --- Table/Filter/Sort Logic ---
-    const filteredCarDetails = useMemo(() => {
-        const list = stableSort(carDetails, getComparator(order, orderBy)).filter(r => {
-            const matchesSearch = r.brand.toLowerCase().includes(searchTerm.toLowerCase()) || r.model.toLowerCase().includes(searchTerm.toLowerCase()) || r.plaque.toLowerCase().includes(searchTerm.toLowerCase());
+    // ------------------------------------
+
+    const filteredCourses = useMemo(() => {
+        const list = courses.filter(r => {
+            const matchesSearch = r.title.toLowerCase().includes(searchTerm.toLowerCase())
+                || r.description.toLowerCase().includes(searchTerm.toLowerCase())
+                || r.teacher.name.toLowerCase().includes(searchTerm.toLowerCase())
+                || r.teacher.surname.toLowerCase().includes(searchTerm.toLowerCase());
+
             const matchesStatus = statusFilter === 'all' || (statusFilter === 'active' && r.recordStatus === 0) || (statusFilter === 'inactive' && r.recordStatus === 1);
             const cDate = r.createAt ? new Date(r.createAt) : null;
             const inRange = (!startFilter || (cDate && cDate >= startFilter)) && (!endFilter || (cDate && cDate <= endFilter));
             return matchesSearch && matchesStatus && inRange;
         });
         return stableSort(list, getComparator(order, orderBy));
-    }, [carDetails, searchTerm, statusFilter, order, orderBy, startFilter, endFilter]);
+    }, [courses, searchTerm, statusFilter, order, orderBy, startFilter, endFilter]);
 
-    const paginatedRows = useMemo(() => filteredCarDetails.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredCarDetails, page, rowsPerPage]);
+    const paginatedRows = useMemo(() => filteredCourses.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredCourses, page, rowsPerPage]);
     const isFilterActive = useMemo(() => !!searchTerm.trim() || statusFilter !== 'all' || startFilter !== null || endFilter !== null, [searchTerm, statusFilter, startFilter, endFilter]);
 
 
-    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CarDetail) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
+    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CourseDetail) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
@@ -700,14 +711,15 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const handleClickOpenDeleteModal = () => {
         if (!selectedRowForMenu) return;
         setDeleteId(selectedRowForMenu.id);
-        setDeleteName(`${selectedRowForMenu.brand} (${selectedRowForMenu.plaque})`);
+        setDeleteName(`${selectedRowForMenu.title}`);
         setOpenDeleteModal(true);
         handleCloseMenu();
     };
-    const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCarDetails(selectedCarWarehouse!.id); }; // ⭐️ واکشی مجدد داده‌ها
+    const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCourses(); };
+
 
     // --- Download Handlers ---
-    const exportDetailsToPdf = (data: CarDetail[], title: string) => {
+    const exportDetailsToPdf = (data: CourseDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
 
@@ -715,10 +727,12 @@ const ListDetailsCarWarehouse: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        const columns = ['Marka', 'Model', 'Plaka', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
+        const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Açıklama', 'Kayıt Tarihi'];
         const body = data.map(r => [
-            r.brand || '-', r.model || '-', r.plaque || '-',
-            formatDateDisplay(r.manufactureDate || null),
+            r.title || '-',
+            `${r.teacher.name || ''} ${r.teacher.surname || ''}` || '-',
+            formatDateDisplay(r.startDateTime || null),
+            formatDateDisplay(r.endDateTime || null),
             r.description,
             formatDateDisplay(r.createAt || null),
         ]);
@@ -748,7 +762,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     };
 
-    const exportDetailsToExcel = (data: CarDetail[], title: string) => {
+    const exportDetailsToExcel = (data: CourseDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('Excel oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Excel dosyası oluşturuluyor...', 'info');
 
@@ -756,7 +770,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet(title.substring(0, 31));
 
-            const columns = ['Marka', 'Model', 'Plaka', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
+            const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Açıklama', 'Kayıt Tarihi'];
             addExcelHeader(worksheet, title, columns.length);
 
             const headerRow = worksheet.addRow(columns);
@@ -765,8 +779,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
             data.forEach(r => {
                 worksheet.addRow([
-                    r.brand || '-', r.model || '-', r.plaque || '-',
-                    formatDateDisplay(r.manufactureDate || null),
+                    r.title || '-',
+                    `${r.teacher.name || ''} ${r.teacher.surname || ''}` || '-',
+                    formatDateDisplay(r.startDateTime || null),
+                    formatDateDisplay(r.endDateTime || null),
                     r.description || '-',
                     formatDateDisplay(r.createAt || null),
                 ]);
@@ -798,34 +814,30 @@ const ListDetailsCarWarehouse: React.FC = () => {
     };
 
     const handleDownloadAll = (format: 'pdf' | 'excel') => {
-        const warehouseName = selectedCarWarehouse?.name || 'Tüm';
-        const title = `Tüm Araç Detay Raporu (${warehouseName})`;
-        format === 'pdf' ? exportDetailsToPdf(carDetails, title) : exportDetailsToExcel(carDetails, title);
+        const title = `Tüm Kurslar Raporu`;
+        format === 'pdf' ? exportDetailsToPdf(courses, title) : exportDetailsToExcel(courses, title);
         setOpenDownloadAllModal(false);
     };
     const handleDownloadFiltered = (format: 'pdf' | 'excel') => {
-        const warehouseName = selectedCarWarehouse?.name || 'Filtrelenmiş';
-        const title = `Filtrelenmiş Araç Detay Raporu (${warehouseName})`;
-        format === 'pdf' ? exportDetailsToPdf(filteredCarDetails, title) : exportDetailsToExcel(filteredCarDetails, title);
+        const title = `Filtrelenmiş Kurslar Raporu`;
+        format === 'pdf' ? exportDetailsToPdf(filteredCourses, title) : exportDetailsToExcel(filteredCourses, title);
         setOpenDownloadFilteredModal(false);
     };
 
-    const handleOpenRowDownloadModal = (row: CarDetail) => { setSelectedRowForDownload(row); setOpenRowDownloadModal(true); handleCloseMenu(); };
-
+    const handleOpenRowDownloadModal = (row: CourseDetail) => { setSelectedRowForDownload(row); setOpenRowDownloadModal(true); handleCloseMenu(); };
     const handleCloseRowDownloadModal = () => { setOpenRowDownloadModal(false); setSelectedRowForDownload(null); };
     const handleDownloadRow = (format: 'pdf' | 'excel') => {
         if (!selectedRowForDownload) return;
-        const title = `Araç Detayları: ${selectedRowForDownload.plaque}`;
+        const title = `Kurs Detayları: ${selectedRowForDownload.title}`;
         format === 'pdf' ? exportDetailsToPdf([selectedRowForDownload], title) : exportDetailsToExcel([selectedRowForDownload], title);
         handleCloseRowDownloadModal();
     };
 
-    const handleOpenAttachmentsModal = (row: CarDetail) => {
+    const handleOpenAttachmentsModal = (row: CourseDetail) => {
         setAttachmentsToView(row.attachments);
         setOpenAttachmentsModal(true);
         handleCloseMenu();
     };
-
 
     const handleDownloadClick = (fileUrl: string) => {
         if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; }
@@ -833,7 +845,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
         window.open(url, '_blank');
         showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
     };
-
 
     const handleOpenDescriptionModal = (descriptionContent: string) => {
         setFullDescriptionContent(descriptionContent);
@@ -844,6 +855,67 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
     };
+
+
+
+    // در ListCourses
+    const handleOpenDateTimesModal = (row: CourseDetail) => {
+        // 1. ذخیره تاریخ‌های دوره اصلی
+        setCourseStartForModal(row.startDateTime); // string format
+        setCourseEndForModal(row.endDateTime);     // string format
+
+        // 2. تنظیم شناسه و عنوان
+        setCourseIdForModal(row.id);
+        setCourseTitleForModal(row.title);
+
+        // 3. باز کردن مودال
+        setOpenDateTimesModal(true);
+        handleCloseMenu();
+    };
+
+    // به‌روزرسانی handleCloseDateTimesModal برای پاکسازی
+    const handleCloseDateTimesModal = () => {
+        setOpenDateTimesModal(false);
+        setCourseIdForModal(null);
+        setCourseTitleForModal('');
+        setCourseStartForModal(null); // ✅ پاکسازی
+        setCourseEndForModal(null);   // ✅ پاکسازی
+    };
+
+    // --- Handlers for ListCourseParticipants Modal (با بررسی شرط) ---
+    const handleOpenParticipantsModal = async (row: CourseDetail) => {
+
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Oturum süreniz doldu.', 'error'); return; }
+
+        // 1. بررسی تعداد تاریخ‌های ثبت شده برای این Course
+        try {
+            const url = `${server.baseurl}${server.education}get-course-datetimes-by-course-id/${row.id}`;
+            const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
+            const count = res.data.data?.length || 0;
+
+            if (count === 0) {
+                showAlert('Katılımcıları eklemeden önce bu kursa ait en az bir tarih kaydı oluşturun.', 'warning');
+                return;
+            }
+
+            // 2. اگر شرط رعایت شد، مودال را باز کن
+            setCourseIdForModal(row.id);
+            setCourseTitleForModal(row.title);
+            setOpenParticipantsModal(true);
+            handleCloseMenu();
+
+        } catch (e) {
+            showAlert('Tarih kayıtları kontrol edilirken hata oluştu.', 'error');
+        }
+    };
+
+    const handleCloseParticipantsModal = () => {
+        setOpenParticipantsModal(false);
+        setCourseIdForModal(null);
+        setCourseTitleForModal('');
+    };
+
 
     return (
         <>
@@ -859,7 +931,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                     flexWrap="wrap"
                 >
                     <Typography variant="h5" sx={{ mb: { xs: 2, md: 0 } }}>
-                        Araç Depo Detayları - ({selectedCarWarehouse?.name || 'Depo Seçilmedi'})
+                        Kurs Yönetimi
                     </Typography>
 
                     {/* Action Buttons */}
@@ -871,7 +943,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                     >
                         {!isFormVisible && hasCreatePermission && (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Detay Ekle Belgesi kaydetmek için tıklayınız" : ""}>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Kurs Ekle" : ""}>
                                 <BlinkingButton
                                     variant="contained"
                                     color="primary"
@@ -879,7 +951,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     isBlinking={isBlinking}
                                     fullWidth={false}
                                 >
-                                    Yeni Detay Ekle
+                                    Yeni Kurs Ekle
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -897,8 +969,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 </Button>
                             </CustomTooltip>
                         )}
-
-
                     </Stack>
                 </Stack>
 
@@ -906,58 +976,59 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 {/* --- Form Section --- */}
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-                        <Typography variant="h6" mb={2}>{editingId ? 'Araç Detayını Düzenle' : 'Yeni Araç Detay Kaydı'}</Typography>
+                        <Typography variant="h6" mb={2}>{editingId ? 'Kurs Düzenle' : 'Yeni Kurs Kaydı'}</Typography>
                         <Grid container spacing={2}>
-                            {/* Car Warehouse Selection (Form) ⭐️ */}
+                            {/* Title & Teacher Selection */}
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Araç Depo</CustomFormLabel>
+                                <CustomFormLabel required>Kurs Adı</CustomFormLabel>
+                                <CustomTextField placeholder="Kurs Başlığı" size="small" fullWidth value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setTitle(e.target.value); setTitleError(false); }} error={titleError} helperText={titleError ? 'Zorunlu alan.' : ''} />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Öğretmen Seçimi</CustomFormLabel>
                                 <Autocomplete
                                     size="small"
-                                    options={carWarehousesList}
-                                    getOptionLabel={(option) => `${option.name} (${option.code})`}
+                                    options={teachersList}
+                                    getOptionLabel={(option) => `${option.name} ${option.surname} (${option.field})`}
                                     isOptionEqualToValue={(option, value) => option.id === value.id}
-                                    value={selectedCarWarehouse}
-                                    onChange={(_, newValue) => {
-                                        setSelectedCarWarehouse(newValue);
-                                        setWarehouseError(false);
-                                    }}
+                                    value={selectedTeacher}
+                                    onChange={(_, newValue) => { setSelectedTeacher(newValue); setTeacherError(false); }}
                                     renderInput={(params) => (
                                         <TextField
                                             {...params}
-                                            label="Araç Depo Seçin"
-                                            error={warehouseError}
-                                            helperText={warehouseError ? 'Bu alan zorunludur!' : ''}
+                                            label="Öğretmen Seçin"
+                                            error={teacherError}
+                                            helperText={teacherError ? 'Bu alan zorunludur!' : ''}
                                         />
                                     )}
-                                    // ⭐️ در حالت ویرایش، اجازه تغییر انبار داده می‌شود
                                     disabled={loadingButton}
                                 />
                             </Grid>
-                            {/* Brand & Model */}
+                            {/* Start DateTime */}
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Marka</CustomFormLabel>
-                                <CustomTextField placeholder="Marka Adı" size="small" fullWidth value={brand} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setBrand(e.target.value); setBrandError(false); }} error={brandError} helperText={brandError ? 'Zorunlu alan.' : ''} inputRef={brandInputRef} />
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Model</CustomFormLabel>
-                                <CustomTextField placeholder="Model Adı" size="small" fullWidth value={model} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setModel(e.target.value); setModelError(false); }} error={modelError} helperText={modelError ? 'Zorunlu alan.' : ''} />
-                            </Grid>
-                            {/* Manufacture Date & Plaque */}
-                            <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Üretim Tarihi</CustomFormLabel>
+                                <CustomFormLabel required>Başlangıç Tarihi/Saati</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                     <DatePicker
-                                        label="Üretim Tarihi"
-                                        value={manufactureDate}
-                                        onChange={(v) => { setManufactureDate(v); setDateError(false); }}
+                                        label="Başlangıç"
+                                        value={startDateTime}
+                                        onChange={(v) => { setStartDateTime(v); setStartDateTimeError(false); }}
                                         inputFormat="dd/MM/yyyy"
-                                        renderInput={(params) => <TextField {...params} size="small" fullWidth error={dateError} helperText={dateError ? 'Zorunlu alan.' : params.helperText} />}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth error={startDateTimeError} helperText={startDateTimeError ? 'Zorunlu alan.' : params.helperText} />}
                                     />
                                 </LocalizationProvider>
                             </Grid>
+                            {/* End DateTime */}
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Plaka</CustomFormLabel>
-                                <CustomTextField placeholder="Plaka Numarası" size="small" fullWidth value={plaque} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setPlaque(e.target.value); setPlaqueError(false); }} error={plaqueError} helperText={plaqueError ? 'Zorunlu alan.' : ''} />
+                                <CustomFormLabel required>Bitiş Tarihi/Saati</CustomFormLabel>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <DatePicker
+                                        label="Bitiş"
+                                        value={endDateTime}
+                                        minDate={startDateTime || undefined}
+                                        onChange={(v) => { setEndDateTime(v); setEndDateTimeError(false); }}
+                                        inputFormat="dd/MM/yyyy"
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth error={endDateTimeError} helperText={endDateTimeError ? 'Zorunlu alan veya başlangıçtan sonra olmalı.' : params.helperText} />}
+                                    />
+                                </LocalizationProvider>
                             </Grid>
                             {/* Description */}
                             <Grid item xs={12}>
@@ -975,14 +1046,20 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     setCurrentAttachments={setCurrentAttachments}
                                 />
                             </Grid>
-
                             {/* Form Actions */}
                             <Grid item xs={12}>
                                 <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                    <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmitForm} disabled={loadingButton || !selectedCarWarehouse} size="small">
+                                    <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmitForm} disabled={loadingButton || !selectedTeacher || !startDateTime || !endDateTime} size="small">
                                         {loadingButton ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Bekleniyor...</> : editingId ? 'Düzenle' : 'Yeni Kayıt Ekle'}
                                     </Button>
-                                    <Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button>
+
+                                    {editingId ? (
+                                        <Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button>
+
+                                    ) : (
+                                        <></>
+                                    )
+                                    }
                                 </Stack>
                             </Grid>
                         </Grid>
@@ -996,55 +1073,26 @@ const ListDetailsCarWarehouse: React.FC = () => {
             )}
 
             <BlankCard>
-
                 <Box sx={{ p: 2 }}>
-                    <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={6}>
-                            <Autocomplete
-                                size="small"
-                                options={carWarehousesList}
-                                getOptionLabel={(option) => `${option.name} (${option.code})`}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={selectedCarWarehouse}
-                                onChange={(_, newValue) => {
-                                    setTableCarWarehouse(newValue);
-                                }}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        label="Araç Depo Seçin"
-                                        error={warehouseError}
-                                        helperText={warehouseError ? 'Lütfen bir depo seçin.' : ''}
-                                    />
-                                )}
-                            />
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={6}>
 
-                            <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
-                                {isFilterActive && hasDownloadPermission && (
-                                    <BlinkingButton variant="contained"
-                                        color="secondary" onClick={() => setOpenDownloadFilteredModal(true)}
-                                        isBlinking={true} disabled={loadingData} startIcon={<IconFileDownload />} size="small">Filtrelenmişi İndir</BlinkingButton>
-                                )}
-                                {hasDownloadPermission && (
-                                    <Button variant="contained" color="primary"
-                                        onClick={() => setOpenDownloadAllModal(true)} startIcon={<IconFileDownload />}
-                                        disabled={loadingData} size="small">Tümünü İndir</Button>
-                                )}
-                            </Stack>
-
-                        </Grid>
+                    <Grid item xs={12} mb={2}>
+                        <Stack direction="row" spacing={1} justifyContent="flex-end" mr={1}>
+                            {isFilterActive && hasDownloadPermission && (
+                                <BlinkingButton variant="contained"
+                                    color="secondary" onClick={() => setOpenDownloadFilteredModal(true)}
+                                    isBlinking={true} disabled={loadingData} startIcon={<IconFileDownload />} size="small">Filtrelenmişi İndir</BlinkingButton>
+                            )}
+                            {hasDownloadPermission && (
+                                <Button variant="contained" color="primary"
+                                    onClick={() => setOpenDownloadAllModal(true)} startIcon={<IconFileDownload />}
+                                    disabled={loadingData} size="small">Tümünü İndir</Button>
+                            )}
+                        </Stack>
                     </Grid>
-                </Box>
-                <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        {/* Warehouse Selector for Table Filtering */}
-
-
                         {/* Search & Date Filters */}
                         <Grid item xs={12} sm={6} md={3}>
-                            <TextField label="Ara (Marka / Model / Plaka)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
+                            <TextField label="Ara (Başlık / Öğretmen)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} size="small" InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1060,10 +1108,16 @@ const ListDetailsCarWarehouse: React.FC = () => {
                             </LocalizationProvider>
                         </Grid>
                         <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
-                            <ToggleButtonGroup value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Durum filtresi" sx={{ flexGrow: 1 }}>
-                                <MuiToggleButton value="all" data-value="all" size="small">Tümü</MuiToggleButton>
-                                <MuiToggleButton value="active" data-value="active" size="small">Aktif</MuiToggleButton>
-                                <MuiToggleButton value="inactive" data-value="inactive" size="small">Pasif</MuiToggleButton>
+                            <ToggleButtonGroup
+                                value={statusFilter}
+                                exclusive
+                                onChange={handleStatusFilterChange}
+                                aria-label="Durum filtresi"
+                                sx={{ flexGrow: 1 }}
+                            >
+                                <StyledToggleButton value="all" data-value="all" size="small">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="active" data-value="active" size="small">Aktif</StyledToggleButton>
+                                <StyledToggleButton value="inactive" data-value="inactive" size="small">Pasif</StyledToggleButton>
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
@@ -1074,17 +1128,16 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 <TableContainer>
                     {loadingData ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-                            <CircularProgress /><Typography variant="h6" sx={{ ml: 2 }}>Araç detayları yükleniyor... ({selectedCarWarehouse?.name || 'Lütfen depo seçin'})</Typography>
+                            <CircularProgress /><Typography variant="h6" sx={{ ml: 2 }}>Kurslar yükleniyor...</Typography>
                         </Box>
                     ) : (
-                        <Table aria-label="car details table">
+                        <Table aria-label="courses table">
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                 <TableRow>
-                                    <StyledTableCell><TableSortLabel active={orderBy === 'plaque'} direction={orderBy === 'plaque' ? order : 'asc'} onClick={() => handleRequestSort('plaque')} sx={{ color: 'inherit' }}><Typography variant="h6">Plaka</Typography></TableSortLabel></StyledTableCell>
-                                    <StyledTableCell><TableSortLabel active={orderBy === 'brand'} direction={orderBy === 'brand' ? order : 'asc'} onClick={() => handleRequestSort('brand')} sx={{ color: 'inherit' }}><Typography variant="h6">Marka</Typography></TableSortLabel></StyledTableCell>
-                                    <StyledTableCell><TableSortLabel active={orderBy === 'model'} direction={orderBy === 'model' ? order : 'asc'} onClick={() => handleRequestSort('model')} sx={{ color: 'inherit' }}><Typography variant="h6">Model</Typography></TableSortLabel></StyledTableCell>
-
-                                    <StyledTableCell><TableSortLabel active={orderBy === 'manufactureDate'} direction={orderBy === 'manufactureDate' ? order : 'asc'} onClick={() => handleRequestSort('manufactureDate')} sx={{ color: 'inherit' }}><Typography variant="h6">Üretim Tarihi</Typography></TableSortLabel></StyledTableCell>
+                                    <StyledTableCell><TableSortLabel active={orderBy === 'title'} direction={orderBy === 'title' ? order : 'asc'} onClick={() => handleRequestSort('title')} sx={{ color: 'inherit' }}><Typography variant="h6">Başlık</Typography></TableSortLabel></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Öğretmen</Typography></StyledTableCell>
+                                    <StyledTableCell><TableSortLabel active={orderBy === 'startDateTime'} direction={orderBy === 'startDateTime' ? order : 'asc'} onClick={() => handleRequestSort('startDateTime')} sx={{ color: 'inherit' }}><Typography variant="h6">Başlangıç</Typography></TableSortLabel></StyledTableCell>
+                                    <StyledTableCell><TableSortLabel active={orderBy === 'endDateTime'} direction={orderBy === 'endDateTime' ? order : 'asc'} onClick={() => handleRequestSort('endDateTime')} sx={{ color: 'inherit' }}><Typography variant="h6">Bitiş</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} sx={{ color: 'inherit' }}><Typography variant="h6">Kayıt Tarihi</Typography></TableSortLabel></StyledTableCell>
@@ -1096,13 +1149,14 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 {paginatedRows.length > 0 ? (
                                     paginatedRows.map((row) => (
                                         <TableRow key={row.id}>
-                                            <StyledTableCell>{row.plaque || '-'}</StyledTableCell>
-                                            <StyledTableCell>{row.brand || '-'}</StyledTableCell>
-                                            <StyledTableCell>{row.model || '-'}</StyledTableCell>
-                                            <StyledTableCell>{formatDateDisplay(row.manufactureDate || null)}</StyledTableCell>
+                                            <StyledTableCell>{row.title || '-'}</StyledTableCell>
+                                            <StyledTableCell>{`${row.teacher.name || ''} ${row.teacher.surname || ''}` || 'Bilinmiyor'}</StyledTableCell>
+                                            <StyledTableCell>{formatDateDisplay(row.startDateTime || null)}</StyledTableCell>
+                                            <StyledTableCell>{formatDateDisplay(row.endDateTime || null)}</StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
-                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis',
+                                                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                                                 }}>
                                                     <div dangerouslySetInnerHTML={{ __html: row.description }} />
                                                 </Box>
@@ -1122,14 +1176,20 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                             <StyledTableCell>
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
+                                                    <MuiMenuItem onClick={() => handleOpenDateTimesModal(selectedRowForMenu!)}>
+                                                        <ListItemIcon><IconLink width={18} /></ListItemIcon>Course DateTimes
+                                                    </MuiMenuItem>
+                                                    <MuiMenuItem onClick={() => handleOpenParticipantsModal(selectedRowForMenu!)}>
+                                                        <ListItemIcon><IconLink width={18} /></ListItemIcon>Course Participants
+                                                    </MuiMenuItem>
                                                     {hasEditPermission && (<MuiMenuItem onClick={() => handleEditClick(selectedRowForMenu!)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>)}
                                                     {hasEditPermission && (
                                                         selectedRowForMenu?.recordStatus === 0 ? (
-                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şantiyenin Depo pasif yap" : ""}>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kursu pasif yap" : ""}>
                                                                 <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 1)}><ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon> Pasif Yap</MuiMenuItem>
                                                             </CustomTooltip>
                                                         ) : (
-                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şantiyenin Depo aktif yap" : ""}>
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kursu aktif yap" : ""}>
                                                                 <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 0)}><ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon> Aktif Yap</MuiMenuItem>
                                                             </CustomTooltip>
                                                         )
@@ -1141,24 +1201,24 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                         </TableRow>
                                     ))
                                 ) : (
-                                    <TableRow><StyledTableCell colSpan={9} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç araç detayı bulunamadı.</Typography></StyledTableCell></TableRow>
+                                    <TableRow><StyledTableCell colSpan={9} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç kurs kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
                     )}
                 </TableContainer>
 
-                <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredCarDetails.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
+                <TablePagination rowsPerPageOptions={[5, 10, 25]} component="div" count={filteredCourses.length} rowsPerPage={rowsPerPage} page={page} onPageChange={handleChangePage} onRowsPerPageChange={handleChangeRowsPerPage} labelRowsPerPage="Satır başına düşen:" labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count !== -1 ? count : `+${to}`}`} />
             </BlankCard>
 
             {/* --- Download Modals --- */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
-                <DialogTitle>Tüm Detayları İndir</DialogTitle>
+                <DialogTitle>Tüm Kursları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAll('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAll('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
                 <DialogActions><Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
             <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
-                <DialogTitle>Filtrelenmiş Detayları İndir</DialogTitle>
+                <DialogTitle>Filtrelenmiş Kursları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadFiltered('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadFiltered('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>
                 <DialogActions><Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
@@ -1168,13 +1228,32 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 <DialogActions><Button onClick={handleCloseRowDownloadModal} color="secondary">Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* --- Delete Modal --- */}
-            <DeleteDetailsCarWarehouse
+            {/* --- Delete Modal (Using DeleteCourses component) --- */}
+            <DeleteCourses
                 openModal={openDeleteModal}
                 onClose={handleCloseDeleteModal}
                 idToDelete={deleteId}
                 nameToDelete={deleteName}
-                onDeleteSuccess={() => fetchCarDetails(selectedCarWarehouse!.id)} // ⭐️ به‌روزرسانی
+                onDeleteSuccess={fetchCourses}
+                showAlert={showAlert}
+            />
+
+            <ListCourseDateTimes
+                open={openDateTimesModal}
+                courseId={courseIdForModal}
+                courseTitle={courseTitleForModal}
+                onClose={handleCloseDateTimesModal}
+                showAlert={showAlert}
+                courseStart={courseStartForModal}
+                courseEnd={courseEndForModal}
+            />
+
+            {/* --- Course Participants Modal --- */}
+            <ListCourseParticipants
+                open={openParticipantsModal}
+                courseId={courseIdForModal}
+                courseTitle={courseTitleForModal}
+                onClose={handleCloseParticipantsModal}
                 showAlert={showAlert}
             />
 
@@ -1228,4 +1307,4 @@ const ListDetailsCarWarehouse: React.FC = () => {
     );
 };
 
-export default ListDetailsCarWarehouse;
+export default ListCourses;

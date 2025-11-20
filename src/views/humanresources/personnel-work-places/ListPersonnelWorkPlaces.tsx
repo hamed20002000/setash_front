@@ -296,9 +296,6 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                     })) as PersonnelLite[];
 
                 setPersonnels(filteredAndMapped);
-                // setCarWarehousesList با داده‌های پرسنل منطقی نیست، اگر Filo لیست دیگری است باید از API دیگری گرفته شود.
-                // اگر API کارواش ندارید، این خط را باید حذف کنید یا API را فعال کنید:
-                setCarWarehousesList(filteredAndMapped);
             } else { showAlert(res.data.message || 'Personel listesi alınamadı.', 'error'); }
         } catch (e) { showAlert('Personel listesi çekilirken bir hata oluştu.', 'error'); }
     }, [navigate]);
@@ -363,24 +360,25 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         } catch (e) { showAlert('Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
     }, [navigate]);
 
-    // (NEW) Fetch CarWarehouses (Filo)
-    // const fetchCarWarehouses = useCallback(async () => {
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) { navigate('/'); return; }
-    //     try {
-    //         // فرض می‌کنیم این API برای Filo است
-    //         const response = await axios.get(server.baseurl + server.initialoperations + "get-car-warehouses", { headers: { Authorization: `Bearer ${authToken}` } });
-    //         if (response.data.httpStatusCode === 200) {
-    //             const all = response.data.data as any[];
-    //             const mapped = all.map(item => ({
-    //                 id: Number(item.id),
-    //                 name: item.name,
-    //                 code: item.code,
-    //             })) as CarWarehouseType[];
-    //             setCarWarehousesList(mapped);
-    //         } else { showAlert(response.data.message || 'Filo listesi alınamadı.', 'error'); }
-    //     } catch (e) { showAlert('Filo listesi çekilirken bir hata oluştu.', 'error'); }
-    // }, [navigate]);
+    const fetchCarWarehouses = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { navigate('/'); return; }
+        try {
+            // API: get-car-warehouses
+            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`, { headers: { Authorization: `Bearer ${authToken}` } });
+            if (response.data.httpStatusCode === 200) {
+                const all = response.data.data as any[];
+                const mapped = all
+                    .filter((item: any) => item.recordStatus === 0) // فقط رکوردهای فعال (Aktif)
+                    .map((item: any) => ({
+                        id: Number(item.id),
+                        name: item.name,
+                        code: item.code,
+                    })) as CarWarehouseType[];
+                setCarWarehousesList(mapped);
+            } else { showAlert(response.data.message || 'Filo listesi alınamadı.', 'error'); }
+        } catch (e) { showAlert('Filo listesi çekilirken bir hata oluştu.', 'error'); }
+    }, [navigate]);
 
     const fetchStoresByWorkhouseId = useCallback(async (workhouseId: number) => {
         const authToken = localStorage.getItem('authToken');
@@ -553,7 +551,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate, warehousesList])
+    }, [navigate, warehousesList, workhousesList, carWarehousesList]);
 
 
 
@@ -563,14 +561,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         getListPositions();
         fetchWarehouses();
         fetchWorkhouses();
-        // fetchCarWarehouses(); // اگر API Filo دارید، اینجا فراخوانی کنید
+        fetchCarWarehouses(); // اگر API Filo دارید، اینجا فراخوانی کنید
         getListUsers();
 
     }, []);
     // CRITICAL FIX: Load all data first, then fetch assignments relying on the data.
     useEffect(() => {
         fetchAssignments();
-    }, [fetchAssignments, warehousesList]);
+    }, [fetchAssignments, warehousesList, workhousesList, carWarehousesList]);
 
     // ------------------------------------
     // Form Logic (UPDATED)
@@ -1486,9 +1484,9 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                 <Grid item xs={12} sm={4}>
                                     <CustomFormLabel required>Filo Depo</CustomFormLabel>
                                     <Autocomplete
-                                        options={carWarehousesList}
+                                        options={carWarehousesList} // ⭐️ استفاده از لیست واکشی شده ⭐️
                                         size="small"
-                                        getOptionLabel={(option) => option.name}
+                                        getOptionLabel={(option) => `${option.name} (${option.code || '-'})`} // نمایش نام و کد
                                         value={carWarehousesList.find(w => w.id === selectedCarWarehouseId) || null}
                                         isOptionEqualToValue={(option, value) => option.id === value.id}
 

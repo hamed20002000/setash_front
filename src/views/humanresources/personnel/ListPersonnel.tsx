@@ -8,7 +8,9 @@ import {
     DialogTitle, DialogContent, DialogActions, CircularProgress, Autocomplete,
     RadioGroup, FormControlLabel, Radio, FormLabel, Divider, Stepper, Step, StepLabel,
     Backdrop,
-    CardMedia
+    CardMedia,
+    Paper,
+    DialogContentText
 } from "@mui/material";
 import { keyframes, styled } from "@mui/material/styles";
 import BoltIcon from "@mui/icons-material/Bolt";
@@ -106,6 +108,18 @@ export interface PersonnelType {
     attachments?: Attachment[]; // NEW: Ek Belgeler
 }
 type PositionOption = { id: number; title: string };
+
+
+export interface CarConsignment {
+    id: string; // شناسه امانت خودرو
+    carWarhouseDetailId: number;
+    plaque: string; // پلاک خودرو
+    model: string;
+    brand: string;
+    description: string;
+    attachments: Attachment[];
+}
+
 
 const SEX_LABELS = ["Erkek", "Kadın"] as const;
 const SALARY_TYPE_LABELS = ["Aylık", "Günlük"] as const;
@@ -291,6 +305,7 @@ const ListPersonnel: React.FC = () => {
     const [downloadScope, setDownloadScope] = useState<"all" | "row">("all");
     const [rowForDownload, setRowForDownload] = useState<PersonnelType | null>(null);
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false); // NEW
+    const [attachmentsToView, setAttachmentsToView] = useState<Attachment[]>([]);
     const [rowForAttachments, setRowForAttachments] = useState<PersonnelType | null>(null); // NEW
 
     const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
@@ -321,7 +336,11 @@ const ListPersonnel: React.FC = () => {
 
 
     const [openActiveConsignmentsModal, setOpenActiveConsignmentsModal] = useState(false); // NEW
-    const [activeConsignments, setActiveConsignments] = useState<any[]>([]); // NEW: برای نگهداری اموال فعال
+    const [activeConsignments, setActiveConsignments] = useState<any[]>([]);
+    const [activeCarConsignment, setActiveCarConsignment] = useState<any[]>([]);;
+
+
+
     const [activeConsignmentImageUrls, setActiveConsignmentImageUrls] = useState<string[]>([]); // NEW: برای اسلایدر (اگر تصمیم به نمایش در همین مودال بگیریم)
     const [openImageSlider, setOpenImageSlider] = useState(false);
 
@@ -743,7 +762,7 @@ const ListPersonnel: React.FC = () => {
         doc.setFontSize(10);
         doc.text('İmza', pageWidth - 15, bottomLineY, { align: 'right' });
 
-        doc.line(pageWidth - 65, bottomLineY - 5, pageWidth - 15, bottomLineY - 5);
+        doc.line(pageWidth - 65, bottomLineY - 10, pageWidth - 15, bottomLineY - 10);
 
         const docAny = doc as any;
         const pageCount = docAny.internal.getNumberOfPages();
@@ -1362,6 +1381,139 @@ const ListPersonnel: React.FC = () => {
     };
 
 
+    const handleDownloadConsignmentPDF = () => {
+        // 1. اعتبارسنجی داده‌ها
+        const personnel = personnelToEndCooperation;
+        const generalConsignments = activeConsignments;
+        const carConsignments = activeCarConsignment;
+
+        if (!personnel) {
+            showAlert("Personel bilgileri eksik.", "error");
+            return;
+        }
+
+        const doc = new jsPDF("p", "pt", "a4");
+
+        // تنظیمات فونت (مطابق با کدهای قبلی شما)
+        (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+        (doc.addFont as any)("NotoSans-Regular.ttf", "NotoSans", "normal");
+        doc.setFont("NotoSans", "normal");
+
+        const headerSpace = 100;
+        const sideMargin = 40;
+        let finalY = headerSpace + 20; // شروع محتوا
+
+        // 2. هدر گزارش
+        addPdfHeader(doc, "PERSONEL İLİŞİK KESME / ZİMMET TESLİM RAPORU");
+
+        // 3. اطلاعات پرسنل (بالای صفحه)
+        doc.setFontSize(12);
+        doc.text(`Personel Adı Soyadı: ${personnel.name} ${personnel.family}`, sideMargin, finalY);
+        finalY += 16;
+        doc.text(`TC Kimlik Numarası: ${personnel.identityNumber || '—'}`, sideMargin, finalY);
+        finalY += 16;
+        doc.text(`İşe Başlama Tarihi: ${formatDateDisplay(personnel.workStartDate)}`, sideMargin, finalY);
+        finalY += 25;
+
+        doc.setFontSize(14);
+        doc.text("1. Genel Zimmet Kayıtları", sideMargin, finalY);
+        finalY += 10;
+
+        if (generalConsignments.length === 0) {
+            finalY += 15;
+            doc.setFontSize(10);
+            doc.text("Personelin teslim etmediği aktif genel zimmet kaydı bulunmamaktadır.", sideMargin + 10, finalY);
+            finalY += 25;
+        } else {
+            const generalBody = generalConsignments.map((item) => [
+                `${item.name} (${item.code})`,
+                formatDateDisplay(item.assignmentDate),
+                item.description || '—',
+                "□",
+            ]);
+
+            autoTable((doc as any), {
+                startY: finalY,
+                head: [["Mal İsmi (Kod)", "Veriliş Tarihi", "Açıklama", "Teslim Edildi"]],
+                body: generalBody,
+                theme: "grid",
+                styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5 },
+                headStyles: { fillColor: [200, 220, 250], textColor: [0, 0, 0] },
+                columnStyles: { 3: { cellWidth: 80, halign: 'center' } },
+                margin: { left: sideMargin, right: sideMargin },
+                didDrawPage: (_data: any) => {
+                    addPdfHeader(doc, "PERSONEL İLİŞİK KESME / ZİMMET TESLİM RAPORU");
+                    addPdfFooter(doc);
+                },
+            });
+
+            finalY = (doc as any).lastAutoTable.finalY + 15;
+
+            doc.setFontSize(10);
+            doc.text("Açıklama (Genel Zimmet):", sideMargin, finalY);
+            finalY += 35;
+        }
+
+        doc.setFontSize(14);
+        doc.text("2. Araç Zimmet Kayıtları", sideMargin, finalY);
+        finalY += 10;
+
+        if (carConsignments.length === 0) {
+            finalY += 15;
+            doc.setFontSize(10);
+            doc.text("Personelin teslim etmediği aktif araç zimmet kaydı bulunmamaktadır.", sideMargin + 10, finalY);
+            finalY += 25;
+        } else {
+            const carBody = carConsignments.map((item) => [
+                `${item.name}`,
+                `${item.code}`,
+                formatDateDisplay(item.assignmentDate),
+                "□",
+            ]);
+
+            autoTable((doc as any), {
+                startY: finalY,
+                head: [["Plaka (Marka)", "Model", "Veriliş Tarihi", "Teslim Edildi"]],
+                body: carBody,
+                theme: "grid",
+                styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5 },
+                headStyles: { fillColor: [255, 240, 200], textColor: [0, 0, 0] },
+                columnStyles: { 3: { cellWidth: 80, halign: 'center' } }, // وسط‌چین کردن چک‌باکس
+                margin: { left: sideMargin, right: sideMargin },
+                didDrawPage: (_data: any) => {
+                    addPdfHeader(doc, "PERSONEL İLİŞİK KESME / ZİMMET TESLİM RAPORU");
+                    addPdfFooter(doc); // ✅ فوتر اضافه شد
+                },
+            });
+
+            finalY = (doc as any).lastAutoTable.finalY + 15;
+
+            // سطر توضیحات اموال خودرو
+            doc.setFontSize(10);
+            doc.text("Açıklama (Araç Zimmet):", sideMargin, finalY);
+            // doc.rect(sideMargin + 140, finalY - 10, 430, 15, 'S'); // فیلد متنی بزرگ
+            finalY += 35;
+        }
+
+        // 6. کادر نهایی تسویه‌حساب (در پایین)
+        doc.setFontSize(14);
+        doc.text("İlişik Kesme Onayı", sideMargin, finalY + 10);
+        finalY += 20;
+
+        doc.setFontSize(10);
+        const approvalText = "Yukarıdaki zimmet listesinin eksiksiz teslim alındığı onaylanır.";
+        doc.text(approvalText, sideMargin, finalY + 10);
+
+        // خطوط امضا
+        doc.text("Personel İmzası:", sideMargin, finalY + 40);
+        doc.line(sideMargin + 100, finalY + 40, sideMargin + 250, finalY + 40);
+
+        doc.text("HR/Yönetici İmzası:", sideMargin + 300, finalY + 40);
+        doc.line(sideMargin + 400, finalY + 40, sideMargin + 530, finalY + 40);
+
+        doc.save(`İlişik_Kesme_${personnel.name}_${personnel.family}.pdf`);
+    };
+
     const openDownloadChooserForAll = () => {
         if (!sorted.length) { showAlert("İndirilecek veri bulunamadı.", "warning"); return; }
         setDownloadScope("all"); setRowForDownload(null); setOpenDownloadModal(true);
@@ -1378,55 +1530,90 @@ const ListPersonnel: React.FC = () => {
 
 
     const handleEndCooperationCheck = async (personnel: PersonnelType) => {
-        // ... (کدهای اولیه و چک authToken) ...
         handleCloseMenu();
         setPersonnelToEndCooperation(personnel);
 
+        const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert("Lütfen giriş yapın.", "warning"); navigate("/"); return; }
 
-        showAlert("Zimmet kayıtları kontrol ediliyor...", "info");
+        showAlert("Zimmet ve Araç kayıtları kontrol ediliyor...", "info");
         setLoadingButton(true);
 
+        // ⭐️ ریست کردن Stateهای مربوط به اموال ⭐️
+        setActiveCarConsignment([]);
+        setActiveConsignments([]);
+
         try {
-            const checkRes = await axios.get(
+            // --- 1. اموال عمومی (Consignments) ---
+            const consignmentRes = await axios.get(
                 `${server.baseurl}${server.hr}ckeck-personnel-consignments/${personnel.id}`,
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
 
-            if (checkRes.data?.httpStatusCode === 200 && checkRes.data?.data) {
-
-                // 1. فیلتر کردن برای اموال واگذار شده و هنوز مرجوع نشده (returnDate === null)
-                const activeConsignmentsList = (checkRes.data.data as any[])
+            const activeGeneralConsignments = (consignmentRes.data?.httpStatusCode === 200 && consignmentRes.data?.data)
+                ? (consignmentRes.data.data as any[])
                     .filter(item => item.returnDate === null)
                     .map(item => ({
-                        // ساختار ساده شده برای نمایش در مودال
-                        id: item.id,
+                        type: 'Zimmet (Genel)',
                         assignmentDate: item.assignmentDate,
                         description: item.description,
-                        // 💡 ضمیمه‌ها از آبجکت consignment استخراج می‌شوند.
                         attachments: item.consignment?.attachments || [],
-                        consignmentName: item.consignment?.name || 'Bilinmiyor',
-                        consignmentCode: item.consignment?.code || '-',
-                    }));
+                        name: item.consignment?.name || 'Bilinmiyor',
+                        code: item.consignment?.code || '-',
+                    }))
+                : [];
 
-                if (activeConsignmentsList.length > 0) {
-                    // 2. اگر اموال فعال وجود دارد: مودال هشدار را باز کن.
-                    setActiveConsignments(activeConsignmentsList);
-                    setOpenActiveConsignmentsModal(true);
-                    showAlert(`Personelin ${activeConsignmentsList.length} adet teslim etmediği zimmeti bulunmaktadır!`, "error");
-                } else {
-                    // 3. اگر اموال فعال وجود نداشت: مستقیماً مودال تاریخ اتمام همکاری را باز کن.
-                    setEndDate(null);
-                    setOpenEndCooperationModal(true);
-                    showAlert("Zimmet kontrolü başarılı. İşten ayrılma tarihi belirlenebilir.", "success");
+            setActiveConsignments(activeGeneralConsignments);
+
+
+            // --- 2. اموال خودرو (Car Consignments) ---
+            // ⭐️⭐️⭐️ بلوک درخواست API مورد نظر شما ⭐️⭐️⭐️
+            const carConsignmentRes = await axios.get(
+                // فرض می‌کنیم این API لیست یا آخرین خودروی فعال را برمی‌گرداند.
+                `${server.baseurl}${server.warehouse}personnel-current-car/${personnel.id}`,
+                { headers: { Authorization: `Bearer ${authToken}` } }
+            );
+
+            // ⭐️ منطق مدیریت حالت‌های تک یا چندگانه خودرو ⭐️
+            let rawCarData: any[] = [];
+            if (carConsignmentRes.data?.httpStatusCode === 200 && carConsignmentRes.data?.data) {
+                if (Array.isArray(carConsignmentRes.data.data)) {
+                    rawCarData = carConsignmentRes.data.data;
+                } else if (carConsignmentRes.data.data.consigned === true) {
+                    // اگر API یک آبجکت فعال برگرداند (حالت تکی)
+                    rawCarData = [carConsignmentRes.data.data];
                 }
+            }
+
+            const activeCarConsignments = rawCarData
+                .filter(item => item.consigned === true) // فقط اقلامی که هنوز واگذار شده‌اند
+                .map(currentCarData => ({
+                    id: currentCarData.id,
+                    type: 'Zimmet (Araç)',
+                    assignmentDate: currentCarData.date,
+                    description: currentCarData.description,
+                    name: `${currentCarData.carWarhouseDetail?.brand} (${currentCarData.carWarhouseDetail?.plaque})`,
+                    code: currentCarData.carWarhouseDetail?.model || '-',
+                    attachments: currentCarData.attachments || [],
+                }));
+
+            setActiveCarConsignment(activeCarConsignments); // ⭐️ ذخیره در لیست جدید ⭐️
+
+            // --- 3. تصمیم‌گیری برای نمایش ---
+            const totalActiveCarCount = activeCarConsignments.length;
+            const totalActiveCount = activeGeneralConsignments.length + totalActiveCarCount;
+
+            if (totalActiveCount > 0) {
+                setOpenActiveConsignmentsModal(true);
+                showAlert(`Personelin ${totalActiveCount} adet teslim etmediği zimmeti bulunmaktadır! (Genel: ${activeGeneralConsignments.length}, Araç: ${totalActiveCarCount})`, "error");
             } else {
-                // 4. اگر API خطا داد یا داده برگشتی نامعتبر بود:
-                showAlert(checkRes.data?.message || "Zimmet kontrolü sırasında bir hata oluştu.", "error");
+                setEndDate(null);
+                setOpenEndCooperationModal(true);
+                showAlert("Zimmet kontrolü başarılı. İşten ayrılma tarihi belirlenebilir.", "success");
             }
 
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || "Sunucuya bağlanılamadı.", "error");
+            showAlert(e?.response?.data?.message || "Sunucuya bağlanılamadı veya zimmet kontrolü başarısız oldu.", "error");
         } finally {
             setLoadingButton(false);
         }
@@ -2429,65 +2616,122 @@ const ListPersonnel: React.FC = () => {
             </Dialog>
 
 
-            {/* Aktif Zimmetler Uyarısı Modal */}
             <Dialog open={openActiveConsignmentsModal} onClose={() => setOpenActiveConsignmentsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle sx={{ backgroundColor: 'error.main', color: 'white' }}>
                     Personelin Teslim Edilmemiş Zimmetleri Bulunmaktadır!
                 </DialogTitle>
                 <DialogContent dividers>
                     <Typography variant="subtitle1" gutterBottom>
-                        Bu personelin iş birliğini sonlandırmadan önce aşağıdaki zimmetleri iade etmesi gerekmektedir.
+                        Aşağıdaki zimmet kayıtları henüz iade edilmemiştir. İş birliğini sonlandırmadan önce iade alınması <span>gerekmektedir</span>.
                     </Typography>
-                    <TableContainer>
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <StyledTableCell>Mal İsmi (Kod)</StyledTableCell>
-                                    <StyledTableCell>Veriliş Tarihi</StyledTableCell>
-                                    <StyledTableCell>Açıklama</StyledTableCell>
-                                    <StyledTableCell>Ekler ({/* Hata: تعداد کل ضمیمه‌ها را نمی‌توان اینجا به راحتی شمرد. */} )</StyledTableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {activeConsignments.map((item, index) => (
-                                    <TableRow key={index}>
-                                        <StyledTableCell>{item.consignmentName} ({item.consignmentCode})</StyledTableCell>
-                                        <StyledTableCell>{formatDateDisplay(item.assignmentDate)}</StyledTableCell>
-                                        <StyledTableCell>{item.description || '-'}</StyledTableCell>
-                                        <StyledTableCell>
-                                            {item.attachments?.length > 0 ? (
-                                                // 💡 نمایش دکمه با تعداد و باز کردن مودال اسلایدر
-                                                <Button
-                                                    size="small"
-                                                    variant="contained"
-                                                    color="secondary"
-                                                    startIcon={<IconFile size={16} />}
-                                                    onClick={() => {
-                                                        const urls = item.attachments.map((a: Attachment) => `${server.urldpwonload}${a.fileUrl}`);
-                                                        setActiveConsignmentImageUrls(urls);
-                                                        setOpenImageSlider(true);
-                                                    }}
-                                                >
-                                                    {item.attachments.length} Ek
-                                                </Button>
-                                            ) : (
-                                                '-'
-                                            )}
-                                        </StyledTableCell>
+
+                    {/* --- A. Tablo اموال عمومی (Zimmet Genel) --- */}
+                    <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>1. Genel Zimmet Kayıtları ({activeConsignments.length})</Typography>
+
+                    {activeConsignments.length > 0 ? (
+                        <TableContainer component={Paper} sx={{ mb: 3 }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Mal İsmi (Kod)</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Veriliş Tarihi</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Açıklama</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Ekler</StyledTableCell>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                                </TableHead>
+                                <TableBody>
+                                    {activeConsignments.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <StyledTableCell>{item.name} ({item.code})</StyledTableCell>
+                                            <StyledTableCell>{formatDateDisplay(item.assignmentDate)}</StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {item.description || '-'}
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                {item.attachments?.length > 0 ? (
+                                                    <Button
+                                                        size="small" variant="contained" color="secondary" startIcon={<IconFile width={16} />}
+                                                        onClick={() => {
+                                                            const urls = item.attachments.map((a: Attachment) => getFullImageUrl(a.fileUrl));
+                                                            setActiveConsignmentImageUrls(urls);
+                                                            setOpenImageSlider(true);
+                                                        }}
+                                                    >
+                                                        {item.attachments.length} Ek
+                                                    </Button>
+                                                ) : ('-')}
+                                            </StyledTableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    ) : (
+                        <Alert severity="info" sx={{ mb: 3 }}>Aktif genel zimmet kaydı bulunmamaktadır.</Alert>
+                    )}
+
+                    <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>2. Araç Zimmet Kayıtları ({activeCarConsignment.length}) </Typography>
+
+
+                    {activeCarConsignment.length > 0 ? (
+                        <TableContainer component={Paper} sx={{ mb: 3 }}>
+                            <Table size="small">
+                                <TableHead>
+                                    <TableRow sx={{ backgroundColor: '#f0f8ff' }}>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Plaka (Marka)</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Model</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Veriliş Tarihi</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Açıklama</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Ekler</StyledTableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {/* ⭐️ حلقه زدن بر روی لیست خودروها ⭐️ */}
+                                    {activeCarConsignment.map((item, index) => (
+                                        <TableRow key={index}>
+                                            <StyledTableCell>{item.name}</StyledTableCell>
+                                            <StyledTableCell>{item.code}</StyledTableCell>
+                                            <StyledTableCell>{formatDateDisplay(item.assignmentDate)}</StyledTableCell>
+                                            <StyledTableCell>{item.description || '-'}</StyledTableCell>
+                                            <StyledTableCell>
+                                                {/* ... منطق دکمه دانلود Ekler ... */}
+                                                {item.attachments?.length > 0 ? (
+                                                    <Button
+                                                        size="small" variant="contained" color="warning" startIcon={<IconFileDownload width={16} />}
+                                                        onClick={() => {
+                                                            setAttachmentsToView(item.attachments);
+                                                            setOpenAttachmentsModal(true);
+                                                        }}>
+                                                        {item.attachments.length} Ek İndir
+                                                    </Button>
+                                                ) : ('-')}
+                                            </StyledTableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    ) : (
+                        <Alert severity="success" sx={{ mb: 3 }}>Aktif araç zimmeti bulunmamaktadır.</Alert>
+                    )}
+
+
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setOpenActiveConsignmentsModal(false)} color="secondary" variant="contained">
-                        Kapat ve İptal Et
+                    <Button
+                        onClick={handleDownloadConsignmentPDF}
+                        color="primary"
+                        variant="contained"
+                        startIcon={<IconFileDownload />}
+                    >
+                        İlişik Kesme PDF İndir
+                    </Button>
+                    <Button onClick={() => setOpenActiveConsignmentsModal(false)} color="secondary" variant="outlined">
+                        Kapat
                     </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Ek Belgeler Önizleme/İndirme Modal (Slider Modal Adı Değiştirildi) */}
             <Dialog open={openImageSlider} onClose={() => setOpenImageSlider(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Zimmet Ek Belgeleri ({activeConsignmentImageUrls.length} Adet)</DialogTitle>
                 <DialogContent dividers>
@@ -2528,9 +2772,47 @@ const ListPersonnel: React.FC = () => {
                     </Stack>
                 </DialogContent>
                 <DialogActions>
+
                     <Button onClick={() => setOpenImageSlider(false)} color="primary">Kapat</Button>
                 </DialogActions>
             </Dialog>
+
+            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Ek Belgeleri İndir ({attachmentsToView.length} adet)</DialogTitle>
+                <DialogContent dividers>
+                    {attachmentsToView.length > 0 ? (
+                        <Stack spacing={1}>
+                            {attachmentsToView.map((attachment, index) => {
+                                const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                                const handleDownloadLinkClick = (fileUrl: string) => {
+                                    if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; }
+                                    const url = `${server.urldpwonload}${fileUrl}`;
+                                    window.open(url, '_blank');
+                                    showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info');
+                                };
+
+                                return (
+                                    <Button
+                                        key={index}
+                                        fullWidth variant="outlined"
+                                        onClick={() => handleDownloadLinkClick(attachment.fileUrl)}
+                                        sx={{ mt: 1 }}
+                                        startIcon={<IconFileDownload />}
+                                    >
+                                        {fileName}
+                                    </Button>
+                                );
+                            })}
+                        </Stack>
+                    ) : (
+                        <DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenAttachmentsModal(false)} color="primary" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
 
             {/* Backdrop - unchanged */}
             <Backdrop open={isProcessingImport} sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1000 }}>

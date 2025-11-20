@@ -23,7 +23,7 @@ import {
     // IconEdit,
     IconTrash, IconSearch,
     IconFileSpreadsheet, IconFileText, IconX, IconFileDownload,
-    IconClipboardList, IconLink, IconDownload, IconFile
+    IconLink, IconDownload, IconFile
 } from '@tabler/icons-react';
 
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -158,9 +158,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// --- Custom File Upload Component (Mocked for usage) ---
-// Since the user provided the upload logic, we just need a place to input files.
-// For simplicity, we'll create a basic file input wrapper.
 const ConsignmentFileUpload: React.FC<{ files: File[]; setFiles: (f: File[]) => void; error: boolean }> = ({ files, setFiles, error }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const supportedTypes = "image/*, application/pdf, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel";
@@ -211,18 +208,18 @@ const ListPersonnelConsigneds: React.FC = () => {
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
     // ------------------------------------
-    // States: Data Lists
+    // States: Data Lists & Main List
     // ------------------------------------
     const [personnelConsigneds, setPersonnelConsigneds] = useState<PersonnelConsigned[]>([]);
     const [personnelList, setPersonnelList] = useState<PersonnelType[]>([]);
     const [consignmentList, setConsignmentList] = useState<ConsignmentType[]>([]);
 
     // ------------------------------------
-    // States: Form & UI
+    // States: Form & UI & Tracking
     // ------------------------------------
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [isAssignmentMode, setIsAssignmentMode] = useState<boolean>(true); // True for assignment (new/edit), False for return
-    const [selectedParentConsignedId, setSelectedParentConsignedId] = useState<number | ''>(''); // Used for Return mode
+    const [isAssignmentMode, setIsAssignmentMode] = useState<boolean>(true);
+    const [selectedParentConsignedId, setSelectedParentConsignedId] = useState<number | ''>('');
 
     const [selectedPersonnelId, setSelectedPersonnelId] = useState<number | ''>('');
     const [selectedConsignmentId, setSelectedConsignmentId] = useState<number | ''>('');
@@ -230,6 +227,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [returnDate, setReturnDate] = useState<Date | null>(null);
     const [description, setDescription] = useState<string>('');
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
     const [isFormVisible, setIsFormVisible] = useState<boolean>(false);
     const [isBlinking, setIsBlinking] = useState<boolean>(true);
 
@@ -243,11 +241,19 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [consignmentError, setConsignmentError] = useState(false);
     const [assignmentDateError, setAssignmentDateError] = useState(false);
     const [returnDateError, setReturnDateError] = useState(false);
-    // const [parentConsignedError, setParentConsignedError] = useState(false);
     const [attachmentError, setAttachmentError] = useState(false);
 
+    // Tracking for Post-Submission Modal
+    const [lastSubmittedPayload, setLastSubmittedPayload] = useState<PersonnelConsignedPayload | null>(null);
+    const [lastRecordDetail, setLastRecordDetail] = useState<PersonnelConsigned | null>(null);
+    const [openLastRecordModal, setOpenLastRecordModal] = useState(false);
+    const [isListReadyToSearch, setIsListReadyToSearch] = useState(false);
+    const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const [searchAttemptCount, setSearchAttemptCount] = useState(0);
+    // const MAX_SEARCH_ATTEMPTS = 5;
+
     // ------------------------------------
-    // States: Table/Filter
+    // States: Table/Filter (standard)
     // ------------------------------------
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -259,7 +265,7 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
     // ------------------------------------
-    // States: Menu/Modals
+    // States: Menu/Modals (standard)
     // ------------------------------------
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<PersonnelConsigned | null>(null);
@@ -277,10 +283,8 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false);
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
 
-
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
-
 
     // --- Alert & Initialization Logic ---
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -415,7 +419,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             return matchPersonnel && isActiveAssignment;
         });
     }, [personnelConsigneds, selectedPersonnelId]);
-
 
     const consignmentOptionsForReturn = useMemo(() => {
         return activeConsignedsForSelectedPersonnel
@@ -576,7 +579,9 @@ const ListPersonnelConsigneds: React.FC = () => {
         // Construct the payload based on mode
         const payload: PersonnelConsignedPayload = {
             // assignmentDate: assignmentDate ? assignmentDate.toISOString() : new Date().toISOString(),
-            assignmentDate: assignmentDate ? format(assignmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+            // assignmentDate: assignmentDate ? format(assignmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+
+            assignmentDate: isReturning ? format(new Date(), 'yyyy-MM-dd') : (assignmentDate ? format(assignmentDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')),
             description: description.trim(),
             attachments: finalAttachments,
             consignmentId: Number(selectedConsignmentId),
@@ -600,13 +605,95 @@ const ListPersonnelConsigneds: React.FC = () => {
                     `Kayıt başarıyla ${isReturning ? 'teslim edildi' : isEditing ? 'güncellendi' : 'eklendi'}!`,
                     'success'
                 );
-                resetForm();
+                setLastSubmittedPayload(payload);
+
+                // ✅ شروع منطق Polling:
+                setSearchAttemptCount(0); // ریست شمارنده
+                setIsListReadyToSearch(true);
+
+                // 💡 نکته: fetchConsigneds در اینجا باید فراخوانی شود تا لیست به‌روزرسانی شود.
                 fetchPersonnelConsigneds();
+                resetForm();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
             showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
         } finally { setLoadingButton(false); }
     };
+
+    useEffect(() => {
+        // MAX_SEARCH_ATTEMPTS باید در بیرون از این هوک تعریف شده باشد، مثلاً 5
+        const MAX_SEARCH_ATTEMPTS = 5;
+
+        const startPollingSearch = () => {
+            debugger
+            const relevantRecords = personnelConsigneds
+                .filter(r =>
+                    lastSubmittedPayload &&
+                    // 👈 اطمینان از وجود آبجکت‌ها قبل از دسترسی به ID
+                    r.consignment && r.personnel &&
+                    Number(r.consignment.id) === lastSubmittedPayload.consignmentId &&
+                    Number(r.personnel.id) === lastSubmittedPayload.personnelId
+                )
+                .sort((a, b) => new Date(b.createAt).getTime() - new Date(a.createAt).getTime());
+
+            const latestRecord = relevantRecords.length > 0 ? relevantRecords[0] : null;
+
+            let newRecord = null;
+            if (latestRecord && lastSubmittedPayload) {
+                // منطق کلیدی: آیا این رکورد جدیدترین، از نظر وضعیت (واگذاری یا تحویل) با Payload ارسالی مطابقت دارد؟
+                const isStatusMatch = (latestRecord.returnDate !== null) === (lastSubmittedPayload.returnDate !== null);
+
+                // ما فقط جدیدترین رکورد را می‌پذیریم اگر وضعیت آن همخوانی داشته باشد
+                // (برای جلوگیری از باز شدن مودال Assignment زمانی که در حال Polling برای Return هستیم، و بالعکس)
+                if (isStatusMatch) {
+                    newRecord = latestRecord;
+                }
+            }
+
+            if (newRecord) {
+                // ✅ موفقیت نهایی: رکورد پیدا شد
+                setLastRecordDetail(newRecord);
+                setOpenLastRecordModal(true);
+
+                // پاکسازی
+                setLastSubmittedPayload(null);
+                setIsListReadyToSearch(false);
+                setSearchAttemptCount(0);
+            } else if (searchAttemptCount < MAX_SEARCH_ATTEMPTS) {
+                // 🔄 Polling ادامه دارد: لیست را مجدداً واکشی کنید
+                setSearchAttemptCount(c => c + 1);
+                fetchPersonnelConsigneds(); // 👈 فراخوانی مجدد برای به‌روزرسانی لیست
+                searchTimerRef.current = setTimeout(startPollingSearch, 1000); // 1 ثانیه صبر کن
+            } else {
+                // ❌ شکست: حد مجاز Polling به پایان رسید
+                setLastSubmittedPayload(null);
+                setIsListReadyToSearch(false);
+                setSearchAttemptCount(0);
+                showAlert("Kayıt oluşturuldu, ancak listeye eklenmesinde aşırı gecikme yaşandı. Lütfen tabloyu manuel kontrol edin.", 'error');
+            }
+        };
+
+        // 💡 فعال‌سازی فرآیند جستجو
+        if (isListReadyToSearch && lastSubmittedPayload) {
+            startPollingSearch();
+        }
+
+
+        // Cleanup: پاک کردن تایمر در صورت تغییر وابستگی‌ها یا Unmount شدن
+        return () => {
+            if (searchTimerRef.current) {
+                clearTimeout(searchTimerRef.current);
+                searchTimerRef.current = null;
+            }
+        };
+    }, [
+        personnelConsigneds,
+        lastSubmittedPayload,
+        isListReadyToSearch,
+        searchAttemptCount,
+        fetchPersonnelConsigneds, // 👈 باید اضافه شود (تغییر مهم)
+        showAlert // 👈 باید اضافه شود (تغییر مهم)
+    ]);
 
     // const handleEditClick = () => {
     //     if (!selectedRowForMenu) return;
@@ -847,6 +934,92 @@ const ListPersonnelConsigneds: React.FC = () => {
         }
     };
 
+    const createPostSubmissionReportPdf = (record: PersonnelConsigned, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
+        const title = record.returnDate ? "ZİMMET TESLİM ALMA BELGESİ" : "ZİMMET VERİLİŞ BELGESİ";
+
+        const doc = new jsPDF("p", "pt", "a4");
+        const docAny = doc as any;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        try {
+            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+        } catch (e) {
+            showAlert('PDF font hatası!', 'error');
+            return;
+        }
+
+        const sideMargin = 40;
+        let finalY = 80;
+
+        // Header logic 
+        docAny.addImage(Logo, 'PNG', doc.internal.pageSize.getWidth() - 85, 5, 75, 35);
+        doc.setFontSize(14);
+        doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+        doc.setFontSize(10);
+        doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, 25);
+
+        // --- Text Details ---
+        doc.setFontSize(12);
+
+        doc.text(`Personel: ${record.personnelName}`, sideMargin, finalY);
+        finalY += 16;
+        doc.text(`Mal Kaydı: ${record.consignmentNameWithCode}`, sideMargin, finalY);
+        finalY += 25;
+
+        // --- Table Details ---
+        doc.setFontSize(14);
+        doc.text("İşlem Detayları", sideMargin, finalY);
+        finalY += 10;
+
+        const detailBody = [
+            ["İşlem Tipi", record.returnDate ? "Teslim Alındı (İADE)" : "Teslim Edildi (EMANET)"],
+            ["Veriliş Tarihi", formatDateDisplay(record.assignmentDate)],
+            ["Teslim Tarihi", record.returnDate ? formatDateDisplay(record.returnDate) : "—"],
+            ["Açıklama", record.description || "-"],
+        ];
+
+        autoTable((docAny), {
+            startY: finalY,
+            head: [["Alan", "Değer"]],
+            body: detailBody,
+            theme: "grid",
+            styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
+            headStyles: { fillColor: record.returnDate ? [255, 200, 200] : [200, 255, 200], textColor: [0, 0, 0] },
+            didDrawPage: (data: any) => {
+                docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(8); docAny.setTextColor(0);
+                const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
+                let footerY = pageHeight - 40;
+                companyInfo.forEach(line => { docAny.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 10; });
+                const pageNumber = data.pageNumber;
+                const pageCount = docAny.internal.getNumberOfPages();
+                docAny.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+                docAny.setFont('NotoSans', 'normal');
+                docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+                docAny.line(pageWidth - 65, pageHeight - 25, pageWidth - 15, pageHeight - 25);
+            }, showHead: 'everyPage',
+            margin: { top: 40, bottom: 60, left: 10, right: 10 } // 👈 Margin Bottom به 60 افزایش یافت
+
+        });
+
+        finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
+
+        // --- Signatures ---
+        doc.setFontSize(10);
+
+        doc.text("Personel İmzası:", sideMargin, finalY);
+        doc.line(sideMargin + 100, finalY, sideMargin + 250, finalY);
+
+        doc.text("Yetkili İmzası:", sideMargin + 300, finalY);
+        doc.line(sideMargin + 390, finalY, sideMargin + 540, finalY);
+
+        doc.save(`Zimmet_Belgesi_${record.id}_${record.consignmentCode}.pdf`);
+        showAlert('PDF raporu indiriliyor.', 'info');
+    };
+
     const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
     const handleCloseDownloadAllModal = () => setOpenDownloadAllModal(false);
     const handleOpenDownloadFilteredModal = () => setOpenDownloadFilteredModal(true);
@@ -875,7 +1048,6 @@ const ListPersonnelConsigneds: React.FC = () => {
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
                     <Stack direction="row" alignItems="center" spacing={1}>
-                        <IconClipboardList width={24} height={24} />
                         <Typography variant="h5" mb={0}>Personel Zimmet Kayıtları</Typography>
                     </Stack>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
@@ -1368,6 +1540,67 @@ const ListPersonnelConsigneds: React.FC = () => {
                     <Button onClick={handleCloseDescriptionModal} color="primary">
                         Kapat
                     </Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openLastRecordModal} onClose={() => setOpenLastRecordModal(false)} maxWidth="md" fullWidth>
+                <DialogTitle sx={{
+                    backgroundColor: lastRecordDetail?.returnDate === null ? 'success.main' : 'warning.main',
+                    color: 'white'
+                }}>
+                    {lastRecordDetail?.returnDate === null ?
+                        'Yeni Zimmet Kaydı Başarıyla Oluşturuldu!' :
+                        'Zimmet Başarıyla İade Alındı!'}
+                </DialogTitle>
+                <DialogContent dividers>
+                    {lastRecordDetail ? (
+                        <Stack spacing={2}>
+                            <Typography variant="h6">İşlem Detayları:</Typography>
+                            <Grid container spacing={2}>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Personel:</Typography></Grid>
+                                <Grid item xs={12} sm={8}><Typography>{lastRecordDetail.personnelName}</Typography></Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Mal Kaydı:</Typography></Grid>
+                                <Grid item xs={12} sm={8}><Typography>{lastRecordDetail.consignmentNameWithCode}</Typography></Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">Tarih:</Typography></Grid>
+                                <Grid item xs={12} sm={8}>
+                                    <Typography>{formatDateDisplay(lastRecordDetail.returnDate || lastRecordDetail.assignmentDate)}</Typography>
+                                </Grid>
+
+                                <Grid item xs={12} sm={4}><Typography fontWeight="bold">İşlem:</Typography></Grid>
+                                <Grid item xs={12} sm={8}>
+                                    <Chip
+                                        label={lastRecordDetail.returnDate === null ? "Teslim Edildi (Emanet)" : "Teslim Alındı (İade)"}
+                                        color={lastRecordDetail.returnDate === null ? "success" : "warning"}
+                                        size="small"
+                                    />
+                                </Grid>
+                            </Grid>
+                            <Alert severity={lastRecordDetail.returnDate === null ? "success" : "warning"} sx={{ mt: 2 }}>
+                                {lastRecordDetail.returnDate === null ?
+                                    'Yeni zimmet kaydı başarıyla oluşturulmuştur.' :
+                                    'İade işlemi tamamlanmıştır.'}
+                            </Alert>
+                        </Stack>
+                    ) : (
+                        <Box display="flex" justifyContent="center"><CircularProgress /></Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    {lastRecordDetail && (
+                        <Button
+                            onClick={() => createPostSubmissionReportPdf(lastRecordDetail, showAlert)}
+                            color="primary"
+                            variant="contained"
+                            startIcon={<IconFileDownload />}
+                            sx={{ mr: 1 }}
+                        >
+                            Raporu İndir
+                        </Button>
+                    )}
+                    <Button onClick={() => setOpenLastRecordModal(false)} color="secondary" variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

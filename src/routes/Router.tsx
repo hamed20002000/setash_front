@@ -63,6 +63,10 @@ const ListPersonnelConsigneds = Loadable(lazy(() => import('../views/humanresour
 const ListCarWarehouse = Loadable(lazy(() => import('../views/carwarehouse/list-carwarehouse/ListCareWarehouse')));
 const ListDetailsCarWarehouse = Loadable(lazy(() => import('../views/carwarehouse/list-details-carwarehouse/ListDetailsCarWarehouse')));
 const ListConsignedCarwarehouse = Loadable(lazy(() => import('../views/carwarehouse/consigned-carwarehouse/ListConsignedCarwarehouse')));
+const ListCarFuels = Loadable(lazy(() => import('../views/carwarehouse/list-car-fuels/ListCarFuels')));
+const ListTeachers = Loadable(lazy(() => import('../views/education/teachers/ListTeachers')));
+const ListCourses = Loadable(lazy(() => import('../views/education/courses/ListCourses')));
+
 
 
 
@@ -583,6 +587,30 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListConsignedCarwarehouse />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/car-warehouse/list-car-fuels/:consignedCarId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListCarFuels />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/education/list-teachers/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListTeachers />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/education/list-courses/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListCourses />
           </PermissionGuard>
         )
       },

@@ -39,7 +39,6 @@ const DeleteCarWarehouse = ({ openModal, idToDelete, nameToDelete, onClose, onDe
 
         setLoading(true);
         try {
-            // ⭐️ API Endpoint: server.baseurl + server.initialoperations + "delete-car-warehouse/carwarehouseid"
             const url = `${server.baseurl}${server.initialoperations}delete-car-warehouse/${idToDelete}`;
 
             const response = await axios.delete(
