@@ -79,6 +79,7 @@ interface CourseDetail {
     teacher: TeacherApi; // یا ساختار کامل Teacher
     user: UserDetail;
     workhouse: WorkhouseDetail | null;
+    hours: number;
 }
 type SortableKeys = 'title' | 'startDateTime' | 'endDateTime' | 'createAt';
 
@@ -385,6 +386,9 @@ const ListCourses: React.FC = () => {
     const [startDateTime, setStartDateTime] = useState<Date | null>(null);
     const [endDateTime, setEndDateTime] = useState<Date | null>(null);
 
+    const [hours, setHours] = useState<number | ''>('');
+    const [hoursError, setHoursError] = useState(false);
+
     const [teachersList, setTeachersList] = useState<TeacherApi[]>([]);
     const [selectedTeacher, setSelectedTeacher] = useState<TeacherApi | null>(null);
 
@@ -471,6 +475,7 @@ const ListCourses: React.FC = () => {
         teacher: r.teacher as TeacherApi,
         user: r.user as UserDetail,
         workhouse: r.workhouse || null,
+        hours: r.hours
     });
 
     const fetchTeachers = useCallback(async () => {
@@ -489,8 +494,13 @@ const ListCourses: React.FC = () => {
             } else {
                 showAlert('Öğretmen listesi alınamadı.', 'error');
             }
-        } catch (e) {
-            showAlert('Öğretmen listesi yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 
@@ -508,8 +518,13 @@ const ListCourses: React.FC = () => {
             } else {
                 showAlert(res.data.message || 'Kurs detayları yüklenirken bir hata oluştu.', 'error');
             }
-        } catch (e) {
-            showAlert('Kurs detayları yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -522,9 +537,6 @@ const ListCourses: React.FC = () => {
     }, [fetchTeachers, fetchCourses]);
 
 
-    // ------------------------------------
-    // --- Form Logic ---
-    // ------------------------------------
     const validateForm = (): boolean => {
         let ok = true;
         setTitleError(false); setTeacherError(false); setStartDateTimeError(false); setEndDateTimeError(false);
@@ -533,6 +545,10 @@ const ListCourses: React.FC = () => {
         if (!selectedTeacher) { setTeacherError(true); ok = false; }
         if (!startDateTime) { setStartDateTimeError(true); ok = false; }
         if (!endDateTime) { setEndDateTimeError(true); ok = false; }
+        if (hours === '' || Number(hours) <= 0 || isNaN(Number(hours))) {
+            setHoursError(true);
+            ok = false;
+        }
         if (startDateTime && endDateTime && startDateTime >= endDateTime) {
             setEndDateTimeError(true);
             showAlert('Bitiş tarihi başlangıç tarihinden sonra olmalıdır.', 'warning');
@@ -550,6 +566,7 @@ const ListCourses: React.FC = () => {
         setStartDateTime(null);
         setEndDateTime(null);
         setSelectedTeacher(null);
+        setHours('');
         setSelectedFiles([]);
         setCurrentAttachments([]);
         setTitleError(false); setTeacherError(false); setStartDateTimeError(false); setEndDateTimeError(false);
@@ -564,6 +581,7 @@ const ListCourses: React.FC = () => {
             endDateTime: endDateTime?.toISOString(),
             teacherId: selectedTeacher ? Number(selectedTeacher.id) : 0,
             attachments: finalAttachments,
+            hours: Number(hours),
         };
         if (id) payload.id = id;
         if (currentStatus !== undefined) payload.recordStatus = currentStatus;
@@ -619,7 +637,12 @@ const ListCourses: React.FC = () => {
                 fetchCourses();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -639,6 +662,7 @@ const ListCourses: React.FC = () => {
         setTitle(row.title);
         setDescription(row.description);
         setStartDateTime(row.startDateTime ? new Date(row.startDateTime) : null);
+        setHours(row.hours || '');
         setEndDateTime(row.endDateTime ? new Date(row.endDateTime) : null);
         setCurrentAttachments(row.attachments);
         setSelectedFiles([]);
@@ -668,7 +692,12 @@ const ListCourses: React.FC = () => {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             handleCloseMenu();
         }
@@ -727,12 +756,13 @@ const ListCourses: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Açıklama', 'Kayıt Tarihi'];
+        const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Saat', 'Açıklama', 'Kayıt Tarihi'];
         const body = data.map(r => [
             r.title || '-',
             `${r.teacher.name || ''} ${r.teacher.surname || ''}` || '-',
             formatDateDisplay(r.startDateTime || null),
             formatDateDisplay(r.endDateTime || null),
+            r.hours ? `${r.hours} Saat` : '-',
             r.description,
             formatDateDisplay(r.createAt || null),
         ]);
@@ -770,7 +800,7 @@ const ListCourses: React.FC = () => {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet(title.substring(0, 31));
 
-            const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Açıklama', 'Kayıt Tarihi'];
+            const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Saat', 'Açıklama', 'Kayıt Tarihi'];
             addExcelHeader(worksheet, title, columns.length);
 
             const headerRow = worksheet.addRow(columns);
@@ -783,6 +813,7 @@ const ListCourses: React.FC = () => {
                     `${r.teacher.name || ''} ${r.teacher.surname || ''}` || '-',
                     formatDateDisplay(r.startDateTime || null),
                     formatDateDisplay(r.endDateTime || null),
+                    r.hours || '-',
                     r.description || '-',
                     formatDateDisplay(r.createAt || null),
                 ]);
@@ -905,8 +936,13 @@ const ListCourses: React.FC = () => {
             setOpenParticipantsModal(true);
             handleCloseMenu();
 
-        } catch (e) {
-            showAlert('Tarih kayıtları kontrol edilirken hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 
@@ -1030,6 +1066,23 @@ const ListCourses: React.FC = () => {
                                     />
                                 </LocalizationProvider>
                             </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Saat (Saat)</CustomFormLabel>
+                                <CustomTextField
+                                    placeholder="Eğitim Saati (Örn: 40)"
+                                    size="small"
+                                    fullWidth
+                                    type="number"
+                                    value={hours}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        const value = e.target.value === '' ? '' : Number(e.target.value);
+                                        setHours(value);
+                                        setHoursError(false);
+                                    }}
+                                    error={hoursError}
+                                    helperText={hoursError ? 'Zorunlu alan, pozitif bir sayı olmalı.' : ''}
+                                />
+                            </Grid>
                             {/* Description */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
@@ -1138,6 +1191,7 @@ const ListCourses: React.FC = () => {
                                     <StyledTableCell><Typography variant="h6">Öğretmen</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'startDateTime'} direction={orderBy === 'startDateTime' ? order : 'asc'} onClick={() => handleRequestSort('startDateTime')} sx={{ color: 'inherit' }}><Typography variant="h6">Başlangıç</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'endDateTime'} direction={orderBy === 'endDateTime' ? order : 'asc'} onClick={() => handleRequestSort('endDateTime')} sx={{ color: 'inherit' }}><Typography variant="h6">Bitiş</Typography></TableSortLabel></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Saat</Typography></StyledTableCell> {/* 💡 NEW COLUMN HEADER */}
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} sx={{ color: 'inherit' }}><Typography variant="h6">Kayıt Tarihi</Typography></TableSortLabel></StyledTableCell>
@@ -1153,6 +1207,7 @@ const ListCourses: React.FC = () => {
                                             <StyledTableCell>{`${row.teacher.name || ''} ${row.teacher.surname || ''}` || 'Bilinmiyor'}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.startDateTime || null)}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.endDateTime || null)}</StyledTableCell>
+                                            <StyledTableCell>{row.hours ? `${row.hours} Saat` : '-'}</StyledTableCell> {/* 💡 NEW CELL DATA */}
                                             <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
                                                     maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -1176,12 +1231,25 @@ const ListCourses: React.FC = () => {
                                             <StyledTableCell>
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                    <MuiMenuItem onClick={() => handleOpenDateTimesModal(selectedRowForMenu!)}>
-                                                        <ListItemIcon><IconLink width={18} /></ListItemIcon>Course DateTimes
-                                                    </MuiMenuItem>
-                                                    <MuiMenuItem onClick={() => handleOpenParticipantsModal(selectedRowForMenu!)}>
-                                                        <ListItemIcon><IconLink width={18} /></ListItemIcon>Course Participants
-                                                    </MuiMenuItem>
+                                                    <CustomTooltip
+                                                        placement="left"
+                                                        title={isTooltipGloballyEnabled ? "Kurs için tanımlanan tarih ve saatleri yönetin" : ""} // Tooltip: "تاریخ‌ها و زمان‌های تعریف شده برای دوره را مدیریت کنید"
+                                                    >
+                                                        <MuiMenuItem onClick={() => handleOpenDateTimesModal(selectedRowForMenu!)}>
+                                                            <ListItemIcon><IconLink width={18} /></ListItemIcon>
+                                                            Kurs Tarih/Saatleri
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
+
+                                                    <CustomTooltip
+                                                        placement="left"
+                                                        title={isTooltipGloballyEnabled ? "Bu kursa kayıtlı katılımcıları yönetin" : ""} // Tooltip: "شرکت‌کنندگان ثبت شده در این دوره را مدیریت کنید"
+                                                    >
+                                                        <MuiMenuItem onClick={() => handleOpenParticipantsModal(selectedRowForMenu!)}>
+                                                            <ListItemIcon><IconLink width={18} /></ListItemIcon>
+                                                            Kurs Katılımcıları
+                                                        </MuiMenuItem>
+                                                    </CustomTooltip>
                                                     {hasEditPermission && (<MuiMenuItem onClick={() => handleEditClick(selectedRowForMenu!)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>)}
                                                     {hasEditPermission && (
                                                         selectedRowForMenu?.recordStatus === 0 ? (
@@ -1263,22 +1331,29 @@ const ListCourses: React.FC = () => {
                 <DialogContent dividers>
                     {attachmentsToView.length > 0 ? (
                         <Stack spacing={1}>
-                            {attachmentsToView.map((attachment, index) => {
-                                const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-                                const color = getFileColor(fileName);
 
-                                return (
-                                    <Button
-                                        key={index}
-                                        fullWidth variant="outlined"
-                                        onClick={() => handleDownloadClick(attachment.fileUrl)}
-                                        sx={{ mt: 1 }}
-                                        startIcon={getFileIcon(fileName)}
-                                        color={color as 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
-                                    >
-                                        {fileName}
-                                    </Button>
-                                );
+
+                            {attachmentsToView.map((attachment, index) => {
+
+                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                                let fileName = rawFileName;
+                                try {
+                                    fileName = decodeURIComponent(rawFileName);
+                                } catch (e) {
+                                }
+                                fileName = fileName
+                                    .replace(/Ä±/g, 'ı')  // ı
+                                    .replace(/ÄŸ/g, 'ğ')  // ğ
+                                    .replace(/Ã¼/g, 'ü')  // ü
+                                    .replace(/Ã¶/g, 'ö')  // ö
+                                    .replace(/Ä°/g, 'İ')  // İ
+                                    .replace(/ÅŸ/g, 'ş')  // ş
+                                    .replace(/Ã‡/g, 'Ç')  // Ç
+                                    .replace(/Ä±/g, 'ı'); // ğ
+
+                                return (<Button key={index} fullWidth variant="outlined"
+                                    onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
                             })}
                         </Stack>
                     ) : (

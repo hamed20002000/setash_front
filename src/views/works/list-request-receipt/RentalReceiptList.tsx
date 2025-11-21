@@ -280,6 +280,7 @@ import {
     WorkhouseRentRequest, RequestStatusHistory, Attachment, CommonRequestType, Workhouse,
     StyledTableCell, statusToLabel, statusToColor, exportRequestPdf, exportRequestExcel, formatDateDisplay
 } from './RequestReceiptTabs';
+import { useNavigate } from "react-router";
 
 
 // ==============================================================================
@@ -306,6 +307,8 @@ interface RentalReceiptListProps {
 // ==============================================================================
 
 const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
+
+    const navigate = useNavigate();
     const { requestsList, loadingData, fetchRequests, showAlert, hasStatusUpdatePermission, hasDownloadPermission } = props;
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -372,7 +375,15 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                 handleCloseStatusModal();
                 fetchRequests(props.selectedWorkhouseId);
             } else { showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error'); }
-        } catch (e: any) { showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error'); } finally { setLoadingButton(false); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+        finally { setLoadingButton(false); }
     };
 
     // --- Workhouse Filter Handler ---

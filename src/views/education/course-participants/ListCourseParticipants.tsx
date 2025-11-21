@@ -1,12 +1,10 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
     Button, Dialog, DialogTitle, DialogContent, DialogActions, Table,
     TableHead, TableBody, TableRow, TableCell, CircularProgress, Box, Stack, Grid,
     IconButton, Menu, MenuItem, Typography, Autocomplete, TextField,
     TablePagination, Chip, ListItemIcon, TableContainer,
-    TableSortLabel,
-    Alert
+    TableSortLabel, Alert, Tabs, Tab // 💡 Tabs و Tab اضافه شدند
 } from '@mui/material';
 import axios from 'axios';
 import { IconDots, IconEdit, IconTrash, IconX, IconFileText, IconFileSpreadsheet, IconFileDownload } from '@tabler/icons-react';
@@ -32,6 +30,7 @@ import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 // @ts-ignore
 import DeleteCourseParticipants from './DeleteCourseParticipants';
+import { useNavigate } from 'react-router';
 
 
 // -------------------------------------------------------------------------------------
@@ -72,7 +71,6 @@ const formatDateTimeDisplay = (dateString: string | null): string => {
     } catch (e) { return "Geçersiz Tarih"; }
 };
 
-// تابع کمکی ساده برای نمایش تاریخ (اگر نیاز بود)
 const formatDateDisplaySimple = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -181,7 +179,6 @@ const exportDetailsToPdf = (data: CourseParticipant[], title: string, showAlert:
     const doc = new jsPDF("p", "pt", "a4");
     const docAny = doc as any;
 
-    // (تنظیم فونت NotoSans)
     try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans'); } catch (e) { }
 
     const columns = ['Personel Adı Soyadı', 'TC Kimlik', 'Kurs Zamanı Başlangıç', 'Kurs Zamanı Bitiş', 'Durum'];
@@ -190,7 +187,7 @@ const exportDetailsToPdf = (data: CourseParticipant[], title: string, showAlert:
         r.personnel.identityNumber,
         formatDateTimeDisplay(r.courseDateTime.startDateTime),
         formatDateTimeDisplay(r.courseDateTime.endDateTime),
-        r.isParticipated ? 'Katılımcı' : '---',
+        r.isParticipated ? 'Katıldı' : 'Katılmadı',
     ]);
 
     try {
@@ -198,7 +195,7 @@ const exportDetailsToPdf = (data: CourseParticipant[], title: string, showAlert:
         autoTable(docAny, {
             head: [columns],
             body: body,
-            startY: 70, // پایین‌تر از هدر
+            startY: 70,
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 9 },
@@ -234,7 +231,7 @@ const exportDetailsToExcel = async (data: CourseParticipant[], title: string, sh
                 r.personnel.identityNumber,
                 formatDateTimeDisplay(r.courseDateTime.startDateTime),
                 formatDateTimeDisplay(r.courseDateTime.endDateTime),
-                r.isParticipated ? 'Katılımcı' : '---',
+                r.isParticipated ? 'Katıldı' : 'Katılmadı',
             ]);
         });
 
@@ -256,7 +253,7 @@ const exportDetailsToExcel = async (data: CourseParticipant[], title: string, sh
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
         });
     } catch (error) {
-        showAlert('Excel dışa aktarılırken bir hata oluştu.', 'error');
+        showAlert('Excel dışا aktarılırken bir hata oluştu.', 'error');
     }
 };
 
@@ -264,6 +261,8 @@ const exportDetailsToExcel = async (data: CourseParticipant[], title: string, sh
 // --- MAIN COMPONENT ---
 // -------------------------------------------------------------------------------------
 const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null, courseTitle: string, onClose: () => void, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void; }> = (props) => {
+
+    const navigate = useNavigate();
     const { open, courseId, courseTitle, onClose, showAlert } = props;
     const [participants, setParticipants] = useState<CourseParticipant[]>([]);
     const [dateTimesOptions, setDateTimesOptions] = useState<CourseDateTimeOption[]>([]);
@@ -272,7 +271,12 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     const [loadingButton, setLoadingButton] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
 
-    // Form States
+    // 💡 States for Tab and Multi-Select
+    const [tabValue, setTabValue] = useState<'single' | 'multi'>('single');
+    const [selectedPersonnelMulti, setSelectedPersonnelMulti] = useState<PersonnelApi[]>([]);
+    const [personnelMultiError, setPersonnelMultiError] = useState(false);
+
+    // Form States (Single Select)
     const [selectedDateTime, setSelectedDateTime] = useState<CourseDateTimeOption | null>(null);
     const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelApi | null>(null);
     const [dateTimeError, setDateTimeError] = useState(false);
@@ -292,7 +296,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     const [deleteName, setDeleteName] = useState<string>('');
 
     // Download Modal
-    const [openDownloadModal, setOpenDownloadModal] = useState(false); // ✅ جدید
+    const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -311,8 +315,9 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
 
-    // --- Fetch Course DateTimes for Combo Box ---
+    // --- Fetchers (Callbacks) ---
     const fetchDateTimesOptions = useCallback(async () => {
+        // ... (منطق واکشی تاریخ/زمان دوره - بدون تغییر)
         if (!courseId || !authToken) return;
         try {
             const url = `${server.baseurl}${server.education}get-course-datetimes-by-course-id/${courseId}`;
@@ -330,14 +335,23 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                     label: `${formatDateTimeDisplay(r.startDateTime)} - ${formatDateTimeDisplay(r.endDateTime)}`
                 }));
                 setDateTimesOptions(options);
+                // 💡 تنظیم پیش‌فرض برای سهولت در ثبت چندتایی
+                if (options.length > 0) {
+                    setSelectedDateTime(options[0]);
+                }
             }
-        } catch (e) {
-            showAlert('Kurs tarihleri alınamadı.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [courseId, authToken, showAlert, onClose]);
 
-    // --- Fetch Active Personnel ---
     const fetchPersonnel = useCallback(async () => {
+        // ... (منطق واکشی پرسنل فعال - بدون تغییر)
         if (!authToken) return;
         try {
             const url = `${server.baseurl}${server.hr}get-all-personnels`;
@@ -353,8 +367,8 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         }
     }, [authToken, showAlert]);
 
-    // --- Fetch Participants ---
     const fetchParticipants = useCallback(async () => {
+        // ... (منطق واکشی شرکت‌کنندگان - بدون تغییر)
         if (!courseId || !authToken) {
             setParticipants([]);
             return;
@@ -392,11 +406,21 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
             fetchPersonnel();
             fetchParticipants();
             resetForm();
+            setTabValue('single'); // شروع همیشه با حالت تکی
         }
     }, [open, fetchDateTimesOptions, fetchPersonnel, fetchParticipants]);
 
+    // --- Tab Change Handler ---
+    const handleTabChange = (_: React.SyntheticEvent, newValue: 'single' | 'multi') => {
+        if (editingId) return; // در حالت ویرایش امکان تغییر Tab نیست
+        setTabValue(newValue);
+        resetForm();
+        setSelectedPersonnelMulti([]);
+        setPersonnelMultiError(false);
+    };
+
     // --- Form Handlers ---
-    const validateForm = (): boolean => {
+    const validateFormSingle = (): boolean => {
         let ok = true;
         setDateTimeError(false); setPersonnelError(false);
 
@@ -415,45 +439,104 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
             ok = false;
         }
 
+        if (!ok) { internalShowAlert('Lütfen tüm zorunlu alanları doldurun.', 'warning'); }
+        return ok;
+    };
+
+    const validateFormMulti = (): boolean => {
+        let ok = true;
+        setDateTimeError(false); setPersonnelMultiError(false);
+
+        if (!selectedDateTime) { setDateTimeError(true); ok = false; }
+        if (selectedPersonnelMulti.length === 0) { setPersonnelMultiError(true); ok = false; }
+
         if (!ok) {
-            internalShowAlert('Lütfen tüm zorunlu alanları doldurun.', 'warning');
+            internalShowAlert('Lütfen kurs zamanını seçin ve en az یک personel ekleyin.', 'warning');
         }
         return ok;
     };
 
     const resetForm = useCallback(() => {
         setEditingId(null);
-        setSelectedDateTime(null);
+        // اگر در حالت Multi بود، فقط SelectedDateTime حفظ می‌شود تا ثبت سریع‌تر باشد.
+        if (tabValue === 'single') {
+            setSelectedDateTime(dateTimesOptions.length > 0 ? dateTimesOptions[0] : null);
+        }
         setSelectedPersonnel(null);
+        setSelectedPersonnelMulti([]);
         setDateTimeError(false);
         setPersonnelError(false);
-    }, []);
+        setPersonnelMultiError(false);
+    }, [dateTimesOptions, tabValue]);
 
     const handleSubmit = async () => {
-        if (!validateForm() || !courseId || !authToken) return;
+        if (tabValue === 'single' && !validateFormSingle()) return;
+        if (tabValue === 'multi' && !validateFormMulti()) return;
+        if (!courseId || !authToken) return;
 
         setLoadingButton(true);
         const isEditing = editingId !== null;
 
-        const payload = {
-            id: isEditing ? editingId : undefined,
-            isParticipated: true,
-            courseDateTimeId: selectedDateTime!.id,
-            personnelId: selectedPersonnel!.id
-        };
+        // 💡 API برای ویرایش تکی و ثبت گروهی
+        const urlCreate = `${server.baseurl}${server.education}create-course-participants`;
+        const urlUpdate = `${server.baseurl}${server.education}update-course-participant`;
 
-        const url = isEditing
-            ? `${server.baseurl}${server.education}update-course-participant`
-            : `${server.baseurl}${server.education}create-course-participant`;
-        const method = isEditing ? 'put' : 'post';
+        let finalDataToSend: any;
+        let finalUrl: string;
+        let finalMethod: 'post' | 'put';
 
-        const finalDataToSend = payload
+        if (isEditing) {
+            // حالت ویرایش (فقط در Tab Single قابل دسترسی است)
+            finalUrl = urlUpdate;
+            finalMethod = 'put';
+            finalDataToSend = {
+                id: editingId,
+                isParticipated: true, // فرض می‌شود در ویرایش این مقدار حفظ می‌شود
+                courseDateTimeId: selectedDateTime!.id,
+                personnelId: selectedPersonnel!.id
+            };
+        } else if (tabValue === 'multi') {
+            // حالت ثبت چندتایی
+            finalUrl = urlCreate;
+            finalMethod = 'post';
+            finalDataToSend = selectedPersonnelMulti.map(personnel => ({
+                isParticipated: true,
+                courseDateTimeId: selectedDateTime!.id,
+                personnelId: personnel.id
+            }));
+
+            // حذف پرسنل‌های تکراری از لیست انتخاب شده برای ثبت چندتایی
+            const existingPersonnelIds = participants
+                .filter(p => p.courseDateTimeId === selectedDateTime!.id)
+                .map(p => p.personnelId);
+
+            finalDataToSend = finalDataToSend.filter((payload: any) =>
+                !existingPersonnelIds.includes(payload.personnelId)
+            );
+
+            if (finalDataToSend.length === 0) {
+                showAlert('تمامی پرسنل انتخابی در تاریخ/زمان انتخابی قبلاً ثبت شده‌اند.', 'warning');
+                setLoadingButton(false);
+                return;
+            }
+
+        } else {
+            // حالت ثبت تکی
+            finalUrl = urlCreate;
+            finalMethod = 'post';
+            finalDataToSend = [{
+                isParticipated: true,
+                courseDateTimeId: selectedDateTime!.id,
+                personnelId: selectedPersonnel!.id
+            }];
+        }
 
         try {
-            const res = await axios.request({ method, url, data: finalDataToSend, headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
+            const res = await axios.request({ method: finalMethod, url: finalUrl, data: finalDataToSend, headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
 
             if (res.data.httpStatusCode === 200 || res.data.httpStatusCode === 201) {
-                showAlert(`Katılımcı başarıyla ${isEditing ? 'güncellendi' : 'eklendi'}.`, 'success');
+                const message = isEditing ? 'güncellendi' : 'eklendi';
+                showAlert(`Katılımcı başarıyla ${message}.`, 'success');
                 resetForm();
                 fetchParticipants();
             } else {
@@ -468,6 +551,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
 
     const handleEditClick = (row: CourseParticipant) => {
         setEditingId(row.id);
+        setTabValue('single'); // 💡 حتما به حالت تکی برود
 
         const dtOption = dateTimesOptions.find(opt => opt.id === row.courseDateTimeId);
         setSelectedDateTime(dtOption || null);
@@ -482,24 +566,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         handleCloseMenu();
     };
 
-    // --- Download Handlers ---
-    const handleDownloadAll = (format: 'pdf' | 'excel') => {
-        if (participants.length === 0) {
-            showAlert('İndirilecek kayıt bulunmamaktadır.', 'warning');
-            return;
-        }
-
-        const title = `Kurs Katılımcıları Raporu: ${courseTitle}`;
-
-        if (format === 'pdf') {
-            exportDetailsToPdf(participants, title, showAlert);
-        } else {
-            exportDetailsToExcel(participants, title, showAlert);
-        }
-        setOpenDownloadModal(false);
-    };
-
-    // --- Table & Pagination Handlers ---
+    // --- Table & Pagination Handlers (بدون تغییر) ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: CourseParticipant) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
@@ -526,6 +593,24 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         }
     };
 
+    // Download Handler
+    const handleDownloadAll = (format: 'pdf' | 'excel') => {
+        if (participants.length === 0) {
+            showAlert('İndirilecek kayıt bulunmamaktadır.', 'warning');
+            return;
+        }
+
+        const title = `Kurs Katılımcıları Raporu: ${courseTitle}`;
+
+        if (format === 'pdf') {
+            exportDetailsToPdf(participants, title, showAlert);
+        } else {
+            exportDetailsToExcel(participants, title, showAlert);
+        }
+        setOpenDownloadModal(false);
+    };
+
+
     // Sorted and Paginated Data
     const sortedParticipants = useMemo(() => stableSort(participants, getComparator(order, orderBy) as any), [participants, order, orderBy]);
     const paginatedRows = useMemo(() => sortedParticipants.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [sortedParticipants, page, rowsPerPage]);
@@ -542,7 +627,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                     <Stack sx={{ width: '100%', mb: 2 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>
                 )}
 
-                {/* --- دکمه دانلود کلی --- */}
                 <Stack direction="row" spacing={1} justifyContent="flex-end" mb={3}>
                     <Button variant="contained" color="primary"
                         onClick={() => setOpenDownloadModal(true)}
@@ -552,44 +636,83 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                     </Button>
                 </Stack>
 
-                {/* --- Form --- */}
-                <Box component={Stack} spacing={2} p={2} mb={3} >
-                    <Typography variant="subtitle1">{editingId ? 'Katılımcı Düzenle' : 'Yeni Katılımcı Ekle'}</Typography>
-                    <Grid container spacing={2}>
-                        {/* Course DateTimes Combo */}
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel required>Kurs Zamanı</CustomFormLabel>
-                            <Autocomplete
-                                size="small" options={dateTimesOptions} getOptionLabel={(option) => option.label}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={selectedDateTime}
-                                onChange={(_, newValue) => { setSelectedDateTime(newValue); setDateTimeError(false); }}
-                                renderInput={(params) => <TextField {...params} label="Tarih Aralığı Seçin" error={dateTimeError} helperText={dateTimeError ? 'Zorunlu alan.' : ''} />}
-                                disabled={editingId !== null}
-                            />
+                {/* --- Form Section --- */}
+                <Box mb={3} border={1} borderColor="divider" borderRadius={2} >
+                    {/* 💡 TAB BAR */}
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                        <Tabs value={tabValue} onChange={handleTabChange}>
+                            <Tab label="Tek Kayıt Ekle" value="single" disabled={editingId !== null} />
+                            <Tab label="Çoklu Kayıt Ekle" value="multi" disabled={editingId !== null} />
+                        </Tabs>
+                    </Box>
+
+                    {/* --- Form Content --- */}
+                    <Box component={Stack} p={2}>
+                        <Grid container spacing={2}>
+                            {/* Course DateTimes (Shared) */}
+                            <Grid item xs={12} sm={6}>
+                                <CustomFormLabel required>Kurs Zamanı</CustomFormLabel>
+                                <Autocomplete
+                                    size="small" options={dateTimesOptions} getOptionLabel={(option) => option.label}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={selectedDateTime}
+                                    onChange={(_, newValue) => { setSelectedDateTime(newValue); setDateTimeError(false); }}
+                                    renderInput={(params) => <TextField {...params} label="Tarih Aralığı Seçin" error={dateTimeError} helperText={dateTimeError ? 'Zorunlu alan.' : ''} />}
+                                    disabled={editingId !== null}
+                                />
+                            </Grid>
+
+                            {/* 💡 Single Select Tab */}
+                            {tabValue === 'single' && !editingId && (
+                                <Grid item xs={12} sm={6}>
+                                    <CustomFormLabel required>Personel</CustomFormLabel>
+                                    <Autocomplete
+                                        size="small" options={personnelList}
+                                        getOptionLabel={(option) => `${option.name} ${option.family} (${option.identityNumber})`}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        value={selectedPersonnel}
+                                        onChange={(_, newValue) => { setSelectedPersonnel(newValue); setPersonnelError(false); }}
+                                        renderInput={(params) => <TextField {...params} label="Personel Seçin" error={personnelError} helperText={personnelError ? 'Zorunlu alan.' : ''} />}
+                                    />
+                                </Grid>
+                            )}
+
+                            {/* 💡 Multi Select Tab */}
+                            {tabValue === 'multi' && !editingId && (
+                                <Grid item xs={12} sm={6}>
+                                    <CustomFormLabel required>Personeller (Çoklu Seçim)</CustomFormLabel>
+                                    <Autocomplete
+                                        multiple // ⭐️ Multi-Select Enabled
+                                        size="small" options={personnelList}
+                                        disableCloseOnSelect
+                                        getOptionLabel={(option) => `${option.name} ${option.family} (${option.identityNumber})`}
+                                        isOptionEqualToValue={(option, value) => option.id === value.id}
+                                        value={selectedPersonnelMulti}
+                                        onChange={(_, newValue) => { setSelectedPersonnelMulti(newValue); setPersonnelMultiError(false); }}
+                                        renderInput={(params) => (
+                                            <TextField {...params} label="Personel Seçin" error={personnelMultiError} helperText={personnelMultiError ? 'En az bir personel seçin.' : ''} />
+                                        )}
+                                    />
+                                </Grid>
+                            )}
+
+                            {/* Actions (Shared) */}
+                            <Grid item xs={12}>
+                                <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                    <Button
+                                        variant="contained"
+                                        color={editingId ? "info" : "success"}
+                                        onClick={handleSubmit}
+                                        disabled={loadingButton || !courseId}
+                                        size="small"
+                                    >
+                                        {loadingButton ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Bekleniyor...</> : editingId ? 'Düzenle' : 'Katılımcı Ekle'}
+                                    </Button>
+                                    {editingId && <Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button>}
+                                </Stack>
+                            </Grid>
                         </Grid>
-                        {/* Personnel Combo */}
-                        <Grid item xs={12} sm={6}>
-                            <CustomFormLabel required>Personel</CustomFormLabel>
-                            <Autocomplete
-                                size="small" options={personnelList}
-                                getOptionLabel={(option) => `${option.name} ${option.family} (${option.identityNumber})`}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={selectedPersonnel}
-                                onChange={(_, newValue) => { setSelectedPersonnel(newValue); setPersonnelError(false); }}
-                                renderInput={(params) => <TextField {...params} label="Personel Seçin" error={personnelError} helperText={personnelError ? 'Zorunlu alan.' : ''} />}
-                            />
-                        </Grid>
-                        {/* Actions */}
-                        <Grid item xs={12}>
-                            <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                <Button variant="contained" color={editingId ? "info" : "success"} onClick={handleSubmit} disabled={loadingButton || !courseId} size="small">
-                                    {loadingButton ? <><CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> Bekleniyor...</> : editingId ? 'Düzenle' : 'Katılımcı Ekle'}
-                                </Button>
-                                {editingId && <Button variant="outlined" color="secondary" onClick={resetForm} size="small">İptal Et</Button>}
-                            </Stack>
-                        </Grid>
-                    </Grid>
+                    </Box>
                 </Box>
 
                 {/* --- Table --- */}
@@ -623,7 +746,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                                                     : '-'
                                                 }
                                             </TableCell>
-                                            <TableCell align="center"><Chip label={row.isParticipated ? 'Katılımcı' : '---'} color="success" size="small" /></TableCell>
+                                            <TableCell align="center"><Chip label={row.isParticipated ? 'Katıldı' : 'Katılmadı'} color="success" size="small" /></TableCell>
                                             <TableCell align="right">
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>

@@ -187,9 +187,13 @@ const ListReceipts = () => {
                 showAlert(response.data.message || 'Depolar yüklenirken bir hata oluştu.', 'error');
                 setWarehousesList([]);
             }
-        } catch {
-            showAlert('Depolar yüklenirken bir hata oluştu.', 'error');
-            setWarehousesList([]);
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -210,8 +214,13 @@ const ListReceipts = () => {
             } else {
                 showAlert(response.data.message || 'Fişlar yüklenirken bir hata oluştu.', 'error');
             }
-        } catch {
-            showAlert('Fişlar yüklenirken یک hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingData(false); }
     }, [navigate, showAlert]);
 
@@ -296,8 +305,13 @@ const ListReceipts = () => {
             } else {
                 showAlert(resp.data?.message || 'Fatura durumu güncellenemedi.', 'error');
             }
-        } catch {
-            showAlert('Fatura durumu güncellenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 
@@ -348,13 +362,12 @@ const ListReceipts = () => {
             resetForm();
             getReceipts();
         } catch (e: any) {
-            if (e.response?.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu, lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert('Fiş kaydedilirken bir hata oluştu.', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 

@@ -25,7 +25,6 @@ import {
     IconInfoCircle, // برای نمایش تاریخچه (History)
     IconDots,
     IconLink,
-    IconDownload,
     IconFileDownload,
 } from '@tabler/icons-react';
 import axios from 'axios';
@@ -47,7 +46,6 @@ import Logo from 'src/assets/images/logos/logo.png';
 
 interface User {
     username: string;
-    // ... سایر فیلدهای کاربر
 }
 
 interface RequestStatusHistory {
@@ -324,7 +322,12 @@ const ListRequestReceipt: React.FC = () => {
                 showAlert(response.data.message || 'Talepler alınamadı.', 'error');
             }
         } catch (e: any) {
-            showAlert('Talepler yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -380,15 +383,16 @@ const ListRequestReceipt: React.FC = () => {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
-
-    // ==============================================================================
-    // 5. HISTORY/DETAILS LOGIC (منطق نمایش تاریخچه و پیوست)
-    // ==============================================================================
 
     const handleOpenHistoryModal = (row: RequestType) => {
         setHistoryData(row.requestStatusHistories || []);
@@ -713,7 +717,7 @@ const ListRequestReceipt: React.FC = () => {
             <Dialog open={openAttachmentsModal} onClose={handleCloseAttachmentsModal} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
-                    {currentAttachments.map((attachment, index) => (
+                    {/* {currentAttachments.map((attachment, index) => (
                         <Button
                             key={index}
                             fullWidth
@@ -724,7 +728,30 @@ const ListRequestReceipt: React.FC = () => {
                         >
                             {attachment.fileUrl.split('/').pop()}
                         </Button>
-                    ))}
+                    ))} */}
+
+                    {currentAttachments.map((attachment, index) => {
+
+                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                        let fileName = rawFileName;
+                        try {
+                            fileName = decodeURIComponent(rawFileName);
+                        } catch (e) {
+                        }
+                        fileName = fileName
+                            .replace(/Ä±/g, 'ı')  // ı
+                            .replace(/ÄŸ/g, 'ğ')  // ğ
+                            .replace(/Ã¼/g, 'ü')  // ü
+                            .replace(/Ã¶/g, 'ö')  // ö
+                            .replace(/Ä°/g, 'İ')  // İ
+                            .replace(/ÅŸ/g, 'ş')  // ş
+                            .replace(/Ã‡/g, 'Ç')  // Ç
+                            .replace(/Ä±/g, 'ı'); // ğ
+
+                        return (<Button key={index} fullWidth variant="outlined"
+                            onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                    })}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseAttachmentsModal} color="primary">Kapat</Button>

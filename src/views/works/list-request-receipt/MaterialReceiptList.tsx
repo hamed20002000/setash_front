@@ -18,6 +18,7 @@ import {
     MaterialRequestType, RequestStatusHistory, Attachment, CommonRequestType,
     StyledTableCell, statusToLabel, statusToColor, exportRequestPdf, exportRequestExcel,
 } from './RequestReceiptTabs';
+import { useNavigate } from "react-router";
 
 
 // ==============================================================================
@@ -41,6 +42,8 @@ interface MaterialReceiptListProps {
 // ==============================================================================
 
 const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
+
+    const navigate = useNavigate();
     const { requestsList, loadingData, fetchRequests, showAlert, hasStatusUpdatePermission, hasDownloadPermission } = props;
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -103,7 +106,15 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                 handleCloseStatusModal();
                 fetchRequests();
             } else { showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error'); }
-        } catch (e: any) { showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error'); } finally { setLoadingButton(false); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+        finally { setLoadingButton(false); }
     };
 
     const handleChangePage = (_event: unknown, newPage: number) => setPage(newPage);

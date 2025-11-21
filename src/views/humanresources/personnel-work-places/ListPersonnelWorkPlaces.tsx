@@ -297,7 +297,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
                 setPersonnels(filteredAndMapped);
             } else { showAlert(res.data.message || 'Personel listesi alınamadı.', 'error'); }
-        } catch (e) { showAlert('Personel listesi çekilirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
 
@@ -337,7 +344,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 })) as WarehouseType[];
                 setWarehousesList(mapped);
             } else { showAlert(response.data.message || 'Depolar yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Depolar yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const fetchWorkhouses = useCallback(async () => {
@@ -357,7 +371,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 })) as WorkhouseType[];
                 setWorkhousesList(mapped);
             } else { showAlert(response.data.message || 'Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const fetchCarWarehouses = useCallback(async () => {
@@ -377,7 +398,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                     })) as CarWarehouseType[];
                 setCarWarehousesList(mapped);
             } else { showAlert(response.data.message || 'Filo listesi alınamadı.', 'error'); }
-        } catch (e) { showAlert('Filo listesi çekilirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const fetchStoresByWorkhouseId = useCallback(async (workhouseId: number) => {
@@ -391,7 +419,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 const mapped = all.map(item => ({ id: Number(item.id), name: item.name, code: item.code, address: item.address, recordStatus: item.recordStatus, createAt: item.createAt, workhouse: item.workhouse })) as StoreType[];
                 setStoresList(mapped);
             } else { showAlert(response.data.message || 'Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const getListUsers = useCallback(() => {
@@ -464,8 +499,14 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             } else {
                 return 'Hata';
             }
-        } catch (error) {
-            console.error('Error fetching store data:', error);
+        }
+        catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
             return 'Hata';
         }
     };
@@ -546,8 +587,13 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             } else {
                 showAlert(res.data.message || 'Kayıtlar yüklenirken bir hata oluştu.', 'error');
             }
-        } catch (e) {
-            showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -699,7 +745,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 fetchAssignments();
             } else { showAlert(res.data.message || 'Görevlendirme eklenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'Görevlendirme eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -723,7 +774,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 fetchAssignments();
             } else { showAlert(res.data.message || 'Toplu görevlendirme eklenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'Toplu görevlendirme eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -741,8 +797,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 fetchAssignments();
             } else { showAlert(res.data.message || 'Görevlendirme güncellenirken bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate('/'); }
-            else showAlert(e?.response?.data?.message || 'Görevlendirme güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -849,7 +909,12 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 showAlert(res.data.message || 'İş birliği sonlandırılamadı.', 'error');
             }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İş birliği sonlandırılırken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
             setEndCoopError(false);
@@ -1182,7 +1247,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Personel {assignmentMode === 'bulk' && <>(Çoklu Seçim)</>}</CustomFormLabel>
                                 <FormControl size="small" sx={{ width: '100%' }} error={personnelError}>
-                                    <InputLabel id="sel-personnel">Personel Seçin</InputLabel>
+                                    {/* <InputLabel id="sel-personnel">Personel Seçin</InputLabel> */}
 
                                     {assignmentMode === 'single' ? (
                                         <Autocomplete

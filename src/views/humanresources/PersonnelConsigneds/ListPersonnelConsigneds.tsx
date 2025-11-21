@@ -243,14 +243,10 @@ const ListPersonnelConsigneds: React.FC = () => {
     const [returnDateError, setReturnDateError] = useState(false);
     const [attachmentError, setAttachmentError] = useState(false);
 
-    // Tracking for Post-Submission Modal
-    const [lastSubmittedPayload, setLastSubmittedPayload] = useState<PersonnelConsignedPayload | null>(null);
     const [lastRecordDetail, setLastRecordDetail] = useState<PersonnelConsigned | null>(null);
     const [openLastRecordModal, setOpenLastRecordModal] = useState(false);
-    const [isListReadyToSearch, setIsListReadyToSearch] = useState(false);
-    const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const [searchAttemptCount, setSearchAttemptCount] = useState(0);
-    // const MAX_SEARCH_ATTEMPTS = 5;
+
+    const [pendingRecordDetails, setPendingRecordDetails] = useState<{ personnelId: number, consignmentId: number, isReturn: boolean } | null>(null);
 
     // ------------------------------------
     // States: Table/Filter (standard)
@@ -285,6 +281,14 @@ const ListPersonnelConsigneds: React.FC = () => {
 
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+
+    const [openAttachModal, setOpenAttachModal] = useState(false); // کنترل باز بودن مودال
+    const [rowToUpdateAttachments, setRowToUpdateAttachments] = useState<PersonnelConsigned | null>(null); // رکورد فعلی که Attach می‌شود
+    const [attachFiles, setAttachFiles] = useState<File[]>([]); // فایل‌های جدید برای آپلود
+    const [attachCurrentAttachments, setAttachCurrentAttachments] = useState<AttachmentType[]>([]); // پیوست‌های موجود (قابل حذف)
+    const [attachButtonLoading, setAttachButtonLoading] = useState(false);
+    const [attachError, setAttachError] = useState(false);
 
     // --- Alert & Initialization Logic ---
     const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -326,7 +330,12 @@ const ListPersonnelConsigneds: React.FC = () => {
                 setPersonnelList(list);
             }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || "Personel listesi alınamadı.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate]);
 
@@ -342,7 +351,14 @@ const ListPersonnelConsigneds: React.FC = () => {
                     code: item.code || 'KODSUZ',
                 })) as ConsignmentType[]);
             } else { showAlert(res.data.message || 'Mal  listesi yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Mal  listesi yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
 
@@ -386,8 +402,13 @@ const ListPersonnelConsigneds: React.FC = () => {
                 setPersonnelConsigneds(rawRows);
             }
         }
-        catch (e) {
-            showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
+        catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -440,12 +461,12 @@ const ListPersonnelConsigneds: React.FC = () => {
         fetchConsignmentList();
     }, [fetchPersonnelList, fetchConsignmentList]);
 
-    // **Step 2: Fetch Main List (after references are likely loaded)**
     useEffect(() => {
         if (personnelList.length > 0 && consignmentList.length > 0) {
             fetchPersonnelConsigneds();
         }
-    }, [fetchPersonnelConsigneds, personnelList]); // Trigger when references load
+    }, [fetchPersonnelConsigneds, personnelList, consignmentList]);
+
 
     const uploadFiles = async (
         files: File[],
@@ -533,20 +554,6 @@ const ListPersonnelConsigneds: React.FC = () => {
         setIsFormVisible(false);
     };
 
-    // Available assignments for a selected personnel/consignment combination (for Return Mode)
-    // const availableAssignments = useMemo(() => {
-    //     if (!selectedPersonnelId || !selectedConsignmentId) return [];
-
-    //     // Find records that are assignments (parentId=0), are ACTIVE (recordStatus=0) 
-    //     // and have matching personnel/consignment IDs
-    //     return personnelConsigneds.filter(r =>
-    //         r.parentId === 0 &&
-    //         r.recordStatus === 0 &&
-    //         r.personnelId === Number(selectedPersonnelId) &&
-    //         r.consignmentId === Number(selectedConsignmentId)
-    //     );
-    // }, [personnelConsigneds, selectedPersonnelId, selectedConsignmentId]);
-
     const handleSubmitForm = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -590,13 +597,15 @@ const ListPersonnelConsigneds: React.FC = () => {
             parentId: isAssignmentMode ? 0 : Number(selectedParentConsignedId),
             returnDate: isAssignmentMode ? null : (returnDate ? format(returnDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')),
         };
-        debugger
         if (isEditing) (payload as any).id = Number(editingId);
-        // if (isReturning) (payload as any).recordStatus = 1; 
+
 
 
         try {
-            const res = await axios.request({ method, url, data: payload, headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
+            const res = await axios.request({
+                method, url, data: payload,
+                headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }
+            });
 
             const successStatus = isEditing || isReturning ? 200 : 201;
 
@@ -605,95 +614,46 @@ const ListPersonnelConsigneds: React.FC = () => {
                     `Kayıt başarıyla ${isReturning ? 'teslim edildi' : isEditing ? 'güncellendi' : 'eklendi'}!`,
                     'success'
                 );
-                setLastSubmittedPayload(payload);
+                const submissionDetails = {
+                    personnelId: Number(selectedPersonnelId),
+                    consignmentId: Number(selectedConsignmentId),
+                    isReturn: isReturning,
+                };
+                setPendingRecordDetails(submissionDetails);
 
-                // ✅ شروع منطق Polling:
-                setSearchAttemptCount(0); // ریست شمارنده
-                setIsListReadyToSearch(true);
-
-                // 💡 نکته: fetchConsigneds در اینجا باید فراخوانی شود تا لیست به‌روزرسانی شود.
                 fetchPersonnelConsigneds();
                 resetForm();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
     useEffect(() => {
-        // MAX_SEARCH_ATTEMPTS باید در بیرون از این هوک تعریف شده باشد، مثلاً 5
-        const MAX_SEARCH_ATTEMPTS = 5;
+        if (pendingRecordDetails && personnelConsigneds.length > 0) {
 
-        const startPollingSearch = () => {
-            debugger
-            const relevantRecords = personnelConsigneds
-                .filter(r =>
-                    lastSubmittedPayload &&
-                    // 👈 اطمینان از وجود آبجکت‌ها قبل از دسترسی به ID
-                    r.consignment && r.personnel &&
-                    Number(r.consignment.id) === lastSubmittedPayload.consignmentId &&
-                    Number(r.personnel.id) === lastSubmittedPayload.personnelId
-                )
-                .sort((a, b) => new Date(b.createAt).getTime() - new Date(a.createAt).getTime());
+            // 1. بر اساس تاریخ ایجاد (createAt) یا ID (اگر ID‌ها به ترتیب صعودی باشند)
+            // رکورد جدید معمولاً دارای بیشترین ID یا آخرین تاریخ ایجاد است.
+            const lastSubmittedRecord = personnelConsigneds
+                .sort(getComparator('desc', 'createAt')) // مرتب سازی بر اساس تاریخ ایجاد نزولی
+                .find(r =>
+                    Number(r.personnel?.id) === pendingRecordDetails.personnelId &&
+                    Number(r.consignment?.id) === pendingRecordDetails.consignmentId &&
+                    (pendingRecordDetails.isReturn ? r.returnDate !== null : r.returnDate === null)
+                );
 
-            const latestRecord = relevantRecords.length > 0 ? relevantRecords[0] : null;
-
-            let newRecord = null;
-            if (latestRecord && lastSubmittedPayload) {
-                // منطق کلیدی: آیا این رکورد جدیدترین، از نظر وضعیت (واگذاری یا تحویل) با Payload ارسالی مطابقت دارد؟
-                const isStatusMatch = (latestRecord.returnDate !== null) === (lastSubmittedPayload.returnDate !== null);
-
-                // ما فقط جدیدترین رکورد را می‌پذیریم اگر وضعیت آن همخوانی داشته باشد
-                // (برای جلوگیری از باز شدن مودال Assignment زمانی که در حال Polling برای Return هستیم، و بالعکس)
-                if (isStatusMatch) {
-                    newRecord = latestRecord;
-                }
-            }
-
-            if (newRecord) {
-                // ✅ موفقیت نهایی: رکورد پیدا شد
-                setLastRecordDetail(newRecord);
+            if (lastSubmittedRecord) {
+                setLastRecordDetail(lastSubmittedRecord);
                 setOpenLastRecordModal(true);
-
-                // پاکسازی
-                setLastSubmittedPayload(null);
-                setIsListReadyToSearch(false);
-                setSearchAttemptCount(0);
-            } else if (searchAttemptCount < MAX_SEARCH_ATTEMPTS) {
-                // 🔄 Polling ادامه دارد: لیست را مجدداً واکشی کنید
-                setSearchAttemptCount(c => c + 1);
-                fetchPersonnelConsigneds(); // 👈 فراخوانی مجدد برای به‌روزرسانی لیست
-                searchTimerRef.current = setTimeout(startPollingSearch, 1000); // 1 ثانیه صبر کن
-            } else {
-                // ❌ شکست: حد مجاز Polling به پایان رسید
-                setLastSubmittedPayload(null);
-                setIsListReadyToSearch(false);
-                setSearchAttemptCount(0);
-                showAlert("Kayıt oluşturuldu, ancak listeye eklenmesinde aşırı gecikme yaşandı. Lütfen tabloyu manuel kontrol edin.", 'error');
+                setPendingRecordDetails(null); // ریست کردن حالت ردیابی
             }
-        };
-
-        // 💡 فعال‌سازی فرآیند جستجو
-        if (isListReadyToSearch && lastSubmittedPayload) {
-            startPollingSearch();
         }
-
-
-        // Cleanup: پاک کردن تایمر در صورت تغییر وابستگی‌ها یا Unmount شدن
-        return () => {
-            if (searchTimerRef.current) {
-                clearTimeout(searchTimerRef.current);
-                searchTimerRef.current = null;
-            }
-        };
-    }, [
-        personnelConsigneds,
-        lastSubmittedPayload,
-        isListReadyToSearch,
-        searchAttemptCount,
-        fetchPersonnelConsigneds, // 👈 باید اضافه شود (تغییر مهم)
-        showAlert // 👈 باید اضافه شود (تغییر مهم)
-    ]);
+    }, [personnelConsigneds, pendingRecordDetails, getComparator, setLastRecordDetail]); // افزودن setLastRecordDetail به Dependencies
 
     // const handleEditClick = () => {
     //     if (!selectedRowForMenu) return;
@@ -1042,7 +1002,86 @@ const ListPersonnelConsigneds: React.FC = () => {
         setFullDescriptionContent('');
     };
 
-    // --- JSX Render ---
+    const handleOpenLastRecordModalFromRow = (row: PersonnelConsigned) => {
+        setLastRecordDetail(row);
+        setOpenLastRecordModal(true);
+        handleCloseMenu();
+    };
+
+    // --- Handlers for Attachment Update Modal ---
+    const handleOpenAttachModal = (row: PersonnelConsigned) => {
+        setRowToUpdateAttachments(row);
+        // 💡 پیوست‌های فعلی رکورد را بارگذاری می‌کنیم:
+        setAttachCurrentAttachments(row.attachments);
+        setAttachFiles([]); // ریست کردن فایل‌های جدید
+        setAttachError(false);
+        setOpenAttachModal(true);
+        handleCloseMenu();
+    };
+
+    const handleCloseAttachModal = () => {
+        setOpenAttachModal(false);
+        setRowToUpdateAttachments(null);
+        setAttachCurrentAttachments([]);
+        setAttachFiles([]);
+        setAttachError(false);
+    };
+
+    const handleAttachmentUpdate = async () => {
+        if (!rowToUpdateAttachments) return;
+        setAttachButtonLoading(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Kimlik doğrulama hatası.', 'error'); setAttachButtonLoading(false); return; }
+
+        let fileUrls: string[] | null = [];
+        if (attachFiles.length > 0) {
+            showAlert('Yeni dosyalar yükleniyor...', 'info');
+            fileUrls = await uploadFiles(attachFiles, authToken, showAlert);
+            if (fileUrls === null) { setAttachButtonLoading(false); return; }
+        }
+
+        // ترکیب پیوست‌های موجود (پس از حذف‌های احتمالی) با پیوست‌های جدید آپلود شده
+        const finalAttachments: AttachmentType[] = [
+            ...attachCurrentAttachments,
+            ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])
+        ];
+
+        // 💡 ساختار Payload برای آپدیت: شامل تمام فیلدهای اصلی رکورد + attachments جدید
+        const payloadForUpdate: PersonnelConsignedPayload = {
+            id: Number(rowToUpdateAttachments.id), // ID برای PUT
+            assignmentDate: rowToUpdateAttachments.assignmentDate,
+            description: rowToUpdateAttachments.description,
+            consignmentId: Number(rowToUpdateAttachments.consignment?.id),
+            personnelId: Number(rowToUpdateAttachments.personnel?.id),
+            parentId: rowToUpdateAttachments.parentId,
+            returnDate: rowToUpdateAttachments.returnDate,
+            attachments: finalAttachments, // لیست نهایی پیوست‌ها
+        };
+
+        const updateUrl = `${server.baseurl}${server.hr}update-personnel-consigned`; // 💡 فرض بر استفاده از همین API آپدیت است
+
+        try {
+            const res = await axios.put(updateUrl, payloadForUpdate, { headers: { Authorization: `Bearer ${authToken}` } });
+
+            if (res.data.httpStatusCode === 200) {
+                showAlert('Ekler başarıyla güncellendi.', 'success');
+                fetchPersonnelConsigneds(); // رفرش جدول
+                handleCloseAttachModal();
+            } else {
+                showAlert(res.data.message || 'Ekler güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        } finally {
+            setAttachButtonLoading(false);
+        }
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -1276,7 +1315,8 @@ const ListPersonnelConsigneds: React.FC = () => {
                             {/* Attachments (Required for Return mode) */}
                             <Grid item xs={12} >
                                 <CustomFormLabel required={!isAssignmentMode}>Ekler ({currentAttachments.length + selectedFiles.length} dosya)</CustomFormLabel>
-                                <ConsignmentFileUpload files={selectedFiles} setFiles={setSelectedFiles} error={attachmentError} />
+                                <ConsignmentFileUpload files={selectedFiles}
+                                    setFiles={setSelectedFiles} error={attachmentError} />
                                 {/* Display existing attachments during edit/return */}
                                 {currentAttachments.length > 0 && (
                                     <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Mevcut Ekler: {currentAttachments.length}</Typography>
@@ -1434,16 +1474,14 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                 </CustomTooltip>
                                                 <Menu anchorEl={anchorEl} open={openMenu}
                                                     onClose={handleCloseMenu}>
-                                                    {/* {hasEditPermission && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı düzenle" : ""}>
-                                                            <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenlemek</MuiMenuItem>
+                                                    {hasCreatePermission && ( // 💡 مجوز Edit یا Create برای تغییر پیوست‌ها نیاز است
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kayda ek dosya (resim/pdf) ekle veya mevcut ekleri düzenle." : ""}>
+                                                            <MuiMenuItem onClick={() => handleOpenAttachModal(selectedRowForMenu!)}>
+                                                                <ListItemIcon><IconLink width={18} /></ListItemIcon>
+                                                                Ekleri Düzenle
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
-                                                    )} */}
-                                                    {/* {hasEditPermission && row.returnDate !== null && (
-                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu zimmeti iade al" : ""}>
-                                                            <MuiMenuItem onClick={handleReturnClick} sx={{ color: 'red' }}><ListItemIcon><IconDownload width={18} /></ListItemIcon>Teslim Al (İade)</MuiMenuItem>
-                                                        </CustomTooltip>
-                                                    )} */}
+                                                    )}
                                                     {hasDeletePermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kaydı sil" : ""}>
                                                             <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
@@ -1452,6 +1490,17 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                     {hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kaydı indir" : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir</MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
+                                                    {hasDownloadPermission && selectedRowForMenu && (
+                                                        <CustomTooltip
+                                                            placement="left"
+                                                            title={isTooltipGloballyEnabled ? "Bu işlem raporunu indirin" : ""}
+                                                        >
+                                                            <MuiMenuItem onClick={() => handleOpenLastRecordModalFromRow(selectedRowForMenu)}>
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>
+                                                                İşlem Raporu (PDF)
+                                                            </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
                                                 </Menu>
@@ -1478,12 +1527,31 @@ const ListPersonnelConsigneds: React.FC = () => {
                     {currentAttachments.length === 0 ? (
                         <Typography variant="body1">Bu kayıt için herhangi bir ek bulunmamaktadır.</Typography>
                     ) : (
-                        currentAttachments.map((attachment, index) => (
-                            <Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }} startIcon={<IconDownload />}>
-                                {attachment.fileUrl.split('/').pop()}
-                            </Button>
-                        ))
+                        currentAttachments.map((attachment, index) => {
+
+                            const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                            let fileName = rawFileName;
+                            try {
+                                fileName = decodeURIComponent(rawFileName);
+                            } catch (e) {
+                            }
+                            fileName = fileName
+                                .replace(/Ä±/g, 'ı')  // ı
+                                .replace(/ÄŸ/g, 'ğ')  // ğ
+                                .replace(/Ã¼/g, 'ü')  // ü
+                                .replace(/Ã¶/g, 'ö')  // ö
+                                .replace(/Ä°/g, 'İ')  // İ
+                                .replace(/ÅŸ/g, 'ş')  // ş
+                                .replace(/Ã‡/g, 'Ç')  // Ç
+                                .replace(/Ä±/g, 'ı'); // ğ
+
+                            return (<Button key={index} fullWidth variant="outlined"
+                                onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                        })
                     )}
+
+
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
@@ -1601,6 +1669,40 @@ const ListPersonnelConsigneds: React.FC = () => {
                         </Button>
                     )}
                     <Button onClick={() => setOpenLastRecordModal(false)} color="secondary" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* --- NEW: Attachment Edit Modal --- */}
+            <Dialog open={openAttachModal} onClose={attachButtonLoading ? undefined : handleCloseAttachModal} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    Ekleri Düzenle: {rowToUpdateAttachments?.personnelName || 'Kayıt'}
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2}>
+                        <Typography variant="body1">
+                            Lütfen yeni ekleri seçin veya mevcut ekleri (X ile) kaldırın.
+                        </Typography>
+                        <ConsignmentFileUpload
+                            files={attachFiles}
+                            setFiles={setAttachFiles}
+                            error={attachError}
+                        // currentAttachments={attachCurrentAttachments}
+                        // setCurrentAttachments={setAttachCurrentAttachments}
+                        />
+                        {attachError && <Alert severity="error" sx={{ mt: 1 }}>Lütfen dosya seçin veya hatayı giderin.</Alert>}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseAttachModal} color="secondary" disabled={attachButtonLoading}>İptal</Button>
+                    <Button
+                        onClick={handleAttachmentUpdate}
+                        color="primary"
+                        variant="contained"
+                        disabled={attachButtonLoading}
+                        startIcon={attachButtonLoading ? <CircularProgress size={20} color="inherit" /> : <IconFileDownload />}
+                    >
+                        {attachButtonLoading ? 'Güncelleniyor...' : 'Ekleri Kaydet'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 

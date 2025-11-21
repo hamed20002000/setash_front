@@ -14,6 +14,9 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX,
     IconFileSpreadsheet, IconFileText
 } from '@tabler/icons-react';
+
+import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
+import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
@@ -341,6 +344,9 @@ const ListTeachers: React.FC = () => {
     const [selectedRowForDownload, setSelectedRowForDownload] = useState<TeacherRecord | null>(null);
 
 
+    const { isTooltipGloballyEnabled } = useTooltip();
+
+
     // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -367,7 +373,15 @@ const ListTeachers: React.FC = () => {
             if (res.data.httpStatusCode === 200) {
                 setTeachers(res.data.data as TeacherRecord[]);
             } else { showAlert(res.data.message || 'Öğretmen kayıtları yüklenemedi.', 'error'); }
-        } catch (e) { showAlert('Öğretmen kayıtları yüklenirken bir hata oluştu.', 'error'); } finally { setLoadingData(false); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+        finally { setLoadingData(false); }
     }, [navigate, showAlert]);
 
     useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
@@ -422,8 +436,8 @@ const ListTeachers: React.FC = () => {
         };
 
         const url = isEditing
-            ? `${server.baseurl}${server.education}update-teacher/`
-            : `${server.baseurl}${server.education}create-teacher/`;
+            ? `${server.baseurl}${server.education}update-teacher`
+            : `${server.baseurl}${server.education}create-teacher`;
         const method = isEditing ? 'put' : 'post';
 
         try {
@@ -437,9 +451,47 @@ const ListTeachers: React.FC = () => {
                 fetchTeachers();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
+
+
+    const sendStatusUpdate = async (id: number, statusValue: number) => {
+        clearAlert();
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); navigate("/"); return; }
+
+        try {
+            const response = await axios.put(
+                `${server.baseurl}${server.education}update-teacher`,
+                { id: Number(id), recordStatus: statusValue },
+                { headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}`, 'Content-Type': 'application/json' } }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const statusText = statusValue === 0 ? 'Aktif' : 'Pasif';
+                showAlert(`Kurs başarıyla ${statusText} olarak ayarlandı!`, 'success');
+                resetForm();
+                fetchTeachers();
+            } else {
+                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        } finally {
+            handleCloseMenu();
+        }
+    };
+
 
     // ------------------------------------
     // Table & Filter Logic
@@ -714,6 +766,17 @@ const ListTeachers: React.FC = () => {
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
                                                     {hasEditPermission && (<MuiMenuItem onClick={() => handleEditClick(row)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>)}
+                                                    {hasEditPermission && (
+                                                        selectedRowForMenu?.recordStatus === 0 ? (
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kursu pasif yap" : ""}>
+                                                                <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 1)}><ListItemIcon><DoNotDisturbOnRoundedIcon width={18} /></ListItemIcon> Pasif Yap</MuiMenuItem>
+                                                            </CustomTooltip>
+                                                        ) : (
+                                                            <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kursu aktif yap" : ""}>
+                                                                <MuiMenuItem onClick={() => sendStatusUpdate(row.id, 0)}><ListItemIcon><DoneRoundedIcon width={18} /></ListItemIcon> Aktif Yap</MuiMenuItem>
+                                                            </CustomTooltip>
+                                                        )
+                                                    )}
                                                     {hasDeletePermission && (<MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>)}
                                                     {hasDownloadPermission && (<MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir</MuiMenuItem>)}
                                                 </Menu>

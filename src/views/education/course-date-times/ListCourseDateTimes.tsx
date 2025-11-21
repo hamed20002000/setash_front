@@ -18,6 +18,7 @@ import server from '../../../assets/address.json';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 // @ts-ignore
 import DeleteCourseDateTimes from './DeleteCourseDateTimes';
+import { useNavigate } from 'react-router';
 
 // -------------------------------------------------------------------------------------
 // --- INTERFACES & HELPERS ---
@@ -83,6 +84,9 @@ type ListCourseDateTimesProps = {
 };
 
 const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseId, courseTitle, onClose, showAlert, courseStart, courseEnd }) => {
+
+
+    const navigate = useNavigate();
     const [dateTimes, setDateTimes] = useState<CourseDateTime[]>([]);
     const [loading, setLoading] = useState(false);
     const [loadingButton, setLoadingButton] = useState(false);
@@ -135,8 +139,13 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
             } else {
                 showAlert(res.data.message || 'Tarihler yüklenemedi.', 'error');
             }
-        } catch (e) {
-            showAlert('Tarihleri yüklerken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoading(false);
         }
@@ -245,7 +254,12 @@ const ListCourseDateTimes: React.FC<ListCourseDateTimesProps> = ({ open, courseI
                 showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir ağ hatası oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }

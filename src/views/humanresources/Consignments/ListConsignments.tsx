@@ -661,7 +661,14 @@ const ListConsignments: React.FC = () => {
             if (response.data.httpStatusCode === 200) {
                 setWarehousesList(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as WarehouseType[]);
             } else { showAlert(response.data.message || 'Depolar yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Depolar yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const fetchWorkhouses = useCallback(async () => {
@@ -672,7 +679,14 @@ const ListConsignments: React.FC = () => {
             if (response.data.httpStatusCode === 200) {
                 setWorkhousesList(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as WorkhouseType[]);
             } else { showAlert(response.data.message || 'Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Şantiyeler yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const fetchCarWarehouses = useCallback(async () => {
@@ -691,7 +705,14 @@ const ListConsignments: React.FC = () => {
                     })) as CarWarehouseType[];
                 setCarWarehousesList(mapped);
             } else { showAlert(response.data.message || 'Filo listesi alınamadı.', 'error'); }
-        } catch (e) { showAlert('Filo listesi çekilirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
     const fetchStoresByWorkhouseId = useCallback(async (workhouseId: number) => {
@@ -702,7 +723,14 @@ const ListConsignments: React.FC = () => {
             if (response.data.httpStatusCode === 200) {
                 setStoresList(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name, workhouse: item.workhouse })) as StoreType[]);
             } else { showAlert(response.data.message || 'Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
-        } catch (e) { showAlert('Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate]);
 
 
@@ -729,8 +757,13 @@ const ListConsignments: React.FC = () => {
             } else {
                 showAlert(res.data.message || 'Kayıtlar yüklenirken bir hata oluştu.', 'error');
             }
-        } catch (e) {
-            showAlert('Kayıtlar yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -886,8 +919,13 @@ const ListConsignments: React.FC = () => {
             } else {
                 showAlert('Son kayıt alınamadı. Lütfen manuel kontrol edin.', 'warning');
             }
-        } catch (e) {
-            showAlert('Son kaydı alırken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [showAlert]);
 
@@ -1009,7 +1047,12 @@ const ListConsignments: React.FC = () => {
                 fetchConsignments();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 

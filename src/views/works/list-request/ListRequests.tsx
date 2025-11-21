@@ -30,7 +30,7 @@ import CustomTextField from 'src/components/forms/theme-elements/CustomTextField
 import {
     IconFileText,
     IconPlus, IconTrash, IconEdit,
-    IconDots, IconDownload,
+    IconDots,
     IconLink, IconX,
     IconInfoCircle,
     IconSearch,
@@ -113,16 +113,10 @@ interface WorkhouseRentRequest {
     workhouseName?: string;
 }
 
-// ⬅️ وضعیت‌های مرتب‌سازی برای جدول متریال
 type MaterialOrder = 'asc' | 'desc';
 type MaterialOrderBy = keyof MaterialRequestType | 'id' | 'subject' | 'status' | 'createAt';
 
 
-// ==============================================================================
-// 2. STYLED COMPONENTS & UTILS
-// ==============================================================================
-
-// استایل‌های قبلی شما...
 const StyledToggleButton = styled(MuiToggleButton)(({ theme }) => ({
     fontSize: '0.7rem',
     padding: '10px 4px',
@@ -264,20 +258,13 @@ const addPdfFooter = (doc: jsPDF) => {
     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
 
-// ==============================================================================
-// 3. MAIN COMPONENT: RequestTabs
-// ==============================================================================
 
 const RequestTabs: React.FC = () => {
     const navigate = useNavigate();
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    // ⬅️ State مدیریت Tab
     const [currentTab, setCurrentTab] = useState('material'); // 'material' | 'rental'
 
-    // ==============================================================================
-    // UTILS & SHARED STATES
-    // ==============================================================================
     const [searchParams, setSearchParams] = useSearchParams();
     const location = useLocation();
     const idsFromState = ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
@@ -306,12 +293,6 @@ const RequestTabs: React.FC = () => {
         setAlertSeverity(severity);
     }, []);
 
-
-
-
-
-
-
     const clearAlert = () => setAlertMessage(null);
     useEffect(() => {
         let timer: NodeJS.Timeout;
@@ -324,19 +305,11 @@ const RequestTabs: React.FC = () => {
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
-
-    // ==============================================================================
-    // TAB 1: MATERIAL REQUESTS (Malzeme Talepleri - منطق قبلی شما)
-    // ==============================================================================
-
     const [requestsList, setRequestsList] = useState<MaterialRequestType[]>([]);
     const [materialSubject, setMaterialSubject] = useState('');
     const [materialDescription, setMaterialDescription] = useState('');
     const [materialItemToEdit, setMaterialItemToEdit] = useState<MaterialRequestType | null>(null);
     const [materialSubjectError, setMaterialSubjectError] = useState(false);
-    // ... سایر استیت‌های مربوط به Malzeme Talepleri
-
-    // Table States (Material)
     const [materialSearchTerm, setMaterialSearchTerm] = useState('');
     const [materialStatusFilter, setMaterialStatusFilter] = useState<'all' | 0 | 1 | 2>('all');
     const [materialOrderBy, setMaterialOrderBy] = useState<MaterialOrderBy>('createAt');
@@ -345,7 +318,6 @@ const RequestTabs: React.FC = () => {
     const [materialRowsPerPage, setMaterialRowsPerPage] = useState(5);
     const [materialSelectedRowForMenu, setMaterialSelectedRowForMenu] = useState<MaterialRequestType | null>(null);
 
-    // Form/Attachment States
     const [filesToUpload, setFilesToUpload] = useState<File[]>([]);
     const [attachmentsInEdit, setAttachmentsInEdit] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -358,7 +330,6 @@ const RequestTabs: React.FC = () => {
     const [historyData, setHistoryData] = useState<RequestStatusHistory[]>([]);
     const [openDownloadMaterialSingleModal, setOpenDownloadMaterialSingleModal] = useState(false);
 
-    // FETCH (Material) - (همان تابع قبلی)
     const fetchMaterialRequests = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -374,7 +345,12 @@ const RequestTabs: React.FC = () => {
                 showAlert(response.data.message || 'Talepler alınamadı.', 'error');
             }
         } catch (e: any) {
-            showAlert('Talepler yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -384,7 +360,7 @@ const RequestTabs: React.FC = () => {
         if (currentTab === 'material') {
             fetchMaterialRequests();
         }
-    }, [currentTab, fetchMaterialRequests]); // ⬅️ مطمئن شوید این Effect وجود دارد
+    }, [currentTab, fetchMaterialRequests]);
 
 
     const validateMaterialForm = (): boolean => {
@@ -423,7 +399,6 @@ const RequestTabs: React.FC = () => {
         handleCloseMenu();
     };
 
-    // ... (توابع createRequest و updateRequest برای Material مشابه قبل، با استفاده از `materialSubject` و `materialDescription`)
     const createMaterialRequest = async () => {
         if (!validateMaterialForm()) return;
         setLoadingButton(true);
@@ -468,7 +443,12 @@ const RequestTabs: React.FC = () => {
                 showAlert(response.data.message || 'Talep oluşturulurken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -522,13 +502,17 @@ const RequestTabs: React.FC = () => {
                 showAlert(response.data.message || 'Talep güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
 
-    // Table Data Logic (Material)
     const filteredMaterialRequests = useMemo(() => {
         const q = materialSearchTerm.trim().toLowerCase();
         return requestsList.filter((r) => {
@@ -573,10 +557,6 @@ const RequestTabs: React.FC = () => {
     };
 
 
-    // ==============================================================================
-    // TAB 2: RENTAL REQUESTS (Kiralama Talepleri - منطق جدید)
-    // ==============================================================================
-
     const [rentalRequestsList, setRentalRequestsList] = useState<WorkhouseRentRequest[]>([]);
     const [workhouses, setWorkhouses] = useState<Workhouse[]>([]);
     const [rentalTitle, setRentalTitle] = useState('');
@@ -590,7 +570,6 @@ const RequestTabs: React.FC = () => {
     const [rentEndDateError, setRentEndDateError] = useState(false);
     const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | string>('');
 
-    // Table States (Rental)
     const [rentalSearchTerm, setRentalSearchTerm] = useState('');
     const [rentalStatusFilter, setRentalStatusFilter] = useState<'all' | 0 | 1 | 2>('all');
     const [selectedRentalWorkhouseId, setSelectedRentalWorkhouseId] = useState<number | string>(''); // برای فیلتر جدول
@@ -617,10 +596,13 @@ const RequestTabs: React.FC = () => {
                     showAlert('İşyeri listesi alınamadı.', 'error');
                 }
             }
-        } catch (e) {
-            if (currentTab === 'rental' && isFormVisible) {
-                showAlert('İşyeri listesi yüklenirken hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [showAlert, currentTab, isFormVisible]);
 
@@ -655,8 +637,12 @@ const RequestTabs: React.FC = () => {
                 showAlert(response.data.message || 'Kiralama talepleri alınamadı.', 'error');
             }
         } catch (e: any) {
-            setRentalRequestsList([]);
-            showAlert('Kiralama talepleri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -774,7 +760,12 @@ const RequestTabs: React.FC = () => {
                 showAlert(response.data.message || 'Kiralama talebi oluşturulurken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -835,7 +826,12 @@ const RequestTabs: React.FC = () => {
                 showAlert(response.data.message || 'Kiralama talebi güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -1780,11 +1776,34 @@ const RequestTabs: React.FC = () => {
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
-                    {currentAttachments.map((attachment, index) => (
+                    {/* {currentAttachments.map((attachment, index) => (
                         <Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }} startIcon={<IconDownload />}>
                             {attachment.fileUrl.split('/').pop()}
                         </Button>
-                    ))}
+                    ))} */}
+
+                    {currentAttachments.map((attachment, index) => {
+
+                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                        let fileName = rawFileName;
+                        try {
+                            fileName = decodeURIComponent(rawFileName);
+                        } catch (e) {
+                        }
+                        fileName = fileName
+                            .replace(/Ä±/g, 'ı')  // ı
+                            .replace(/ÄŸ/g, 'ğ')  // ğ
+                            .replace(/Ã¼/g, 'ü')  // ü
+                            .replace(/Ã¶/g, 'ö')  // ö
+                            .replace(/Ä°/g, 'İ')  // İ
+                            .replace(/ÅŸ/g, 'ş')  // ş
+                            .replace(/Ã‡/g, 'Ç')  // Ç
+                            .replace(/Ä±/g, 'ı'); // ğ
+
+                        return (<Button key={index} fullWidth variant="outlined"
+                            onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                    })}
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>

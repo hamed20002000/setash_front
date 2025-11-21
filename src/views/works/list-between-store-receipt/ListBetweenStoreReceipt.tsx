@@ -692,8 +692,13 @@ const ListBetweenStoreReceipt = () => {
             setGeneralDescription(selectedRowForMenu.description || '');
             setIsFormVisible(true);
             handleCloseMenu();
-        } catch {
-            showAlert('Düzenleme için veri hazırlanırken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingData(false); }
     };
 

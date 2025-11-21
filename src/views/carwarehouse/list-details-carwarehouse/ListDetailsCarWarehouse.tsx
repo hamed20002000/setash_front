@@ -125,21 +125,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilizedThis.map((el) => el[0]);
 };
 
-// ... (ConsignmentFileUpload و توابع مربوط به فایل) ...
-const getFileIcon = (fileName: string) => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return <IconFileText size={20} />;
-    if (ext === 'xlsx' || ext === 'xls') return <IconFileSpreadsheet size={20} />;
-    if (['jpg', 'jpeg', 'png', 'gif'].includes(ext || '')) return <IconBox size={20} />;
-    return <IconFileDownload size={20} />;
-};
-
-const getFileColor = (fileName: string) => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    if (ext === 'pdf') return 'error';
-    if (ext === 'xlsx' || ext === 'xls') return 'success';
-    return 'primary';
-};
 
 const ConsignmentFileUpload: React.FC<{
     files: File[];
@@ -466,15 +451,17 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 // ⭐️ تنظیم انبار پیش‌فرض به اولین مورد
                 if (activeWarehouses.length > 0) {
                     const defaultWarehouse = activeWarehouses[0];
-
-                    // ۱. مقداردهی کمبوی فیلتر جدول (وضعیت B)
                     setTableCarWarehouse(defaultWarehouse);
+                    // ⭐️ اضافه شده: تنظیم انبار فرم پیش‌فرض
+                    setSelectedCarWarehouse(defaultWarehouse);
                 }
             } else {
                 showAlert('Araç Depo listesi alınamadı.', 'error');
             }
-        } catch (e) {
-            showAlert('Araç Depo listesi yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 
@@ -500,8 +487,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
             } else {
                 showAlert(res.data.message || 'Araç detayları yüklenirken bir hata oluştu.', 'error');
             }
-        } catch (e) {
-            showAlert('Araç detayları yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -614,17 +603,35 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 fetchCarDetails(selectedCarWarehouse!.id); // ⭐️ واکشی مجدد داده‌های انبار انتخابی
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
-    const handleEditClick = (row: CarDetail) => {
-        // ⭐️ در حالت ویرایش، انبار موجود باید در Autocomplete نمایش داده شود.
-        // با فرض اینکه ID در row.carWarehouseId با ID در لیست انبارها مطابقت دارد.
-        const warehouseToSelect = carWarehousesList.find(w => Number(w.id) === row.carWarehouseId);
-        if (warehouseToSelect) {
-            setSelectedCarWarehouse(warehouseToSelect);
+    useEffect(() => {
+        // اگر در حالت ویرایش هستیم و لیست انبارها پر شده است
+        if (editingId && carWarehousesList.length > 0) {
+            // پیدا کردن رکورد فعلی که در حال ویرایش است
+            const currentRecord = carDetails.find(r => r.id === editingId);
+
+            if (currentRecord) {
+                // پیدا کردن شیء انبار متناظر در لیست انبارها
+                const warehouseToSelect = carWarehousesList.find(w => Number(w.id) === currentRecord.carWarehouseId);
+
+                if (warehouseToSelect) {
+                    // تنظیم انبار انتخاب شده در فرم
+                    setSelectedCarWarehouse(warehouseToSelect);
+                }
+            }
         }
+    }, [editingId, carWarehousesList, carDetails]);
+
+    const handleEditClick = (row: CarDetail) => {
+        // const warehouseToSelect = carWarehousesList.find(w => Number(w.id) === row.carWarehouseId);
+        // if (warehouseToSelect) {
+        //     setSelectedCarWarehouse(warehouseToSelect);
+        // }
 
         setEditingId(row.id);
         setBrand(row.brand);
@@ -660,12 +667,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
-                localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            }
-            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             handleCloseMenu();
         }
@@ -1184,7 +1188,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 <DialogContent dividers>
                     {attachmentsToView.length > 0 ? (
                         <Stack spacing={1}>
-                            {attachmentsToView.map((attachment, index) => {
+                            {/* {attachmentsToView.map((attachment, index) => {
                                 const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
                                 const color = getFileColor(fileName);
 
@@ -1200,6 +1204,29 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                         {fileName}
                                     </Button>
                                 );
+                            })} */}
+
+                            {attachmentsToView.map((attachment, index) => {
+
+                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                                let fileName = rawFileName;
+                                try {
+                                    fileName = decodeURIComponent(rawFileName);
+                                } catch (e) {
+                                }
+                                fileName = fileName
+                                    .replace(/Ä±/g, 'ı')  // ı
+                                    .replace(/ÄŸ/g, 'ğ')  // ğ
+                                    .replace(/Ã¼/g, 'ü')  // ü
+                                    .replace(/Ã¶/g, 'ö')  // ö
+                                    .replace(/Ä°/g, 'İ')  // İ
+                                    .replace(/ÅŸ/g, 'ş')  // ş
+                                    .replace(/Ã‡/g, 'Ç')  // Ç
+                                    .replace(/Ä±/g, 'ı'); // ğ
+
+                                return (<Button key={index} fullWidth variant="outlined"
+                                    onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
                             })}
                         </Stack>
                     ) : (

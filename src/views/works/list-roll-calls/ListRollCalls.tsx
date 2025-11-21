@@ -311,9 +311,6 @@ const ListRollCalls = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // =========================================================================
-    // ۴. توابع API و مدیریت Alert
-    // =========================================================================
 
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -380,8 +377,13 @@ const ListRollCalls = () => {
                     }), {})
                 );
             }
-        } catch (e) {
-            showAlert('Personel işyeri listesi yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert, defaultStartTime, defaultEndTime]);
 
@@ -417,21 +419,22 @@ const ListRollCalls = () => {
             } else {
                 showAlert('Yoklama listesi yüklenirken bir hata oluştu.', 'error');
             }
-        } catch (e) {
-            showAlert('Yoklama listesi yüklenirken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
-        // }, [navigate, showAlert, fetchPersonnelWorkPlaces]);
     }, [navigate, showAlert, fetchPersonnelWorkPlaces, selectedDailyDate]);
 
     useEffect(() => {
         fetchRollCalls();
     }, [fetchRollCalls]);
 
-    // =========================================================================
-    // ۵. منطق ثبت حضور روزانه (جدول جدید)
-    // =========================================================================
 
     const handleDailyTimeChange = useCallback((id: number, field: keyof DailyTimes, value: Date | null) => {
         setDailyTimes(prev => ({
@@ -477,15 +480,16 @@ const ListRollCalls = () => {
                 showAlert(response.data.message || 'Kayıt eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Sunucu ile bağlantı hatası.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setIsDailyRegisterLoading(prev => ({ ...prev, [row.id]: false }));
         }
     };
-
-    // =========================================================================
-    // ۶. منطق ویرایش سوابق (Modal Edit)
-    // =========================================================================
 
     const validateEditForm = () => {
         const isTimeSelected = selectedStartTime && selectedEndTime;
@@ -562,7 +566,12 @@ const ListRollCalls = () => {
                 showAlert(response.data.message || 'Yoklama kaydı güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Sunucu ile bağlantı hatası.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -640,9 +649,6 @@ const ListRollCalls = () => {
         fetchRollCalls();
     };
 
-    // =========================================================================
-    // ۸. توابع دانلود (Download Functions)
-    // =========================================================================
 
     const exportRollCallsToPdf = async (data: RollCallType[], isFiltered: boolean) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
@@ -747,7 +753,6 @@ const ListRollCalls = () => {
         setLoadingData(false);
     };
 
-    // ⚠️ توابع جدید برای مدیریت مودال دانلود فیلتر شده و دانلود همه
     const handleOpenDownloadAllModal = () => { setOpenDownloadAllModal(true); };
     const handleCloseDownloadAllModal = () => { setOpenDownloadAllModal(false); };
 
@@ -762,22 +767,18 @@ const ListRollCalls = () => {
         } else {
             exportRollCallsToExcel(dataToDownload, isFiltered);
         }
-        // بسته شدن مودال صحیح بر اساس وضعیت فیلتر
         if (isFiltered) {
             handleCloseDownloadFilteredModal();
         } else {
             handleCloseDownloadAllModal();
         }
     };
-    // توابع دانلود یک ردیف
     const handleOpenRowDownloadModal = (_rollCall: RollCallType) => {
-        // setSelectedRollCallForDownload(rollCall);
         setOpenRowDownloadModal(true);
         handleCloseMenu();
     };
     const handleCloseRowDownloadModal = () => {
         setOpenRowDownloadModal(false);
-        // setSelectedRollCallForDownload(null);
     };
 
     const handleClearDateFilters = useCallback(() => {

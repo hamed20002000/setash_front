@@ -763,8 +763,12 @@ const ListLeaves: React.FC = () => {
             if (res.data?.httpStatusCode === 200) setPersonnels(res.data.data || []);
             else showAlert(res.data?.message || "Personel listesi alınırken hata oluştu.", "error");
         } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
-            showAlert("Personel listesi alınırken bir hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 
@@ -785,8 +789,12 @@ const ListLeaves: React.FC = () => {
                 return null;
             }
         } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
-            showAlert("İzin listesi alınırken bir hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingData(false); }
     }, [navigate, showAlert]);
 
@@ -858,8 +866,12 @@ const ListLeaves: React.FC = () => {
                 showAlert(res.data?.message || "İzin eklenirken hata oluştu.", "error");
             }
         } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); return; }
-            showAlert(e.response?.data?.message || "İzin eklenirken hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 

@@ -279,8 +279,13 @@ const ListProjectPlanningImplementation = () => {
                     }));
                 setProjects(list);
             } else showAlert(res.data?.message || "Projeler alınamadı.", "error");
-        } catch {
-            showAlert("Projeler alınırken hata oluştu.", "error");
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoading(false); }
     }, [authToken, navigate, showAlert]);
 
@@ -293,8 +298,13 @@ const ListProjectPlanningImplementation = () => {
             if (res.data?.httpStatusCode === 200) {
                 setForceMajors((res.data.data || []).filter(f => f.recordStatus === 0));
             }
-        } catch {
-            // optional
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [authToken, navigate]);
 
@@ -536,8 +546,12 @@ const ListProjectPlanningImplementation = () => {
                 showAlert(res.data?.message || "Kayıt oluşturulamadı.", "error");
             }
         } catch (e: any) {
-            if (e.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); }
-            showAlert(e.response?.data?.message || "Kayıt oluşturulurken hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 

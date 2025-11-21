@@ -58,9 +58,11 @@ interface CarFuelRecord {
     fuelType: string;
     amount: number;
     description: string;
-    fee: number;
-    totatPrice: number;
-    attachments: AttachmentType[];
+    fee: number; // ⚠️ در مرحله 2 نیاز به تغییر
+    totatPrice: number; // ⚠️ در مرحله 2 نیاز به تغییر
+    // --- اصلاح شده ---
+    attachment: AttachmentType[]; // 💡 تغییر از attachments به attachment
+    // ------------------
     consignedCarId: number | string;
     createAt: string;
 }
@@ -77,6 +79,8 @@ interface CarFuelPayload {
     attachments: AttachmentType[];
     consignedCarId: number | string;
 }
+
+
 
 type SortableKeys = 'date' | 'amount' | 'totatPrice' | 'createAt';
 
@@ -364,13 +368,11 @@ const ListCarFuels: React.FC = () => {
     const { isTooltipGloballyEnabled } = useTooltip();
     // Permissions (مجوزها)
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    const hasUpdatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Güncellemek'), [allowedOperations]);
+    const hasEditPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
+
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // ------------------------------------
-    // Form States (ثبت/به‌روزرسانی)
-    // ------------------------------------
     const [isEditMode, setIsEditMode] = useState(false);
     const [editRecordId, setEditRecordId] = useState<number | string | null>(null);
 
@@ -462,9 +464,20 @@ const ListCarFuels: React.FC = () => {
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200) {
-                setFuelRecords(res.data.data as CarFuelRecord[]);
+                const cleanedRecords = (res.data.data as any[]).map(record => ({
+                    ...record,
+                    fee: parseFloat(String(record.fee).replace(/[^0-9.]/g, '')),
+                    totatPrice: parseFloat(String(record.totatPrice).replace(/[^0-9.]/g, '')),
+                }));
+                setFuelRecords(cleanedRecords as CarFuelRecord[]);
             } else { showAlert(res.data.message || 'Yakıt kayıtları yüklenemedi.', 'error'); }
-        } catch (e) { showAlert('Yakıt kayıtları yüklenirken bir hata oluştu.', 'error'); } finally { setLoadingData(false); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+
+        finally { setLoadingData(false); }
     }, [navigate, showAlert, consignedCarId]);
 
     useEffect(() => {
@@ -523,7 +536,7 @@ const ListCarFuels: React.FC = () => {
         setFee(row.fee);
         setTotalPrice(row.totatPrice);
         setDescription(row.description);
-        setCurrentAttachments(row.attachments);
+        setCurrentAttachments(row.attachment);
         setSelectedFiles([]);
 
         setIsFormVisible(true);
@@ -588,7 +601,9 @@ const ListCarFuels: React.FC = () => {
                 fetchFuelRecords();
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -860,11 +875,11 @@ const ListCarFuels: React.FC = () => {
                                                     </CustomTooltip>
                                                 )}
                                             </StyledTableCell>
-                                            <StyledTableCell><IconButton onClick={() => handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary" size="small"></Chip></IconButton></StyledTableCell>
+                                            <StyledTableCell><IconButton onClick={() => handleOpenAttachmentsModal(row.attachment)}><IconLink size={18} /><Chip label={row.attachment.length} color="primary" size="small"></Chip></IconButton></StyledTableCell>
                                             <StyledTableCell>
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
-                                                    {hasUpdatePermission && (<MuiMenuItem onClick={() => handleEdit(row)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>)}
+                                                    {hasEditPermission && (<MuiMenuItem onClick={() => handleEdit(row)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>)}
                                                     {hasDeletePermission && (<MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>)}
                                                 </Menu>
                                             </StyledTableCell>
@@ -884,7 +899,25 @@ const ListCarFuels: React.FC = () => {
                 <DialogTitle>Ekler ({attachmentsToView.length} adet)</DialogTitle>
                 <DialogContent dividers>{attachmentsToView.length > 0 ? (<Stack spacing={1}>
                     {attachmentsToView.map((attachment, index) => {
-                        const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                        let fileName = rawFileName;
+                        try {
+                            fileName = decodeURIComponent(rawFileName);
+                        } catch (e) {
+                        }
+
+                        fileName = fileName
+                            .replace(/Ä±/g, 'ı')  // ı
+                            .replace(/ÄŸ/g, 'ğ')  // ğ
+                            .replace(/Ã¼/g, 'ü')  // ü
+                            .replace(/Ã¶/g, 'ö')  // ö
+                            .replace(/Ä°/g, 'İ')  // İ
+                            .replace(/ÅŸ/g, 'ş')  // ş
+                            .replace(/Ã‡/g, 'Ç')  // Ç
+                            .replace(/Ä±/g, 'ı'); // ğ
+
                         return (<Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadLinkClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
                     })}
                 </Stack>) : (<DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>)}
@@ -921,3 +954,4 @@ const ListCarFuels: React.FC = () => {
 };
 
 export default ListCarFuels;
+

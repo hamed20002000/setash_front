@@ -451,6 +451,13 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const [returnKilometerError, setReturnKilometerError] = useState(false);
     const [returnButtonLoading, setReturnButtonLoading] = useState(false);
 
+    const [openAttachModal, setOpenAttachModal] = useState(false);
+    const [rowToUpdateAttachments, setRowToUpdateAttachments] = useState<ConsignedCarRecord | null>(null);
+    const [attachFiles, setAttachFiles] = useState<File[]>([]); // فایل‌های جدید برای آپلود
+    const [attachCurrentAttachments, setAttachCurrentAttachments] = useState<AttachmentType[]>([]); // پیوست‌های موجود
+    const [attachButtonLoading, setAttachButtonLoading] = useState(false);
+    const [attachError, setAttachError] = useState(false);
+
 
 
 
@@ -489,10 +496,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
     useEffect(() => { let timer: NodeJS.Timeout; if (alertMessage) timer = setTimeout(() => clearAlert(), 5000); return () => { if (timer) clearTimeout(timer); }; }, [alertMessage]);
 
-    // ------------------------------------
-    // Data Fetching Logic (واکشی داده)
-    // ------------------------------------
-
     const fetchPersonnelList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -508,7 +511,9 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 setPersonnelList(list);
             }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || "Personel listesi alınamadı.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 
@@ -527,7 +532,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
                     setSelectedFilterWarehouse(activeWarehouses[0]);
                 }
             } else { showAlert('Araç Depo listesi alınamadı.', 'error'); }
-        } catch (e) { showAlert('Araç Depo listesi yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, [navigate, showAlert]);
 
     const fetchCarDetailsForForm = useCallback(async (warehouseId: string | null) => {
@@ -560,8 +569,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
                 setCarDetailsList(filteredList);
             }
-        } catch (e) {
-            showAlert('Araç detayları yüklenemedi.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [showAlert]);
 
@@ -593,7 +604,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
                     }));
                 setFilterCarDetailsList(filteredList);
             }
-        } catch (e) { /* Hata yönetimi */ }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
     }, []);
 
     const fetchConsignedCars = useCallback(async (carDetailId: number | string | null) => {
@@ -610,12 +625,15 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 // فرض می‌کنیم داده‌های personnel در این پاسخ وجود دارند.
                 setConsignedCars(res.data.data as ConsignedCarRecord[]);
             } else { showAlert(res.data.message || 'Araç kayıtları yüklenemedi.', 'error'); }
-        } catch (e) { showAlert('Araç kayıtları yüklenirken bir hata oluştu.', 'error'); } finally { setLoadingData(false); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+
+        finally { setLoadingData(false); }
     }, [navigate, showAlert]);
 
-    // ------------------------------------
-    // useEffect Hooks (زنجیره واکشی)
-    // ------------------------------------
     useEffect(() => { fetchWarehouses(); fetchPersonnelList(); }, [fetchWarehouses, fetchPersonnelList]);
     useEffect(() => { fetchCarDetailsForForm(selectedWarehouse?.id || null); setSelectedCarDetail(null); }, [selectedWarehouse, fetchCarDetailsForForm]);
     useEffect(() => { fetchCarDetailsForFilter(selectedFilterWarehouse?.id || null); setSelectedFilterCarDetail(null); }, [selectedFilterWarehouse, fetchCarDetailsForFilter]);
@@ -668,7 +686,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
         const consignedStatus = !isReturnMode;
 
-        // 💡 اصلاح: personnelId از personnelId رکورد اصلی یا selectedPersonnel جدید گرفته می‌شود
         const personnelToSend = isReturnMode ? originalRecord!.personnel.id : selectedPersonnel!.id;
 
         const payload: ConsignedCarPayload = {
@@ -676,7 +693,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             attachments: finalAttachments,
             description: description,
             kilometer: Number(kilometer),
-            carWarhouseDetailId: Number(selectedCarDetail!.id), // 💡 تبدیل به number برای ارسال به بک‌اند
+            carWarhouseDetailId: Number(selectedCarDetail!.id),
             personnelId: Number(personnelToSend),
             consigned: consignedStatus,
         };
@@ -687,12 +704,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         try {
             const res = await axios.post(url, payload, { headers: { Accept: 'application/json', Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' } });
 
-            // if (res.data.httpStatusCode === 201) {
-            //     showAlert(`Araç başarıyla ${consignedStatus ? 'emanet edildi' : 'geri alındı'}!`, 'success');
-            //     resetForm();
-            //     fetchConsignedCars(selectedFilterCarDetail?.id || null);
-            //     fetchCarDetailsForForm(selectedWarehouse?.id || null);
-            // } else 
             if (res.data.httpStatusCode === 201) {
                 showAlert(`Araç başarıyla emanet edildi!`, 'success');
 
@@ -708,8 +719,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
-        } finally { setLoadingButton(false); }
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+        finally { setLoadingButton(false); }
     };
 
     const handleReturnCar = (row: ConsignedCarRecord) => {
@@ -805,8 +819,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
                 // fetchCarDetailsForForm(rowToReturn.carWarhouseDetail.carWarehouse.id || null); // به‌روزرسانی لیست موجودی برای فرم امانت
             } else { showAlert(res.data.message || 'İşlem sırasında bir hata oluştu.', 'error'); }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || 'İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.', 'error');
-        } finally { setReturnButtonLoading(false); }
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde  için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+        finally { setReturnButtonLoading(false); }
     };
 
     const handleCloseReturnModal = () => {
@@ -895,20 +912,13 @@ const ListConsignedCarwarehouse: React.FC = () => {
         handler(filteredConsignedCars, title, showAlert, setLoadingData);
         setOpenDownloadFilteredModal(false);
     };
-
-    // توجه: این تابع نیاز به دسترسی به توابع addPdfHeader، addPdfFooter، formatDateDisplay و آبجکت‌های Logo/NotoSansRegular دارد.
-
     const createSingleConsignmentPdf = (record: ConsignedCarRecord, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
-        // 1. تنظیمات اولیه
-        const title = "ARAÇ EMANET KAYDI RAPORU";
 
-        // jsPDF instantiation
-        // (ابعاد A4 بر حسب pt)
+        const title = "ARAÇ EMANET KAYDI RAPORU";
         const doc = new jsPDF("p", "pt", "a4");
         const docAny = doc as any;
 
         try {
-            // تنظیم فونت NotoSans برای پشتیبانی از ترکی
             docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.setFont('NotoSans');
@@ -992,6 +1002,98 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const handleCloseDescriptionModal = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
+    };
+
+    const handleOpenLastRecordModalFromRow = (row: ConsignedCarRecord) => {
+        // 1. رکورد انتخابی سطر را در حالتی که مودال از آن استفاده می‌کند، قرار می‌دهد.
+        setLastRecordDetail(row);
+
+        // 2. مودال را باز می‌کند.
+        setOpenLastRecordModal(true);
+
+        // 3. منوی عملیات را می‌بندد.
+        handleCloseMenu();
+    };
+
+    const handleOpenAttachModal = (row: ConsignedCarRecord) => {
+        setRowToUpdateAttachments(row);
+        setAttachCurrentAttachments(row.attachments); // بارگذاری پیوست‌های فعلی
+        setAttachFiles([]); // ریست کردن فایل‌های جدید
+        setAttachError(false);
+        setOpenAttachModal(true);
+        handleCloseMenu();
+    };
+
+    // تابع Handler برای بستن مودال
+    const handleCloseAttachModal = () => {
+        setOpenAttachModal(false);
+        setRowToUpdateAttachments(null);
+        setAttachCurrentAttachments([]);
+        setAttachFiles([]);
+        setAttachError(false);
+    };
+
+    const handleAttachmentUpdate = async () => {
+        if (!rowToUpdateAttachments) return;
+        setAttachButtonLoading(true);
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Kimlik doğrulama hatası.', 'error'); setAttachButtonLoading(false); return; }
+
+        let fileUrls: string[] | null = [];
+        if (attachFiles.length > 0) {
+            showAlert('Dosyalar yükleniyor...', 'info');
+            fileUrls = await uploadFiles(attachFiles, authToken, showAlert);
+            if (fileUrls === null) { setAttachButtonLoading(false); return; }
+        }
+
+        // ترکیب پیوست‌های موجود (که حذف نشده‌اند) با پیوست‌های جدید
+        const finalAttachments: AttachmentType[] = [
+            ...attachCurrentAttachments, // پیوست‌های موجود در حالت state (کاربر می‌تواند برخی را حذف کرده باشد)
+            ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])
+        ];
+
+        // اگر هیچ پیوست جدیدی اضافه نشده و پیوست‌های موجود هم حذف شده‌اند، خطا بدهید
+        if (finalAttachments.length === 0 && attachFiles.length === 0 && rowToUpdateAttachments.attachments.length > 0) {
+            setAttachError(true);
+            showAlert('En az bir ek dosya bırakın veya yeni dosya ekleyin.', 'warning');
+            setAttachButtonLoading(false);
+            return;
+        }
+
+        const payloadForUpdate = {
+            id: Number(rowToUpdateAttachments.id),
+            date: rowToUpdateAttachments.date,
+            description: rowToUpdateAttachments.description,
+            kilometer: rowToUpdateAttachments.kilometer,
+
+            attachments: finalAttachments,
+
+        };
+
+        debugger
+
+        const updateUrl = `${server.baseurl}${server.warehouse}update-consigned-car`; // 💡 فرض بر وجود این API است
+
+        try {
+            const res = await axios.put(updateUrl, payloadForUpdate, { headers: { Authorization: `Bearer ${authToken}` } });
+
+            if (res.data.httpStatusCode === 200) {
+                showAlert('Ekler başarıyla güncellendi.', 'success');
+                fetchConsignedCars(selectedFilterCarDetail?.id || null); // رفرش جدول
+                handleCloseAttachModal();
+            } else {
+                showAlert(res.data.message || 'Ekler güncellenirken bir hata oluştu.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        } finally {
+            setAttachButtonLoading(false);
+        }
     };
 
     return (
@@ -1173,10 +1275,34 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                                             Araç Yakıtları Kayıt Et
                                                         </MuiMenuItem>
                                                     )}
+                                                    {hasCreatePermission && (
+                                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kayıt eklerini (Resim/PDF/Excel) ekleyin veya güncelleyin." : ""}>
+                                                            <MuiMenuItem onClick={() => handleOpenAttachModal(selectedRowForMenu!)}>
+                                                                <ListItemIcon><IconBox width={18} /></ListItemIcon>
+                                                                Ek Ekle/Düzenle
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
 
                                                     {hasDeletePermission && (<MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>)}
 
-                                                    {hasDownloadPermission && (<MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon>Bu satırı indir</MuiMenuItem>)}
+                                                    {hasDownloadPermission && (
+                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadModal(row)}>
+                                                            <ListItemIcon><IconFileDownload width={18} />
+                                                            </ListItemIcon>Bu satırı indir</MuiMenuItem>
+                                                    )}
+                                                    {hasDownloadPermission && selectedRowForMenu && (
+                                                        <CustomTooltip
+                                                            placement="left"
+                                                            // عنوان Tooltip را برای وضوح بیشتر اصلاح می‌کنیم
+                                                            title={isTooltipGloballyEnabled ? "İşlem detaylarını gör ve PDF raporunu indir" : ""}
+                                                        >
+                                                            <MuiMenuItem onClick={() => handleOpenLastRecordModalFromRow(selectedRowForMenu)}>
+                                                                <ListItemIcon><IconFileText width={18} /></ListItemIcon>
+                                                                İşlem Raporu (PDF)
+                                                            </MuiMenuItem>
+                                                        </CustomTooltip>
+                                                    )}
                                                 </Menu>
                                             </StyledTableCell>
                                         </TableRow>
@@ -1194,9 +1320,31 @@ const ListConsignedCarwarehouse: React.FC = () => {
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler ({attachmentsToView.length} adet)</DialogTitle>
                 <DialogContent dividers>{attachmentsToView.length > 0 ? (<Stack spacing={1}>
-                    {attachmentsToView.map((attachment, index) => {
+                    {/* {attachmentsToView.map((attachment, index) => {
                         const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
                         return (<Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadLinkClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                    })} */}
+                    {attachmentsToView.map((attachment, index) => {
+
+                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                        let fileName = rawFileName;
+                        try {
+                            fileName = decodeURIComponent(rawFileName);
+                        } catch (e) {
+                        }
+                        fileName = fileName
+                            .replace(/Ä±/g, 'ı')  // ı
+                            .replace(/ÄŸ/g, 'ğ')  // ğ
+                            .replace(/Ã¼/g, 'ü')  // ü
+                            .replace(/Ã¶/g, 'ö')  // ö
+                            .replace(/Ä°/g, 'İ')  // İ
+                            .replace(/ÅŸ/g, 'ş')  // ş
+                            .replace(/Ã‡/g, 'Ç')  // Ç
+                            .replace(/Ä±/g, 'ı'); // ğ
+
+                        return (<Button key={index} fullWidth variant="outlined"
+                            onClick={() => handleDownloadLinkClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
                     })}
                 </Stack>) : (<DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>)}
                 </DialogContent>
@@ -1381,6 +1529,40 @@ const ListConsignedCarwarehouse: React.FC = () => {
                         </Button>
                     )}
                     <Button onClick={() => setOpenLastRecordModal(false)} color="secondary" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* --- NEW: Attachment Edit Modal --- */}
+            <Dialog open={openAttachModal} onClose={attachButtonLoading ? undefined : handleCloseAttachModal} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    Ek Ekle/Düzenle: {rowToUpdateAttachments?.carWarhouseDetail?.plaque || 'Kayıt'}
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Stack spacing={2}>
+                        <Typography variant="body1">
+                            Lütfen bu kayda ait yeni ekleri seçin veya mevcut ekleri yönetin.
+                        </Typography>
+                        <ConsignmentFileUpload
+                            files={attachFiles}
+                            setFiles={setAttachFiles}
+                            error={attachError}
+                            currentAttachments={attachCurrentAttachments}
+                            setCurrentAttachments={setAttachCurrentAttachments}
+                        />
+                        {attachError && <Alert severity="error">Lütfen en az bir ek dosya ekleyin veya hatayı giderin.</Alert>}
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseAttachModal} color="secondary" disabled={attachButtonLoading}>İptal</Button>
+                    <Button
+                        onClick={handleAttachmentUpdate}
+                        color="primary"
+                        variant="contained"
+                        disabled={attachButtonLoading}
+                        startIcon={attachButtonLoading ? <CircularProgress size={20} color="inherit" /> : <IconFileDownload />}
+                    >
+                        {attachButtonLoading ? 'Güncelleniyor...' : 'Ekleri Kaydet'}
+                    </Button>
                 </DialogActions>
             </Dialog>
         </>

@@ -341,13 +341,12 @@ const ListPosition = () => {
                 showAlert(response.data.message || 'Yeni سمت eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
-            console.log("Error inserting position:", e);
-            showAlert(e.response?.data?.message == "The Position already exists!" ? "Bu pozisyon daha önce kaydedilmiştir." : 'Yeni eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -420,9 +419,6 @@ const ListPosition = () => {
         }
     }
 
-    // ********************************************
-    // ** تغییر: تابع sendStatusUpdate (فعال/غیرفعال) **
-    // ********************************************
     const sendStatusUpdate = async (id: number, statusValue: number) => {
         clearAlert();
         const authToken = localStorage.getItem('authToken');
@@ -454,13 +450,12 @@ const ListPosition = () => {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
-            console.error("Error updating status:", e);
-            showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             handleCloseMenu();
         }
@@ -486,9 +481,6 @@ const ListPosition = () => {
         setIsFormVisible(false);
     };
 
-    // **********************************
-    // ** تغییر: تابع getListPositions **
-    // **********************************
     function getListPositions() {
         const authToken = localStorage.getItem('authToken');
 

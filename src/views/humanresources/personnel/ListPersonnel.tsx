@@ -370,8 +370,13 @@ const ListPersonnel: React.FC = () => {
             });
             const data = (res.data?.data ?? []).map((p: any) => ({ id: Number(p.id), title: p.title })) as PositionOption[];
             setPositions(data);
-        } catch {
-            showAlert("Pozisyon listesi alınamadı.", "warning");
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 
@@ -403,7 +408,12 @@ const ListPersonnel: React.FC = () => {
             }));
             setPersonnelList(list);
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || "Personel listesi alınamadı.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -452,8 +462,13 @@ const ListPersonnel: React.FC = () => {
             } else {
                 showAlert("Veri alınırken bir hata oluştu.", "error");
             }
-        } catch (error) {
-            showAlert("Veri alınırken bir hata oluştu.", "error");
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingAnnualLeave(false);
         }
@@ -590,8 +605,12 @@ const ListPersonnel: React.FC = () => {
                 getAllPersonnels();
             } else { showAlert(res.data?.message || "Kayıt oluşturulamadı.", "error"); }
         } catch (e: any) {
-            if (e?.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); }
-            showAlert(e?.response?.data?.message || "Bir hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -650,8 +669,12 @@ const ListPersonnel: React.FC = () => {
                 showAlert(res.data?.message || "Güncelleme başarısız.", "error");
             }
         } catch (e: any) {
-            if (e?.response?.status === 401) { localStorage.removeItem("authToken"); navigate("/"); }
-            showAlert(e?.response?.data?.message || "Bir hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
 
@@ -672,9 +695,12 @@ const ListPersonnel: React.FC = () => {
                 showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 500) showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
-            else if (e.response && e.response.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
-            else showAlert(e.response?.data?.message || 'Durum güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { handleCloseMenu(); }
     };
 
@@ -703,14 +729,18 @@ const ListPersonnel: React.FC = () => {
                 showAlert(res.data?.message || "İş birliği sonlandırılamadı.", "error");
             }
         } catch (e: any) {
-            showAlert(e?.response?.data?.message || "Bir hata oluştu.", "error");
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
 
 
-    /* ---------------- PDF helpers (updated for NEW fields) ---------------- */
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const d: any = doc;
@@ -1369,8 +1399,6 @@ const ListPersonnel: React.FC = () => {
                 const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
                 exportToExcelDetail(rowForDownload, `Personel_Detay_${fileSlug || rowForDownload.id}.xlsx`);
             } else {
-                // حالت: دانلود جزئیات همه پرسنل در یک فایل تجمیع شده (جدید)
-                // از این پس، این خط تمام منطق دانلود چندگانه را مدیریت می‌کند:
                 exportToExcelDetailConsolidated(sorted, "Personel_Detay_Consolidated.xlsx");
             }
         } else {
@@ -2625,7 +2653,6 @@ const ListPersonnel: React.FC = () => {
                         Aşağıdaki zimmet kayıtları henüz iade edilmemiştir. İş birliğini sonlandırmadan önce iade alınması <span>gerekmektedir</span>.
                     </Typography>
 
-                    {/* --- A. Tablo اموال عمومی (Zimmet Genel) --- */}
                     <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>1. Genel Zimmet Kayıtları ({activeConsignments.length})</Typography>
 
                     {activeConsignments.length > 0 ? (
@@ -2742,7 +2769,6 @@ const ListPersonnel: React.FC = () => {
                                 const isImage = fullUrl.match(/\.(jpeg|jpg|png|gif|webp)$/i); // 💡 تشخیص بهتر فرمت عکس
                                 return (
                                     <Box key={index} sx={{ border: '1px solid #ddd', p: 2, borderRadius: 1 }}>
-                                        <Typography variant="body2" fontWeight="bold" gutterBottom>{fileName}</Typography>
                                         {isImage ? (
                                             // 💡 پیش‌نمایش عکس
                                             <CardMedia component="img" image={fullUrl} sx={{ maxHeight: 300, objectFit: 'contain', mt: 1, mb: 1 }} alt={fileName} />
