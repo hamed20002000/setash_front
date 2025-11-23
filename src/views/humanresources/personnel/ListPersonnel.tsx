@@ -340,6 +340,7 @@ const ListPersonnel: React.FC = () => {
     const [activeCarConsignment, setActiveCarConsignment] = useState<any[]>([]);;
 
 
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
     const [activeConsignmentImageUrls, setActiveConsignmentImageUrls] = useState<string[]>([]); // NEW: برای اسلایدر (اگر تصمیم به نمایش در همین مودال بگیریم)
     const [openImageSlider, setOpenImageSlider] = useState(false);
@@ -357,7 +358,6 @@ const ListPersonnel: React.FC = () => {
         attachments: [], // NEW
     };
     const [form, setForm] = useState<PersonnelType>(initialForm);
-    const firstRequiredRef = useRef<HTMLInputElement>(null);
 
     /* -------- API helpers -------- */
     const authToken = typeof window !== "undefined" ? localStorage.getItem("authToken") : null;
@@ -526,6 +526,11 @@ const ListPersonnel: React.FC = () => {
         setProfileRawFile(null);
         setProfileImageUrl(getFullImageUrl(row.imageSrc));
         setAttachmentsRawFiles([]);
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
         handleCloseMenu();
     };
 
@@ -1693,8 +1698,9 @@ const ListPersonnel: React.FC = () => {
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Ad</CustomFormLabel>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={4}>
-                                    <CustomTextField size="small" fullWidth value={form.name} inputRef={firstRequiredRef}
+                                    <CustomTextField size="small" fullWidth value={form.name}
                                         placeholder="Ad"
+                                        inputRef={nameInputRef}
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, name: e.target.value }))}
                                         required error={showStepErrors && !form.name?.trim()} helperText={showStepErrors && !form.name?.trim() ? "Bu alan zorunludur" : ""} />
                                 </Grid>

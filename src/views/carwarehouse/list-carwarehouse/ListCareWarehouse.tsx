@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -298,6 +298,9 @@ const ListCarWarehouse: React.FC = () => {
     const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
 
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
     // Permissions
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
@@ -504,7 +507,11 @@ const ListCarWarehouse: React.FC = () => {
         setSelectedRegionId(row.regionId); // ⭐️ تنظیم ID
 
         setIsFormVisible(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
         handleCloseMenu();
     };
 
@@ -688,14 +695,6 @@ const ListCarWarehouse: React.FC = () => {
     }, [handleCloseMenu]);
 
 
-    // const handleRegisterDetailsClick = () => {
-    //     if (selectedRowForMenu) {
-    //         const carWarehouseId = selectedRowForMenu.id;
-    //         // ⭐️ آدرس مورد نظر شما به همراه ID انبار خودرو
-    //         navigate(`/car-warehouse/list-details-car-warehouse/${carWarehouseId}`);
-    //     }
-    //     handleCloseMenu();
-    // };
 
     return (
         <>
@@ -727,7 +726,9 @@ const ListCarWarehouse: React.FC = () => {
                             {/* Name */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Ad</CustomFormLabel>
-                                <CustomTextField placeholder="Adı Girin" size="small" fullWidth value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setName(e.target.value); setNameError(false); }} error={nameError} helperText={nameError ? 'Bu alan zorunludur!' : ''} />
+                                <CustomTextField placeholder="Adı Girin" size="small"
+                                    inputRef={nameInputRef}
+                                    fullWidth value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setName(e.target.value); setNameError(false); }} error={nameError} helperText={nameError ? 'Bu alan zorunludur!' : ''} />
                             </Grid>
                             {/* Code */}
                             <Grid item xs={12} sm={6} md={4}>

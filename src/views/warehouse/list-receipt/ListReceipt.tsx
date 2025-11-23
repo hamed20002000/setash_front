@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -140,8 +140,10 @@ const ListReceipts = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // مودال جدید برای نادیده گرفتن (sonlandır) فاکتور کمبو
     const [openIgnoreInvoiceModal, setOpenIgnoreInvoiceModal] = useState(false);
+
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
@@ -421,6 +423,7 @@ const ListReceipts = () => {
         setSelectedWarehouse(warehouseObject);
         setWarehouse(row.warehouse.id);
 
+
         const processedItems: ProcessedReceiptItem[] = row.receiptDetails.map(detail => {
             const invoiceNo = detail.invoiceDetail?.invoiceHeader?.invoiceNo || '-';
             return {
@@ -452,9 +455,15 @@ const ListReceipts = () => {
         setSelectedInvoice(currentInvoice);
         setIsInvoiceComboDisabled(true);
 
-        handleCloseMenu();
         setIsFormVisible(true);
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
         clearAlert();
+
+        handleCloseMenu();
+
     };
 
     const handleOpenModal = (details: ReceiptItem[]) => {
@@ -1115,6 +1124,7 @@ const ListReceipts = () => {
                                     <CustomFormLabel htmlFor="doc-date" required>Tarihi</CustomFormLabel>
                                     <DatePicker
                                         value={docDate}
+                                        inputRef={nameInputRef}
                                         inputFormat="dd/MM/yyyy"
                                         onChange={(newValue) => setDocDate(newValue)}
                                         renderInput={(params) => <TextField {...params} size="small" />}

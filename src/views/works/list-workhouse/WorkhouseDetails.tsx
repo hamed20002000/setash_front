@@ -147,6 +147,9 @@ const WorkhouseDetails = () => {
     const [attachments, setAttachments] = useState<string[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
     const [rentStartDate, setRentStartDate] = useState<Date | null>(new Date());
     const [rentEndDate, setRentEndDate] = useState<Date | null>(new Date());
     const [startDateError, setStartDateError] = useState(false);
@@ -230,7 +233,12 @@ const WorkhouseDetails = () => {
                 showAlert('Genel şantiye bilgileri alınamadı.', 'error');
             }
         } catch (e: any) {
-            showAlert('Genel şantiye bilgileri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [workhouseId, navigate]);
 
@@ -258,7 +266,12 @@ const WorkhouseDetails = () => {
                 showAlert(response.data.message || 'Şantiye detayları alınamadı.', 'error');
             }
         } catch (e: any) {
-            showAlert('Şantiye detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -403,8 +416,12 @@ const WorkhouseDetails = () => {
                 showAlert(response.data.message || 'Şantiye detayı oluşturulurken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("API Call Error:", e);
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -586,6 +603,12 @@ const WorkhouseDetails = () => {
             setAttachments([]);
         }
 
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
+
         setIsFormVisible(true);
         handleCloseMenu();
     };
@@ -705,6 +728,7 @@ const WorkhouseDetails = () => {
                                     placeholder="Sahip Adı"
                                     size="small"
                                     sx={{ width: '100%' }}
+                                    inputRef={nameInputRef}
                                     value={owner}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOwner(e.target.value)}
                                     error={ownerError}

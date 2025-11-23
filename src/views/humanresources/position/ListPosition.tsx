@@ -848,7 +848,8 @@ const ListPosition = () => {
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Grid container spacing={1}>
                         <Grid item xs={12} sm={1} display="flex" alignItems="center">
-                            <CustomFormLabel htmlFor="position-title" sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
+                            <CustomFormLabel htmlFor="position-title"
+                                sx={{ mt: 0, mb: { xs: '-10px', sm: 0 } }} required>
                                 İsim
                             </CustomFormLabel>
                         </Grid>

@@ -388,9 +388,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
     const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
 
-    // ------------------------------------
-    // Form States (امانت/برگشت)
-    // ------------------------------------
     const [isReturnMode, setIsReturnMode] = useState(false); // حالت برگشت فعال است؟
     const [originalRecord, setOriginalRecord] = useState<ConsignedCarRecord | null>(null); // رکورد اصلی برای حالت برگشت
 
@@ -887,7 +884,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         handleCloseMenu();
     };
 
-    // اجرای دانلود ردیف
     const handleDownloadRow = (format: 'pdf' | 'excel') => {
         if (!selectedRowForDownload) return;
         const title = `Araç Emanet Kaydı: ${selectedRowForDownload.carWarhouseDetail.plaque}`;
@@ -897,7 +893,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setSelectedRowForDownload(null);
     };
 
-    // اجرای دانلود کل لیست
     const handleDownloadAllAction = (format: 'pdf' | 'excel') => {
         const title = `Tüm Emanet Araç Kayıtları`;
         const handler = format === 'pdf' ? handleDownloadPdf : handleDownloadExcel;
@@ -905,7 +900,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setOpenDownloadAllModal(false);
     };
 
-    // اجرای دانلود لیست فیلتر شده
     const handleDownloadFilteredAction = (format: 'pdf' | 'excel') => {
         const title = `Filtrelenmiş Emanet Araç Kayıtları`;
         const handler = format === 'pdf' ? handleDownloadPdf : handleDownloadExcel;
@@ -1005,13 +999,8 @@ const ListConsignedCarwarehouse: React.FC = () => {
     };
 
     const handleOpenLastRecordModalFromRow = (row: ConsignedCarRecord) => {
-        // 1. رکورد انتخابی سطر را در حالتی که مودال از آن استفاده می‌کند، قرار می‌دهد.
         setLastRecordDetail(row);
-
-        // 2. مودال را باز می‌کند.
         setOpenLastRecordModal(true);
-
-        // 3. منوی عملیات را می‌بندد.
         handleCloseMenu();
     };
 
@@ -1046,13 +1035,11 @@ const ListConsignedCarwarehouse: React.FC = () => {
             if (fileUrls === null) { setAttachButtonLoading(false); return; }
         }
 
-        // ترکیب پیوست‌های موجود (که حذف نشده‌اند) با پیوست‌های جدید
         const finalAttachments: AttachmentType[] = [
-            ...attachCurrentAttachments, // پیوست‌های موجود در حالت state (کاربر می‌تواند برخی را حذف کرده باشد)
+            ...attachCurrentAttachments,
             ...(fileUrls?.map(url => ({ fileUrl: url })) ?? [])
         ];
 
-        // اگر هیچ پیوست جدیدی اضافه نشده و پیوست‌های موجود هم حذف شده‌اند، خطا بدهید
         if (finalAttachments.length === 0 && attachFiles.length === 0 && rowToUpdateAttachments.attachments.length > 0) {
             setAttachError(true);
             showAlert('En az bir ek dosya bırakın veya yeni dosya ekleyin.', 'warning');
@@ -1065,14 +1052,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
             date: rowToUpdateAttachments.date,
             description: rowToUpdateAttachments.description,
             kilometer: rowToUpdateAttachments.kilometer,
-
             attachments: finalAttachments,
 
         };
-
-        debugger
-
-        const updateUrl = `${server.baseurl}${server.warehouse}update-consigned-car`; // 💡 فرض بر وجود این API است
+        const updateUrl = `${server.baseurl}${server.warehouse}update-consigned-car`;
 
         try {
             const res = await axios.put(updateUrl, payloadForUpdate, { headers: { Authorization: `Bearer ${authToken}` } });
@@ -1093,6 +1076,21 @@ const ListConsignedCarwarehouse: React.FC = () => {
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setAttachButtonLoading(false);
+        }
+    };
+
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
         }
     };
 
@@ -1117,10 +1115,19 @@ const ListConsignedCarwarehouse: React.FC = () => {
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" mb={2}>{isReturnMode ? 'Araç Geri Alma Formu (Yeni Kayıt)' : 'Yeni Araç Emanet Formu'}</Typography>
                         <Grid container spacing={2}>
-                            <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>Araç Depo</CustomFormLabel><Autocomplete size="small" options={warehousesList} getOptionLabel={(option) => `${option.name} (${option.code})`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedWarehouse} onChange={(_, newValue) => { setSelectedWarehouse(newValue); setWarehouseError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Depo Seçin" error={warehouseError} helperText={warehouseError ? 'Zorunlu alan.' : ''} />)} disabled={isReturnMode || loadingButton} /></Grid>
-                            <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>Emanet Edilecek Araç</CustomFormLabel><Autocomplete size="small" options={carDetailsList} getOptionLabel={(option) => `${option.brand} - ${option.plaque}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedCarDetail} onChange={(_, newValue) => { setSelectedCarDetail(newValue); setCarDetailError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Seçin" error={carDetailError} helperText={carDetailError ? 'Zorunlu alan.' : ''} />)} disabled={!selectedWarehouse || loadingButton || isReturnMode} /></Grid>
-                            <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>{isReturnMode ? 'Geri Alan Personel' : 'Emanet Alan Personel'}</CustomFormLabel><Autocomplete size="small" options={personnelList} getOptionLabel={(option) => `${option.name} ${option.family}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedPersonnel} onChange={(_, newValue) => { setSelectedPersonnel(newValue); setPersonnelError(false); }} renderInput={(params) => (<TextField {...params} label="Personel Seçin" error={personnelError} helperText={personnelError ? 'Zorunlu alan.' : ''} />)} disabled={loadingButton || isReturnMode} /></Grid>
-                            <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>Tarih</CustomFormLabel><LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}><DatePicker label="Tarih" value={date} onChange={(v) => setDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => <TextField {...params} size="small" fullWidth />} disabled={loadingButton} /></LocalizationProvider></Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Araç Depo</CustomFormLabel>
+                                <Autocomplete size="small"
+                                    options={warehousesList} getOptionLabel={(option) => `${option.name} (${option.code})`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedWarehouse} onChange={(_, newValue) => { setSelectedWarehouse(newValue); setWarehouseError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Depo Seçin" error={warehouseError} helperText={warehouseError ? 'Zorunlu alan.' : ''} />)} disabled={isReturnMode || loadingButton} /></Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Emanet Edilecek Araç</CustomFormLabel>
+                                <Autocomplete size="small" options={carDetailsList} getOptionLabel={(option) => `${option.brand} - ${option.plaque}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedCarDetail} onChange={(_, newValue) => { setSelectedCarDetail(newValue); setCarDetailError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Seçin" error={carDetailError} helperText={carDetailError ? 'Zorunlu alan.' : ''} />)} disabled={!selectedWarehouse || loadingButton || isReturnMode} /></Grid>
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>{isReturnMode ? 'Geri Alan Personel' : 'Emanet Alan Personel'}</CustomFormLabel>
+                                <Autocomplete size="small" options={personnelList} getOptionLabel={(option) => `${option.name} ${option.family}`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedPersonnel} onChange={(_, newValue) => { setSelectedPersonnel(newValue); setPersonnelError(false); }} renderInput={(params) => (<TextField {...params} label="Personel Seçin" error={personnelError} helperText={personnelError ? 'Zorunlu alan.' : ''} />)} disabled={loadingButton || isReturnMode} /></Grid>
+                            <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>Tarih</CustomFormLabel>
+                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                    <DatePicker label="Tarih" value={date} onChange={(v) => setDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => <TextField {...params} size="small" fullWidth />} disabled={loadingButton} /></LocalizationProvider></Grid>
                             <Grid item xs={12} sm={6} md={4}><CustomFormLabel required>Kilometre</CustomFormLabel><TextField placeholder="Kilometre" type="number" size="small" fullWidth value={kilometer} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setKilometer(Number(e.target.value)); setKilometerError(false); }} error={kilometerError} helperText={kilometerError ? 'Zorunlu alan.' : ''} disabled={loadingButton} /></Grid>
                             <Grid item xs={12} sm={12} md={12}><CustomFormLabel>Açıklama</CustomFormLabel><TextField placeholder="Detaylı Açıklama" size="small" fullWidth value={description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)} multiline rows={2} disabled={loadingButton} /></Grid>
                             <Grid item xs={12}><CustomFormLabel>Ekler (Resim/PDF/Excel)</CustomFormLabel><ConsignmentFileUpload files={selectedFiles} setFiles={setSelectedFiles} error={false} currentAttachments={currentAttachments} setCurrentAttachments={setCurrentAttachments} /></Grid>
@@ -1221,7 +1228,6 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
                     </Grid>
                 </Box>
-
                 {/* --- Table --- */}
                 <TableContainer>
                     {loadingData || !selectedFilterCarDetail ? (<Box display="flex" justifyContent="center" alignItems="center" height="200px">
@@ -1319,41 +1325,40 @@ const ListConsignedCarwarehouse: React.FC = () => {
             <DeleteConsignedCarwarehouse openModal={openDeleteModal} onClose={handleCloseDeleteModal} idToDelete={deleteId} nameToDelete={deleteName} onDeleteSuccess={() => fetchConsignedCars(selectedFilterCarDetail?.id || null)} showAlert={showAlert} />
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler ({attachmentsToView.length} adet)</DialogTitle>
-                <DialogContent dividers>{attachmentsToView.length > 0 ? (<Stack spacing={1}>
-                    {/* {attachmentsToView.map((attachment, index) => {
-                        const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-                        return (<Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadLinkClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
-                    })} */}
-                    {attachmentsToView.map((attachment, index) => {
-
-                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
-                        let fileName = rawFileName;
-                        try {
-                            fileName = decodeURIComponent(rawFileName);
-                        } catch (e) {
-                        }
-                        fileName = fileName
-                            .replace(/Ä±/g, 'ı')  // ı
-                            .replace(/ÄŸ/g, 'ğ')  // ğ
-                            .replace(/Ã¼/g, 'ü')  // ü
-                            .replace(/Ã¶/g, 'ö')  // ö
-                            .replace(/Ä°/g, 'İ')  // İ
-                            .replace(/ÅŸ/g, 'ş')  // ş
-                            .replace(/Ã‡/g, 'Ç')  // Ç
-                            .replace(/Ä±/g, 'ı'); // ğ
-
-                        return (<Button key={index} fullWidth variant="outlined"
-                            onClick={() => handleDownloadLinkClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
-                    })}
-                </Stack>) : (<DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>)}
+                <DialogContent dividers>
+                    {attachmentsToView.length > 0 ? (
+                        <Stack spacing={1}>
+                            {attachmentsToView.map((attachment, index) => {
+                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                                let finalFileName = rawFileName;
+                                try {
+                                    finalFileName = decodeURIComponent(finalFileName);
+                                } catch (e) {
+                                }
+                                finalFileName = decodeLatin1ToUtf8(finalFileName);
+                                finalFileName = finalFileName.replace(/%20/g, ' ');
+                                return (
+                                    <Button
+                                        key={index}
+                                        fullWidth
+                                        variant="outlined"
+                                        onClick={() => handleDownloadLinkClick(attachment.fileUrl)}
+                                        sx={{ mt: 1 }}
+                                    >
+                                        {finalFileName || `Dosya ${index + 1}`}
+                                    </Button>
+                                );
+                            })}
+                        </Stack>
+                    ) : (
+                        <DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>
+                    )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary" variant="outlined">Kapat</Button></DialogActions>
+                <DialogActions>
+                    <Button onClick={() => setOpenAttachmentsModal(false)} color="primary" variant="outlined">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
-            {/* --- Modals --- */}
-
-            {/* 1. Modalı Download All */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
                 <DialogTitle>Tüm Kayıtları İndir</DialogTitle>
                 <DialogContent><Stack direction="column" spacing={2} sx={{ mt: 2 }}><Button variant="contained" color="primary" startIcon={<IconFileText />} onClick={() => handleDownloadAllAction('pdf')}>PDF Olarak İndir</Button><Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />} onClick={() => handleDownloadAllAction('excel')}>Excel Olarak İndir</Button></Stack></DialogContent>

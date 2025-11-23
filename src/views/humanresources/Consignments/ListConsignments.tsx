@@ -501,6 +501,9 @@ const ListConsignments: React.FC = () => {
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
     // ------------------------------------
     // States Form
     // ------------------------------------
@@ -546,11 +549,7 @@ const ListConsignments: React.FC = () => {
     const [startFilter, setStartFilter] = useState<Date | null>(null);
     const [endFilter, setEndFilter] = useState<Date | null>(null);
 
-    const nameInputRef = useRef<HTMLInputElement>(null);
 
-    // ------------------------------------
-    // States Menu/Modals
-    // ------------------------------------
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<Consignment | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -1575,6 +1574,7 @@ const ListConsignments: React.FC = () => {
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel required>Mal Kayıt İsmi</CustomFormLabel>
                                 <CustomTextField placeholder="Adı Girin" size="small" fullWidth value={consignmentName}
+
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                         setConsignmentName(e.target.value);
                                         if (nameError) setNameError(false);

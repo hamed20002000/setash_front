@@ -263,7 +263,12 @@ const ListNetwork = () => {
                 showAlert(response.data.message || 'Work detayları alınırken hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Work detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 
@@ -308,8 +313,12 @@ const ListNetwork = () => {
                 showAlert('Veri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            debugger
-            showAlert(e.response?.data?.message || 'Veri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -335,7 +344,12 @@ const ListNetwork = () => {
                 showAlert(response.data.message || 'İhale detayları alınırken hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'İhale detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     };
 
@@ -372,13 +386,12 @@ const ListNetwork = () => {
                 showAlert(response.data.message || 'Şebeke listesi alınırken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert(e.response?.data?.message || 'Şebeke listesi yüklenirken bir hata oluştu.', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -484,13 +497,12 @@ const ListNetwork = () => {
                 showAlert(response.data.message || 'Yeni Şebeke eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert(e.response?.data?.message || 'Şebeke eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }

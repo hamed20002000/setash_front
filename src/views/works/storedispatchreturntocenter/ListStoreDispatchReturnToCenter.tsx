@@ -355,10 +355,12 @@ const ListStoreDispatchReturnToCenter = () => {
                 setSelectedVehicleName(null);
             }
         } catch (e: any) {
-            setVehiclesList([]);
-            setSelectedVehicleId(null);
-            setSelectedVehicleName(null);
-            showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -399,7 +401,12 @@ const ListStoreDispatchReturnToCenter = () => {
                 showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
             }
         } catch (e: any) {
-            showAlert('Sevk detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -421,8 +428,12 @@ const ListStoreDispatchReturnToCenter = () => {
                 return [];
             }
         } catch (e: any) {
-            setStoreItems([]);
-            showAlert('Mevcut stok bilgileri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, storeId, showAlert, authToken]);
 
@@ -452,7 +463,12 @@ const ListStoreDispatchReturnToCenter = () => {
                 showAlert(dispatchesRes.data?.message || 'İade sevk belgeleri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert('Gerekli veriler yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -602,7 +618,12 @@ const ListStoreDispatchReturnToCenter = () => {
                 showAlert(response.data.message || 'İade sevk belgesi eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'İade sevk belgesi eklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }

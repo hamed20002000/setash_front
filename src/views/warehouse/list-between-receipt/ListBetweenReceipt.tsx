@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -182,6 +182,9 @@ const ListBetweenReceipt = () => {
     const [endDate, setEndDate] = useState<Date | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
     const [isBlinking, setIsBlinking] = useState(true);
+
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
 
 
     /* ---- Download modals state (unchanged) ---- */
@@ -761,8 +764,13 @@ const ListBetweenReceipt = () => {
             const buffer = await wb.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `${isFiltered ? 'Filtrelenmis' : 'Tum'}_Depolar_Arasi_Fisler_Raporu_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
-        } catch (err) {
-            showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [showAlert, searchTerm, startDate, endDate]);
 
@@ -824,8 +832,13 @@ const ListBetweenReceipt = () => {
             const buffer = await wb.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Fiş_Detay_${receipt.code}_${new Date().toLocaleDateString('tr-TR')}.xlsx`);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
-        } catch {
-            showAlert('Excel oluşturulurken bir hata oluştu.', 'error');
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [showAlert]);
 
@@ -844,8 +857,6 @@ const ListBetweenReceipt = () => {
         const originDispatchDetail = selectedRowForMenu.receiptDetails?.[0]?.originWarehouseDispatchDeatail;
         if (originDispatchDetail?.warehouseDispatchHeaders?.id) {
             setSelectedDispatchId(originDispatchDetail.warehouseDispatchHeaders.id);
-            // Optionally load details if backend requires
-            // await fetchDispatchDetails(originDispatchDetail.warehouseDispatchHeaders.id);
         }
         const formattedDetails = (selectedRowForMenu.receiptDetails || []).map(d => ({
             itemId: Number(d.item.id),
@@ -855,6 +866,11 @@ const ListBetweenReceipt = () => {
             item: { name: d.item.name, unit: { title: d.item.unit?.title || '' } }
         }));
         setReceiptDetails(formattedDetails);
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
     }, [selectedRowForMenu, fetchDispatchesForCombo]);
 
     /* ---- Handlers: Combos ---- */
@@ -1014,6 +1030,7 @@ const ListBetweenReceipt = () => {
                                         value={docDate}
                                         onChange={(v) => { setDocDate(v); if (docDateError && v) setDocDateError(false); }}
                                         inputFormat="dd/MM/yyyy"
+                                        inputRef={nameInputRef}
                                         renderInput={(params) => (
                                             <TextField {...params} fullWidth size="small" error={docDateError} helperText={docDateError ? "Tarih alanı boş bırakılamaz!" : ""} />
                                         )}

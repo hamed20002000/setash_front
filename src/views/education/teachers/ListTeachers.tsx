@@ -416,8 +416,11 @@ const ListTeachers: React.FC = () => {
         setField(row.field);
         setIsFormVisible(true);
         handleCloseMenu();
-        setTimeout(() => nameInputRef.current?.focus(), 100);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
     };
 
     const handleSubmit = async () => {
@@ -605,8 +608,10 @@ const ListTeachers: React.FC = () => {
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Adı</CustomFormLabel>
                                 <TextField placeholder="Adı" size="small" fullWidth value={name}
+
+                                    inputRef={nameInputRef}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setName(e.target.value); setNameError(false); }}
-                                    error={nameError} helperText={nameError ? 'Zorunlu alan.' : ''} inputRef={nameInputRef} />
+                                    error={nameError} helperText={nameError ? 'Zorunlu alan.' : ''} />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Soyadı</CustomFormLabel>

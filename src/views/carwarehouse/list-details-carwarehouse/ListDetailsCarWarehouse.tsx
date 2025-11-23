@@ -333,9 +333,8 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
 
 const ListDetailsCarWarehouse: React.FC = () => {
     const navigate = useNavigate();
-    // ⭐️ حذف: const { carwarehouseid } = useParams<{ carwarehouseid: string }>();
-    // ⭐️ حذف: const carWarehouseId = useMemo(() => Number(carwarehouseid), [carwarehouseid]);
 
+    const nameInputRef = useRef<HTMLInputElement>(null);
     const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -381,7 +380,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [isBlinking, setIsBlinking] = useState<boolean>(true);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-    const brandInputRef = useRef<HTMLInputElement>(null);
 
 
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
@@ -643,7 +641,11 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setSelectedFiles([]);
 
         setIsFormVisible(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
         handleCloseMenu();
     };
 
@@ -849,6 +851,21 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setFullDescriptionContent('');
     };
 
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -940,7 +957,14 @@ const ListDetailsCarWarehouse: React.FC = () => {
                             {/* Brand & Model */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Marka</CustomFormLabel>
-                                <CustomTextField placeholder="Marka Adı" size="small" fullWidth value={brand} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setBrand(e.target.value); setBrandError(false); }} error={brandError} helperText={brandError ? 'Zorunlu alan.' : ''} inputRef={brandInputRef} />
+                                <CustomTextField placeholder="Marka Adı" size="small"
+                                    inputRef={nameInputRef}
+                                    fullWidth value={brand}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setBrand(e.target.value);
+                                        setBrandError(false);
+                                    }} error={brandError} helperText={brandError ? 'Zorunlu alan.' : ''}
+                                />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Model</CustomFormLabel>
@@ -1188,45 +1212,27 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 <DialogContent dividers>
                     {attachmentsToView.length > 0 ? (
                         <Stack spacing={1}>
-                            {/* {attachmentsToView.map((attachment, index) => {
-                                const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-                                const color = getFileColor(fileName);
 
+                            {attachmentsToView.map((attachment, index) => {
+                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                                let finalFileName = rawFileName;
+                                try {
+                                    finalFileName = decodeURIComponent(finalFileName);
+                                } catch (e) {
+                                }
+                                finalFileName = decodeLatin1ToUtf8(finalFileName);
+                                finalFileName = finalFileName.replace(/%20/g, ' ');
                                 return (
                                     <Button
                                         key={index}
-                                        fullWidth variant="outlined"
+                                        fullWidth
+                                        variant="outlined"
                                         onClick={() => handleDownloadClick(attachment.fileUrl)}
                                         sx={{ mt: 1 }}
-                                        startIcon={getFileIcon(fileName)}
-                                        color={color as 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'}
                                     >
-                                        {fileName}
+                                        {finalFileName || `Dosya ${index + 1}`}
                                     </Button>
                                 );
-                            })} */}
-
-                            {attachmentsToView.map((attachment, index) => {
-
-                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
-                                let fileName = rawFileName;
-                                try {
-                                    fileName = decodeURIComponent(rawFileName);
-                                } catch (e) {
-                                }
-                                fileName = fileName
-                                    .replace(/Ä±/g, 'ı')  // ı
-                                    .replace(/ÄŸ/g, 'ğ')  // ğ
-                                    .replace(/Ã¼/g, 'ü')  // ü
-                                    .replace(/Ã¶/g, 'ö')  // ö
-                                    .replace(/Ä°/g, 'İ')  // İ
-                                    .replace(/ÅŸ/g, 'ş')  // ş
-                                    .replace(/Ã‡/g, 'Ç')  // Ç
-                                    .replace(/Ä±/g, 'ı'); // ğ
-
-                                return (<Button key={index} fullWidth variant="outlined"
-                                    onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
                             })}
                         </Stack>
                     ) : (

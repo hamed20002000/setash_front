@@ -79,8 +79,13 @@ interface CarFuelPayload {
     attachments: AttachmentType[];
     consignedCarId: number | string;
 }
-
-
+interface FuelTotals {
+    [key: string]: { // GASOLINE | DIESEL | LPG | ELECTRIC
+        amount: number;
+        fee: number;
+        totalPrice: number;
+    };
+}
 
 type SortableKeys = 'date' | 'amount' | 'totatPrice' | 'createAt';
 
@@ -205,11 +210,17 @@ const FuelFileUpload: React.FC<{
     );
 };
 
+
+
 // --- توابع کامل دانلود PDF/Excel (کپی شده از کامپوننت قبلی با اصلاحات جزئی) ---
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
-    try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans'); } catch (e) { }
+    try {
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans');
+    }
+    catch (e) { }
 
     docAny.addImage(Logo, 'PNG', pageWidth - 50, 5, 40, 25);
     doc.setFontSize(14);
@@ -223,7 +234,6 @@ const addPdfFooter = (doc: jsPDF) => {
     const docAny = doc as any;
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
-    // const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
     const companyInfo = [
         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -264,6 +274,46 @@ const exportToPdf = (data: CarFuelRecord[], title: string, showAlert: (m: string
             didDrawPage: (_data: any) => { addPdfFooter(doc); },
             margin: { top: 30, bottom: 35, left: 10, right: 10 }
         });
+
+        const fuelTotals: FuelTotals = {};
+        FUEL_TYPES.forEach(ft => { fuelTotals[ft.value] = { amount: 0, fee: 0, totalPrice: 0 }; });
+        data.forEach(record => {
+            const type = record.fuelType;
+            if (fuelTotals[type]) {
+                fuelTotals[type].amount += record.amount;
+                fuelTotals[type].fee += record.fee;
+                fuelTotals[type].totalPrice += record.totatPrice;
+            }
+        });
+
+        let finalY = docAny.lastAutoTable.finalY + 5;
+        doc.setFontSize(11);
+        doc.text("Yakıt Türüne Göre Toplam Özet:", 10, finalY);
+
+        const summaryRows: any[] = [];
+        FUEL_TYPES.forEach(ft => {
+            const totals = fuelTotals[ft.value];
+            if (totals && totals.totalPrice > 0) {
+                summaryRows.push([
+                    ft.label,
+                    `${totals.amount.toLocaleString()} ${ft.value === 'ELECTRIC' ? 'kWh' : 'Litre'}`,
+                    `${totals.fee.toLocaleString()} TL`,
+                    `${totals.totalPrice.toLocaleString()} TL`
+                ]);
+            }
+        });
+
+        if (summaryRows.length > 0) {
+            autoTable(docAny, {
+                startY: finalY + 5,
+                head: [['Yakıt Tipi', 'Toplam Miktar', 'Toplam Birim Fiyat', 'Toplam Fiyat']],
+                body: summaryRows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9 },
+                headStyles: { font: 'NotoSans', fillColor: [200, 200, 200], textColor: [0, 0, 0] },
+                margin: { left: 10, right: 10 }
+            });
+        }
         const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
         docAny.save(fileName);
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
@@ -330,7 +380,44 @@ const exportToExcel = (data: CarFuelRecord[], title: string, showAlert: (m: stri
                 r.description || '-',
             ]);
         });
+        const fuelTotals: FuelTotals = {};
+        FUEL_TYPES.forEach(ft => { fuelTotals[ft.value] = { amount: 0, fee: 0, totalPrice: 0 }; });
+        data.forEach(record => {
+            const type = record.fuelType;
+            if (fuelTotals[type]) {
+                fuelTotals[type].amount += record.amount;
+                fuelTotals[type].fee += record.fee;
+                fuelTotals[type].totalPrice += record.totatPrice;
+            }
+        });
 
+        let lastRowNumber = worksheet.lastRow!.number;
+        worksheet.addRow([]);
+        lastRowNumber++;
+
+        const summaryTitleRow = worksheet.addRow(['Yakıt Türüne Göre Toplam Özet']);
+        summaryTitleRow.font = { name: 'NotoSans', size: 12, bold: true };
+        worksheet.mergeCells(`A${summaryTitleRow.number}:${String.fromCharCode(65 + columns.length - 1)}${summaryTitleRow.number}`);
+
+        const summaryHeaders = ['Yakıt Tipi', 'Toplam Miktar', 'Toplam Birim Fiyat', 'Toplam Fiyat'];
+        const summaryHeaderRow = worksheet.addRow(summaryHeaders);
+        summaryHeaderRow.font = { name: 'NotoSans', bold: true };
+        summaryHeaderRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
+
+        FUEL_TYPES.forEach(ft => {
+            const totals = fuelTotals[ft.value];
+            if (totals && totals.totalPrice > 0) {
+                const dataRow = worksheet.addRow([
+                    ft.label,
+                    totals.amount,
+                    totals.fee,
+                    totals.totalPrice
+                ]);
+                dataRow.getCell(2).numFmt = `${ft.value === 'ELECTRIC' ? '#,##0.00 "kWh"' : '#,##0.00 "Litre"'}`;
+                dataRow.getCell(3).numFmt = '#,##0.00 "TL"';
+                dataRow.getCell(4).numFmt = '#,##0.00 "TL"';
+            }
+        });
         worksheet.columns.forEach((column) => {
             let maxLength = 0;
             // @ts-ignore
@@ -356,7 +443,8 @@ const exportToExcel = (data: CarFuelRecord[], title: string, showAlert: (m: stri
     }
 };
 
-const handleDownloadPdf = (data: CarFuelRecord[], title: string, showAlert: (m: string, s: any) => void, setLoadingData: (l: boolean) => void) => exportToPdf(data, title, showAlert, setLoadingData);
+const handleDownloadPdf = (data: CarFuelRecord[], title: string, showAlert: (m: string, s: any) => void, setLoadingData: (l: boolean) => void) =>
+    exportToPdf(data, title, showAlert, setLoadingData);
 const handleDownloadExcel = (data: CarFuelRecord[], title: string, showAlert: (m: string, s: any) => void, setLoadingData: (l: boolean) => void) => exportToExcel(data, title, showAlert, setLoadingData);
 
 
@@ -366,6 +454,9 @@ const ListCarFuels: React.FC = () => {
     const { allowedOperations } = useAuth();
 
     const { isTooltipGloballyEnabled } = useTooltip();
+
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
     // Permissions (مجوزها)
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some((op) => op.systemOperationName === "Düzenlemek"), [allowedOperations]);
@@ -449,9 +540,6 @@ const ListCarFuels: React.FC = () => {
         };
     }, []);
 
-    // ------------------------------------
-    // Data Fetching Logic (واکشی داده)
-    // ------------------------------------
 
     const fetchFuelRecords = useCallback(async () => {
         if (!consignedCarId) { setLoadingData(false); return; }
@@ -484,12 +572,6 @@ const ListCarFuels: React.FC = () => {
         fetchFuelRecords();
     }, [fetchFuelRecords]);
 
-
-
-
-    // ------------------------------------
-    // Form & Action Handlers (ثبت و به‌روزرسانی)
-    // ------------------------------------
 
     const validateForm = (): boolean => {
         let ok = true;
@@ -541,7 +623,11 @@ const ListCarFuels: React.FC = () => {
 
         setIsFormVisible(true);
         handleCloseMenu();
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
     };
 
     const handleSubmit = async () => {
@@ -655,19 +741,20 @@ const ListCarFuels: React.FC = () => {
 
     const paginatedRows = useMemo(() => filteredFuelRecords.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredFuelRecords, page, rowsPerPage]);
     const isFilterActive = useMemo(() => !!searchTerm.trim() || startFilter !== null || endFilter !== null, [searchTerm, startFilter, endFilter]);
+
     const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
     const handleChangeRowsPerPage = (e: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); };
     const handleRequestSort = useCallback((property: SortableKeys) => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); }, [order, orderBy]);
 
     const handleDownloadAllAction = (format: 'pdf' | 'excel') => {
-        const title = `Tüm Yakıt Kayıtları (ID: ${consignedCarId})`;
+        const title = `Tüm Yakıt Kayıtları `;
         const handler = format === 'pdf' ? handleDownloadPdf : handleDownloadExcel;
         handler(fuelRecords, title, showAlert, setLoadingData);
         setOpenDownloadAllModal(false);
     };
 
     const handleDownloadFilteredAction = (format: 'pdf' | 'excel') => {
-        const title = `Filtrelenmiş Yakıt Kayıtları (ID: ${consignedCarId})`;
+        const title = `Filtrelenmiş Yakıt Kayıtları `;
         const handler = format === 'pdf' ? handleDownloadPdf : handleDownloadExcel;
         handler(filteredFuelRecords, title, showAlert, setLoadingData);
         setOpenDownloadFilteredModal(false);
@@ -682,6 +769,24 @@ const ListCarFuels: React.FC = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
     };
+
+
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
+
+
 
     return (
         <>
@@ -729,7 +834,10 @@ const ListCarFuels: React.FC = () => {
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Tarih</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <DatePicker label="Tarih" value={date} onChange={(v) => setDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => <TextField {...params} size="small" fullWidth />} disabled={loadingButton} />
+                                    <DatePicker label="Tarih"
+
+                                        inputRef={nameInputRef}
+                                        value={date} onChange={(v) => setDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => <TextField {...params} size="small" fullWidth />} disabled={loadingButton} />
                                 </LocalizationProvider>
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
@@ -899,26 +1007,25 @@ const ListCarFuels: React.FC = () => {
                 <DialogTitle>Ekler ({attachmentsToView.length} adet)</DialogTitle>
                 <DialogContent dividers>{attachmentsToView.length > 0 ? (<Stack spacing={1}>
                     {attachmentsToView.map((attachment, index) => {
-
                         const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
-                        let fileName = rawFileName;
+                        let finalFileName = rawFileName;
                         try {
-                            fileName = decodeURIComponent(rawFileName);
+                            finalFileName = decodeURIComponent(finalFileName);
                         } catch (e) {
                         }
-
-                        fileName = fileName
-                            .replace(/Ä±/g, 'ı')  // ı
-                            .replace(/ÄŸ/g, 'ğ')  // ğ
-                            .replace(/Ã¼/g, 'ü')  // ü
-                            .replace(/Ã¶/g, 'ö')  // ö
-                            .replace(/Ä°/g, 'İ')  // İ
-                            .replace(/ÅŸ/g, 'ş')  // ş
-                            .replace(/Ã‡/g, 'Ç')  // Ç
-                            .replace(/Ä±/g, 'ı'); // ğ
-
-                        return (<Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadLinkClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                        finalFileName = decodeLatin1ToUtf8(finalFileName);
+                        finalFileName = finalFileName.replace(/%20/g, ' ');
+                        return (
+                            <Button
+                                key={index}
+                                fullWidth
+                                variant="outlined"
+                                onClick={() => handleDownloadLinkClick(attachment.fileUrl)}
+                                sx={{ mt: 1 }}
+                            >
+                                {finalFileName || `Dosya ${index + 1}`}
+                            </Button>
+                        );
                     })}
                 </Stack>) : (<DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>)}
                 </DialogContent>

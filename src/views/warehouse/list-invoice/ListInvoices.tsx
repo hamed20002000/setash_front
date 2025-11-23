@@ -871,11 +871,12 @@ const ListInvoices = () => {
                 showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("Failed to fetch vehicles:", e);
-            setVehiclesList([]);
-            setSelectedVehicle(null);
-            setSelectedVehicleName(null);
-            showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }

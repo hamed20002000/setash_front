@@ -636,9 +636,6 @@ const ListPersonnelConsigneds: React.FC = () => {
 
     useEffect(() => {
         if (pendingRecordDetails && personnelConsigneds.length > 0) {
-
-            // 1. بر اساس تاریخ ایجاد (createAt) یا ID (اگر ID‌ها به ترتیب صعودی باشند)
-            // رکورد جدید معمولاً دارای بیشترین ID یا آخرین تاریخ ایجاد است.
             const lastSubmittedRecord = personnelConsigneds
                 .sort(getComparator('desc', 'createAt')) // مرتب سازی بر اساس تاریخ ایجاد نزولی
                 .find(r =>
@@ -655,32 +652,6 @@ const ListPersonnelConsigneds: React.FC = () => {
         }
     }, [personnelConsigneds, pendingRecordDetails, getComparator, setLastRecordDetail]); // افزودن setLastRecordDetail به Dependencies
 
-    // const handleEditClick = () => {
-    //     if (!selectedRowForMenu) return;
-    //     const r = selectedRowForMenu;
-    //     handleCloseMenu(); // منو را ببندید
-
-    //     // ⭐️ تعیین حالت: اگر ParentId=0 باشد (واگذاری) -> Assignment Mode. در غیر این صورت (تحویل) -> Return Mode
-    //     const isAssignment = r.parentId === 0;
-
-    //     setEditingId(r.id);
-    //     setIsAssignmentMode(isAssignment); // تنظیم حالت فرم
-
-    //     // تنظیم شناسه‌ها از آبجکت‌های دریافتی در API
-    //     setSelectedPersonnelId(Number(r.personnel?.id) || '');
-    //     setSelectedConsignmentId(Number(r.consignment?.id) || '');
-
-    //     // تنظیم تاریخ‌ها
-    //     setAssignmentDate(r.assignmentDate ? new Date(r.assignmentDate) : null);
-    //     setReturnDate(r.returnDate ? new Date(r.returnDate) : null); // تاریخ تحویل را نیز بارگذاری کند
-
-    //     setDescription(r.description);
-    //     setCurrentAttachments(r.attachments);
-    //     setSelectedFiles([]);
-    //     setSelectedParentConsignedId(isAssignment ? '' : r.parentId); // اگر حالت Return است، ParentId را تنظیم کند
-
-    //     setIsFormVisible(true);
-    // };
 
 
     const handleOpenAttachmentsModal = (attachments: AttachmentType[]) => {
@@ -1082,6 +1053,21 @@ const ListPersonnelConsigneds: React.FC = () => {
         }
     };
 
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -1128,34 +1114,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                                 </ToggleButtonGroup>
                             </Grid>
 
-                            {/* Personnel Selector */}
-                            {/* <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
-                                <CustomFormLabel required>Personel</CustomFormLabel>
-                                <FormControl size="small" sx={{ width: '100%' }} error={personnelError}>
-                                    <InputLabel id="sel-personnel">Personel Seçin</InputLabel>
-                                    <Select labelId="sel-personnel" label="Personel Seçin"
-                                        value={selectedPersonnelId}
-                                        //  onChange={(e) => { setSelectedPersonnelId(Number(e.target.value)); 
-                                        //  if (personnelError) setPersonnelError(false); }}
-                                        onChange={(e) => {
-                                            const newPersonnelId = Number(e.target.value);
-                                            setSelectedPersonnelId(newPersonnelId);
-
-                                            if (!isAssignmentMode) { // فقط در حالت Iade
-                                                setSelectedConsignmentId('');      // ریست کردن کمبوی مال
-                                                setSelectedParentConsignedId('');  // ریست کردن Parent ID پنهان
-                                            }
-
-                                            if (personnelError) setPersonnelError(false);
-                                        }}
-                                    >
-                                        {personnelList.map(p => <MuiMenuItem key={p.id} value={p.id}>{p.name} {p.family} ({p.identityNumber})</MuiMenuItem>)}
-                                    </Select>
-                                    {personnelError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Zorunlu alan!</Typography>}
-                                </FormControl>
-                            </Grid> */}
-
-
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>Personel</CustomFormLabel>
                                 <Autocomplete
@@ -1188,40 +1146,6 @@ const ListPersonnelConsigneds: React.FC = () => {
                                     )}
                                 />
                             </Grid>
-
-
-
-                            {/* <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
-                                <CustomFormLabel required>Mal </CustomFormLabel>
-                                <FormControl size="small" sx={{ width: '100%' }} error={consignmentError}>
-                                    <InputLabel id="sel-consignment">Mal Kayıt İsmi</InputLabel>
-                                    <Select
-                                        labelId="sel-consignment"
-                                        label="Mal Kayıt İsmi"
-                                        value={selectedConsignmentId}
-                                        onChange={(e) => {
-                                            const newConsignmentId = Number(e.target.value);
-                                            setSelectedConsignmentId(newConsignmentId);
-                                            if (consignmentError) setConsignmentError(false);
-
-                                            const selectedOption = consignmentOptionsForReturn.find(o => o.id === newConsignmentId);
-                                            setSelectedParentConsignedId(selectedOption?.parentId || '');
-                                        }}
-                                        disabled={!isAssignmentMode && !selectedPersonnelId}
-                                    >
-                                        {isAssignmentMode ?
-                                            availableConsignmentList.map(c => <MuiMenuItem key={c.id} value={c.id}>{c.name} ({c.code})</MuiMenuItem>)
-                                            :
-                                            consignmentOptionsForReturn.map(o => <MuiMenuItem key={o.id} value={o.id}>{o.name}</MuiMenuItem>)
-                                        }
-                                    </Select>
-                                    {consignmentError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Zorunlu alan!</Typography>}
-                                    {!isAssignmentMode && selectedPersonnelId && consignmentOptionsForReturn.length === 0 && (
-                                        <Typography variant="caption" sx={{ ml: 1.5, mt: 0.5 }} color="warning.main">Bu personelde aktif zimmet bulunamadı.</Typography>
-                                    )}
-                                </FormControl>
-                            </Grid> */}
-
 
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>Mal </CustomFormLabel>
@@ -1260,26 +1184,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                             </Grid>
 
 
-                            {/* Parent ID (Only for Return Mode) */}
-                            {/* {!isAssignmentMode && (
-                                <Grid item xs={12} sm={6} md={4}>
-                                    <CustomFormLabel required>İade Edilen Zimmet Kaydı</CustomFormLabel>
-                                    <FormControl size="small" sx={{ width: '100%' }} error={parentConsignedError}>
-                                        <InputLabel id="sel-parent">Zimmet Kaydını Seçin</InputLabel>
-                                        <Select labelId="sel-parent" label="Zimmet Kaydını Seçin" value={selectedParentConsignedId} onChange={(e) => { setSelectedParentConsignedId(Number(e.target.value)); if (parentConsignedError) setParentConsignedError(false); }} disabled={!selectedPersonnelId || !selectedConsignmentId}>
-                                            <MuiMenuItem value={''}>--- Seçin ---</MuiMenuItem>
-                                            {availableAssignments.map(r =>
-                                                <MuiMenuItem key={r.id} value={r.id}>
-                                                    ID: {r.id} | Tarih: {formatDateDisplay(r.assignmentDate)} | Açıklama: {r.description}
-                                                </MuiMenuItem>
-                                            )}
-                                        </Select>
-                                        {parentConsignedError && <Typography color="error" variant="caption" sx={{ ml: 1.5, mt: 0.5 }}>Lütfen iade edilecek kaydı seçin.</Typography>}
-                                    </FormControl>
-                                </Grid>
-                            )} */}
 
-                            {/* Assignment Date */}
                             <Grid item xs={12} sm={6} md={isAssignmentMode ? 4 : 4}>
                                 <CustomFormLabel required>{isAssignmentMode ? 'Veriliş Tarihi' : 'İade Kayıt Tarihi'}</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1527,27 +1432,49 @@ const ListPersonnelConsigneds: React.FC = () => {
                     {currentAttachments.length === 0 ? (
                         <Typography variant="body1">Bu kayıt için herhangi bir ek bulunmamaktadır.</Typography>
                     ) : (
+                        // currentAttachments.map((attachment, index) => {
+
+                        //     const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+
+                        //     let fileName = rawFileName;
+                        //     try {
+                        //         fileName = decodeURIComponent(rawFileName);
+                        //     } catch (e) {
+                        //     }
+                        //     fileName = fileName
+                        //         .replace(/Ä±/g, 'ı')  // ı
+                        //         .replace(/ÄŸ/g, 'ğ')  // ğ
+                        //         .replace(/Ã¼/g, 'ü')  // ü
+                        //         .replace(/Ã¶/g, 'ö')  // ö
+                        //         .replace(/Ä°/g, 'İ')  // İ
+                        //         .replace(/ÅŸ/g, 'ş')  // ş
+                        //         .replace(/Ã‡/g, 'Ç')  // Ç
+                        //         .replace(/Ä±/g, 'ı'); // ğ
+
+                        //     return (<Button key={index} fullWidth variant="outlined"
+                        //         onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                        // })
+
                         currentAttachments.map((attachment, index) => {
-
                             const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
-                            let fileName = rawFileName;
+                            let finalFileName = rawFileName;
                             try {
-                                fileName = decodeURIComponent(rawFileName);
+                                finalFileName = decodeURIComponent(finalFileName);
                             } catch (e) {
                             }
-                            fileName = fileName
-                                .replace(/Ä±/g, 'ı')  // ı
-                                .replace(/ÄŸ/g, 'ğ')  // ğ
-                                .replace(/Ã¼/g, 'ü')  // ü
-                                .replace(/Ã¶/g, 'ö')  // ö
-                                .replace(/Ä°/g, 'İ')  // İ
-                                .replace(/ÅŸ/g, 'ş')  // ş
-                                .replace(/Ã‡/g, 'Ç')  // Ç
-                                .replace(/Ä±/g, 'ı'); // ğ
-
-                            return (<Button key={index} fullWidth variant="outlined"
-                                onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                            finalFileName = decodeLatin1ToUtf8(finalFileName);
+                            finalFileName = finalFileName.replace(/%20/g, ' ');
+                            return (
+                                <Button
+                                    key={index}
+                                    fullWidth
+                                    variant="outlined"
+                                    onClick={() => handleDownloadClick(attachment.fileUrl)}
+                                    sx={{ mt: 1 }}
+                                >
+                                    {finalFileName || `Dosya ${index + 1}`}
+                                </Button>
+                            );
                         })
                     )}
 

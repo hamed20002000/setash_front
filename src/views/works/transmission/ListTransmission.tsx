@@ -248,24 +248,6 @@ const ListTransmission = () => {
         return finalOptions;
     }, [allProductTypes, channelRowsData]);
 
-
-
-
-    //     const combinedProductTypeOptions = useMemo(() => {
-    //   if (!allProductTypes.length || !channelRowsData.length) return [];
-
-    //   const ptMap = new Map(allProductTypes.map(p => [String(p.id), p.name]));
-    //   return channelRowsData.map((row: any) => ({
-    //     id: String(row.id),
-    //     productTypeId: String(row?.productType?.id),
-    //     name: ptMap.get(String(row?.productType?.id)) || 'Bilinmeyen',
-    //     label: row.label,
-    //     parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
-    //     // 👇 اضافه شد
-    //     productStatus: row.productStatus as 0 | 1 | 2, // 0=YENİ, 1=DMM, 2=MEVCUT
-    //   }));
-    // }, [allProductTypes, channelRowsData]);
-
     const trafoOptions = useMemo(() => {
         return combinedProductTypeOptions.filter(option => option.parent === null);
     }, [combinedProductTypeOptions]);
@@ -358,14 +340,12 @@ const ListTransmission = () => {
                 showAlert(response.data.message || 'Ürün türleri listesi alınamadı.', 'error');
             }
         } catch (e: any) {
-            console.error("Error fetching product types:", e);
-            if (e.response && e.response.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                showAlert('Ürün türleri listesi alınırken bir hata oluştu.', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingFormOptions(false);
         }
@@ -427,14 +407,12 @@ const ListTransmission = () => {
                 showAlert('Ürünler yüklenmedi.', 'error');
             }
         } catch (e: any) {
-            if (e.response && e.response.status === 401) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                navigate("/");
-                showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
-            } else {
-                console.error("Error fetching items:", e);
-                showAlert('Ürünler sunucudan alınamadı', 'error');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
             }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingItems(false);
         }
@@ -456,9 +434,12 @@ const ListTransmission = () => {
                 showAlert(response.data.message || 'Ağ detayları alınamadı.', 'error');
             }
         } catch (e: any) {
-            setNetworkTitleForDisplay('Bilinmeyen Ağ');
-            console.error("Error fetching network details:", e);
-            showAlert('Ağ detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 
@@ -476,9 +457,12 @@ const ListTransmission = () => {
                 showAlert(response.data.message || 'İş detayları alınamadı.', 'error');
             }
         } catch (e: any) {
-            setWorkTitleForDisplay('Bilinmeyen İş');
-            console.error("Error fetching work details:", e);
-            showAlert('İş detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 
@@ -496,9 +480,12 @@ const ListTransmission = () => {
                 showAlert(response.data.message || 'İhale detayları alınamadı.', 'error');
             }
         } catch (e: any) {
-            setTenderTitleForDisplay('Bilinmeyen İhale');
-            console.error("Error fetching tender details:", e);
-            showAlert('İhale detayları yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, showAlert]);
 

@@ -448,23 +448,6 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         }).catch((_e) => { showAlert('Kullanıcı listesi alınırken bir hata oluştu.', 'error'); });
     }, [navigate]);
 
-    // const getUserRoles = (userId: string) => {
-    //     const authToken = localStorage.getItem('authToken');
-    //     axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`, {
-    //         headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-    //     }).then((result) => {
-    //         if (result.data.httpStatusCode === 200) {
-    //             debugger
-    //             const userRoles = result.data.data.userRoles.filter((role: Role) => role.recordStatus === 0);
-    //             setUserRolesList(userRoles);
-    //         } else {
-    //             showAlert(result.data.message || 'Kullanıcı rol listesi alınırken bir hata oluştu.', 'error');
-    //         }
-    //     }).catch((_e) => {
-    //         showAlert('Kullanıcı rol listesi alınırken bir hata oluştu.', 'error');
-    //     });
-    // };
-
 
     // ListPersonnelWorkPlaces.tsx - حدود خط 344
     const getUserRoles = (userId: string) => {

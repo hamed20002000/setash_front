@@ -371,6 +371,8 @@ const ListCourses: React.FC = () => {
     const { allowedOperations } = useAuth();
     const { isTooltipGloballyEnabled } = useTooltip();
 
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
     // Permissions
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
@@ -668,7 +670,11 @@ const ListCourses: React.FC = () => {
         setSelectedFiles([]);
 
         setIsFormVisible(true);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        setTimeout(() => {
+            nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            nameInputRef.current?.focus();
+        }, 100);
         handleCloseMenu();
     };
 
@@ -952,6 +958,20 @@ const ListCourses: React.FC = () => {
         setCourseTitleForModal('');
     };
 
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
 
     return (
         <>
@@ -1008,8 +1028,6 @@ const ListCourses: React.FC = () => {
                     </Stack>
                 </Stack>
 
-
-                {/* --- Form Section --- */}
                 {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
                     <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                         <Typography variant="h6" mb={2}>{editingId ? 'Kurs Düzenle' : 'Yeni Kurs Kaydı'}</Typography>
@@ -1017,7 +1035,10 @@ const ListCourses: React.FC = () => {
                             {/* Title & Teacher Selection */}
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Kurs Adı</CustomFormLabel>
-                                <CustomTextField placeholder="Kurs Başlığı" size="small" fullWidth value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setTitle(e.target.value); setTitleError(false); }} error={titleError} helperText={titleError ? 'Zorunlu alan.' : ''} />
+                                <CustomTextField placeholder="Kurs Başlığı"
+
+                                    inputRef={nameInputRef}
+                                    size="small" fullWidth value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setTitle(e.target.value); setTitleError(false); }} error={titleError} helperText={titleError ? 'Zorunlu alan.' : ''} />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Öğretmen Seçimi</CustomFormLabel>
@@ -1067,7 +1088,7 @@ const ListCourses: React.FC = () => {
                                 </LocalizationProvider>
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Saat (Saat)</CustomFormLabel>
+                                <CustomFormLabel required>Saat</CustomFormLabel>
                                 <CustomTextField
                                     placeholder="Eğitim Saati (Örn: 40)"
                                     size="small"
@@ -1333,28 +1354,30 @@ const ListCourses: React.FC = () => {
                         <Stack spacing={1}>
 
 
+
                             {attachmentsToView.map((attachment, index) => {
-
                                 const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
-                                let fileName = rawFileName;
+                                let finalFileName = rawFileName;
                                 try {
-                                    fileName = decodeURIComponent(rawFileName);
+                                    finalFileName = decodeURIComponent(finalFileName);
                                 } catch (e) {
                                 }
-                                fileName = fileName
-                                    .replace(/Ä±/g, 'ı')  // ı
-                                    .replace(/ÄŸ/g, 'ğ')  // ğ
-                                    .replace(/Ã¼/g, 'ü')  // ü
-                                    .replace(/Ã¶/g, 'ö')  // ö
-                                    .replace(/Ä°/g, 'İ')  // İ
-                                    .replace(/ÅŸ/g, 'ş')  // ş
-                                    .replace(/Ã‡/g, 'Ç')  // Ç
-                                    .replace(/Ä±/g, 'ı'); // ğ
-
-                                return (<Button key={index} fullWidth variant="outlined"
-                                    onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                                finalFileName = decodeLatin1ToUtf8(finalFileName);
+                                finalFileName = finalFileName.replace(/%20/g, ' ');
+                                return (
+                                    <Button
+                                        key={index}
+                                        fullWidth
+                                        variant="outlined"
+                                        onClick={() => handleDownloadClick(attachment.fileUrl)}
+                                        sx={{ mt: 1 }}
+                                    >
+                                        {finalFileName || `Dosya ${index + 1}`}
+                                    </Button>
+                                );
                             })}
+
+
                         </Stack>
                     ) : (
                         <DialogContentText>Bu kayda ait ek dosya bulunmamaktadır.</DialogContentText>

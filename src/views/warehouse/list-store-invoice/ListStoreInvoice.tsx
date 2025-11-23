@@ -36,6 +36,7 @@ import BlankCard from 'src/components/shared/BlankCard';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
+import { ArialFont } from 'src/assets/fonts/Arial';
 
 // ---------- styles ----------
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
@@ -834,6 +835,7 @@ const ListStoreInvoice = () => {
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+        doc.addFileToVFS('Arial.ttf', ArialFont);
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 

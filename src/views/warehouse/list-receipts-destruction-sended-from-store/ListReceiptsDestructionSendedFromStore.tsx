@@ -1,6 +1,6 @@
 
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -384,9 +384,10 @@ const ListReceiptsDestructionSendedFromStore = () => {
 
     // End flow (ONLY dispatch now)
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
-    // const [lastCreatedReceiptCode, setLastCreatedReceiptCode] = useState<string | null>(null);
 
-    // Modal to manage dispatch list
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
     const [openDispatchManageModal, setOpenDispatchManageModal] = useState(false);
     const [dispatchManageFilterInactiveOnly, setDispatchManageFilterInactiveOnly] = useState(false);
 
@@ -1026,6 +1027,8 @@ const ListReceiptsDestructionSendedFromStore = () => {
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <DatePicker
                                     value={docDate}
+
+                                    inputRef={nameInputRef}
                                     onChange={(v) => { setDocDate(v); if (docDateError && v) setDocDateError(false); }}
                                     inputFormat="dd/MM/yyyy"
                                     renderInput={(params) => <TextField {...params} fullWidth size="small" error={docDateError} helperText={docDateError ? "Tarih alanı boş bırakılamaz!" : ""} />}
@@ -1313,6 +1316,12 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                                             setSelectedWarehouseId(Number(row.warehouse?.id) || null);
                                                             setIsFormVisible(true);
                                                             handleCloseMenu();
+
+
+                                                            setTimeout(() => {
+                                                                nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                                                nameInputRef.current?.focus();
+                                                            }, 100);
                                                         }}>
                                                             <ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle
                                                         </MuiMenuItem>

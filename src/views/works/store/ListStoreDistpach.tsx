@@ -1,5 +1,5 @@
 // src/views/warehouses/ListStoreDispatch.tsx
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -268,6 +268,9 @@ const ListStoreDispatch = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
+
+    const nameInputRef = useRef<HTMLInputElement>(null);
+
     // === State Variables ===
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null);
@@ -398,11 +401,12 @@ const ListStoreDispatch = () => {
                 showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            console.error("Failed to fetch vehicles:", e);
-            setVehiclesList([]);
-            // setSelectedVehicle(null);
-            setSelectedVehicleName(null);
-            showAlert('Araç bilgileri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -422,8 +426,12 @@ const ListStoreDispatch = () => {
                 setItemsWithBalance([]);
             }
         } catch (e: any) {
-            setItemsWithBalance([]);
-            showAlert('Mevcut stok bilgileri yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
     }, [navigate, storeId, showAlert, authToken]);
 
@@ -486,7 +494,12 @@ const ListStoreDispatch = () => {
                 showAlert(dispatchesRes.data?.message || 'Sevk belgeleri yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert('Gerekli veriler yüklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
@@ -652,7 +665,12 @@ const ListStoreDispatch = () => {
                 showAlert(response.data.message || 'Sevk belgesi eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            showAlert(e.response?.data?.message || 'Sevk belgesi eklenirken bir hata oluştu.', 'error');
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
@@ -788,6 +806,11 @@ const ListStoreDispatch = () => {
                     setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
                     setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
                 }
+
+                setTimeout(() => {
+                    nameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    nameInputRef.current?.focus();
+                }, 100);
                 setIsFormVisible(true);
                 handleCloseMenu();
                 setLoadingData(false);
@@ -1285,6 +1308,7 @@ const ListStoreDispatch = () => {
                                 <DatePicker
                                     label=""
                                     value={docDate}
+                                    inputRef={nameInputRef}
                                     onChange={(newValue) => {
                                         setDocDate(newValue);
                                         if (docDateError && newValue) setDocDateError(false);

@@ -66,6 +66,7 @@ const ListConsignedCarwarehouse = Loadable(lazy(() => import('../views/carwareho
 const ListCarFuels = Loadable(lazy(() => import('../views/carwarehouse/list-car-fuels/ListCarFuels')));
 const ListTeachers = Loadable(lazy(() => import('../views/education/teachers/ListTeachers')));
 const ListCourses = Loadable(lazy(() => import('../views/education/courses/ListCourses')));
+const ListParticipationCertificate = Loadable(lazy(() => import('../views/education/participation-certificate/ListParticipationCertificate')));
 
 
 
@@ -611,6 +612,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListCourses />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/education/list-participation-certificate/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListParticipationCertificate />
           </PermissionGuard>
         )
       },

@@ -1577,6 +1577,21 @@ const RequestTabs: React.FC = () => {
         setMaterialPage(0);
     };
 
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
+
     return (
         <Box sx={{ p: 3, position: 'relative' }}>
             <TabContext value={currentTab}>
@@ -1776,16 +1791,8 @@ const RequestTabs: React.FC = () => {
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
-                    {/* {currentAttachments.map((attachment, index) => (
-                        <Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }} startIcon={<IconDownload />}>
-                            {attachment.fileUrl.split('/').pop()}
-                        </Button>
-                    ))} */}
-
-                    {currentAttachments.map((attachment, index) => {
-
+                    {/* {currentAttachments.map((attachment, index) => {
                         const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
                         let fileName = rawFileName;
                         try {
                             fileName = decodeURIComponent(rawFileName);
@@ -1803,6 +1810,28 @@ const RequestTabs: React.FC = () => {
 
                         return (<Button key={index} fullWidth variant="outlined"
                             onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                    })} */}
+
+                    {currentAttachments.map((attachment, index) => {
+                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                        let finalFileName = rawFileName;
+                        try {
+                            finalFileName = decodeURIComponent(finalFileName);
+                        } catch (e) {
+                        }
+                        finalFileName = decodeLatin1ToUtf8(finalFileName);
+                        finalFileName = finalFileName.replace(/%20/g, ' ');
+                        return (
+                            <Button
+                                key={index}
+                                fullWidth
+                                variant="outlined"
+                                onClick={() => handleDownloadClick(attachment.fileUrl)}
+                                sx={{ mt: 1 }}
+                            >
+                                {finalFileName || `Dosya ${index + 1}`}
+                            </Button>
+                        );
                     })}
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
