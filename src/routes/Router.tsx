@@ -55,6 +55,7 @@ const ListLeaves = Loadable(lazy(() => import('../views/humanresources/leaves/Li
 const ListReceiptsSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-sended-from-store/ListReceiptsSendedFromStore')));
 const ListReceiptsDestructionSendedFromStore = Loadable(lazy(() => import('../views/warehouse/list-receipts-destruction-sended-from-store/ListReceiptsDestructionSendedFromStore')));
 const ListPersonnelWorkPlaces = Loadable(lazy(() => import('../views/humanresources/personnel-work-places/ListPersonnelWorkPlaces')));
+const ListPersonnelWorkPlacesByWorkhouse = Loadable(lazy(() => import('../views/humanresources/personnel-work-places/ListPersonnelWorkPlacesByWorkhouse')));
 const RequestTabs = Loadable(lazy(() => import('../views/works/list-request/RequestTabs')));
 const RequestReceiptTabs = Loadable(lazy(() => import('../views/works/list-request-receipt/RequestReceiptTabs')));
 const ListRollCalls = Loadable(lazy(() => import('../views/works/list-roll-calls/ListRollCalls')));
@@ -524,6 +525,14 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListPersonnelWorkPlaces />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/hr/personnel-work-places-by-workhouse/:workhouseId',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPersonnelWorkPlacesByWorkhouse />
           </PermissionGuard>
         )
       },

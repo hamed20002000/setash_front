@@ -1385,7 +1385,7 @@ const ListTender = () => {
                       onClick={() => handleRequestSort('status')}
                       sx={{ color: "#171c23" }}
                     >
-                      <Typography variant="h6">Durum (Kayıt)</Typography>
+                      <Typography variant="h6">Durum</Typography>
                     </TableSortLabel>
                   </StyledTableCell>
                   <StyledTableCell sx={{ color: "#171c23" }}>

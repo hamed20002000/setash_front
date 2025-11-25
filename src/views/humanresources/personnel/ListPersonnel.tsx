@@ -239,7 +239,32 @@ const uploadFiles = async (
     }
 };
 
+// NEW: تابع فراخوانی API برای تبدیل URL به Base64
+const convertUrlToBase64 = async (imageUrl: string, authToken: string): Promise<string | null> => {
+    try {
+        if (!imageUrl || imageUrl === DEFAULT_IMAGE_URL) return null;
 
+        // API شما که در عکس اشاره شده است: /api/baseInfo/to-base64
+        const apiUrl = `${server.baseurl}${server.baseinfo}to-base64`;
+
+        const response = await axios.get(apiUrl, {
+            params: { url: imageUrl }, // ارسال URL به عنوان پارامتر کوئری
+            headers: { Authorization: `Bearer ${authToken}` },
+        });
+
+        // فرض می‌کنیم API در پاسخ، Base64 را در یک فیلد خاص برمی‌گرداند. (باید ساختار پاسخ API شما را بدانید)
+        if (response.data && response.data.data && response.data.data.base64) {
+            // Data URL باید شامل پیشوند باشد، مثلا: 'data:image/jpeg;base64,...'
+            return response.data.data.base64.startsWith('data:')
+                ? response.data.data.base64
+                : `data:image/jpeg;base64,${response.data.data.base64}`;
+        }
+        return null;
+    } catch (error) {
+        console.error("Base64 conversion failed:", error);
+        return null;
+    }
+};
 const ListPersonnel: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -306,7 +331,11 @@ const ListPersonnel: React.FC = () => {
     const [rowForDownload, setRowForDownload] = useState<PersonnelType | null>(null);
     const [openAttachmentsModal, setOpenAttachmentsModal] = useState(false); // NEW
     const [attachmentsToView, setAttachmentsToView] = useState<Attachment[]>([]);
-    const [rowForAttachments, setRowForAttachments] = useState<PersonnelType | null>(null); // NEW
+    // const [rowForAttachments, setRowForAttachments] = useState<PersonnelType | null>(null); // NEW
+
+    const [openPersonnelFilesModal, setOpenPersonnelFilesModal] = useState(false);
+    const [personnelFilesToDownload, setPersonnelFilesToDownload] = useState<Attachment[]>([]);
+    const [selectedPersonnelForFiles, setSelectedPersonnelForFiles] = useState<PersonnelType | null>(null);
 
     const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
     const [selectedRowForDetails, setSelectedRowForDetails] = useState<PersonnelType | null>(null);
@@ -342,7 +371,7 @@ const ListPersonnel: React.FC = () => {
 
     const nameInputRef = useRef<HTMLInputElement>(null);
 
-    const [activeConsignmentImageUrls, setActiveConsignmentImageUrls] = useState<string[]>([]); // NEW: برای اسلایدر (اگر تصمیم به نمایش در همین مودال بگیریم)
+    const [activeConsignmentImageUrls, setActiveConsignmentImageUrls] = useState<string[]>([]);
     const [openImageSlider, setOpenImageSlider] = useState(false);
 
 
@@ -833,47 +862,105 @@ const ListPersonnel: React.FC = () => {
         ];
     };
 
-    const pdfForRows = (rows: PersonnelType[], filename: string) => {
+    // const pdfForRows = (rows: PersonnelType[], filename: string) => {
+    //     const doc = new jsPDF("p", "pt", "a4");
+    //     (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+    //     (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+    //     doc.setFont("NotoSans", "normal");
+
+    //     const headerSpace = 100; // فضای رزرو شده برای هدر (100pt)
+    //     const sideMargin = 40;
+    //     const bottomMargin = 70; // فضای رزرو شده برای فوتر (70pt)
+    //     const imageSize = 100;    // اندازه تصویر (عرض و ارتفاع)
+    //     const imageStartX = sideMargin;
+    //     const imageStartY = headerSpace + 10;
+
+    //     rows.forEach((p, idx) => {
+    //         if (idx > 0) doc.addPage();
+
+    //         const pairs = toPairsForPerson(p);
+    //         const img = getFullImageUrl(p.imageSrc);
+    //         let startY = headerSpace;
+    //         if (img && img !== DEFAULT_IMAGE_URL && img.startsWith('data:')) {
+    //             try {
+    //                 doc.addImage(img, 'PNG', imageStartX, imageStartY, imageSize, imageSize, undefined, 'FAST');
+    //                 startY = imageStartY + imageSize + 20;
+    //             } catch (error) {
+    //                 startY = headerSpace;
+    //             }
+    //         } else {
+    //             startY = imageStartY + 10;
+    //         }
+
+    //         autoTable((doc as any), {
+    //             startY: startY,
+    //             head: [["Alan", "Değer"]],
+    //             body: pairs,
+    //             theme: "grid",
+    //             styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 4, overflow: "linebreak" },
+    //             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
+    //             columnStyles: { 0: { cellWidth: 150, font: "NotoSans", fontStyle: "normal" }, 1: { cellWidth: "auto" } },
+    //             margin: { top: headerSpace, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+
+    //             didDrawPage: (_data: any) => {
+    //                 addPdfHeader(doc, "Personel Detay Raporu");
+    //                 addPdfFooter(doc);
+    //             },
+    //             showHead: "everyPage",
+    //         });
+    //     });
+
+    //     doc.save(filename);
+    // };
+
+    const pdfForRows = async (rows: PersonnelType[], filename: string) => {
         // 1. تنظیمات اولیه PDF
         const doc = new jsPDF("p", "pt", "a4");
 
-        // تنظیمات فونت
+        // تنظیمات فونت (مطابق با کدهای قبلی شما)
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
 
-        const headerSpace = 100; // فضای رزرو شده برای هدر (100pt)
+        const headerSpace = 100;
         const sideMargin = 40;
-        const bottomMargin = 70; // فضای رزرو شده برای فوتر (70pt)
-        const imageSize = 100;    // اندازه تصویر (عرض و ارتفاع)
+        const bottomMargin = 70;
+        const imageSize = 100;
         const imageStartX = sideMargin;
         const imageStartY = headerSpace + 10;
+        const token = authToken || "";
 
-        rows.forEach((p, idx) => {
+        // پیمایش روی ردیف‌ها (پرسنل)
+        for (const [idx, p] of rows.entries()) {
             if (idx > 0) doc.addPage();
 
-            const pairs = toPairsForPerson(p);
-            const img = getFullImageUrl(p.imageSrc);
-            let startY = headerSpace; // شروع اولیه جدول بعد از هدر
+            const pairs = toPairsForPerson(p); // جزئیات پرسنل
+            const rawImageUrl = getFullImageUrl(p.imageSrc);
+            let base64Image = null;
+            let startY = headerSpace;
 
-            // 2. منطق اضافه کردن تصویر
-            if (img && img !== DEFAULT_IMAGE_URL && img.startsWith('data:')) {
+            if (rawImageUrl !== DEFAULT_IMAGE_URL) {
+                if (rawImageUrl.startsWith('data:')) {
+                    base64Image = rawImageUrl;
+                } else {
+                    base64Image = await convertUrlToBase64(rawImageUrl, token);
+                }
+            }
+            debugger
+            if (base64Image) {
                 try {
-                    // اگر Base64 بود، آن را رسم می‌کنیم
-                    doc.addImage(img, 'PNG', imageStartX, imageStartY, imageSize, imageSize, undefined, 'FAST');
-                    // شروع جدول را زیر تصویر تنظیم می‌کنیم
+                    doc.addImage(base64Image, 'PNG', imageStartX, imageStartY, imageSize, imageSize, undefined, 'FAST');
                     startY = imageStartY + imageSize + 20;
                 } catch (error) {
-                    // در صورت خطای احتمالی در رسم تصویر Base64
                     console.error("PDF Image add error:", error);
-                    startY = headerSpace;
+                    startY = imageStartY + 10;
                 }
             } else {
-                // اگر عکس نبود یا URL بود (که در PDF sync قابل رسم نیست)، جدول از بالا شروع می‌شود.
-                startY = imageStartY + 10; // کمی پایین‌تر از هدر
+                // اگر تصویری وجود نداشت یا Base64 نشد
+                startY = imageStartY + 10;
             }
 
-            // 3. افزودن جدول با تضمین فوتر در تمام صفحات
+            // 3. افزودن جدول جزئیات
             autoTable((doc as any), {
                 startY: startY,
                 head: [["Alan", "Değer"]],
@@ -884,26 +971,45 @@ const ListPersonnel: React.FC = () => {
                 columnStyles: { 0: { cellWidth: 150, font: "NotoSans", fontStyle: "normal" }, 1: { cellWidth: "auto" } },
                 margin: { top: headerSpace, bottom: bottomMargin, left: sideMargin, right: sideMargin },
 
-                // CRITICAL: هوک برای رسم هدر و فوتر در هر صفحه
+                // هوک برای رسم هدر و فوتر در هر صفحه
                 didDrawPage: (_data: any) => {
                     addPdfHeader(doc, "Personel Detay Raporu");
                     addPdfFooter(doc);
                 },
                 showHead: "everyPage",
             });
-        });
+        }
 
         doc.save(filename);
     };
-    const handleDownloadChoosePDF = () => {
-        if (downloadScope === "all") {
-            pdfForRows(sorted, "Personel_Detay_Raporu.pdf");
-        } else if (rowForDownload) {
-            const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
-            pdfForRows([rowForDownload], `Personel_Detay_${fileSlug || rowForDownload.id}.pdf`);
-        }
+
+    // const handleDownloadChoosePDF = () => {
+    //     if (downloadScope === "all") {
+    //         pdfForRows(sorted, "Personel_Detay_Raporu.pdf");
+    //     } else if (rowForDownload) {
+    //         const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
+    //         pdfForRows([rowForDownload], `Personel_Detay_${fileSlug || rowForDownload.id}.pdf`);
+    //     }
+    //     setOpenDownloadModal(false);
+    // };
+
+    const handleDownloadChoosePDF = async () => {
         setOpenDownloadModal(false);
+        try {
+            if (downloadScope === "all") {
+                await pdfForRows(sorted, "Personel_Detay_Raporu.pdf");
+            } else if (rowForDownload) {
+                const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
+                await pdfForRows([rowForDownload], `Personel_Detay_${fileSlug || rowForDownload.id}.pdf`);
+            }
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
+        } catch (e) {
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+            console.error("PDF generation error:", e);
+        }
     };
+
+
     const handleDownloadChoosePDFTable = () => {
         const doc = new jsPDF("landscape", "pt", "a4");
 
@@ -1652,6 +1758,34 @@ const ListPersonnel: React.FC = () => {
         }
     };
 
+    const handleOpenPersonnelFilesModal = (row: PersonnelType) => {
+        // 1. ذخیره فایل‌های پیوست و اطلاعات پرسنل در Stateهای جدید
+        setPersonnelFilesToDownload(row.attachments || []);
+        setSelectedPersonnelForFiles(row);
+
+        // 2. باز کردن Modal جدید
+        setOpenPersonnelFilesModal(true);
+        handleCloseMenu();
+    };
+
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
+
+    const handleDownloadLinkClick = (fileUrl: string) => { if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; } const url = `${server.urldpwonload}${fileUrl}`; window.open(url, '_blank'); showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info'); };
+
+
     const renderTopBar = (
         <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
             <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "stretch", sm: "center" }} mt={2} mb={3} flexWrap="wrap" gap={2}>
@@ -1782,10 +1916,18 @@ const ListPersonnel: React.FC = () => {
                                         <DatePicker
                                             label="Başlangıç"
                                             inputFormat="dd/MM/yyyy"
-                                            value={form.workStartDate}
-                                            onChange={(next: any) => setForm((f) => ({ ...f, workStartDate: next ? format(next, "yyyy-MM-dd") : null }))}
+                                            value={form.workStartDate ? parseISO(form.workStartDate) : null}
+                                            onChange={(next) => setForm((f) => ({
+                                                ...f,
+                                                workStartDate: next && isValidDate(next) ? format(next, "yyyy-MM-dd") : null
+                                            }))}
                                             renderInput={(params: any) => (
-                                                <TextField {...params} size="small" fullWidth error={showStepErrors && !form.workStartDate} helperText={showStepErrors ? "Başlangıç tarihi zorunludur!" : ""} />
+                                                <TextField
+                                                    {...params}
+                                                    size="small"
+                                                    fullWidth
+                                                    inputProps={{ ...params.inputProps, placeholder: "GG/AA/YYYY" }}
+                                                />
                                             )}
                                         />
                                     </LocalizationProvider>
@@ -1880,11 +2022,31 @@ const ListPersonnel: React.FC = () => {
                                     <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                         <DatePicker
                                             label="Doğum Tarihi"
+                                            //     inputFormat="dd/MM/yyyy"
+                                            //     value={form.birthDate}
+                                            //     onChange={(next: any) => setForm((f) => ({ ...f, birthDate: next ? format(next, "yyyy-MM-dd") : null }))}
+                                            //     renderInput={(params: any) => (
+                                            //         <TextField {...params} size="small" fullWidth 
+                                            //         error={showStepErrors && !form.birthDate}
+                                            //          helperText={showStepErrors ? "Doğum tarihi zorunludur!" : ""} />
+                                            //     )}
+                                            // />
+
+
                                             inputFormat="dd/MM/yyyy"
-                                            value={form.birthDate}
-                                            onChange={(next: any) => setForm((f) => ({ ...f, birthDate: next ? format(next, "yyyy-MM-dd") : null }))}
+                                            value={form.birthDate ? parseISO(form.birthDate) : null}
+                                            onChange={(next) => setForm((f) => ({
+                                                ...f,
+                                                birthDate: next && isValidDate(next) ? format(next, "yyyy-MM-dd") : null
+                                            }))}
                                             renderInput={(params: any) => (
-                                                <TextField {...params} size="small" fullWidth error={showStepErrors && !form.birthDate} helperText={showStepErrors ? "Doğum tarihi zorunludur!" : ""} />
+                                                <TextField
+                                                    {...params}
+                                                    size="small"
+                                                    fullWidth
+                                                    error={showStepErrors && !form.birthDate}
+                                                    inputProps={{ ...params.inputProps, placeholder: "GG/AA/YYYY" }}
+                                                />
                                             )}
                                         />
                                     </LocalizationProvider>
@@ -2019,7 +2181,7 @@ const ListPersonnel: React.FC = () => {
                 <Typography variant="h5">Personel Listesi</Typography>
                 {notifIds.length > 0 && (
                     <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
-                        <Chip label={`Bildirim filtresi: ${notifIds.length} id`} color="error" size="small" />
+                        <Chip label={`Bildirim filtresi: ${notifIds.length} `} color="error" size="small" />
                         <IconButton aria-label="Bildirim filtresini temizle" size="small" onClick={clearNotifFilter} sx={{ p: 0.5 }} title="Filtreyi temizle">
                             <IconRefresh size={18} />
                         </IconButton>
@@ -2199,12 +2361,17 @@ const ListPersonnel: React.FC = () => {
                                                 )}
 
                                                 {/* NEW: Belgeleri İndir */}
-                                                {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
+                                                {/* {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
                                                     <MuiMenuItem onClick={() => { setRowForAttachments(selectedRowForMenu); setOpenAttachmentsModal(true); handleCloseMenu(); }}>
                                                         <ListItemIcon><IconFile width={18} /></ListItemIcon> Belgeleri İndir ({selectedRowForMenu.attachments.length})
                                                     </MuiMenuItem>
-                                                )}
+                                                )} */}
 
+                                                {selectedRowForMenu?.attachments && selectedRowForMenu.attachments.length > 0 && (
+                                                    <MuiMenuItem onClick={() => selectedRowForMenu && handleOpenPersonnelFilesModal(selectedRowForMenu)}>
+                                                        <ListItemIcon><IconFile width={18} /></ListItemIcon> Belge/Dosyaları İndir ({selectedRowForMenu.attachments.length})
+                                                    </MuiMenuItem>
+                                                )}
                                                 {hasDownloadPermission && (
                                                     <MuiMenuItem onClick={openDownloadChooserForRow}>
                                                         <ListItemIcon><IconFileDownload width={18} /></ListItemIcon> Bu satırı indir
@@ -2540,8 +2707,6 @@ const ListPersonnel: React.FC = () => {
 
 
             <Dialog
-                // maxWidth="md"
-                // sx={{ width: { xs: "100%", sm: "40%" } }}
                 fullWidth={true}
                 open={openAnnualLeaveModal} onClose={handleCloseAnnualLeaveModal}>
                 <DialogTitle>Yıllık İzin Bilgileri</DialogTitle>
@@ -2622,7 +2787,7 @@ const ListPersonnel: React.FC = () => {
             </Dialog>
 
             {/* NEW: Attachments Download Modal */}
-            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
+            {/* <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ek Belgeler</DialogTitle>
                 <DialogContent dividers>
                     {rowForAttachments?.attachments && rowForAttachments.attachments.length > 0 ? (
@@ -2647,7 +2812,7 @@ const ListPersonnel: React.FC = () => {
                 <DialogActions>
                     <Button onClick={() => setOpenAttachmentsModal(false)}>Kapat</Button>
                 </DialogActions>
-            </Dialog>
+            </Dialog> */}
 
 
             <Dialog open={openActiveConsignmentsModal} onClose={() => setOpenActiveConsignmentsModal(false)} maxWidth="md" fullWidth>
@@ -2727,7 +2892,6 @@ const ListPersonnel: React.FC = () => {
                                             <StyledTableCell>{formatDateDisplay(item.assignmentDate)}</StyledTableCell>
                                             <StyledTableCell>{item.description || '-'}</StyledTableCell>
                                             <StyledTableCell>
-                                                {/* ... منطق دکمه دانلود Ekler ... */}
                                                 {item.attachments?.length > 0 ? (
                                                     <Button
                                                         size="small" variant="contained" color="warning" startIcon={<IconFileDownload width={16} />}
@@ -2814,7 +2978,7 @@ const ListPersonnel: React.FC = () => {
                 <DialogContent dividers>
                     {attachmentsToView.length > 0 ? (
                         <Stack spacing={1}>
-                            {attachmentsToView.map((attachment, index) => {
+                            {/* {attachmentsToView.map((attachment, index) => {
                                 const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
                                 const handleDownloadLinkClick = (fileUrl: string) => {
                                     if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; }
@@ -2834,6 +2998,28 @@ const ListPersonnel: React.FC = () => {
                                         {fileName}
                                     </Button>
                                 );
+                            })} */}
+
+                            {attachmentsToView.map((attachment, index) => {
+                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                                let finalFileName = rawFileName;
+                                try {
+                                    finalFileName = decodeURIComponent(finalFileName);
+                                } catch (e) {
+                                }
+                                finalFileName = decodeLatin1ToUtf8(finalFileName);
+                                finalFileName = finalFileName.replace(/%20/g, ' ');
+                                return (
+                                    <Button
+                                        key={index}
+                                        fullWidth
+                                        variant="outlined"
+                                        onClick={() => handleDownloadLinkClick(attachment.fileUrl)}
+                                        sx={{ mt: 1 }}
+                                    >
+                                        {finalFileName || `Dosya ${index + 1}`}
+                                    </Button>
+                                );
                             })}
                         </Stack>
                     ) : (
@@ -2842,6 +3028,65 @@ const ListPersonnel: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenAttachmentsModal(false)} color="primary" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* EXCLUSIVE NEW: Belgeleri İndir Modal (Personnel Files) */}
+            <Dialog open={openPersonnelFilesModal} onClose={() => setOpenPersonnelFilesModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>
+                    Personel Belgeleri ({selectedPersonnelForFiles?.name} {selectedPersonnelForFiles?.family})
+                </DialogTitle>
+                <DialogContent dividers>
+                    {personnelFilesToDownload.length > 0 ? (
+                        <Stack spacing={1}>
+                            {/* {personnelFilesToDownload.map((attachment, index) => {
+                                const fileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                                const downloadUrl = `${server.urldpwonload}${attachment.fileUrl}`;
+
+                                return (
+                                    <Button
+                                        key={index}
+                                        fullWidth
+                                        variant="outlined"
+                                        href={downloadUrl}
+                                        target="_blank"
+                                        download={fileName}
+                                        sx={{ mt: 1 }}
+                                        startIcon={<IconFileDownload />}
+                                    >
+                                        {fileName}
+                                    </Button>
+                                );
+                            })} */}
+
+                            {personnelFilesToDownload.map((attachment, index) => {
+                                const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                                let finalFileName = rawFileName;
+                                try {
+                                    finalFileName = decodeURIComponent(finalFileName);
+                                } catch (e) {
+                                }
+                                finalFileName = decodeLatin1ToUtf8(finalFileName);
+                                finalFileName = finalFileName.replace(/%20/g, ' ');
+                                return (
+                                    <Button
+                                        key={index}
+                                        fullWidth
+                                        variant="outlined"
+                                        onClick={() => handleDownloadLinkClick(attachment.fileUrl)}
+                                        sx={{ mt: 1 }}
+                                    >
+                                        {finalFileName || `Dosya ${index + 1}`}
+                                    </Button>
+                                );
+                            })}
+                        </Stack>
+                    ) : (
+                        <Typography>Bu personel için kayıtlı ek dosya bulunmamaktadır.</Typography>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenPersonnelFilesModal(false)} color="primary" variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

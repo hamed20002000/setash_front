@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
-    Typography, Chip, Menu, IconButton, ListItemIcon, Box,
+    Typography, Chip, Menu, IconButton, Box,
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, MenuItem as MuiMenuItem,
     Dialog, DialogTitle, DialogContent, DialogActions,
     DialogContentText,
     Autocomplete,
+    ListItemIcon,
 } from '@mui/material';
 
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
@@ -22,6 +23,8 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
     IconX, IconFileSpreadsheet, IconFileText, IconBox,
     IconLink,
+    IconUsersGroup,
+    IconCalendarTime,
 } from '@tabler/icons-react';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -1254,20 +1257,25 @@ const ListCourses: React.FC = () => {
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
                                                     <CustomTooltip
                                                         placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Kurs için tanımlanan tarih ve saatleri yönetin" : ""} // Tooltip: "تاریخ‌ها و زمان‌های تعریف شده برای دوره را مدیریت کنید"
+                                                        title={isTooltipGloballyEnabled ? "Kurs için tanımlanan tarih ve saatleri yönetin" : ""}
                                                     >
                                                         <MuiMenuItem onClick={() => handleOpenDateTimesModal(selectedRowForMenu!)}>
-                                                            <ListItemIcon><IconLink width={18} /></ListItemIcon>
+                                                            <ListItemIcon>
+                                                                <IconCalendarTime width={18} />
+                                                            </ListItemIcon>
                                                             Kurs Tarih/Saatleri
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
 
                                                     <CustomTooltip
                                                         placement="left"
-                                                        title={isTooltipGloballyEnabled ? "Bu kursa kayıtlı katılımcıları yönetin" : ""} // Tooltip: "شرکت‌کنندگان ثبت شده در این دوره را مدیریت کنید"
+                                                        title={isTooltipGloballyEnabled ? "Bu kursa kayıtlı katılımcıları yönetin" : ""}
                                                     >
                                                         <MuiMenuItem onClick={() => handleOpenParticipantsModal(selectedRowForMenu!)}>
-                                                            <ListItemIcon><IconLink width={18} /></ListItemIcon>
+                                                            {/* استفاده از IconUsersGroup یا IconUsers */}
+                                                            <ListItemIcon>
+                                                                <IconUsersGroup width={18} />
+                                                            </ListItemIcon>
                                                             Kurs Katılımcıları
                                                         </MuiMenuItem>
                                                     </CustomTooltip>

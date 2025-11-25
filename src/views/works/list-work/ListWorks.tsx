@@ -1167,7 +1167,7 @@ const ListWorks = () => {
                                                     onClose={handleCloseMenu}
                                                     MenuListProps={{ 'aria-labelledby': `basic-button-${selectedRowForMenu?.id}` }}
                                                 >
-                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu?.endDate === null && (
+                                                    {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                         <MuiMenuItem
                                                             onClick={() => {
                                                                 setWorkForEnd(selectedRowForMenu);

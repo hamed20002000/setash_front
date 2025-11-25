@@ -392,96 +392,96 @@ const uploadFiles = async (
 };
 
 
-const resizeImageBase64 = (base64String: string, maxWidth: number = 600, maxHeight: number = 600, quality: number = 0.7): Promise<string> => {
-    return new Promise((resolve) => {
-        const img = new Image();
+// const resizeImageBase64 = (base64String: string, maxWidth: number = 600, maxHeight: number = 600, quality: number = 0.7): Promise<string> => {
+//     return new Promise((resolve) => {
+//         const img = new Image();
 
-        img.onload = () => {
-            let width = img.width;
-            let height = img.height;
+//         img.onload = () => {
+//             let width = img.width;
+//             let height = img.height;
 
-            // محاسبه ابعاد جدید با حفظ نسبت
-            if (width > height) {
-                if (width > maxWidth) {
-                    height *= maxWidth / width;
-                    width = maxWidth;
-                }
-            } else {
-                if (height > maxHeight) {
-                    width *= maxHeight / height;
-                    height = maxHeight;
-                }
-            }
+//             // محاسبه ابعاد جدید با حفظ نسبت
+//             if (width > height) {
+//                 if (width > maxWidth) {
+//                     height *= maxWidth / width;
+//                     width = maxWidth;
+//                 }
+//             } else {
+//                 if (height > maxHeight) {
+//                     width *= maxHeight / height;
+//                     height = maxHeight;
+//                 }
+//             }
 
-            // اگر تصویر کوچک بود، ابعاد اصلی را حفظ می‌کند
-            if (width < 1 || height < 1) {
-                resolve(base64String);
-                return;
-            }
+//             // اگر تصویر کوچک بود، ابعاد اصلی را حفظ می‌کند
+//             if (width < 1 || height < 1) {
+//                 resolve(base64String);
+//                 return;
+//             }
 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
+//             const canvas = document.createElement('canvas');
+//             canvas.width = width;
+//             canvas.height = height;
+//             const ctx = canvas.getContext('2d');
 
-            if (ctx) {
-                // پر کردن پس‌زمینه با سفید (برای جلوگیری از پس‌زمینه سیاه در صورت شفافیت)
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, width, height);
-                ctx.drawImage(img, 0, 0, width, height);
+//             if (ctx) {
+//                 // پر کردن پس‌زمینه با سفید (برای جلوگیری از پس‌زمینه سیاه در صورت شفافیت)
+//                 ctx.fillStyle = 'white';
+//                 ctx.fillRect(0, 0, width, height);
+//                 ctx.drawImage(img, 0, 0, width, height);
 
-                // تبدیل مجدد به Base64 با کیفیت پایین‌تر (JPEG برای فشرده‌سازی بهتر)
-                resolve(canvas.toDataURL('image/jpeg', quality));
-            } else {
-                // اگر Canvas در دسترس نباشد، Base64 اصلی را برمی‌گرداند
-                resolve(base64String);
-            }
-        };
+//                 // تبدیل مجدد به Base64 با کیفیت پایین‌تر (JPEG برای فشرده‌سازی بهتر)
+//                 resolve(canvas.toDataURL('image/jpeg', quality));
+//             } else {
+//                 // اگر Canvas در دسترس نباشد، Base64 اصلی را برمی‌گرداند
+//                 resolve(base64String);
+//             }
+//         };
 
-        img.onerror = () => {
-            console.error("Image loading failed for Base64 resizing.");
-            resolve(base64String); // در صورت خطا Base64 اصلی را برمی‌گرداند
-        };
+//         img.onerror = () => {
+//             console.error("Image loading failed for Base64 resizing.");
+//             resolve(base64String); // در صورت خطا Base64 اصلی را برمی‌گرداند
+//         };
 
-        // شروع بارگذاری تصویر
-        img.src = base64String;
-    });
-};
+//         // شروع بارگذاری تصویر
+//         img.src = base64String;
+//     });
+// };
 
-const urlToBase64 = async (url: string, _mimeType: string, authToken: string): Promise<string | null> => {
-    try {
-        const fullUrl = url.startsWith('http') ? url : `${server.urldpwonload}${url}`;
+// const urlToBase64 = async (url: string, _mimeType: string, authToken: string): Promise<string | null> => {
+//     try {
+//         const fullUrl = url.startsWith('http') ? url : `${server.urldpwonload}${url}`;
 
-        const response =
-            await fetch(fullUrl, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
+//         const response =
+//             await fetch(fullUrl, {
+//                 method: 'GET',
+//                 headers: {
+//                     'Authorization': `Bearer ${authToken}`
+//                 }
+//             });
 
-        if (!response.ok) {
-            console.error(`Fetch error: ${response.status} ${response.statusText}`);
-            return null;
-        }
+//         if (!response.ok) {
+//             console.error(`Fetch error: ${response.status} ${response.statusText}`);
+//             return null;
+//         }
 
-        const blob = await response.blob();
-        const base64Result = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("FileReader failed to convert blob to Base64."));
-            reader.readAsDataURL(blob);
-        });
+//         const blob = await response.blob();
+//         const base64Result = await new Promise<string>((resolve, reject) => {
+//             const reader = new FileReader();
+//             reader.onloadend = () => resolve(reader.result as string);
+//             reader.onerror = () => reject(new Error("FileReader failed to convert blob to Base64."));
+//             reader.readAsDataURL(blob);
+//         });
 
-        const optimizedBase64 = await resizeImageBase64(base64Result);
+//         const optimizedBase64 = await resizeImageBase64(base64Result);
 
-        return optimizedBase64;
+//         return optimizedBase64;
 
-    } catch (e: any) {
-        console.error("Error converting and optimizing image for PDF (Fetch API):", e?.message || e);
-        return null;
-    }
-};
+//     } catch (e: any) {
+//         console.error("Error converting and optimizing image for PDF (Fetch API):", e?.message || e);
+//         return null;
+//     }
+// };
 
 
 const useQueryParams = () => {
@@ -599,56 +599,6 @@ const ListConsignments: React.FC = () => {
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
 
-    const mapApiDataToConsignment = (
-        r: any,
-        warehousesList: WarehouseType[],
-        workhousesList: WorkhouseType[],
-        storesList: StoreType[],
-        carWarehousesList: CarWarehouseType[]
-    ): Consignment => {
-        let name = '-';
-        const placeIdNum = Number(r.placeId);
-        const typeNum = Number(r.placeType);
-        const idNum = Number(r.id);
-        const recordStatusNum = Number(r.recordStatus);
-
-        const kind: PlaceKind =
-            typeNum === 0 ? 'WAREHOUSE' :
-                typeNum === 1 ? 'WORKHOUSE' :
-                    typeNum === 2 ? 'WORKHOUSE_STORE' :
-                        typeNum === 3 ? 'FILO' :
-                            typeNum === 4 ? 'CENTER' :
-                                'UNKNOWN';
-
-        if (typeNum === 0) {
-            name = warehousesList.find(w => w.id === placeIdNum)?.name || 'Depo (Bilinmiyor)';
-        } else if (typeNum === 1) {
-            name = workhousesList.find(w => w.id === placeIdNum)?.name || 'Şantiye (Bilinmiyor)';
-        } else if (typeNum === 2) {
-            name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (ID: ${placeIdNum})`;
-        } else if (typeNum === 3) {
-            name = carWarehousesList.find(w => w.id === placeIdNum)?.name || 'Filo (Bilinmiyor)';
-        } else if (typeNum === 4) {
-            name = 'Merkez';
-        }
-
-        const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
-
-        return {
-            id: idNum,
-            name: r.name,
-            code: r.code || '-',
-            placeId: placeIdNum,
-            type: typeNum as Consignment['type'],
-            description: r.description || '',
-            recordStatus: recordStatusNum,
-            createAt: r.createAt,
-            attachments: attachments as AttachmentType[],
-            placeKind: kind,
-            placeName: name,
-        };
-    };
-
 
 
     // --- Data Fetching: Reference Lists ---
@@ -720,8 +670,40 @@ const ListConsignments: React.FC = () => {
         try {
             const response = await axios.get(`${server.baseurl}${server.initialoperations}get-stores-by-workhouse-id/${workhouseId}`, { headers: { Authorization: `Bearer ${authToken}` } });
             if (response.data.httpStatusCode === 200) {
-                setStoresList(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name, workhouse: item.workhouse })) as StoreType[]);
+                setStoresList(response.data.data.map((item: any) =>
+                ({
+                    id: Number(item.id),
+                    name: item.name,
+                    workhouse: item.workhouse
+                })) as StoreType[]);
+
             } else { showAlert(response.data.message || 'Şantiye depoları yüklenirken bir hata oluştu.', 'error'); }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+    }, [navigate]);
+
+    // در کنار fetchWorkhouses و fetchWarehouses
+    const fetchAllStores = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) return;
+        try {
+            const response = await axios.get(
+                `${server.baseurl}${server.initialoperations}get-stores`,
+                { headers: { Authorization: `Bearer ${authToken}` } }
+            );
+
+            if (response.data.httpStatusCode === 200) {
+                setStoresList(response.data.data.map((item: any) =>
+                    ({ id: Number(item.id), name: item.name, workhouse: item.workhouse })) as StoreType[]);
+            } else {
+                showAlert(response.data.message || 'Tüm şantiye depoları yüklenirken bir hata oluştu.', 'error');
+            }
         } catch (e: any) {
             if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
             else if (e.response?.status === 401) {
@@ -766,7 +748,7 @@ const ListConsignments: React.FC = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [navigate]);
+    }, [navigate, warehousesList, workhousesList, storesList, carWarehousesList]);
 
 
     const fetchSingleConsignment = useCallback(async (id: number, authToken: string): Promise<Consignment | null> => {
@@ -806,12 +788,19 @@ const ListConsignments: React.FC = () => {
     ]);
 
 
+    // useEffect(() => {
+    //     fetchWarehouses();
+    //     fetchWorkhouses();
+    //     fetchCarWarehouses();
+    // }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses]);
+
     useEffect(() => {
         fetchWarehouses();
         fetchWorkhouses();
         fetchCarWarehouses();
-    }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses]);
-
+        // ⭐️ اضافه کردن واکشی تمام Stores
+        fetchAllStores();
+    }, [fetchWarehouses, fetchWorkhouses, fetchCarWarehouses, fetchAllStores]);
 
     const handleOpenAttachmentsModal = (row: Consignment) => {
         setRowForAttachments(row);
@@ -857,12 +846,13 @@ const ListConsignments: React.FC = () => {
         carWarehousesList
     ]);
 
-
     useEffect(() => {
-        if (warehousesList.length >= 0 && workhousesList.length >= 0) {
+
+        if (warehousesList.length > 0 || workhousesList.length > 0 || carWarehousesList.length > 0 || !loadingData) {
             fetchConsignments();
         }
-    }, [fetchConsignments, warehousesList]);
+
+    }, [fetchConsignments, warehousesList, workhousesList, carWarehousesList, storesList]);
 
 
     // --- Form Logic (Cont.) ---
@@ -883,6 +873,60 @@ const ListConsignments: React.FC = () => {
         if (placeKind === 'WORKHOUSE') { setSelectedWarehouseId(''); setSelectedStoreId(''); setSelectedCarWarehouseId(''); }
         if (placeKind === 'FILO') { setSelectedWarehouseId(''); setSelectedWorkhouseId(''); setSelectedStoreId(''); }
     }, [placeKind, selectedWorkhouseId, fetchStoresByWorkhouseId]);
+
+
+    const mapApiDataToConsignment = (
+        r: any,
+        warehousesList: WarehouseType[],
+        workhousesList: WorkhouseType[],
+        storesList: StoreType[],
+        carWarehousesList: CarWarehouseType[]
+    ): Consignment => {
+        let name = '-';
+        const placeIdNum = Number(r.placeId);
+        const typeNum = Number(r.placeType);
+        const idNum = Number(r.id);
+        const recordStatusNum = Number(r.recordStatus);
+
+        const kind: PlaceKind =
+            typeNum === 0 ? 'WAREHOUSE' :
+                typeNum === 1 ? 'WORKHOUSE' :
+                    typeNum === 2 ? 'WORKHOUSE_STORE' :
+                        typeNum === 3 ? 'FILO' :
+                            typeNum === 4 ? 'CENTER' :
+                                'UNKNOWN';
+
+        debugger
+
+        if (typeNum === 0) {
+            name = warehousesList.find(w => w.id === placeIdNum)?.name || 'Depo (Bilinmiyor)';
+        } else if (typeNum === 1) {
+            name = workhousesList.find(w => w.id === placeIdNum)?.name || 'Şantiye (Bilinmiyor)';
+        } else if (typeNum === 2) {
+            name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (${placeIdNum})`;
+        } else if (typeNum === 3) {
+            name = carWarehousesList.find(w => w.id === placeIdNum)?.name || 'Filo (Bilinmiyor)';
+        } else if (typeNum === 4) {
+            name = 'Merkez';
+        }
+
+        const attachments = (r.attachments && Array.isArray(r.attachments)) ? r.attachments.map((a: any) => ({ fileUrl: a.fileUrl })) : [];
+
+        return {
+            id: idNum,
+            name: r.name,
+            code: r.code || '-',
+            placeId: placeIdNum,
+            type: typeNum as Consignment['type'],
+            description: r.description || '',
+            recordStatus: recordStatusNum,
+            createAt: r.createAt,
+            attachments: attachments as AttachmentType[],
+            placeKind: kind,
+            placeName: name,
+        };
+    };
+
 
     const QR_BASE_URL = "https://setasportal.com/hr/list-consignments";
     // --- QR Code Logic (for New Record) ---
@@ -1334,136 +1378,136 @@ const ListConsignments: React.FC = () => {
         }
     };
 
-    const exportRowWithImagesToPdf = async (row: Consignment) => {
-        if (!row) return;
-        setLoadingData(true);
-        showAlert('Malzeme ve resimler PDF olarak hazırlanıyor...', 'info');
+    // const exportRowWithImagesToPdf = async (row: Consignment) => {
+    //     if (!row) return;
+    //     setLoadingData(true);
+    //     showAlert('Malzeme ve resimler PDF olarak hazırlanıyor...', 'info');
 
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) {
-            showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
-            setLoadingData(false);
-            return;
-        }
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) {
+    //         showAlert('Kimlik doğrulama hatası: Lütfen tekrar giriş yapın.', 'error');
+    //         setLoadingData(false);
+    //         return;
+    //     }
 
-        // @ts-ignore
-        const doc = new jsPDF();
-        const docAny = doc as any;
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 10;
-        let currentY = 15;
+    //     // @ts-ignore
+    //     const doc = new jsPDF();
+    //     const docAny = doc as any;
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     const pageHeight = doc.internal.pageSize.getHeight();
+    //     const margin = 10;
+    //     let currentY = 15;
 
-        try {
-            // ... (تنظیمات فونت و هدر و جدول مشخصات - بدون تغییر) ...
-            try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
-            docAny.setFont('NotoSans');
-            docAny.setFontSize(14);
-            docAny.text('Malzeme Kayıt Detayı ve Resim Raporu', pageWidth / 2, currentY, { align: 'center' });
-            currentY += 10;
+    //     try {
+    //         // ... (تنظیمات فونت و هدر و جدول مشخصات - بدون تغییر) ...
+    //         try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); } catch (e) { }
+    //         docAny.setFont('NotoSans');
+    //         docAny.setFontSize(14);
+    //         docAny.text('Malzeme Kayıt Detayı ve Resim Raporu', pageWidth / 2, currentY, { align: 'center' });
+    //         currentY += 10;
 
-            const mainColumns = [['Alan', 'Değer']];
-            const mainBody = [
-                ['Mal Adı:', row.name || '-'],
-                ['Kod:', row.code || '-'],
-                ['Yer Türü:', getPlaceKindText(row.placeKind)],
-                ['Yer Adı:', row.placeName || '-'],
-                ['Kayıt Tarihi:', formatDateDisplay(row.createAt || null)],
-            ];
+    //         const mainColumns = [['Alan', 'Değer']];
+    //         const mainBody = [
+    //             ['Mal Adı:', row.name || '-'],
+    //             ['Kod:', row.code || '-'],
+    //             ['Yer Türü:', getPlaceKindText(row.placeKind)],
+    //             ['Yer Adı:', row.placeName || '-'],
+    //             ['Kayıt Tarihi:', formatDateDisplay(row.createAt || null)],
+    //         ];
 
-            // فرض می‌کنیم autoTable قبلاً تعریف شده
-            autoTable(docAny, {
-                head: mainColumns,
-                body: mainBody,
-                startY: currentY,
-                theme: 'grid',
-                styles: { font: 'NotoSans', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-                headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
-                margin: { top: 15, left: margin, right: margin }
-            });
-            currentY = docAny.lastAutoTable.finalY + 10;
+    //         // فرض می‌کنیم autoTable قبلاً تعریف شده
+    //         autoTable(docAny, {
+    //             head: mainColumns,
+    //             body: mainBody,
+    //             startY: currentY,
+    //             theme: 'grid',
+    //             styles: { font: 'NotoSans', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+    //             headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
+    //             margin: { top: 15, left: margin, right: margin }
+    //         });
+    //         currentY = docAny.lastAutoTable.finalY + 10;
 
-            // 3. بخش عکس‌ها (منطق جدید برای مدیریت MimeType)
-            if (row.attachments && row.attachments.length > 0) {
-                docAny.setFontSize(12);
-                docAny.text(`Ekli Resimler (${row.attachments.length} adet):`, margin, currentY);
-                currentY += 5;
+    //         // 3. بخش عکس‌ها (منطق جدید برای مدیریت MimeType)
+    //         if (row.attachments && row.attachments.length > 0) {
+    //             docAny.setFontSize(12);
+    //             docAny.text(`Ekli Resimler (${row.attachments.length} adet):`, margin, currentY);
+    //             currentY += 5;
 
-                // تبدیل URL عکس‌ها به Base64 و استخراج MimeType
-                const imagesBase64Promises = row.attachments.map(att => {
-                    const fileName = att.fileUrl.split('/').pop()?.toLowerCase() || '';
-                    // تخمین MimeType بر اساس پسوند (می‌تواند از سرور دقیق‌تر باشد)
-                    const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
+    //             // تبدیل URL عکس‌ها به Base64 و استخراج MimeType
+    //             const imagesBase64Promises = row.attachments.map(att => {
+    //                 const fileName = att.fileUrl.split('/').pop()?.toLowerCase() || '';
+    //                 // تخمین MimeType بر اساس پسوند (می‌تواند از سرور دقیق‌تر باشد)
+    //                 const mimeType = fileName.endsWith('.png') ? 'image/png' : 'image/jpeg';
 
-                    // واکشی Base64
-                    return urlToBase64(att.fileUrl, mimeType, authToken).then(base64 => ({ base64, mimeType, fileUrl: att.fileUrl }));
-                });
+    //                 // واکشی Base64
+    //                 return urlToBase64(att.fileUrl, mimeType, authToken).then(base64 => ({ base64, mimeType, fileUrl: att.fileUrl }));
+    //             });
 
-                // دریافت Base64 و MimeType های موفقیت‌آمیز
-                const imageResults = (await Promise.all(imagesBase64Promises)).filter(img => img.base64 !== null) as { base64: string; mimeType: string; fileUrl: string }[];
+    //             // دریافت Base64 و MimeType های موفقیت‌آمیز
+    //             const imageResults = (await Promise.all(imagesBase64Promises)).filter(img => img.base64 !== null) as { base64: string; mimeType: string; fileUrl: string }[];
 
-                if (imageResults.length === 0) {
-                    showAlert('Resimler yüklenirken bir sorun oluştu (Kimlik doğrulama veya sunucu hatası).', 'error');
-                    setLoadingData(false);
-                    return;
-                }
+    //             if (imageResults.length === 0) {
+    //                 showAlert('Resimler yüklenirken bir sorun oluştu (Kimlik doğrulama veya sunucu hatası).', 'error');
+    //                 setLoadingData(false);
+    //                 return;
+    //             }
 
-                const imgWidth = 55;
-                const imgHeight = 40;
-                const padding = 5;
-                const imagesPerRow = Math.floor((pageWidth - 2 * margin) / (imgWidth + padding));
-                let x = margin;
+    //             const imgWidth = 55;
+    //             const imgHeight = 40;
+    //             const padding = 5;
+    //             const imagesPerRow = Math.floor((pageWidth - 2 * margin) / (imgWidth + padding));
+    //             let x = margin;
 
-                for (let i = 0; i < imageResults.length; i++) {
-                    const { base64, mimeType, fileUrl } = imageResults[i];
+    //             for (let i = 0; i < imageResults.length; i++) {
+    //                 const { base64, mimeType, fileUrl } = imageResults[i];
 
-                    // 💡 مهم: استخراج فرمت تصویر (JPEG, PNG,...) برای آرگومان دوم addImage
-                    const imageType = mimeType.toUpperCase().split('/')[1] || 'JPEG';
+    //                 // 💡 مهم: استخراج فرمت تصویر (JPEG, PNG,...) برای آرگومان دوم addImage
+    //                 const imageType = mimeType.toUpperCase().split('/')[1] || 'JPEG';
 
-                    // بررسی صفحه‌بندی
-                    if (currentY + imgHeight + padding > pageHeight - margin) {
-                        docAny.addPage();
-                        currentY = margin;
-                        x = margin;
-                    }
+    //                 // بررسی صفحه‌بندی
+    //                 if (currentY + imgHeight + padding > pageHeight - margin) {
+    //                     docAny.addPage();
+    //                     currentY = margin;
+    //                     x = margin;
+    //                 }
 
-                    // بررسی اتمام ردیف
-                    if ((i > 0 && i % imagesPerRow === 0)) {
-                        currentY += imgHeight + 10;
-                        x = margin;
-                    }
+    //                 // بررسی اتمام ردیف
+    //                 if ((i > 0 && i % imagesPerRow === 0)) {
+    //                     currentY += imgHeight + 10;
+    //                     x = margin;
+    //                 }
 
-                    // افزودن عکس به PDF با استفاده از imageType صحیح
-                    docAny.addImage(base64, imageType, x, currentY, imgWidth, imgHeight);
+    //                 // افزودن عکس به PDF با استفاده از imageType صحیح
+    //                 docAny.addImage(base64, imageType, x, currentY, imgWidth, imgHeight);
 
-                    // افزودن نام فایل زیر عکس
-                    docAny.setFontSize(7);
-                    docAny.text(fileUrl.split('/').pop() || 'Dosya Adı', x, currentY + imgHeight + 3);
+    //                 // افزودن نام فایل زیر عکس
+    //                 docAny.setFontSize(7);
+    //                 docAny.text(fileUrl.split('/').pop() || 'Dosya Adı', x, currentY + imgHeight + 3);
 
-                    x += imgWidth + padding;
-                }
-            } else {
-                docAny.setFontSize(10);
-                docAny.text('Bu kayıt için ekli resim bulunmamaktadır.', margin, currentY);
-            }
+    //                 x += imgWidth + padding;
+    //             }
+    //         } else {
+    //             docAny.setFontSize(10);
+    //             docAny.text('Bu kayıt için ekli resim bulunmamaktadır.', margin, currentY);
+    //         }
 
-            const fileName = `Mal_Raporu_ve_Resimler_${row.code}_${format(new Date(), 'yyyyMMdd')}.pdf`;
-            docAny.save(fileName);
-            showAlert('Malzeme ve Resimler PDF olarak başarıyla indirildi.', 'success');
-        } catch (e) {
-            showAlert('Resimli PDF oluşturulurken kritik bir hata oluştu.', 'error');
-            console.error("Resimli PDF Hatası:", e);
-        } finally {
-            setLoadingData(false);
-        }
-    };
+    //         const fileName = `Mal_Raporu_ve_Resimler_${row.code}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+    //         docAny.save(fileName);
+    //         showAlert('Malzeme ve Resimler PDF olarak başarıyla indirildi.', 'success');
+    //     } catch (e) {
+    //         showAlert('Resimli PDF oluşturulurken kritik bir hata oluştu.', 'error');
+    //         console.error("Resimli PDF Hatası:", e);
+    //     } finally {
+    //         setLoadingData(false);
+    //     }
+    // };
 
-    const handleDownloadRowWithImages = () => {
-        if (selectedRowForMenu) {
-            exportRowWithImagesToPdf(selectedRowForMenu);
-            handleCloseMenu();
-        }
-    };
+    // const handleDownloadRowWithImages = () => {
+    //     if (selectedRowForMenu) {
+    //         exportRowWithImagesToPdf(selectedRowForMenu);
+    //         handleCloseMenu();
+    //     }
+    // };
 
     const handleOpenDownloadAllModal = () => setOpenDownloadAllModal(true);
     const handleCloseDownloadAllModal = () => setOpenDownloadAllModal(false);
@@ -1980,14 +2024,16 @@ const ListConsignments: React.FC = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {(selectedRowForMenu?.attachments.length || 0) > 0 && hasDownloadPermission && (
+                                                    {/* {(
+                                                        selectedRowForMenu?.attachments.length || 0) > 0 &&
+                                                         hasDownloadPermission && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Malzeme bilgilerini ve resimleri PDF olarak indir" : ""}>
                                                             <MuiMenuItem onClick={handleDownloadRowWithImages}>
                                                                 <ListItemIcon><IconFileText width={18} /></ListItemIcon>
                                                                 Mal ve Resim PDF İndir
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
-                                                    )}
+                                                    )} */}
                                                     {(selectedRowForMenu) && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Kayıt detaylarını ve eklerini görüntüle" : ""}>
                                                             <MuiMenuItem onClick={() => handleOpenAttachmentsModal(selectedRowForMenu!)}>

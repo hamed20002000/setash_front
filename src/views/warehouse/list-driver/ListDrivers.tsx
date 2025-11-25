@@ -1463,6 +1463,7 @@ const ListDrivers = () => {
                                 <CustomTextField
                                     id="driver-firstName"
                                     fullWidth
+                                    placeholder="Adı"
                                     value={firstName}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFirstName(e.target.value); if (firstNameError) setFirstNameError(false); }}
                                     inputRef={firstNameInputRef}
@@ -1475,6 +1476,7 @@ const ListDrivers = () => {
                                 <CustomTextField
                                     id="driver-lastName"
                                     fullWidth
+                                    placeholder="Soyadı"
                                     value={lastName}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setLastName(e.target.value); if (lastNameError) setLastNameError(false); }}
                                     error={lastNameError}
@@ -1508,6 +1510,7 @@ const ListDrivers = () => {
                                 <CustomTextField
                                     id="driver-fatherName"
                                     fullWidth
+                                    placeholder="Baba Adı"
                                     value={fatherName}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setFatherName(e.target.value); if (fatherNameError) setFatherNameError(false); }}
                                     error={fatherNameError}
@@ -1519,6 +1522,7 @@ const ListDrivers = () => {
                                 <CustomTextField
                                     id="driver-identityNo"
                                     fullWidth
+                                    placeholder="TC"
                                     value={identityNo}
                                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setNationalCode(e.target.value); if (nationalCodeError) setNationalCodeError(false); }}
                                     error={nationalCodeError}

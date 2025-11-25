@@ -300,7 +300,7 @@ const ListUsers = () => {
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       } else {
-        showAlert('Kullanıcı listesi alınırken bir hata oluştu, lütfen tekrar deneyین.', 'error');
+        showAlert('Kullanıcı listesi alınırken bir hata oluştu, lütfen tekrar deney .', 'error');
       }
     });
   }, [navigate, showAlert]);
@@ -327,8 +327,15 @@ const ListUsers = () => {
         showAlert(response.data.message || 'Roller alınırken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      console.log("Error fetching roles:", e);
-      showAlert('Roller alınırken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+      else if (e.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+      }
+      else {
+
+        showAlert('Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     }
   }, [showAlert]);
 
@@ -579,23 +586,12 @@ const ListUsers = () => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); navigate("/"); return; }
 
-    // 1. آپلود فایل پرسنل (عکس)
-    // let finalImageSrc = '';
-    // if (profileRawFile) {
-    //   const url = await uploadImage(profileRawFile, authToken, showAlert);
-    //   if (url === null) { setLoadingButton(false); return; }
-    //   finalImageSrc = url;
-    // }
     let finalImageSrc = '';
 
-    // باید مطمئن شویم که profileRawFile یک آرایه غیرتهی است
-    // و اولین عنصر آن (profileRawFile[0]) موجود و از نوع File است.
     if (profileRawFile && profileRawFile.length > 0) {
 
-      // اکنون اولین فایل تکی (profileRawFile[0]) که از نوع File است را ارسال می‌کنیم
       const fileToUpload = profileRawFile[0];
 
-      // بررسی نهایی برای اطمینان از وجود فایل (برای رفع احتمال خطای TypeScript)
       if (fileToUpload) {
         const url = await uploadImage(fileToUpload, authToken, showAlert);
 
@@ -603,7 +599,6 @@ const ListUsers = () => {
         finalImageSrc = url;
       }
     }
-    debugger
     const roleNamesToSend = allRoles
       .filter(role => selectedRoles.includes(role.id))
       .map(role => role.name);
@@ -634,8 +629,20 @@ const ListUsers = () => {
       } else {
         showAlert(response.data.message || 'Yeni kullanıcı eklenirken bir hata oluştu.', 'error');
       }
-    } catch (e: any) {
-      showAlert(e.response?.data?.message || 'Kullanıcı eklenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+    }
+    catch (e: any) {
+      if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+      else if (e.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+      }
+      else if (e.response?.data?.message == "username must be longer than or equal to 5 characters") {
+        showAlert('Kullanıcı adı 5 karakterden uzun veya 5 karaktere eşit olmalıdır.', 'error');
+      }
+      else {
+
+        showAlert('Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     } finally {
       setLoadingButton(false);
     }
@@ -672,13 +679,6 @@ const ListUsers = () => {
       finalImageSrc = "";
     }
 
-
-    // if (profileRawFile) { // ⬅️ اگر فایل جدید انتخاب شده است
-    //   const url = await uploadImage(profileRawFile, authToken, showAlert);
-    //   if (url === null) { setLoadingButton(false); return; }
-    //   finalImageSrc = url;
-    // } 
-    // 2. ساخت Payload
     const updateData: {
       id: string;
       username: string;
@@ -686,7 +686,7 @@ const ListUsers = () => {
     } = {
       id: editingUserId,
       username: username,
-      imageSrc: finalImageSrc, // ⬅️ ارسال URL نهایی (آپلود شده یا حفظ شده)
+      imageSrc: finalImageSrc,
     };
 
     setLoadingButton(true);
@@ -711,7 +711,18 @@ const ListUsers = () => {
         showAlert(response.data.message || 'Kullanıcı güncellenirken bir hata oluştu.', 'error');
       }
     } catch (e: any) {
-      showAlert(e.response?.data?.message || 'Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+      else if (e.response?.status === 401) {
+        localStorage.removeItem('authToken');
+        showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+      }
+      else if (e.response?.data?.message == "username must be longer than or equal to 5 characters") {
+        showAlert('Kullanıcı adı 5 karakterden uzun veya 5 karaktere eşit olmalıdır.', 'error');
+      }
+      else {
+
+        showAlert('Kullanıcı güncellenirken bir hata oluştu, lütfen tekrar deneyin.', 'error');
+      }
     } finally {
       setLoadingButton(false);
     }

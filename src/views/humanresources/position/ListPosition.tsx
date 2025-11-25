@@ -96,9 +96,8 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     },
 }));
 
-// ************************
-// ** تغییر: PositionType **
-// ************************
+
+
 interface PositionType {
     id: number;
     title: string;
@@ -162,10 +161,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
 
 const ListPosition = () => {
     const navigate = useNavigate();
-
-    // ******************************
-    // ** تغییر: متغیرهای State **
-    // ******************************
     const [title, setTitle] = useState<string>('');
     const [positionsList, setPositionsList] = useState<PositionType[]>(MOCK_POSITIONS);
     const [editingId, setEditingId] = useState<number | null>(null);
@@ -239,9 +234,6 @@ const ListPosition = () => {
 
     const handleClickOpenDeleteModal = () => {
         if (selectedRowForMenu) {
-            // **********************************
-            // ** تغییر: تنظیم ID برای حذف **
-            // **********************************
             setPositionIdToDelete(selectedRowForMenu.id);
             setOpenDeleteModal(true);
         }
@@ -299,9 +291,6 @@ const ListPosition = () => {
         setTitleHelperText('');
     };
 
-    // **********************************
-    // ** تغییر: تابع insertPosition **
-    // **********************************
     const insertPosition = async () => {
         if (!title.trim()) {
             setTitleError(true);
@@ -353,6 +342,11 @@ const ListPosition = () => {
     };
     const editPosition = async () => {
         if (editingId === null) return;
+        if (Number(editingId) === 1 || Number(editingId) === 2) {
+            showAlert('Bu pozisyonların adı (Şantiye Çalışanı & Şefi) değiştirilemez.', 'error');
+            resetFormAndState();
+            return;
+        }
         if (!title.trim()) {
             setTitleError(true);
             setTitleHelperText('İsim boş olamaz!');
@@ -428,6 +422,13 @@ const ListPosition = () => {
             navigate("/");
             return;
         }
+
+        if (Number(id) === 1 || Number(id) === 2) {
+            debugger
+            showAlert('Bu pozisyonlar (Şantiye Çalışanı & Şefi) sistem kaydı olduğu için durumu değiştirilemez.', 'error');
+            handleCloseMenu(); // منو را ببندید
+            return; // جلوگیری از اجرای درخواست API
+        }
         try {
             const response = await axios.put(
                 server.baseurl + server.hr + "update-position", // **API جدید**
@@ -501,6 +502,7 @@ const ListPosition = () => {
             }
         }).then((result) => {
             if (result.data.httpStatusCode === 200) {
+                debugger
                 const formattedData = result.data.data.map((item: any) => ({
                     id: item.id,
                     title: item.title,
@@ -588,9 +590,6 @@ const ListPosition = () => {
 
     const paginatedPositions = sortedAndFilteredPositions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
-    // ****************************************
-    // ** تغییر: توابع گزارش‌گیری (PDF و Excel) **
-    // ****************************************
     const handleDownloadAllPositionsPDF = () => {
         if (!sortedAndFilteredPositions || sortedAndFilteredPositions.length === 0) {
             showAlert('PDF oluşturulacak pozisyon bulunamadı.', 'warning');
@@ -794,6 +793,8 @@ const ListPosition = () => {
             showAlert('Excel dışa aktarılırken bir hata oluştu. Lütfen konsolu kontrol edin.', 'error');
         }
     };
+
+
 
 
     return (
@@ -1125,7 +1126,7 @@ const ListPosition = () => {
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
                                                 )}
-                                                {hasDeletePermission && (
+                                                {(Number(selectedRowForMenu?.id) !== 1 && Number(selectedRowForMenu?.id) !== 2) && hasDeletePermission && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Pozisyonu sil" : ""}>
                                                         <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon>

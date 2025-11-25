@@ -273,21 +273,15 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     }, [alertMessage]);
     useEffect(() => { const t = setTimeout(() => setIsBlinking(false), 5000); return () => clearTimeout(t); }, []);
 
-    // ------------------------------------
-    // Data Fetching Functions (UPDATED for ISG Filter & Dependency Fix)
-    // ------------------------------------
     const fetchPersonnels = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
         try {
-            // API جدید پرسنل که hasISG را برمی‌گرداند
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels`, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
                 const data = res.data.data as any[];
-
-                // CRITICAL: فیلتر کردن پرسنلی که hasISG = true دارند
                 const filteredAndMapped = data
-                    .filter(p => p.hasISG === true && (!p.workEndDate || p.workEndDate === null)) // <-- شرط workEndDate اضافه شد
+                    .filter(p => (!p.workEndDate || p.workEndDate === null)) // <-- شرط workEndDate اضافه شد
                     .map(p => ({
                         id: Number(p.id),
                         name: p.name,
@@ -687,7 +681,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
         const baseItem = {
             positionId: Number(positionId),
-            userRoleId: isBulk ? null : (userRoleId ?? 0),
+            userRoleId: isBulk ? null : (Number(userRoleId) == 0 ? null : Number(userRoleId)),
             placeId: Number(placeIdToSend),
             type: typeToSend,
             startDate: startDate ? new Date(startDate).toISOString() : null,
@@ -1236,7 +1230,10 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                         <Autocomplete
                                             options={personnels}
                                             size="small"
-                                            getOptionLabel={(option) => `${option.name} ${option.family}`}
+                                            getOptionLabel={(option) => {
+                                                const isgStatus = option.hasISG ? '(İSG Var)' : '(İSG Yok)';
+                                                return `${option.name} ${option.family} ${isgStatus}`;
+                                            }}
 
                                             value={personnels.find(p => p.id === personnelId) || null}
 
@@ -1289,12 +1286,17 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                 </Box>
                                             )}
                                         >
-                                            {personnels.map((p) => (
-                                                <MuiMenuItem key={p.id} value={p.id}>
-                                                    <Checkbox checked={selectedPersonnelIds.indexOf(p.id) > -1} />
-                                                    <ListItemText primary={`${p.name} ${p.family}`} />
-                                                </MuiMenuItem>
-                                            ))}
+                                            {personnels.map((p) => {
+                                                // 💡 نمایش وضعیت ISG در ListItemText (به ترکی)
+                                                const isgStatus = p.hasISG ? '(İSG Var)' : '(İSG Yok)';
+                                                return (
+                                                    <MuiMenuItem key={p.id} value={p.id}>
+                                                        <Checkbox checked={selectedPersonnelIds.indexOf(p.id) > -1} />
+                                                        {/* نمایش وضعیت ISG در کنار نام پرسنل */}
+                                                        <ListItemText primary={`${p.name} ${p.family} ${isgStatus}`} />
+                                                    </MuiMenuItem>
+                                                );
+                                            })}
                                         </Select>
 
                                     )}
@@ -1718,7 +1720,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                             <StyledTableCell>{formatDateDisplay(row.startDate)}</StyledTableCell>
                                             <StyledTableCell>{row.endDate == 'N/A' ? '-' : formatDateDisplay(row.endDate)}</StyledTableCell>
 
-                                            <StyledTableCell sx={{ maxWidth: 280 }}>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
 
                                                 {row.description != null && row.description.length > 50 && (

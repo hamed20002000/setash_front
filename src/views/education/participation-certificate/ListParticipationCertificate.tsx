@@ -4,7 +4,7 @@ import server from '../../../assets/address.json';
 import { IconAward, IconFileCertificate, IconCertificate, IconClockHour3, IconSearch } from '@tabler/icons-react';
 
 // MUI bileşenlerini ekliyoruz (Projenizde zaten kurulu olmalıdır)
-import { Autocomplete, TextField, CircularProgress, Box, Button, Stack } from '@mui/material';
+import { Autocomplete, TextField, CircularProgress, Box, Button, Stack, Typography } from '@mui/material';
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -252,12 +252,11 @@ const ListParticipationCertificate: React.FC = () => {
 
     return (
         <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-            {/* Başlık */}
-            <h1 style={{ display: 'flex', alignItems: 'center', color: '#1A2E44' }}>
+
+            <Typography variant="h5">
                 <IconAward size={30} style={{ marginLeft: '10px', color: '#007BFF' }} />
                 Katılım Sertifikası Yönetimi
-            </h1>
-
+            </Typography>
             {/* بخش انتخاب پرسنل (Autocomplete) */}
             <Box sx={{ marginBottom: '30px', marginTop: '20px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
@@ -276,7 +275,7 @@ const ListParticipationCertificate: React.FC = () => {
                             {...params}
                             fullWidth
                             size="small"
-                            placeholder="Ad, Soyad veya ID ile arama yapın"
+                            placeholder="Ad, Soyad veya TC ile arama yapın"
                             InputProps={{
                                 ...params.InputProps,
                                 startAdornment: (

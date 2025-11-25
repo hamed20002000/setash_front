@@ -999,6 +999,7 @@ const ListNetwork = () => {
                                 color="primary"
                                 variant="filled"
                                 size="small"
+                                sx={{ marginBottom: { xs: 1, sm: 0 } }}
                             />
                         )}
                         {workTitleForDisplay && (

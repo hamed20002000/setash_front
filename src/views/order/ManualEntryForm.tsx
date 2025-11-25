@@ -1482,20 +1482,23 @@ const ManualEntryForm = () => {
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>
-                                                <Chip
-                                                    label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
-                                                    color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
-                                                />
-                                                {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenHistoryModal(row)}
-                                                        >
-                                                            <IconInfoCircle size={18} />
-                                                        </IconButton>
-                                                    </CustomTooltip>
-                                                ) : null}
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Chip
+                                                        label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
+                                                        color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
+                                                        onClick={() => handleOpenHistoryModal(row)}
+                                                    />
+                                                    {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleOpenHistoryModal(row)}
+                                                            >
+                                                                <IconInfoCircle size={18} />
+                                                            </IconButton>
+                                                        </CustomTooltip>
+                                                    ) : null}
+                                                </Stack>
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.orderDetails)}>

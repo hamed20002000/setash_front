@@ -91,6 +91,28 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
+
+const StyledToggleButton = styled(MuiToggleButton)(({ theme }) => ({
+    "&.Mui-selected": { color: "white" },
+    "&.Mui-selected[data-value='all']": {
+        backgroundColor: theme.palette.primary.main,
+        "&:hover": { backgroundColor: theme.palette.primary.dark },
+    },
+    "&.Mui-selected[data-value='active']": {
+        backgroundColor: theme.palette.success.main,
+        "&:hover": { backgroundColor: theme.palette.success.dark },
+    },
+    "&.Mui-selected[data-value='inactive']": {
+        backgroundColor: theme.palette.error.main,
+        "&:hover": { backgroundColor: theme.palette.error.dark },
+    },
+    "&:not(.Mui-selected)": {
+        color: theme.palette.text.primary,
+        borderColor: theme.palette.divider,
+        "&:hover": { backgroundColor: theme.palette.action.hover },
+    },
+}));
+
 const formatDateDisplay = (dateString: string | null): string => {
     if (!dateString) return "-";
     try {
@@ -1089,9 +1111,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         </Grid>
                         <Grid item xs={12} sm={6} md={3} sx={{ display: 'flex', alignItems: 'center' }}>
                             <ToggleButtonGroup value={statusFilter} exclusive onChange={handleStatusFilterChange} aria-label="Durum filtresi" sx={{ flexGrow: 1 }}>
-                                <MuiToggleButton value="all" data-value="all" size="small">Tümü</MuiToggleButton>
-                                <MuiToggleButton value="active" data-value="active" size="small">Aktif</MuiToggleButton>
-                                <MuiToggleButton value="inactive" data-value="inactive" size="small">Pasif</MuiToggleButton>
+                                <StyledToggleButton value="all" data-value="all" size="small">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="active" data-value="active" size="small">Aktif</StyledToggleButton>
+                                <StyledToggleButton value="inactive" data-value="inactive" size="small">Pasif</StyledToggleButton>
                             </ToggleButtonGroup>
                         </Grid>
                     </Grid>
