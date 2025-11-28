@@ -335,13 +335,24 @@ const ListStoreReceiptInvoice: React.FC = () => {
 
     // ---------- API ----------
     const fetchWorkhouses = useCallback(async () => {
-        setLoadingData(true);
-        const token = localStorage.getItem("authToken");
-        if (!token) { navigate("/"); setLoadingData(false); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const res = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
             if (res.data?.httpStatusCode === 200 && Array.isArray(res.data.data)) {
                 const all: WorkhouseType[] = res.data.data.map((w: any) => ({
                     id: Number(w.id),

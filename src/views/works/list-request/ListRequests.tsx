@@ -583,11 +583,22 @@ const RequestTabs: React.FC = () => {
 
     const fetchWorkhouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) return;
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(
                 server.baseurl + server.initialoperations + "get-workhouse",
-                { headers: { "Authorization": `Bearer ${authToken}` } }
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 setWorkhouses(response.data.data.map((w: any) => ({ id: w.id, name: w.name, code: w.code })));
@@ -1083,7 +1094,7 @@ const RequestTabs: React.FC = () => {
             return (
                 <Grid container spacing={2}>
                     <Grid item xs={12}>
-                        <CustomFormLabel htmlFor="material-subject" required>Konu / Başlık</CustomFormLabel>
+                        {/* <CustomFormLabel htmlFor="material-subject" required>Konu / Başlık</CustomFormLabel> */}
                         <CustomTextField
                             id="material-subject"
                             placeholder="Talep Başlığı"
@@ -1114,7 +1125,7 @@ const RequestTabs: React.FC = () => {
             return (
                 <Grid container spacing={2}>
                     <Grid item xs={12} sm={6}>
-                        <CustomFormLabel htmlFor="rental-title" required>Konu / Başlık</CustomFormLabel>
+                        {/* <CustomFormLabel htmlFor="rental-title" required>Konu / Başlık</CustomFormLabel> */}
                         <CustomTextField id="rental-title" size="small" fullWidth value={rentalTitle}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRentalTitle(e.target.value)}
 
@@ -1312,13 +1323,27 @@ const RequestTabs: React.FC = () => {
                                                         </CustomTooltip>
                                                     )}
                                                 </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <Chip label={statusToLabel(row.status)} color={statusToColor(row.status)} size="small" />
-                                                    {(row.requestStatusHistories && row.requestStatusHistories.length > 0) ? (
+                                                <StyledTableCell> {/* می‌توانید محدودیت عرض را برای موبایل کاهش دهید */}
+                                                    <Stack
+                                                        direction="row"
+                                                        alignItems="center"
+                                                        spacing={1}
+                                                    >
+                                                        <Chip
+                                                            label={statusToLabel(row.status)}
+                                                            color={statusToColor(row.status)}
+                                                            size="small"
+                                                        />
+
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
-                                                            <IconButton size="small" onClick={() => { setHistoryData(row.requestStatusHistories!); setOpenHistoryModal(true); }}><IconInfoCircle size={18} /></IconButton>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => { setHistoryData(row.requestStatusHistories!); setOpenHistoryModal(true); }}
+                                                            >
+                                                                <IconInfoCircle size={18} />
+                                                            </IconButton>
                                                         </CustomTooltip>
-                                                    ) : null}
+                                                    </Stack>
                                                 </StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1">{new Date(row.createAt).toLocaleDateString('tr-TR')}</Typography></StyledTableCell>
                                                 <StyledTableCell>

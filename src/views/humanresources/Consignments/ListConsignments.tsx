@@ -622,9 +622,23 @@ const ListConsignments: React.FC = () => {
 
     const fetchWorkhouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", { headers: { Authorization: `Bearer ${authToken}` } });
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
             if (response.data.httpStatusCode === 200) {
                 setWorkhousesList(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as WorkhouseType[]);
             } else { showAlert(response.data.message || 'Şantiyeler yüklenirken bir hata oluştu.', 'error'); }

@@ -8,7 +8,6 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     CircularProgress, Paper, Dialog, DialogTitle,
     DialogContent, DialogActions,
-    // ToggleButton as MuiToggleButton, ToggleButtonGroup,
     TableSortLabel
 } from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
@@ -49,7 +48,6 @@ const formatDateDisplay = (dateString: string | null | undefined): string => {
     }
 };
 
-// تابع کمکی برای فرمت ساعت برای نمایش در TimePicker
 const parseTimeForTimePicker = (timeString: string | null): Date | null => {
     if (!timeString) return null;
     try {
@@ -62,20 +60,6 @@ const parseTimeForTimePicker = (timeString: string | null): Date | null => {
     }
 }
 
-// const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
-//     '&.Mui-selected': {
-//         color: 'white',
-//         ...(value === 'all' && selected && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }),
-//         ...(value === 'active' && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
-//         ...(value === 'inactive' && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
-//     },
-//     '&:not(.Mui-selected)': {
-//         color: theme.palette.text.primary,
-//         borderColor: theme.palette.divider,
-//         '&:hover': { backgroundColor: theme.palette.action.hover },
-//     },
-// }));
-
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
     fontSize: '0.8rem',
@@ -84,12 +68,26 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     },
 }));
 
+interface WorkhouseType {
+    id: number;
+    name: string;
+    code: string;
+    // سایر فیلدها از API get-workhouse
+}
+
+interface StoreType {
+    id: number;
+    name: string;
+    // سایر فیلدها از API get-stores-by-workhouse-id
+    workhouse: { id: number; name: string; };
+}
+
 interface PersonnelWorkPlace {
     id: number;
-    personnel: { id: number; name: string; family: string };
+    personnel: { id: number; name: string; family: string; identityNumber: string; };
     position: { id: number; title: string } | null;
     placeId: number;
-    type: 0 | 1 | 2 | 3; // 1 = WORKHOUSE
+    type: 0 | 1 | 2 | 3; // 1 = WORKHOUSE (Şantiye), 2 = STORE (Depo)
     placeKind: string;
     placeName: string;
     personnelName: string;
@@ -108,9 +106,10 @@ interface RollCallType {
         id: string;
         placeId: string;
         type: string;
-        personnel: { id: string; name: string; family: string; };
+        personnel: { id: string; name: string; family: string; identityNumber?: string; };
         position: { id: string; title: string; };
         workhouse?: { name: string };
+        // store?: { name: string }; // در صورت وجود در API
     };
     personnelName: string;
     personnelIdentity: string;
@@ -121,7 +120,6 @@ interface RollCallType {
 
 type SortableRollCallKeys = 'date' | 'startTime' | 'endTime' | 'createAt' | 'personnelName' | 'placeName';
 
-// State برای نگهداری ساعات در جدول ثبت روزانه
 interface DailyTimes {
     startTime: Date | null;
     endTime: Date | null;
@@ -271,6 +269,14 @@ const ListRollCalls = () => {
     const [dailyTimes, setDailyTimes] = useState<Record<number, DailyTimes>>({});
     const [isDailyRegisterLoading, setIsDailyRegisterLoading] = useState<Record<number, boolean>>({});
 
+    // 🆕 Stateهای فیلتر Yoklama Onayı
+    const [dailyFilterType, setDailyFilterType] = useState<'all' | 'workhouse' | 'store'>('all');
+    const [workhouses, setWorkhouses] = useState<WorkhouseType[]>([]);
+    const [stores, setStores] = useState<StoreType[]>([]);
+    const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
+    const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+    const [loadingWorkplaces, setLoadingWorkplaces] = useState<boolean>(false);
+
 
     // --- Stateهای لیست و واکشی ---
     const [rollCallsList, setRollCallsList] = useState<RollCallType[]>([]);
@@ -288,7 +294,6 @@ const ListRollCalls = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [orderBy, setOrderBy] = useState<SortableRollCallKeys>('createAt');
     const [order, setOrder] = useState<'asc' | 'desc'>('desc');
-    // const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
     const [itemToDelete, setItemToDelete] = useState<RollCallType | null>(null);
 
@@ -298,11 +303,9 @@ const ListRollCalls = () => {
     const openMenu = Boolean(anchorEl);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
 
-    // ⚠️ تفکیک مودال‌های دانلود
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
-    // const [selectedRollCallForDownload, setSelectedRollCallForDownload] = useState<RollCallType | null>(null);
     const [selectedDailyDate, setSelectedDailyDate] = useState<Date | null>(new Date());
 
     // دسترسی‌های کاربر
@@ -324,7 +327,60 @@ const ListRollCalls = () => {
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
 
-    // واکشی لیست پرسنل WorkPlace
+
+    const fetchWorkhouses = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
+        try {
+            const res = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
+            if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {
+                setWorkhouses(res.data.data.filter((w: any) => Number(w.recordStatus) === 0));
+            }
+        } catch (e: any) {
+            console.error('Workhouses fetch error:', e);
+        } finally {
+            setLoadingWorkplaces(false);
+        }
+    }, []);
+
+    // 🆕 واکشی Stores (Depo) بر اساس WorkhouseId
+    const fetchStoresByWorkhouse = useCallback(async (workhouseId: number) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) return;
+        setLoadingWorkplaces(true);
+        try {
+            const res = await axios.get(`${server.baseurl}${server.initialoperations}get-stores-by-workhouse-id/${workhouseId}`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {
+                setStores(res.data.data.filter((s: any) => Number(s.recordStatus) === 0));
+            } else {
+                setStores([]);
+            }
+        } catch (e: any) {
+            setStores([]);
+            console.error('Stores fetch error:', e);
+        } finally {
+            setLoadingWorkplaces(false);
+        }
+    }, []);
+
+
+    // واکشی لیست پرسنل WorkPlace - به‌روزرسانی شده با فیلترهای جدید
     const fetchPersonnelWorkPlaces = useCallback(async (rollCalls?: RollCallType[], dateToCheck: Date | null = new Date()) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate('/'); return; }
@@ -335,30 +391,53 @@ const ListRollCalls = () => {
             });
 
             if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {
-                // const today = format(new Date(), 'yyyy-MM-dd');
-                // const todayRollCalls = rollCalls ? rollCalls.filter(rc => format(new Date(rc.date), 'yyyy-MM-dd') === today) : [];
-
                 const today = format(dateToCheck || new Date(), 'yyyy-MM-dd');
                 const todayRollCalls = rollCalls ? rollCalls.filter(rc => format(new Date(rc.date), 'yyyy-MM-dd') === today) : [];
-                const workhouseAssignments: PersonnelWorkPlace[] = res.data.data
-                    .filter((r: any) =>
-                        (Number(r.type) === 1 || Number(r.type) === 2) &&
-                        r.endDate === null
-                    )
+
+                const filteredWorkplaces = res.data.data.filter((r: any) => {
+                    const isActive = r.endDate === null; // فقط رکوردهای فعال
+                    const type = Number(r.type);
+                    const isRelevantType = type === 1 || type === 2; // Workhouse (1) یا Store (2)
+
+                    if (!isActive || !isRelevantType) return false;
+
+                    // اعمال فیلترهای انتخابی کاربر
+                    if (dailyFilterType === 'workhouse' && type === 1) {
+                        return selectedWorkhouseId === null || Number(r.placeId) === selectedWorkhouseId;
+                    } else if (dailyFilterType === 'store' && type === 2) {
+                        // اگر Workhouse پدر برای فیلتر انتخاب شده باشد (اختیاری)
+                        if (selectedWorkhouseId) {
+                            // در API اصلی get-all-personnels-work-places اطلاعات Workhouse پدر برای Depo نیست.
+                            // اگر این اطلاعات در پاسخ API اصلی (r.workhouse) موجود بود، باید اینجا چک می‌شد.
+                            // فعلا فقط بر اساس StoreId فیلتر می‌کنیم.
+                        }
+                        return selectedStoreId === null || Number(r.placeId) === selectedStoreId;
+                    } else if (dailyFilterType === 'all') {
+                        return true;
+                    }
+
+                    return false;
+                });
+
+
+                const workhouseAssignments: PersonnelWorkPlace[] = filteredWorkplaces
                     .map((r: any) => {
                         const personnelWorkPlaceId = Number(r.id);
-                        // const hasRollCallToday = todayRollCalls.some(rc => Number(rc.personnelWorkPlace?.id) === personnelWorkPlaceId);
                         const hasRollCallToday = todayRollCalls.some(rc => Number(rc.personnelWorkPlace?.id) === personnelWorkPlaceId);
+
+                        // تعیین placeName (نام شانتیا یا دپو)
+                        let placeName = r.workhouse?.name || r.store?.name || '-';
+
                         return {
                             id: personnelWorkPlaceId,
                             personnel: { id: Number(r.personnel.id), name: r.personnel.name, family: r.personnel.family, identityNumber: r.personnel.identityNumber || '' },
                             position: r.position ? { id: Number(r.position.id), title: r.position.title } : null,
                             placeId: Number(r.placeId),
-                            type: 1 as 1,
-                            placeKind: 'WORKHOUSE',
-                            placeName: r.workhouse?.name || '-',
+                            type: Number(r.type) as 1 | 2,
+                            placeKind: Number(r.type) === 1 ? 'WORKHOUSE' : 'STORE',
+                            placeName: placeName,
                             personnelName: `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim(),
-                            personnelIdentity: r.personnel.identityNumber || '-', // 👈 فیلد جدید
+                            personnelIdentity: r.personnel.identityNumber || '-',
                             hasRollCallToday: hasRollCallToday,
                         };
                     });
@@ -385,7 +464,8 @@ const ListRollCalls = () => {
             }
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         }
-    }, [navigate, showAlert, defaultStartTime, defaultEndTime]);
+    }, [navigate, showAlert, defaultStartTime, defaultEndTime, dailyFilterType, selectedWorkhouseId, selectedStoreId]);
+
 
     // واکشی لیست سوابق حضور
     const fetchRollCalls = useCallback(async () => {
@@ -408,13 +488,13 @@ const ListRollCalls = () => {
                     recordStatus: Number(r.recordStatus),
                     personnelWorkPlace: r.personnelWorkPlace,
                     personnelName: `${r.personnelWorkPlace.personnel?.name ?? ''} ${r.personnelWorkPlace.personnel?.family ?? ''}`.trim(),
-                    personnelIdentity: r.personnelWorkPlace.personnel?.identityNumber || '-', // 👈 فیلد جدید
+                    personnelIdentity: r.personnelWorkPlace.personnel?.identityNumber || '-',
                     positionTitle: r.personnelWorkPlace.position?.title || '-',
-                    placeName: r.personnelWorkPlace.workhouse?.name || '-',
+                    placeName: r.personnelWorkPlace.workhouse?.name || r.personnelWorkPlace.store?.name || '-',
                     status: Number(r.recordStatus) === 0 ? 'Aktif' : 'Pasif'
                 }));
                 setRollCallsList(mappedData);
-                // fetchPersonnelWorkPlaces(mappedData);
+                // فراخوانی fetchPersonnelWorkPlaces با لیست کامل و تاریخ روزانه
                 fetchPersonnelWorkPlaces(mappedData, selectedDailyDate);
             } else {
                 showAlert('Yoklama listesi yüklenirken bir hata oluştu.', 'error');
@@ -431,9 +511,32 @@ const ListRollCalls = () => {
         }
     }, [navigate, showAlert, fetchPersonnelWorkPlaces, selectedDailyDate]);
 
+
+    // Effect برای واکشی اولیه
     useEffect(() => {
         fetchRollCalls();
-    }, [fetchRollCalls]);
+        fetchWorkhouses(); // واکشی Workhouses در بارگذاری اولیه
+    }, [fetchRollCalls, fetchWorkhouses]);
+
+    // Effect برای فراخوانی مجدد PersonnelWorkPlaces هنگام تغییر فیلترهای روزانه
+    useEffect(() => {
+        // این ensures می‌کند که فیلترها بلافاصله اعمال شوند.
+        // از loadingData چک می‌کنیم تا با fetchRollCalls همزمان نشود.
+        if (!loadingData) {
+            fetchPersonnelWorkPlaces(rollCallsList, selectedDailyDate);
+        }
+    }, [dailyFilterType, selectedWorkhouseId, selectedStoreId, selectedDailyDate, loadingData, rollCallsList]);
+
+
+    // Effect برای واکشی Stores پس از انتخاب Workhouse
+    useEffect(() => {
+        if (dailyFilterType === 'store' && selectedWorkhouseId) {
+            fetchStoresByWorkhouse(selectedWorkhouseId);
+        } else if (dailyFilterType === 'store' && selectedWorkhouseId === null) {
+            setStores([]);
+            setSelectedStoreId(null);
+        }
+    }, [dailyFilterType, selectedWorkhouseId, fetchStoresByWorkhouse]);
 
 
     const handleDailyTimeChange = useCallback((id: number, field: keyof DailyTimes, value: Date | null) => {
@@ -443,7 +546,7 @@ const ListRollCalls = () => {
         }));
     }, []);
 
-    const handleDailyRollCall = async (row: PersonnelWorkPlace) => {
+    const handleDailyRollCall = useCallback(async (row: PersonnelWorkPlace) => {
         if (!hasCreatePermission || isDailyRegisterLoading[row.id] || row.hasRollCallToday) return;
 
         const dailyRecord = dailyTimes[row.id] || { startTime: defaultStartTime, endTime: defaultEndTime };
@@ -459,8 +562,7 @@ const ListRollCalls = () => {
         const authToken = localStorage.getItem('authToken');
 
         const payload = {
-            // date: new Date().toISOString(),
-            date: selectedDailyDate ? selectedDailyDate.toISOString() : new Date().toISOString(),
+            date: selectedDailyDate ? format(selectedDailyDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
             startTime: format(startTime, 'HH:mm:00'),
             endTime: format(endTime, 'HH:mm:00'),
             personnelWorkPlaceId: row.id,
@@ -474,7 +576,6 @@ const ListRollCalls = () => {
             if (response.data.httpStatusCode === 201) {
                 showAlert(`${row.personnelName} için yoklama kaydı başarıyla onaylandı.`, 'success');
                 setPersonnelWorkPlaces(prev => prev.map(p => p.id === row.id ? { ...p, hasRollCallToday: true } : p));
-
                 fetchRollCalls();
             } else {
                 showAlert(response.data.message || 'Kayıt eklenirken bir hata oluştu.', 'error');
@@ -489,7 +590,7 @@ const ListRollCalls = () => {
         } finally {
             setIsDailyRegisterLoading(prev => ({ ...prev, [row.id]: false }));
         }
-    };
+    }, [hasCreatePermission, isDailyRegisterLoading, dailyTimes, defaultStartTime, defaultEndTime, showAlert, selectedDailyDate, fetchRollCalls, navigate]);
 
     const validateEditForm = () => {
         const isTimeSelected = selectedStartTime && selectedEndTime;
@@ -543,8 +644,6 @@ const ListRollCalls = () => {
         setLoadingButton(true);
         const authToken = localStorage.getItem('authToken');
 
-        debugger
-
         try {
             const payload = {
                 id: Number(editingId),
@@ -583,14 +682,14 @@ const ListRollCalls = () => {
         const endFilterDate = endDate ? format(endDate, 'yyyy-MM-dd') : null;
 
         const filteredBySearchAndStatus = rollCallsList.filter(rc => {
-            // فیلتر بر اساس متن جستجو (قبلی)
+            // فیلتر بر اساس متن جستجو
             const matchesSearch = searchTerm.trim() === '' ||
                 rc.personnelName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 rc.placeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 rc.positionTitle?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 rc.personnelIdentity.toLowerCase().includes(searchTerm.toLowerCase());
 
-            // 🆕 فیلتر بر اساس تاریخ
+            // فیلتر بر اساس تاریخ
             const rollCallDate = format(new Date(rc.date), 'yyyy-MM-dd');
 
             const matchesDateRange = (!startFilterDate || rollCallDate >= startFilterDate) &&
@@ -601,7 +700,6 @@ const ListRollCalls = () => {
 
         const sortedData = stableSort(filteredBySearchAndStatus, getComparator(order, orderBy));
         return sortedData;
-        // وابستگی‌های useMemo را به‌روزرسانی کنید
     }, [rollCallsList, searchTerm, order, orderBy, startDate, endDate]);
 
     const paginatedRollCalls = useMemo(() => {
@@ -784,40 +882,131 @@ const ListRollCalls = () => {
     const handleClearDateFilters = useCallback(() => {
         setStartDate(null);
         setEndDate(null);
-        setPage(0); // بازگشت به صفحه اول پس از تغییر فیلتر
+        setPage(0);
     }, []);
 
     return (
         <>
             <Paper elevation={3} sx={{ p: 3, mb: 4 }}>
                 <Grid container justifyContent="space-between" alignItems="center" mb={3}>
-                    <Grid item mb={2}>
+                    <Grid item xs={12} md={4} mb={{ xs: 2, md: 0 }}>
                         <Typography variant="h5">
                             Yoklama Onayı ({formatDateDisplay(selectedDailyDate?.toISOString())})
                         </Typography>
                     </Grid>
-                    <Grid item>
-                        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
-                            <DatePicker
-                                label="Kayıt Tarihi Seçin"
-                                value={selectedDailyDate}
-                                inputFormat="dd/MM/yyyy"
-                                maxDate={new Date()}
-                                onChange={(newValue) => {
-                                    setSelectedDailyDate(newValue);
-                                }}
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        size="small"
-                                        sx={{ width: 200 }}
-                                        variant="outlined"
-                                    />
-                                )}
-                            />
-                        </LocalizationProvider>
+                    <Grid item xs={12} md={4}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="flex-end" alignItems="center">
+                            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+                                <DatePicker
+                                    label="Kayıt Tarihi Seçin"
+                                    value={selectedDailyDate}
+                                    inputFormat="dd/MM/yyyy"
+                                    maxDate={new Date()}
+                                    onChange={(newValue) => {
+                                        setSelectedDailyDate(newValue);
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            size="small"
+                                            sx={{ minWidth: 200 }}
+                                            variant="outlined"
+                                        />
+                                    )}
+                                />
+                            </LocalizationProvider>
+                        </Stack>
                     </Grid>
                 </Grid>
+                {/* 🆕 بخش فیلتر جدید Yoklama Onayı */}
+                <Grid container spacing={2} alignItems="flex-end" mb={3}>
+                    {/* فیلتر نوع محل کار */}
+                    <Grid item xs={12} sm={4}>
+                        <CustomFormLabel>Filtre Tipi</CustomFormLabel>
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            value={dailyFilterType}
+                            onChange={(e) => {
+                                const newFilterType = e.target.value as 'all' | 'workhouse' | 'store';
+                                setDailyFilterType(newFilterType);
+                                setSelectedWorkhouseId(null);
+                                setSelectedStoreId(null);
+                                setStores([]);
+                            }}
+                        >
+                            <MuiMenuItem value="all">Tüm Çalışanlar</MuiMenuItem>
+                            <MuiMenuItem value="workhouse">Şantiye Çalışanları</MuiMenuItem>
+                            <MuiMenuItem value="store">Depo Çalışanları</MuiMenuItem>
+                        </TextField>
+                    </Grid>
+
+                    {/* فیلتر Workhouse */}
+                    {dailyFilterType === 'workhouse' && (
+                        <Grid item xs={12} sm={4}>
+                            <CustomFormLabel>Şantiye Seçin</CustomFormLabel>
+                            <TextField
+                                select
+                                fullWidth
+                                size="small"
+                                value={selectedWorkhouseId || ''}
+                                onChange={(e) => setSelectedWorkhouseId(Number(e.target.value))}
+                                disabled={loadingWorkplaces}
+                            >
+                                <MuiMenuItem value={''}>Tümü</MuiMenuItem>
+                                {workhouses.map((wh) => (
+                                    <MuiMenuItem key={wh.id} value={wh.id}>{wh.name}</MuiMenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+                    )}
+
+                    {/* فیلتر Store/Depo */}
+                    {dailyFilterType === 'store' && (
+                        <>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel>Bağlı Şantiye</CustomFormLabel>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    value={selectedWorkhouseId || ''}
+                                    onChange={(e) => {
+                                        const newWhId = Number(e.target.value);
+                                        setSelectedWorkhouseId(newWhId);
+                                        setSelectedStoreId(null);
+                                        if (newWhId) fetchStoresByWorkhouse(newWhId);
+                                        else setStores([]);
+                                    }}
+                                    disabled={loadingWorkplaces}
+                                >
+                                    <MuiMenuItem value={''}>Şantiye Seçin</MuiMenuItem>
+                                    {workhouses.map((wh) => (
+                                        <MuiMenuItem key={wh.id} value={wh.id}>{wh.name}</MuiMenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <CustomFormLabel>Depo Seçin</CustomFormLabel>
+                                <TextField
+                                    select
+                                    fullWidth
+                                    size="small"
+                                    value={selectedStoreId || ''}
+                                    onChange={(e) => setSelectedStoreId(Number(e.target.value))}
+                                    disabled={!selectedWorkhouseId || loadingWorkplaces}
+                                >
+                                    <MuiMenuItem value={''}>Tümü</MuiMenuItem>
+                                    {stores.map((s) => (
+                                        <MuiMenuItem key={s.id} value={s.id}>{s.name}</MuiMenuItem>
+                                    ))}
+                                </TextField>
+                            </Grid>
+                        </>
+                    )}
+                </Grid>
+                {/* -------------------------------------- */}
                 <TableContainer>
                     {loadingData && personnelWorkPlaces.length === 0 ? (
                         <Box display="flex" justifyContent="center" alignItems="center" height="150px">
@@ -828,7 +1017,7 @@ const ListRollCalls = () => {
                         <Table size="small">
                             <TableHead sx={{ background: theme.palette.grey[200] }}>
                                 <TableRow>
-                                    <StyledTableCell sx={{ width: { xs: '30%', md: '35%' } }}>Personel (Şantiye)</StyledTableCell>
+                                    <StyledTableCell sx={{ width: { xs: '30%', md: '35%' } }}>Personel (TC)</StyledTableCell>
                                     <StyledTableCell sx={{ width: { xs: '10%', md: '15%' } }}>Tarih</StyledTableCell>
                                     <StyledTableCell sx={{ width: { xs: '20%', md: '20%' } }}>Başlangıç Saati</StyledTableCell>
                                     <StyledTableCell sx={{ width: { xs: '20%', md: '20%' } }}>Bitiş Saati</StyledTableCell>
@@ -856,7 +1045,6 @@ const ListRollCalls = () => {
                                                     </Typography>
                                                 </StyledTableCell>
                                                 <StyledTableCell>
-                                                    {/* <Typography variant="body2">{formatDateDisplay(new Date().toISOString())}</Typography> */}
                                                     <Typography variant="body2">{formatDateDisplay(selectedDailyDate?.toISOString())}</Typography>
                                                 </StyledTableCell>
                                                 <StyledTableCell>
@@ -898,7 +1086,7 @@ const ListRollCalls = () => {
                                         );
                                     })
                                 ) : (
-                                    <TableRow><StyledTableCell colSpan={5} align="center"><Typography variant="subtitle1" color="textSecondary">Şantiye işyeri kaydı bulunamadı veya yetkiniz yok.</Typography></StyledTableCell></TableRow>
+                                    <TableRow><StyledTableCell colSpan={5} align="center"><Typography variant="subtitle1" color="textSecondary">Seçilen filtreler için personel kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
                                 )}
                             </TableBody>
                         </Table>
@@ -965,7 +1153,7 @@ const ListRollCalls = () => {
                                         label="Başlangıç Tarihi"
                                         value={startDate}
                                         inputFormat="dd/MM/yyyy"
-                                        onChange={(v) => { setStartDate(v); setPage(0); }} // با تغییر تاریخ، به صفحه اول می‌رود
+                                        onChange={(v) => { setStartDate(v); setPage(0); }}
                                         renderInput={(p) => (<TextField {...p} size="small" fullWidth />)}
                                     />
                                     {/* تاریخ پایان */}
@@ -973,7 +1161,7 @@ const ListRollCalls = () => {
                                         label="Bitiş Tarihi"
                                         value={endDate}
                                         inputFormat="dd/MM/yyyy"
-                                        onChange={(v) => { setEndDate(v); setPage(0); }} // با تغییر تاریخ، به صفحه اول می‌رود
+                                        onChange={(v) => { setEndDate(v); setPage(0); }}
                                         renderInput={(p) => (<TextField {...p} size="small" fullWidth />)}
                                     />
                                     {/* دکمه پاکسازی فیلتر تاریخ */}
@@ -981,7 +1169,7 @@ const ListRollCalls = () => {
                                         <IconButton
                                             onClick={handleClearDateFilters}
                                             aria-label="clear date filters"
-                                            disabled={!startDate && !endDate} // وقتی فیلتری نیست، غیرفعال است
+                                            disabled={!startDate && !endDate}
                                         >
                                             <IconX size={20} />
                                         </IconButton>
@@ -1012,16 +1200,13 @@ const ListRollCalls = () => {
                                     <StyledTableCell sx={{ color: "#171c23" }}>
                                         <TableSortLabel active={orderBy === 'personnelName'} direction={orderBy === 'personnelName' ? order : 'asc'} onClick={() => handleRequestSort('personnelName')}>Personel</TableSortLabel>
                                     </StyledTableCell>
-                                    <StyledTableCell sx={{ color: "#171c23" }}>TC Kimlik</StyledTableCell> {/* 👈 ستون جدید */}
+                                    <StyledTableCell sx={{ color: "#171c23" }}>TC Kimlik</StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}>Pozisyon</StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}>
                                         <TableSortLabel active={orderBy === 'date'} direction={orderBy === 'date' ? order : 'asc'} onClick={() => handleRequestSort('date')}>Tarih</TableSortLabel>
                                     </StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}>Başlangıç</StyledTableCell>
                                     <StyledTableCell sx={{ color: "#171c23" }}>Bitiş</StyledTableCell>
-                                    {/* <StyledTableCell sx={{ color: "#171c23" }}>
-                                        <TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')}>Oluşturulma Tarihi</TableSortLabel>
-                                    </StyledTableCell> */}
                                     <StyledTableCell></StyledTableCell>
                                 </TableRow>
                             </TableHead>
@@ -1030,12 +1215,11 @@ const ListRollCalls = () => {
                                     paginatedRollCalls.map((row) => (
                                         <TableRow key={row.id} hover>
                                             <StyledTableCell><Typography variant="body1">{row.personnelName}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{row.personnelIdentity}</Typography></StyledTableCell> {/* 👈 سلول جدید */}
+                                            <StyledTableCell><Typography variant="body1">{row.personnelIdentity}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.positionTitle || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.date)}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.startTime || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.endTime || '-'}</Typography></StyledTableCell>
-                                            {/* <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography></StyledTableCell> */}
                                             <StyledTableCell>
                                                 <IconButton onClick={(event) => handleClickMenu(event, row)}>
                                                     <IconDots width={18} />
@@ -1170,8 +1354,16 @@ const ListRollCalls = () => {
                 <DialogTitle>Satır İndirme Seçeneği</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => handleDownloadAll('pdf', false)}>PDF Olarak İndir</Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => handleDownloadAll('excel', false)}>Excel Olarak İndir</Button>
+                        {selectedRowForMenu && (
+                            <>
+                                <Typography variant="subtitle2" color="textSecondary">
+                                    {selectedRowForMenu.personnelName} kaydı için:
+                                </Typography>
+                                {/* برای دانلود تک سطر، باید آن سطر را به تابع گزارش‌گیری ارسال کنیم */}
+                                <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => exportRollCallsToPdf([selectedRowForMenu], true)}>PDF Olarak İndir</Button>
+                                <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => exportRollCallsToExcel([selectedRowForMenu], true)}>Excel Olarak İndir</Button>
+                            </>
+                        )}
                     </Stack>
                 </DialogContent>
                 <DialogActions>

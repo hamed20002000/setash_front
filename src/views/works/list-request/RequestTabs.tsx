@@ -548,11 +548,22 @@ const RequestTabs: React.FC = () => {
 
     const fetchWorkhouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) return;
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(
                 server.baseurl + server.initialoperations + "get-workhouse",
-                { headers: { "Authorization": `Bearer ${authToken}` } }
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 setWorkhouses(response.data.data.map((w: any) => ({ id: w.id, name: w.name, code: w.code })));
@@ -787,12 +798,18 @@ const RequestTabs: React.FC = () => {
                                             )}
                                         </StyledTableCell>
                                         <StyledTableCell>
-                                            <Chip label={statusToLabel(row.status)} color={statusToColor(row.status)} size="small" />
-                                            {(row.requestStatusHistories && row.requestStatusHistories.length > 0) ? (
-                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
-                                                    <IconButton size="small" onClick={() => { setHistoryData(row.requestStatusHistories!); setOpenHistoryModal(true); }}><IconInfoCircle size={18} /></IconButton>
-                                                </CustomTooltip>
-                                            ) : null}
+                                            <Stack
+                                                direction="row"
+                                                alignItems="center"
+                                                spacing={1}
+                                            >
+                                                <Chip label={statusToLabel(row.status)} color={statusToColor(row.status)} size="small" />
+                                                {(row.requestStatusHistories && row.requestStatusHistories.length > 0) ? (
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
+                                                        <IconButton size="small" onClick={() => { setHistoryData(row.requestStatusHistories!); setOpenHistoryModal(true); }}><IconInfoCircle size={18} /></IconButton>
+                                                    </CustomTooltip>
+                                                ) : null}
+                                            </Stack>
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{new Date(row.createAt).toLocaleDateString('tr-TR')}</Typography></StyledTableCell>
                                         <StyledTableCell>
@@ -1020,18 +1037,22 @@ const RequestTabs: React.FC = () => {
                     </Box>
                 </Stack>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="stretch" justifyContent="flex-end" mb={2}>
-                    <CustomTooltip title={isTooltipGloballyEnabled ? "Oluştur/Düzenle formunu açın." : ""}>
-                        <BlinkingButton
-                            variant="contained" color="primary"
-                            onClick={() => { setIsFormVisible(true); setIsEditing(false); setMaterialItemToEdit(null); setRentalItemToEdit(null); }}
-                            // isBlinking={currentTab === 'material' && !isFormVisible}
-                            isBlinking={isBlinking}
-                            fullWidth={false} startIcon={<IconPlus size={20} />}
-                            disabled={!hasCreatePermission}
-                        >
-                            Yeni {currentTab === 'material' ? 'Malzeme' : 'Kiralama'} Talep Kaydet
-                        </BlinkingButton>
-                    </CustomTooltip>
+
+                    {!isFormVisible && (
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Oluştur/Düzenle formunu açın." : ""}>
+                            <BlinkingButton
+                                variant="contained" color="primary"
+                                onClick={() => { setIsFormVisible(true); setIsEditing(false); setMaterialItemToEdit(null); setRentalItemToEdit(null); }}
+                                // isBlinking={currentTab === 'material' && !isFormVisible}
+                                isBlinking={isBlinking}
+                                fullWidth={false} startIcon={<IconPlus size={20} />}
+                                disabled={!hasCreatePermission}
+                            >
+                                Yeni {currentTab === 'material' ? 'Malzeme' : 'Kiralama'} Talep Kaydet
+                            </BlinkingButton>
+                        </CustomTooltip>
+                    )
+                    }
                     {isFormVisible && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıt formunu gizlemek için tıklayınız." : ""}>
                             <Button

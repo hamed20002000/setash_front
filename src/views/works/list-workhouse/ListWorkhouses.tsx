@@ -467,18 +467,67 @@ const ListWorkhouses = () => {
         }
     }, [workId, navigate]);
 
+    // const fetchWorkhouses = useCallback(async (workIdParam?: string) => {
+    //     setLoadingData(true);
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) {
+    //         navigate("/");
+    //         setLoadingData(false);
+    //         return;
+    //     }
+    //     try {
+    //         const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
+    //             headers: { "Authorization": `Bearer ${authToken}` }
+    //         });
+    //         if (response.data.httpStatusCode === 200) {
+    //             const allWorkhouses = response.data.data as WorkhouseType[];
+    //             const filteredWorkhouses = workIdParam
+    //                 ? allWorkhouses.filter(item => item.work && Number(item.work.id) === Number(workIdParam))
+    //                 : allWorkhouses;
+    //             const workhousesWithStatus = filteredWorkhouses.map((item) => ({
+    //                 ...item,
+    //                 status: item.recordStatus === 0 ? 'Aktif' : 'Pasif'
+    //             }));
+    //             setWorkhousesList(workhousesWithStatus);
+    //         } else {
+    //             showAlert(response.data.message || 'Şantiyeler yüklenirken bir hata oluştu.', 'error');
+    //         }
+    //     } catch (e: any) {
+    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+    //         else if (e.response?.status === 401) {
+    //             localStorage.removeItem('authToken');
+    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+    //         }
+    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingData(false);
+    //     }
+    // }, [navigate]);
     const fetchWorkhouses = useCallback(async (workIdParam?: string) => {
         setLoadingData(true);
+
         const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
             setLoadingData(false);
             return;
         }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams // اضافه کردن پارامترها
+                }
+            );
+
             if (response.data.httpStatusCode === 200) {
                 const allWorkhouses = response.data.data as WorkhouseType[];
                 const filteredWorkhouses = workIdParam
@@ -503,6 +552,8 @@ const ListWorkhouses = () => {
             setLoadingData(false);
         }
     }, [navigate]);
+
+
 
     const getWorksList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');

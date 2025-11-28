@@ -68,6 +68,8 @@ const ListCarFuels = Loadable(lazy(() => import('../views/carwarehouse/list-car-
 const ListTeachers = Loadable(lazy(() => import('../views/education/teachers/ListTeachers')));
 const ListCourses = Loadable(lazy(() => import('../views/education/courses/ListCourses')));
 const ListParticipationCertificate = Loadable(lazy(() => import('../views/education/participation-certificate/ListParticipationCertificate')));
+const ListCommiteeMembers = Loadable(lazy(() => import('../views/report/commitee-members/ListCommiteeMembers')));
+const ListCommiteeMembersReport = Loadable(lazy(() => import('../views/report/commitee-members-report/ListCommiteeMembersReport')));
 
 
 
@@ -629,6 +631,22 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListParticipationCertificate />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/commitee-members/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListCommiteeMembers />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/commitee-members-report/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListCommiteeMembersReport />
           </PermissionGuard>
         )
       },

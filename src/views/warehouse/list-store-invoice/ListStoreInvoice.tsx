@@ -415,13 +415,24 @@ const ListStoreInvoice = () => {
     }, [navigate]);
 
     const fetchWorkhouses = useCallback(async () => {
-        setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); setLoadingData(false); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + 'get-workhouse', {
-                headers: { Authorization: `Bearer ${authToken}` }
-            });
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
             if (response.data?.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 const all = response.data.data.map((w: any) => ({
                     id: Number(w.id), name: w.name, code: w.code, address: w.address, createAt: w.createAt,

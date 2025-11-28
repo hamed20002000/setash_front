@@ -313,13 +313,24 @@ const ListStoreReceipts = () => {
 
     // Fetch Workhouses
     const fetchWorkhouses = useCallback(async (workIdParam?: string) => {
-        setLoadingData(true);
-        const token = localStorage.getItem('authToken');
-        if (!token) { navigate("/"); setLoadingData(false); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-                headers: { "Authorization": `Bearer ${token}` }
-            });
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
             if (response.data.httpStatusCode === 200) {
                 const all: WorkhouseType[] = response.data.data;
                 const filtered = workIdParam ? all.filter(i => i.work && Number(i.work.id) === Number(workIdParam)) : all;

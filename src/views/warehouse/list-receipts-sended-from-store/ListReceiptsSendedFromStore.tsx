@@ -478,13 +478,23 @@ const ListReceiptsSendedFromStore = () => {
 
     // NEW: workhouses
     const fetchWorkhouses = useCallback(async () => {
-        setLoadingWorkhouses(true);
-        const token = localStorage.getItem('authToken');
-        if (!token) { navigate("/"); setLoadingWorkhouses(false); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(
                 server.baseurl + server.initialoperations + "get-workhouse",
-                { headers: { "Authorization": `Bearer ${token}` } }
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             if (response.data?.httpStatusCode === 200) {
                 const normalized: WorkhouseType[] = (response.data.data as any[]).map(i => ({

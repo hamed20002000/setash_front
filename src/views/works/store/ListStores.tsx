@@ -507,16 +507,52 @@ const ListStores = () => {
         }
     }, [workhouseId, navigate]);
 
+    // const getWorkhousesList = useCallback(async () => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) {
+    //         navigate("/");
+    //         return;
+    //     }
+    //     try {
+    //         const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
+    //             headers: { "Authorization": `Bearer ${authToken}` }
+    //         });
+    //         if (response.data.httpStatusCode === 200) {
+    //             const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
+    //             setWorkhousesList(activeWorkhouses);
+    //         } else {
+    //             showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
+    //         }
+    //     } catch (e: any) {
+    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+    //         else if (e.response?.status === 401) {
+    //             localStorage.removeItem('authToken');
+    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+    //         }
+    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+    //     }
+    // }, [navigate]);
+
+
     const getWorkhousesList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
             return;
         }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
             if (response.data.httpStatusCode === 200) {
                 const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
                 setWorkhousesList(activeWorkhouses);

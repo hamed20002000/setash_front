@@ -2236,6 +2236,11 @@ const ListPersonnel: React.FC = () => {
                                     </TableSortLabel>
                                 </StyledTableCell>
                                 <StyledTableCell>
+                                    <TableSortLabel active={orderBy === "position"} direction={orderBy === "position" ? order : "asc"} onClick={() => handleRequestSort("position")}>
+                                        <Typography variant="h6">Pozisyon</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
+                                <StyledTableCell>
                                     <TableSortLabel active={orderBy === "identityNumber"} direction={orderBy === "identityNumber" ? order : "asc"} onClick={() => handleRequestSort("identityNumber")} style={{ color: "#171c23" }}>
                                         <Typography variant="h6">TC Kimlik</Typography>
                                     </TableSortLabel>
@@ -2286,6 +2291,9 @@ const ListPersonnel: React.FC = () => {
                                             />
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.name} {row.family}</Typography></StyledTableCell>
+                                        <StyledTableCell>
+                                            <Typography variant="body1">{row.position?.title || "Pozisyon yok"}</Typography>
+                                        </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.identityNumber}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.workStartDate)}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.workEndDate)}</Typography></StyledTableCell>

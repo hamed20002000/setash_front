@@ -191,7 +191,7 @@ const MaterialRequestForm: React.FC<MaterialRequestFormProps> = ({ isEditing, it
 
             <Grid container spacing={2}>
                 <Grid item xs={12}>
-                    <CustomFormLabel htmlFor="material-subject" required>Konu / Başlık</CustomFormLabel>
+                    {/* <CustomFormLabel htmlFor="material-subject" required>Konu / Başlık</CustomFormLabel> */}
                     <CustomTextField
                         id="material-subject" placeholder="Talep Başlığı" size="small" fullWidth
                         value={materialSubject}

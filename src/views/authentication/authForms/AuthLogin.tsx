@@ -119,6 +119,7 @@ const AuthLogin = ({ title, subtext }: loginType) => {
       );
 
       if (response.data.success) {
+        debugger
         const token = response.data.data;
         debugger
         if (token) {
