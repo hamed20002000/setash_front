@@ -838,6 +838,14 @@ const ListUsers = () => {
     }
   }, [confirmPassword, showAlert]);
 
+  const handleRemoveProfileImage = useCallback(() => {
+    setProfileRawFile([]);
+    setProfileImageUrl(DEFAULT_IMAGE_URL);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, []);
+
   useEffect(() => {
     getListUsers();
     getListRoles();
@@ -1088,7 +1096,7 @@ const ListUsers = () => {
                   )}
                 </Grid>
               </Grid>
-              <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+              {/* <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
                 <CardMedia
                   component="img"
                   sx={{ width: 200, height: 200, borderRadius: '50%', objectFit: 'cover', mb: 1 }}
@@ -1111,8 +1119,57 @@ const ListUsers = () => {
                     Resim Seç
                   </Button>
                 </CustomTooltip>
+              </Grid> */}
+              <Grid item xs={12} sm={3} display="flex" flexDirection="column" alignItems="center" justifyContent="center">
+
+                <Box position="relative" sx={{ width: 200, height: 200, mb: 1 }}>
+                  <CardMedia
+                    component="img"
+                    sx={{ width: 200, height: 200, borderRadius: '50%', objectFit: 'cover', border: '2px solid', borderColor: 'primary.main' }}
+                    image={profileImageUrl}
+                    alt="Profile Picture"
+                  />
+                  {profileImageUrl !== DEFAULT_IMAGE_URL && (
+                    <CustomTooltip title="Resmi Kaldır">
+                      <IconButton
+                        sx={{
+                          position: 'absolute',
+                          bottom: 5,
+                          right: 5,
+                          backgroundColor: 'error.main',
+                          color: 'white',
+                          '&:hover': { backgroundColor: 'error.dark' },
+                          p: 0.8,
+                          zIndex: 10,
+                        }}
+                        onClick={handleRemoveProfileImage}
+                        size="small"
+                      >
+                        <IconX size={16} />
+                      </IconButton>
+                    </CustomTooltip>
+                  )}
+                </Box>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileInputRef}
+                  style={{ display: 'none' }}
+                  onChange={handleImageChange}
+                />
+                <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcının profil resmini seçin" : ""}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => fileInputRef.current?.click()}
+                    size="small"
+                  >
+                    {profileImageUrl !== DEFAULT_IMAGE_URL ? "Resmi Değiştir" : "Resim Seç"}
+                  </Button>
+                </CustomTooltip>
               </Grid>
             </Grid>
+
+
             <Stack direction="row" spacing={1} justifyContent="flex-start" mt={2}>
               {editingUserId !== null ? (
                 <>

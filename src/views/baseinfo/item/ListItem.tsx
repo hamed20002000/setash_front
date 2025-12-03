@@ -1586,6 +1586,11 @@ const ListItemComponent = () => {
     }
   };
 
+  const isRestrictedItem = (item: ItemType | null): boolean => {
+    if (!item) return true;
+    return item.id === "1" || item.name === "Beton";
+  };
+
   return (
     <>
       <div style={{
@@ -2174,7 +2179,7 @@ const ListItemComponent = () => {
                         }}
                       >
 
-                        {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && !isRestrictedItem(selectedRowForMenu) && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu ürünü pasif yap" : ""}>
                             <MuiMenuItem onClick={handleSetInactive}>
@@ -2186,7 +2191,7 @@ const ListItemComponent = () => {
                           </CustomTooltip>
 
                         )}
-                        {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
+                        {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && !isRestrictedItem(selectedRowForMenu) && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu ürünü aktif yap" : ""}>
                             <MuiMenuItem onClick={handleSetActive}>
@@ -2197,7 +2202,7 @@ const ListItemComponent = () => {
                             </MuiMenuItem>
                           </CustomTooltip>
                         )}
-                        {hasEditPermission && (
+                        {hasEditPermission && !isRestrictedItem(selectedRowForMenu) && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu ürünü düzenle" : ""}>
                             <MuiMenuItem onClick={handleEditClick}>
@@ -2208,7 +2213,7 @@ const ListItemComponent = () => {
                             </MuiMenuItem>
                           </CustomTooltip>
                         )}
-                        {hasDeletePermission && (
+                        {hasDeletePermission && !isRestrictedItem(selectedRowForMenu) && (
                           <CustomTooltip placement="left"
                             title={isTooltipGloballyEnabled ? "Bu ürünü sil" : ""}>
                             <MuiMenuItem onClick={handleClickOpenDeleteModal}>

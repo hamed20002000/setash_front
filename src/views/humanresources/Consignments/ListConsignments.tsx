@@ -705,11 +705,22 @@ const ListConsignments: React.FC = () => {
     // در کنار fetchWorkhouses و fetchWarehouses
     const fetchAllStores = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) return;
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(
                 `${server.baseurl}${server.initialoperations}get-stores`,
-                { headers: { Authorization: `Bearer ${authToken}` } }
+                {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
 
             if (response.data.httpStatusCode === 200) {

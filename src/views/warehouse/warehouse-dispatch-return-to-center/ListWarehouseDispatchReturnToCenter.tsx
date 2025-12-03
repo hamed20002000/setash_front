@@ -455,16 +455,23 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
-            setLoadingData(false);
             return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
         }
 
         try {
             const [driversRes, workhousesRes, dispatchesRes, itemsBalanceRes] = await Promise.all([
                 axios.get<ApiResponse<DriverType[]>>(server.baseurl + server.warehouse + "get-drivers", { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<ApiResponse<WorkhouseType[]>>(server.baseurl + server.initialoperations + "get-workhouse", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<WorkhouseType[]>>(server.baseurl + server.initialoperations + "get-workhouse", {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }),
                 axios.get<ApiResponse<DispatchType[]>>(server.baseurl + server.warehouse + `get-warehouse-dispatches-destruction/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
                 axios.get<ApiResponse<ItemWithBalanceType[]>>(server.baseurl + server.warehouse + `get-warehouse-all-items-balance/${Number(warehouseId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
             ]);

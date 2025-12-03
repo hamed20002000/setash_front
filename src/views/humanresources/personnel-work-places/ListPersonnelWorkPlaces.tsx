@@ -127,6 +127,7 @@ interface PersonnelWorkPlace {
     placeKind: PlaceKind;
     placeName: string;
     personnelName: string;
+    // salary?: number | null;
 }
 
 interface RoleLite { id: string; role: { id: number; name: string; }; recordStatus: number; }
@@ -194,6 +195,9 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     const [startDate, setStartDate] = useState<Date | null>(null);
     // const [endDate, setEndDate] = useState<Date | null>(null); // REMOVED FROM FORM STATE
     const [description, setDescription] = useState<string>("");
+
+    // const [salary, setSalary] = useState<number | ''>('');
+    // const [salaryError, setSalaryError] = useState(false);
 
     const [personnels, setPersonnels] = useState<PersonnelLite[]>([]);
     const [positionsList, setPositionsList] = useState<PositionType[]>([]);
@@ -482,9 +486,21 @@ const ListPersonnelWorkPlaces: React.FC = () => {
     // API Call برای گرفتن نام Store (برای حل مشکل N+1، اگرچه بهتر است این از سمت بکند حل شود)
     const fetchStoreNameById = async (storeId: number): Promise<string> => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return '-'; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return '';
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-store-by-id/${storeId}`, { headers: { Authorization: `Bearer ${authToken}` } });
+            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-store-by-id/${storeId}`,
+                {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    params: requestParams
+                });
             if (response.data.httpStatusCode === 200) {
                 return response.data.data.name;
             } else {
@@ -657,6 +673,10 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         if (!startDate) { setStartError(true); ok = false; } else setStartError(false);
         // if (!endDate) { setEndError(true); ok = false; } else setEndError(false); // REMOVED
 
+        // if (!salary || Number(salary) < 0) {
+        //     setSalaryError(true); ok = false;
+        // } else setSalaryError(false);
+
         if (!ok) showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning');
         return ok;
     };
@@ -668,7 +688,8 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         // setEndDate(null); // REMOVED
         setStartDate(null);
         setAssignmentMode('single'); // NEW: Reset mode
-        // ... (Other resets remain the same)
+        // setSalary('');
+        // setSalaryError(false);
         setPositionId('');
         setUserId(null);
         setUserRoleId(null);
@@ -700,6 +721,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             type: typeToSend,
             startDate: startDate ? new Date(startDate).toISOString() : null,
             endDate: null, // CRITICAL: Always null for registration/default
+            // salary: salary !== '' ? Number(salary) : null,
             description: description?.trim() || ''
         };
 
@@ -863,7 +885,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
         setStartDate(r.startDate ? new Date(r.startDate) : null);
         // setEndDate(r.endDate ? new Date(r.endDate) : null); // REMOVED
         setDescription(r.description || '');
-
+        // setSalary(r.salary ?? '');
         setIsFormVisible(true);
         setIsUserRoleDisabled(true);
 
@@ -968,6 +990,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
             r.placeName || '-',
             formatDateDisplay(r.startDate),
             formatDateDisplay(r.endDate),
+            // r.salary != null ? `${r.salary.toLocaleString('tr-TR', { minimumFractionDigits: 0 })}` : '-',
             r.description || '-'
         ]);
 
@@ -1119,6 +1142,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                     r.placeName || '-',
                     formatDateDisplay(r.startDate),
                     formatDateDisplay(r.endDate),
+                    // r.salary || '-',
                     r.description || '-'
                 ]);
                 row.eachCell((cell) => {
@@ -1582,6 +1606,37 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                         onChange={(v) => { setStartDate(v); if (startError) setStartError(false); }} renderInput={(params) => <TextField {...params} size="small" fullWidth error={startError} helperText={startError ? 'Zorunlu alan' : ''} />} />
                                 </LocalizationProvider>
                             </Grid>
+                            {/* <Grid item xs={12} sm={4}>
+                                <CustomFormLabel required>Maaş (Aylık)</CustomFormLabel>
+                                <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="number" 
+                                    label="Maaş Girin (Negatif Olamaz)"
+                                    value={salary}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        const val = e.target.value;
+                                        if (val === '') {
+                                            setSalary('');
+                                        } else {
+                                            const num = Number(val);
+                                            if (num >= 0 || val.startsWith('-')) {
+                                                setSalary(num);
+                                            }
+                                        }
+                                        if (salaryError) setSalaryError(false);
+                                    }}
+                                    error={salaryError}
+                                    helperText={salaryError ? 'Maaş zorunludur ve negatif olamaz!' : ''}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                            </InputAdornment>
+                                        ),
+                                        inputMode: 'numeric',
+                                    }}
+                                />
+                            </Grid> */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
                                 <CustomTextField placeholder="Açıklama" fullWidth multiline rows={4}
@@ -1698,6 +1753,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                             <Typography variant="h6">Bitiş</Typography>
                                         </TableSortLabel>
                                     </StyledTableCell>
+                                    {/* <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Maaş</Typography></StyledTableCell> */}
                                     <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell></StyledTableCell>
                                 </TableRow>
@@ -1733,13 +1789,15 @@ const ListPersonnelWorkPlaces: React.FC = () => {
 
                                             <StyledTableCell>{formatDateDisplay(row.startDate)}</StyledTableCell>
                                             <StyledTableCell>{row.endDate == 'N/A' ? '-' : formatDateDisplay(row.endDate)}</StyledTableCell>
-
-                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                            {/* <StyledTableCell>
+                                                {row.salary != null ? `${row.salary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0 })}` : '-'}
+                                            </StyledTableCell> */}
+                                            <StyledTableCell sx={{ maxWidth: 100 }}>
                                                 <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
 
                                                 {row.description != null && row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 2px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
                                                         }}>
                                                             Devamını Oku

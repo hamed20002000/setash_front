@@ -455,10 +455,20 @@ const ListStoreReceiptInvoice: React.FC = () => {
 
     const fetchReceipts = useCallback(async () => {
         setLoadingData(true);
-        if (!authToken) { navigate("/"); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const res = await axios.get(server.baseurl + server.warehouse + "get-store-receipts-by-invoice", {
                 headers: { Authorization: `Bearer ${authToken}` },
+                params: requestParams
             });
             if (res.data?.httpStatusCode === 200 && Array.isArray(res.data.data)) {
                 setReceiptsList(res.data.data);
@@ -587,11 +597,23 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const [editingCode, setEditingCode] = useState<string | null>(null);
 
     const fetchReceiptsRaw = async (): Promise<StoreReceiptType[]> => {
-        if (!authToken) { navigate("/"); return []; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return [];
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const res = await axios.get(
                 server.baseurl + server.warehouse + "get-store-receipts-by-invoice",
-                { headers: { Authorization: `Bearer ${authToken}` } }
+                {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             return (res.data?.httpStatusCode === 200 && Array.isArray(res.data.data)) ? res.data.data : [];
         } catch {

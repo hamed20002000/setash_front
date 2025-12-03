@@ -421,11 +421,23 @@ const ListStoreReceipts = () => {
 
     // Fetch Receipts (table)
     const fetchReceiptsRaw = useCallback(async (): Promise<StoreReceiptType[]> => {
-        if (!authToken) { navigate("/"); return []; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return [];
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             let url = server.baseurl + server.warehouse + "get-store-receipts";
             if (routeStoreId) url = server.baseurl + server.warehouse + `get-store-receipt-by-storeid/${routeStoreId}`;
-            const response = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
+            const response = await axios.get(url, {
+                headers: { "Authorization": `Bearer ${authToken}` },
+                params: requestParams
+            });
             if (response.data.httpStatusCode === 200) {
                 const formatted: StoreReceiptType[] = response.data.data.map((r: any) => ({
                     ...r, status: r.recordStatus === 0 ? 'Aktif' : 'Pasif'

@@ -315,9 +315,7 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
 
-    // --- Fetchers (Callbacks) ---
     const fetchDateTimesOptions = useCallback(async () => {
-        // ... (منطق واکشی تاریخ/زمان دوره - بدون تغییر)
         if (!courseId || !authToken) return;
         try {
             const url = `${server.baseurl}${server.education}get-course-datetimes-by-course-id/${courseId}`;
@@ -335,7 +333,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
                     label: `${formatDateTimeDisplay(r.startDateTime)} - ${formatDateTimeDisplay(r.endDateTime)}`
                 }));
                 setDateTimesOptions(options);
-                // 💡 تنظیم پیش‌فرض برای سهولت در ثبت چندتایی
                 if (options.length > 0) {
                     setSelectedDateTime(options[0]);
                 }
@@ -351,7 +348,6 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     }, [courseId, authToken, showAlert, onClose]);
 
     const fetchPersonnel = useCallback(async () => {
-        // ... (منطق واکشی پرسنل فعال - بدون تغییر)
         if (!authToken) return;
         try {
             const url = `${server.baseurl}${server.hr}get-all-personnels`;
@@ -368,13 +364,12 @@ const ListCourseParticipants: React.FC<{ open: boolean, courseId: number | null,
     }, [authToken, showAlert]);
 
     const fetchParticipants = useCallback(async () => {
-        // ... (منطق واکشی شرکت‌کنندگان - بدون تغییر)
         if (!courseId || !authToken) {
             setParticipants([]);
             return;
         }
-
         setLoading(true);
+        debugger
         try {
             const url = `${server.baseurl}${server.education}get-course-participants-by-course-id/${courseId}`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });

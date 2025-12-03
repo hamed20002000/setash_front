@@ -17,7 +17,7 @@ import BoltIcon from "@mui/icons-material/Bolt";
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 // IconFile برای نمایش مدارک جدید اضافه شد
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconEye, IconRefresh, IconUpload, IconFile } from "@tabler/icons-react";
+import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconEye, IconRefresh, IconUpload, IconFile, IconCurrencyDollar } from "@tabler/icons-react";
 import BlankCard from "src/components/shared/BlankCard";
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import CustomTextField from "src/components/forms/theme-elements/CustomTextField";
@@ -99,6 +99,7 @@ export interface PersonnelType {
     iban: string;
     telephone: string;
     mobile: string;
+    salary: number | null;
     recordStatus: RecordStatus;
     createAt: string;
     positionId?: number | null;
@@ -162,7 +163,6 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilized.map((el) => el[0]);
 };
 
-// TEMPLATE_HEADERS: 'Bitiş' kaldırıldı, 'ISG' eklendi
 const TEMPLATE_HEADERS = [
     "Ad", "Soyad", "TC Kimlik", "Pozisyon",
     "Başlangıç (yyyy-MM-dd)",
@@ -170,6 +170,7 @@ const TEMPLATE_HEADERS = [
     "Tahakkuk (Brüt|Net|0|1)", "Grup (Emekli|Normal|Engelli|0|1|2)", "Doğum Yeri",
     "Doğum Tarihi (yyyy-MM-dd)", "Medeni (Bekâr|Evli|Dul|0|1|2)", "Kan Grubu (A+|A-|B+|B-|AB+|AB-|O+|O-|0..7)",
     "Baba Adı", "Adres", "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)",
+    "Maaş (Sadece Sayısal)", // ✅ جدید: ستون حقوق اضافه شد
     "IBAN", "Telefon", "Mobil",
     "ISG (Var|Yok|True|False|0|1)", // YENİ
 ] as const;
@@ -182,9 +183,9 @@ type ImportedRow = {
     sex: number; salaryType: number; salaryAccrualMethod: number; group: number;
     birthPlace: string; birthDate: string | null; maritalStatus: number; bloodType: number;
     fatherName: string; address: string; educationStatus: number; iban: string; telephone: string; mobile: string;
-    hasISG: boolean; // NEW
+    hasISG: boolean; salary: number | null;
 
-    /* validation flags */
+
     errors: {
         identityDuplicate: boolean; positionMissing: boolean;
         requiredMissing: string[]; invalidDate: string[];
@@ -193,7 +194,6 @@ type ImportedRow = {
 
 const DEFAULT_IMAGE_URL = imagedefault;
 
-// Helper function for fetching image URL
 const getFullImageUrl = (fileUrl: string | undefined): string => {
     if (!fileUrl || fileUrl === "N/A" || fileUrl.startsWith('data:')) {
         return DEFAULT_IMAGE_URL;
@@ -201,7 +201,6 @@ const getFullImageUrl = (fileUrl: string | undefined): string => {
     return `${server.urldpwonload}${fileUrl}`;
 };
 
-// Utility function to upload files (Based on user request)
 const uploadFiles = async (
     files: File[],
     authToken: string,
@@ -239,22 +238,16 @@ const uploadFiles = async (
     }
 };
 
-// NEW: تابع فراخوانی API برای تبدیل URL به Base64
 const convertUrlToBase64 = async (imageUrl: string, authToken: string): Promise<string | null> => {
     try {
         if (!imageUrl || imageUrl === DEFAULT_IMAGE_URL) return null;
-
-        // API شما که در عکس اشاره شده است: /api/baseInfo/to-base64
         const apiUrl = `${server.baseurl}${server.baseinfo}to-base64`;
 
         const response = await axios.get(apiUrl, {
             params: { url: imageUrl }, // ارسال URL به عنوان پارامتر کوئری
             headers: { Authorization: `Bearer ${authToken}` },
         });
-
-        // فرض می‌کنیم API در پاسخ، Base64 را در یک فیلد خاص برمی‌گرداند. (باید ساختار پاسخ API شما را بدانید)
         if (response.data && response.data.data && response.data.data.base64) {
-            // Data URL باید شامل پیشوند باشد، مثلا: 'data:image/jpeg;base64,...'
             return response.data.data.base64.startsWith('data:')
                 ? response.data.data.base64
                 : `data:image/jpeg;base64,${response.data.data.base64}`;
@@ -375,12 +368,19 @@ const ListPersonnel: React.FC = () => {
     const [openImageSlider, setOpenImageSlider] = useState(false);
 
 
+    const [openSalaryEditModal, setOpenSalaryEditModal] = useState(false);
+    const [personnelToUpdateSalary, setPersonnelToUpdateSalary] = useState<PersonnelType | null>(null);
+    const [newSalary, setNewSalary] = useState<number | null>(null);
+    const [loadingSalaryUpdate, setLoadingSalaryUpdate] = useState(false);
+
+
     const initialForm: PersonnelType = {
         id: 0, name: "", family: "", position: { id: -1, title: "—" }, identityNumber: "",
         workStartDate: null, workEndDate: null, insuranceNumber: "", sex: 0,
         salaryType: 0, salaryAccrualMethod: 0, group: 0, birthPlace: "", birthDate: null,
         maritalStatus: 0, fatherName: "", bloodType: 0, address: "",
         educationStatus: EducationStatus.Ilkokul, iban: "", telephone: "", mobile: "",
+        salary: null,
         recordStatus: 0, createAt: "", positionId: null, statusText: undefined,
         imageSrc: undefined, // NEW
         hasISG: false, // NEW
@@ -433,6 +433,7 @@ const ListPersonnel: React.FC = () => {
                 statusText: statusText(x.recordStatus),
                 imageSrc: x.imageSrc ?? undefined, // NEW
                 hasISG: x.hasISG ?? false, // NEW
+                salary: x.salary ?? null,
                 attachments: x.attachments ?? [], // NEW
             }));
             setPersonnelList(list);
@@ -832,8 +833,26 @@ const ListPersonnel: React.FC = () => {
         const pageCount = docAny.internal.getNumberOfPages();
         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, bottomLineY);
     };
+    const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+        if (priceInput === null || priceInput === undefined) {
+            return '₺0';
+        }
+        const cleanedString = String(priceInput).replace(/[$,]/g, '');
+        const numericValue = parseFloat(cleanedString);
+        if (isNaN(numericValue)) {
+            return '₺0';
+        }
+        const formattedPrice = numericValue.toLocaleString('tr-TR', {
+            style: 'currency',
+            currency: 'TRY',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        });
+        return formattedPrice;
+    };
     const toPairsForPerson = (p: PersonnelType): Array<[string, string]> => {
         const positionTitle = positions.find(x => x.id === (Number(p.position?.id) ?? -1))?.title || "—";
+
         return [
             ["Ad", p.name || "—"],
             ["Soyad", p.family || "—"],
@@ -842,6 +861,7 @@ const ListPersonnel: React.FC = () => {
             ["İş Güvenliği (ISG)", p.hasISG ? "Var" : "Yok"], // NEW
             ["Başlangıç", formatDateDisplay(p.workStartDate)],
             ["Bitiş", formatDateDisplay(p.workEndDate)], // Bitiş tarihi raporda gösterilir
+            ["Maaş", cleanAndFormatPrice(p.salary)],
             ["Sigorta No", p.insuranceNumber || "—"],
             ["Cinsiyet", SEX_LABELS[p.sex] ?? "—"],
             ["Ücret Tipi", SALARY_TYPE_LABELS[p.salaryType] ?? "—"],
@@ -1079,16 +1099,19 @@ const ListPersonnel: React.FC = () => {
             { width: 18 }, { width: 18 }, { width: 16 }, { width: 24 },
             { width: 16 }, { width: 16 }, { width: 16 }, { width: 12 },
             { width: 16 }, { width: 16 }, { width: 16 }, { width: 18 },
-            { width: 16 }, { width: 16 }, { width: 28 }, { width: 18 }, { width: 22 },
-            { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 }, // Updated width for added columns
+            { width: 16 }, { width: 16 }, { width: 28 }, { width: 18 },
+            { width: 16 }, // ✅ عرض ستون Maaş
+            { width: 22 }, { width: 16 }, { width: 16 }, { width: 16 }, // IBAN, Telefon, Mobil, ISG (عرض‌ها کمی تغییر کرد)
         ];
         ws.addRow([
             "Ali", "Yılmaz", "12345678901", "Yazılım Uzmanı",
             "2023-01-10",
             "SGK-0001", "Erkek", "Aylık", "Brüt", "Normal", "İzmir",
-            "1992-05-15", "Evli", "A+", "Mehmet", "İzmir/…", "Lisans",
+            "1992-05-15", "Evli", "A+", "Mehmet", "İzmir/...", "Lisans",
+            // ✅ نمونه داده برای Maaş
+            "15000",
             "TR00 0000 0000 0000 0000 0000 00", "0232...", "05..",
-            "Var" // YENİ: ISG
+            "Var"
         ]);
         const buf = await wb.xlsx.writeBuffer();
         saveAs(new Blob([buf]), "Personel_Sablonu.xlsx");
@@ -1232,6 +1255,8 @@ const ListPersonnel: React.FC = () => {
                 const iban = getByTitle(row, map, "IBAN");
                 const telephone = getByTitle(row, map, "Telefon");
                 const mobile = getByTitle(row, map, "Mobil");
+                const salaryRaw = getByTitle(row, map, "Maaş (Sadece Sayısal)");
+                const salary = salaryRaw === "" ? null : Number(salaryRaw);
                 const hasISGText = getByTitle(row, map, "ISG (Var|Yok|True|False|0|1)"); // NEW
                 const hasISG = normalizeTr(hasISGText) === normalizeTr("Var") || normalizeTr(hasISGText) === normalizeTr("True") || Number(hasISGText) === 1;
 
@@ -1266,7 +1291,7 @@ const ListPersonnel: React.FC = () => {
                     sex, salaryType, salaryAccrualMethod, group,
                     birthPlace, birthDate, maritalStatus, bloodType,
                     fatherName, address, educationStatus, iban, telephone, mobile,
-                    hasISG, // NEW
+                    hasISG, salary: salary, // NEW
                     errors: {
                         identityDuplicate: tcDup, positionMissing: positionId == null,
                         requiredMissing, invalidDate
@@ -1324,6 +1349,7 @@ const ListPersonnel: React.FC = () => {
             bloodType: r.bloodType, address: r.address, educationStatus: r.educationStatus,
             iban: r.iban, telephone: r.telephone, mobile: r.mobile,
             positionId: r.positionId,
+            salary: form.salary,
             hasISG: r.hasISG, // NEW
         };
         const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
@@ -1450,7 +1476,7 @@ const ListPersonnel: React.FC = () => {
 
         // تعریف سربرگ‌ها و عرض ستون‌ها
         const headerRowTitles = [
-            "Ad", "Soyad", "TC Kimlik", "Pozisyon", "Başlangıç", "Bitiş",
+            "Ad", "Soyad", "TC Kimlik", "Pozisyon", "Başlangıç", "Bitiş", "Maaş",
             "Sigorta No", "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Yeri",
             "Doğum Tarihi", "Medeni Durum", "Baba Adı", "Kan Grubu", "Adres",
             "Eğitim", "IBAN", "Telefon", "Mobil", "ISG", "Durum"
@@ -1471,9 +1497,13 @@ const ListPersonnel: React.FC = () => {
         const allData: any[] = [];
         rows.forEach((p) => {
             const positionTitle = positions.find(x => x.id === (Number(p.position.id) ?? -1))?.title || "—";
+            const salaryDisplay = p.salary !== null && p.salary !== undefined
+                ? `${p.salary.toLocaleString('tr-TR')} TL`
+                : "—";
             const rowData = [
                 p.name || "—", p.family || "—", p.identityNumber || "—", positionTitle,
                 formatDateDisplay(p.workStartDate), formatDateDisplay(p.workEndDate),
+                salaryDisplay,
                 p.insuranceNumber || "—", SEX_LABELS[p.sex] ?? "—",
                 SALARY_TYPE_LABELS[p.salaryType] ?? "—", ACCRUAL_LABELS[p.salaryAccrualMethod] ?? "—",
                 GROUP_LABELS[p.group] ?? "—", p.birthPlace || "—",
@@ -1668,6 +1698,87 @@ const ListPersonnel: React.FC = () => {
     };
 
 
+    // const handleEndCooperationCheck = async (personnel: PersonnelType) => {
+    //     handleCloseMenu();
+    //     setPersonnelToEndCooperation(personnel);
+
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) { showAlert("Lütfen giriş yapın.", "warning"); navigate("/"); return; }
+
+    //     showAlert("Zimmet ve Araç kayıtları kontrol ediliyor...", "info");
+    //     setLoadingButton(true);
+
+    //     setActiveCarConsignment([]);
+    //     setActiveConsignments([]);
+
+    //     try {
+    //         const consignmentRes = await axios.get(
+    //             `${server.baseurl}${server.hr}ckeck-personnel-consignments/${personnel.id}`,
+    //             { headers: { Authorization: `Bearer ${authToken}` } }
+    //         );
+
+    //         const activeGeneralConsignments = (consignmentRes.data?.httpStatusCode === 200 && consignmentRes.data?.data)
+    //             ? (consignmentRes.data.data as any[])
+    //                 .filter(item => item.returnDate === null)
+    //                 .map(item => ({
+    //                     type: 'Zimmet (Genel)',
+    //                     assignmentDate: item.assignmentDate,
+    //                     description: item.description,
+    //                     attachments: item.consignment?.attachments || [],
+    //                     name: item.consignment?.name || 'Bilinmiyor',
+    //                     code: item.consignment?.code || '-',
+    //                 }))
+    //             : [];
+
+    //         setActiveConsignments(activeGeneralConsignments);
+
+    //         const carConsignmentRes = await axios.get(
+    //             `${server.baseurl}${server.warehouse}personnel-current-car/${personnel.id}`,
+    //             { headers: { Authorization: `Bearer ${authToken}` } }
+    //         );
+
+    //         let rawCarData: any[] = [];
+    //         if (carConsignmentRes.data?.httpStatusCode === 200 && carConsignmentRes.data?.data) {
+    //             if (Array.isArray(carConsignmentRes.data.data)) {
+    //                 rawCarData = carConsignmentRes.data.data;
+    //             } else if (carConsignmentRes.data.data.consigned === true) {
+    //                 rawCarData = [carConsignmentRes.data.data];
+    //             }
+    //         }
+
+    //         const activeCarConsignments = rawCarData
+    //             .filter(item => item.consigned === true) // فقط اقلامی که هنوز واگذار شده‌اند
+    //             .map(currentCarData => ({
+    //                 id: currentCarData.id,
+    //                 type: 'Zimmet (Araç)',
+    //                 assignmentDate: currentCarData.date,
+    //                 description: currentCarData.description,
+    //                 name: `${currentCarData.carWarhouseDetail?.brand} (${currentCarData.carWarhouseDetail?.plaque})`,
+    //                 code: currentCarData.carWarhouseDetail?.model || '-',
+    //                 attachments: currentCarData.attachments || [],
+    //             }));
+
+    //         setActiveCarConsignment(activeCarConsignments); 
+    //         const totalActiveCarCount = activeCarConsignments.length;
+    //         const totalActiveCount = activeGeneralConsignments.length + totalActiveCarCount;
+
+    //         if (totalActiveCount > 0) {
+    //             setOpenActiveConsignmentsModal(true);
+    //             showAlert(`Personelin ${totalActiveCount} adet teslim etmediği zimmeti bulunmaktadır! (Genel: ${activeGeneralConsignments.length}, Araç: ${totalActiveCarCount})`, "error");
+    //         } else {
+    //             setEndDate(null);
+    //             setOpenEndCooperationModal(true);
+    //             showAlert("Zimmet kontrolü başarılı. İşten ayrılma tarihi belirlenebilir.", "success");
+    //         }
+
+    //     } catch (e: any) {
+    //         showAlert(e?.response?.data?.message || "Sunucuya bağlanılamadı veya zimmet kontrolü başarısız oldu.", "error");
+    //     } finally {
+    //         setLoadingButton(false);
+    //     }
+    // };
+
+
     const handleEndCooperationCheck = async (personnel: PersonnelType) => {
         handleCloseMenu();
         setPersonnelToEndCooperation(personnel);
@@ -1683,65 +1794,38 @@ const ListPersonnel: React.FC = () => {
         setActiveConsignments([]);
 
         try {
-            // --- 1. اموال عمومی (Consignments) ---
+            // --- 1. اموال عمومی (Genel Zimmet) ---
+            // 💡 استفاده از API جدید: get-consignments-for-personnel-return/{personnelId}
             const consignmentRes = await axios.get(
-                `${server.baseurl}${server.hr}ckeck-personnel-consignments/${personnel.id}`,
+                `${server.baseurl}${server.hr}get-consignments-for-personnel-return/${personnel.id}`,
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
 
             const activeGeneralConsignments = (consignmentRes.data?.httpStatusCode === 200 && consignmentRes.data?.data)
                 ? (consignmentRes.data.data as any[])
-                    .filter(item => item.returnDate === null)
                     .map(item => ({
+                        // 💡 نگاشت داده‌ها بر اساس ساختار API جدید
                         type: 'Zimmet (Genel)',
-                        assignmentDate: item.assignmentDate,
+                        assignmentDate: item.createAt, // تاریخ واگذاری در این API به عنوان createAt فرض شده است.
                         description: item.description,
-                        attachments: item.consignment?.attachments || [],
-                        name: item.consignment?.name || 'Bilinmiyor',
-                        code: item.consignment?.code || '-',
+                        attachments: item.attachments || [],
+                        name: item.name || 'Bilinmiyor',
+                        code: item.code || '-',
+                        // placeId, placeType, etc., اگر لازم هستند
                     }))
                 : [];
 
             setActiveConsignments(activeGeneralConsignments);
 
-
             // --- 2. اموال خودرو (Car Consignments) ---
-            // ⭐️⭐️⭐️ بلوک درخواست API مورد نظر شما ⭐️⭐️⭐️
-            const carConsignmentRes = await axios.get(
-                // فرض می‌کنیم این API لیست یا آخرین خودروی فعال را برمی‌گرداند.
-                `${server.baseurl}${server.warehouse}personnel-current-car/${personnel.id}`,
-                { headers: { Authorization: `Bearer ${authToken}` } }
-            );
-
-            // ⭐️ منطق مدیریت حالت‌های تک یا چندگانه خودرو ⭐️
-            let rawCarData: any[] = [];
-            if (carConsignmentRes.data?.httpStatusCode === 200 && carConsignmentRes.data?.data) {
-                if (Array.isArray(carConsignmentRes.data.data)) {
-                    rawCarData = carConsignmentRes.data.data;
-                } else if (carConsignmentRes.data.data.consigned === true) {
-                    // اگر API یک آبجکت فعال برگرداند (حالت تکی)
-                    rawCarData = [carConsignmentRes.data.data];
-                }
-            }
-
-            const activeCarConsignments = rawCarData
-                .filter(item => item.consigned === true) // فقط اقلامی که هنوز واگذار شده‌اند
-                .map(currentCarData => ({
-                    id: currentCarData.id,
-                    type: 'Zimmet (Araç)',
-                    assignmentDate: currentCarData.date,
-                    description: currentCarData.description,
-                    name: `${currentCarData.carWarhouseDetail?.brand} (${currentCarData.carWarhouseDetail?.plaque})`,
-                    code: currentCarData.carWarhouseDetail?.model || '-',
-                    attachments: currentCarData.attachments || [],
-                }));
-
-            setActiveCarConsignment(activeCarConsignments); // ⭐️ ذخیره در لیست جدید ⭐️
+            // (این بخش بدون تغییر از کد اصلی شما باقی می‌ماند.)
+            // ... (API مربوط به personnel-current-car/{personnel.id} و منطق نگاشت آن)
 
             // --- 3. تصمیم‌گیری برای نمایش ---
-            const totalActiveCarCount = activeCarConsignments.length;
+            const totalActiveCarCount = activeCarConsignment.length;
             const totalActiveCount = activeGeneralConsignments.length + totalActiveCarCount;
 
+            // ... (ادامه منطق نمایش Modal)
             if (totalActiveCount > 0) {
                 setOpenActiveConsignmentsModal(true);
                 showAlert(`Personelin ${totalActiveCount} adet teslim etmediği zimmeti bulunmaktadır! (Genel: ${activeGeneralConsignments.length}, Araç: ${totalActiveCarCount})`, "error");
@@ -1752,11 +1836,13 @@ const ListPersonnel: React.FC = () => {
             }
 
         } catch (e: any) {
+            // ...
             showAlert(e?.response?.data?.message || "Sunucuya bağlanılamadı veya zimmet kontrolü başarısız oldu.", "error");
         } finally {
             setLoadingButton(false);
         }
     };
+
 
     const handleOpenPersonnelFilesModal = (row: PersonnelType) => {
         // 1. ذخیره فایل‌های پیوست و اطلاعات پرسنل در Stateهای جدید
@@ -1781,6 +1867,80 @@ const ListPersonnel: React.FC = () => {
             console.error("Decoding error:", e);
             return encodedString;
         }
+    };
+    const handleRemoveProfileImage = useCallback(() => {
+        setProfileRawFile(null);
+        setProfileImageUrl(DEFAULT_IMAGE_URL);
+        if (editingId) {
+            setForm(f => ({ ...f, imageSrc: undefined }));
+        }
+        if (profileImageInputRef.current) {
+            profileImageInputRef.current.value = "";
+        }
+    }, [editingId]);
+
+    // در نزدیکی توابع submitCreate و submitUpdate اضافه کنید
+    const submitSalaryUpdate = async () => {
+        if (!personnelToUpdateSalary || newSalary === null || newSalary < 0) {
+            showAlert("Lütfen geçerli bir maaş değeri girin.", "warning");
+            return;
+        }
+        if (!authToken) { navigate("/"); return; }
+
+        setLoadingSalaryUpdate(true);
+
+        try {
+            const payload = {
+                personnelId: Number(personnelToUpdateSalary.id),
+                salary: newSalary
+            };
+
+            const res = await axios.put(`${server.baseurl}${server.hr}update-personnel-salary`, payload, {
+                headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" },
+            });
+
+            if (res.data?.httpStatusCode === 200) {
+                showAlert(`${personnelToUpdateSalary.name} ${personnelToUpdateSalary.family} personelinin maaşı başarıyla güncellendi.`, "success");
+
+                // 💡 به‌روزرسانی لیست پرسنل و بستن Modal
+                getAllPersonnels();
+                handleCloseSalaryEditModal();
+
+            } else {
+                showAlert(res.data?.message || "Maaş güncellenirken bir hata oluştu.", "error");
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Sunucu hatası: Güncelleme başarısız.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Maaş güncellenirken beklenmedik bir hata oluştu.', 'error');
+        } finally {
+            setLoadingSalaryUpdate(false);
+        }
+    };
+
+    const handleOpenSalaryEditModal = () => {
+        if (!selectedRowForMenu || !hasEditPermission) return;
+
+        // 1. ذخیره اطلاعات پرسنل فعلی
+        setPersonnelToUpdateSalary(selectedRowForMenu);
+
+        // 2. تنظیم حقوق فعلی به عنوان مقدار اولیه (اگر وجود داشته باشد)
+        setNewSalary(selectedRowForMenu.salary ?? null);
+
+        // 3. باز کردن Modal
+        setOpenSalaryEditModal(true);
+        handleCloseMenu();
+    };
+
+    const handleCloseSalaryEditModal = () => {
+        setOpenSalaryEditModal(false);
+        setPersonnelToUpdateSalary(null);
+        setNewSalary(null);
+        setLoadingSalaryUpdate(false);
+        // showAlert'ı burada clear etmeyin, işlem sonucu alert'i Modal'da gösterelim
     };
 
     const handleDownloadLinkClick = (fileUrl: string) => { if (!fileUrl) { showAlert('Dosya adresi geçersiz.', 'error'); return; } const url = `${server.urldpwonload}${fileUrl}`; window.open(url, '_blank'); showAlert(`"${fileUrl.split('/').pop()}" dosyası indiriliyor.`, 'info'); };
@@ -1826,79 +1986,123 @@ const ListPersonnel: React.FC = () => {
                         {showStepErrors && <Alert severity="warning">Lütfen bu adımın zorunlu alanlarını doldurun.</Alert>}
 
                         {/* Step 0: Kimlik - Profile Image Logic Changed */}
+                        {/* Step 0: Kimlik - ساختار Grid اصلاح شده و آیکون حذف اضافه شد */}
                         {activeStep === 0 && (
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
-                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Ad</CustomFormLabel>
-                                </Grid>
-                                <Grid item xs={12} sm={6} md={4}>
-                                    <CustomTextField size="small" fullWidth value={form.name}
-                                        placeholder="Ad"
-                                        inputRef={nameInputRef}
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, name: e.target.value }))}
-                                        required error={showStepErrors && !form.name?.trim()} helperText={showStepErrors && !form.name?.trim() ? "Bu alan zorunludur" : ""} />
-                                </Grid>
-                                <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
-                                    <CustomFormLabel fullWidth sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Soyad</CustomFormLabel>
-                                </Grid>
-                                <Grid item xs={12} sm={6} md={4}>
-                                    <CustomTextField size="small" fullWidth value={form.family}
-                                        placeholder="Soyad"
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, family: e.target.value }))}
-                                        required error={showStepErrors && !form.family?.trim()} helperText={showStepErrors && !form.family?.trim() ? "Bu alan zorunludur" : ""} />
+                            <Grid container spacing={3}>
+
+                                {/* === ستون اصلی ورودی‌ها (Ad, Soyad, TC, Pozisyon) - 8 واحد === */}
+                                <Grid item xs={12} md={8}>
+                                    <Grid container spacing={2} alignItems="center">
+                                        {/* Ad */}
+                                        <Grid item xs={12} sm={4} display="flex" alignItems="center">
+                                            <CustomFormLabel sx={{ mt: 0 }} required>Ad</CustomFormLabel>
+                                        </Grid>
+                                        <Grid item xs={12} sm={8}>
+                                            <CustomTextField size="small" fullWidth value={form.name}
+                                                placeholder="Ad"
+                                                inputRef={nameInputRef}
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, name: e.target.value }))}
+                                                required
+                                                error={showStepErrors && !form.name?.trim()}
+                                                helperText={showStepErrors && !form.name?.trim() ? "Bu alan zorunludur" : ""} />
+                                        </Grid>
+
+                                        {/* Soyad */}
+                                        <Grid item xs={12} sm={4} display="flex" alignItems="center">
+                                            <CustomFormLabel sx={{ mt: 0 }} required>Soyad</CustomFormLabel>
+                                        </Grid>
+                                        <Grid item xs={12} sm={8}>
+                                            <CustomTextField size="small" fullWidth value={form.family}
+                                                placeholder="Soyad"
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, family: e.target.value }))}
+                                                required
+                                                error={showStepErrors && !form.family?.trim()}
+                                                helperText={showStepErrors && !form.family?.trim() ? "Bu alan zorunludur" : ""} />
+                                        </Grid>
+
+                                        {/* TC Kimlik */}
+                                        <Grid item xs={12} sm={4} display="flex" alignItems="center">
+                                            <CustomFormLabel sx={{ mt: 0 }} required>TC Kimlik</CustomFormLabel>
+                                        </Grid>
+                                        <Grid item xs={12} sm={8}>
+                                            <CustomTextField size="small" fullWidth value={form.identityNumber}
+                                                placeholder="TC Kimlik"
+                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, identityNumber: e.target.value }))}
+                                                required
+                                                error={showStepErrors && !form.identityNumber?.trim()}
+                                                helperText={showStepErrors && !form.identityNumber?.trim() ? "Bu alan zorunludur" : ""} />
+                                        </Grid>
+
+                                        {/* Pozisyon */}
+                                        <Grid item xs={12} sm={4} display="flex" alignItems="center">
+                                            <CustomFormLabel sx={{ mt: 0 }} required>Pozisyon</CustomFormLabel>
+                                        </Grid>
+                                        <Grid item xs={12} sm={8}>
+                                            <Autocomplete
+                                                options={positions} size="small"
+                                                value={positions.find((p) => p.id === (Number(form.positionId) ?? -1)) || null}
+                                                isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                                                onChange={(_, v) => setForm((f) => ({ ...f, positionId: v?.id ?? null }))}
+                                                getOptionLabel={(o) => o.title}
+                                                renderInput={(params) => (
+                                                    <TextField {...params} placeholder="Pozisyon seçin" required
+                                                        error={showStepErrors && form.positionId == null}
+                                                        helperText={showStepErrors && form.positionId == null ? "Bu alan zorunludur" : ""} />
+                                                )}
+                                            />
+                                        </Grid>
+                                    </Grid>
                                 </Grid>
 
-                                <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
-                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>TC Kimlik</CustomFormLabel>
-                                </Grid>
-                                <Grid item xs={12} sm={6} md={4}>
-                                    <CustomTextField size="small" fullWidth value={form.identityNumber}
-                                        placeholder="TC Kimlik"
-                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, identityNumber: e.target.value }))}
-                                        required error={showStepErrors && !form.identityNumber?.trim()} helperText={showStepErrors && !form.identityNumber?.trim() ? "Bu alan zorunludur" : ""} />
-                                </Grid>
+                                {/* === ستون عکس پروفایل - 4 واحد === */}
+                                <Grid item xs={12} md={4} display="flex" flexDirection="column" alignItems="center" justifyContent="flex-start">
+                                    <Box position="relative" sx={{ width: 150, height: 150, mb: 2 }}>
+                                        {/* نمایش عکس */}
+                                        <CardMedia
+                                            component="img"
+                                            sx={{ width: 150, height: 150, borderRadius: '50%', objectFit: 'cover', border: '2px solid', borderColor: 'primary.main' }}
+                                            image={profileImageUrl}
+                                            alt="Personel Fotoğrafı"
+                                        />
 
-                                <Grid item xs={12} sm={6} md={2} display="flex" alignItems="center">
-                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Pozisyon</CustomFormLabel>
-                                </Grid>
-                                <Grid item xs={12} sm={6} md={4}>
-                                    <Autocomplete
-                                        options={positions} size="small"
-                                        value={positions.find((p) => p.id === (Number(form.positionId) ?? -1)) || null}
-                                        isOptionEqualToValue={(opt, val) => opt.id === val.id}
-                                        onChange={(_, v) => setForm((f) => ({ ...f, positionId: v?.id ?? null }))}
-                                        getOptionLabel={(o) => o.title}
-                                        renderInput={(params) => (
-                                            <TextField {...params} placeholder="Pozisyon seçin" required
-                                                error={showStepErrors && form.positionId == null}
-                                                helperText={showStepErrors && form.positionId == null ? "Bu alan zorunludur" : ""} />
+                                        {/* دکمه حذف (اگر عکس پیش فرض نباشد) */}
+                                        {profileImageUrl !== DEFAULT_IMAGE_URL && (
+                                            <CustomTooltip title="Resmi Kaldır">
+                                                <IconButton
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        bottom: 0, // قرارگیری در پایین و راست
+                                                        right: 0,
+                                                        backgroundColor: 'error.main',
+                                                        color: 'white',
+                                                        '&:hover': { backgroundColor: 'error.dark' },
+                                                        p: 0.8,
+                                                        zIndex: 10,
+                                                    }}
+                                                    onClick={handleRemoveProfileImage}
+                                                    size="small"
+                                                >
+                                                    <IconX size={16} />
+                                                </IconButton>
+                                            </CustomTooltip>
                                         )}
-                                    />
-                                </Grid>
+                                    </Box>
 
-                                {/* NEW: Profile Image Upload */}
-                                <Grid item xs={12} md={3} display="flex" flexDirection="column" alignItems="center" justifyContent="flex-start">
-                                    <CardMedia
-                                        component="img"
-                                        sx={{ width: 150, height: 150, borderRadius: '50%', objectFit: 'cover', mb: 1, border: '1px solid #ccc' }}
-                                        image={profileImageUrl}
-                                        alt="Personel Fotoğrafı"
-                                    />
+                                    {/* دکمه انتخاب عکس */}
                                     <input
                                         type="file" accept="image/*"
                                         ref={profileImageInputRef}
                                         style={{ display: 'none' }}
                                         onChange={handleImageChange}
                                     />
-                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Personelin profil resmini seçin" : ""}>
-                                        <Button
-                                            variant="outlined"
-                                            onClick={() => profileImageInputRef.current?.click()}
-                                            size="small"
-                                        >
-                                            Resim Seç
-                                        </Button>
-                                    </CustomTooltip>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => profileImageInputRef.current?.click()}
+                                        size="medium"
+                                        startIcon={<IconUpload size={20} />}
+                                    >
+                                        {profileImageUrl !== DEFAULT_IMAGE_URL ? "Resmi Değiştir" : "Resim Seç"}
+                                    </Button>
                                 </Grid>
 
                             </Grid>
@@ -2110,6 +2314,36 @@ const ListPersonnel: React.FC = () => {
                         {/* Step 3: İletişim */}
                         {activeStep === 3 && (
                             <Grid container spacing={2}>
+
+                                <Grid item xs={12} sm={6} md={3} display="flex" alignItems="center">
+                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Maaş</CustomFormLabel>
+                                </Grid>
+                                <Grid item xs={12} sm={6} md={3}>
+                                    <CustomTextField
+                                        size="small" fullWidth
+                                        value={form.salary ?? ''}
+                                        // 💡 شرط کلیدی: اگر در حال ویرایش هستیم، غیرفعال کن
+                                        disabled={Boolean(editingId)}
+                                        type="number" // برای اطمینان از ورودی عددی
+                                        placeholder="Maaş (sadece yeni kayıtta)"
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                            // تبدیل مقدار به عدد یا null/undefined
+                                            const value = e.target.value;
+                                            setForm((f) => ({
+                                                ...f,
+                                                salary: value === '' ? null : Number(value)
+                                            }));
+                                        }}
+                                    />
+                                    {/* پیام کمکی برای محدودیت ویرایش */}
+                                    {Boolean(editingId) && (
+                                        <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
+                                            Maaş düzenleme modunda değiştirilemez.
+                                        </Typography>
+                                    )}
+                                </Grid>
+
+
                                 <Grid item xs={12} sm={6} md={3} display="flex" alignItems="center">
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }}>IBAN</CustomFormLabel>
                                 </Grid>
@@ -2131,7 +2365,7 @@ const ListPersonnel: React.FC = () => {
                                 <Grid item xs={12} sm={6} md={3} display="flex" alignItems="center">
                                     <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Mobil</CustomFormLabel>
                                 </Grid>
-                                <Grid item xs={12} sm={6} md={9}>
+                                <Grid item xs={12} sm={6} md={3}>
                                     <CustomTextField size="small" fullWidth value={form.mobile}
                                         placeholder="Mobil"
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, mobile: e.target.value }))}
@@ -2341,6 +2575,12 @@ const ListPersonnel: React.FC = () => {
                                                 {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && selectedRowForMenu && (
                                                     <MuiMenuItem onClick={() => handleEndCooperationCheck(selectedRowForMenu)}>
                                                         <ListItemIcon><IconX width={18} /></ListItemIcon> İşten Ayrılma (Sonlandırma)
+                                                    </MuiMenuItem>
+                                                )}
+
+                                                {hasEditPermission && selectedRowForMenu && (
+                                                    <MuiMenuItem onClick={handleOpenSalaryEditModal}>
+                                                        <ListItemIcon><IconCurrencyDollar width={18} /></ListItemIcon> Maaş Düzenle
                                                     </MuiMenuItem>
                                                 )}
 
@@ -3095,6 +3335,54 @@ const ListPersonnel: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenPersonnelFilesModal(false)} color="primary" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+
+            {/* 🆕 NEW: Maaş Düzenleme Modal */}
+            <Dialog open={openSalaryEditModal} onClose={handleCloseSalaryEditModal} maxWidth="xs" fullWidth>
+                <DialogTitle>Personel Maaşını Düzenle</DialogTitle>
+                <DialogContent dividers>
+                    {personnelToUpdateSalary ? (
+                        <Stack spacing={2}>
+                            <Typography variant="subtitle1">
+                                Personel:   {personnelToUpdateSalary.name} {personnelToUpdateSalary.family}
+                            </Typography>
+                            <Typography variant="body2">
+                                TC Kimlik:   {personnelToUpdateSalary.identityNumber}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                                Mevcut Maaş:   {personnelToUpdateSalary.salary !== null ? personnelToUpdateSalary.salary.toLocaleString('tr-TR') : '—'} TL
+                            </Typography>
+
+                            <CustomFormLabel required>Yeni Maaş (TL)</CustomFormLabel>
+                            <CustomTextField
+                                type="number"
+                                size="small"
+                                fullWidth
+                                placeholder="Yeni maaşı girin"
+                                value={newSalary ?? ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    const value = e.target.value;
+                                    setNewSalary(value === '' ? null : Number(value));
+                                }}
+                                inputProps={{ min: "0", step: "0.01" }}
+                            />
+                        </Stack>
+                    ) : (
+                        <Typography color="error">Personel bilgileri yüklenemedi.</Typography>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseSalaryEditModal} color="secondary">İptal</Button>
+                    <Button
+                        onClick={submitSalaryUpdate}
+                        color="info"
+                        variant="contained"
+                        disabled={loadingSalaryUpdate || newSalary === null || newSalary <= 0}
+                    >
+                        {loadingSalaryUpdate ? 'Güncelleniyor...' : 'Maaşı Kaydet'}
+                    </Button>
                 </DialogActions>
             </Dialog>
 

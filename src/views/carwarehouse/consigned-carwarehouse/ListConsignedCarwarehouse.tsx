@@ -77,17 +77,33 @@ interface CarDetail {
 
 interface PersonnelType { id: number; name: string; family: string; identityNumber: string; workEndDate: string | null; }
 
+// interface ConsignedCarPayload {
+//     date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number | string;
+//     personnelId: number; consigned: boolean;
+// }
+
+interface WorkhouseType {
+    id: number;
+    name: string;
+    code: string;
+    address: string;
+    createAt: string;
+    recordStatus: number;
+}
 interface ConsignedCarPayload {
     date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number | string;
     personnelId: number; consigned: boolean;
+    // ⭐ NEW FIELD ⭐
+    workhouseId: number | string;
 }
+
 interface ConsignedCarRecord {
     id: number | string;
     date: string;
     description: string;
     kilometer: number;
     consigned: boolean;
-    // carWarhouseDetailId و personnelId دیگر در این سطح لازم نیستند
+    workhouse: WorkhouseType;
 
     carWarhouseDetail: CarDetail;
     // 💡 فرض می‌کنیم فیلد Personnel در پاسخ اصلی وجود دارد 💡
@@ -398,6 +414,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [currentAttachments, setCurrentAttachments] = useState<AttachmentType[]>([]);
 
+    const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
+    const [selectedWorkhouse, setSelectedWorkhouse] = useState<WorkhouseType | null>(null);
+    const [workhouseError, setWorkhouseError] = useState(false);
+
     // Form Combos
     const [warehousesList, setWarehousesList] = useState<CarWarehouseApi[]>([]);
     const [selectedWarehouse, setSelectedWarehouse] = useState<CarWarehouseApi | null>(null); // کمبوی ۱: انبار
@@ -612,11 +632,21 @@ const ListConsignedCarwarehouse: React.FC = () => {
         if (!carDetailId) { setConsignedCars([]); setLoadingData(false); return; }
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
-
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const url = `${server.baseurl}${server.warehouse}get-consigned-cars-with-car-warehouseDetailId/${carDetailId}`;
-            const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
+            const res = await axios.get(url, {
+                headers: { Authorization: `Bearer ${authToken}` },
+                params: requestParams
+            });
 
             if (res.data.httpStatusCode === 200) {
                 // فرض می‌کنیم داده‌های personnel در این پاسخ وجود دارند.
@@ -631,7 +661,45 @@ const ListConsignedCarwarehouse: React.FC = () => {
         finally { setLoadingData(false); }
     }, [navigate, showAlert]);
 
-    useEffect(() => { fetchWarehouses(); fetchPersonnelList(); }, [fetchWarehouses, fetchPersonnelList]);
+    const getWorkhousesList = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) { navigate("/"); return; }
+
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
+        try {
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
+                setWorkhousesList(activeWorkhouses);
+            } else {
+                showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+    }, [navigate, showAlert]);
+
+    // useEffect(() => { fetchWarehouses(); fetchPersonnelList(); }, [fetchWarehouses, fetchPersonnelList]);
+    useEffect(() => {
+        fetchWarehouses();
+        fetchPersonnelList();
+        getWorkhousesList();
+    }, [fetchWarehouses, fetchPersonnelList, getWorkhousesList]);
     useEffect(() => { fetchCarDetailsForForm(selectedWarehouse?.id || null); setSelectedCarDetail(null); }, [selectedWarehouse, fetchCarDetailsForForm]);
     useEffect(() => { fetchCarDetailsForFilter(selectedFilterWarehouse?.id || null); setSelectedFilterCarDetail(null); }, [selectedFilterWarehouse, fetchCarDetailsForFilter]);
     useEffect(() => { fetchConsignedCars(selectedFilterCarDetail?.id || null); }, [selectedFilterCarDetail, fetchConsignedCars]);
@@ -639,9 +707,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
     const validateForm = (): boolean => {
         let ok = true;
         setWarehouseError(false); setCarDetailError(false); setPersonnelError(false); setKilometerError(false);
-
+        setWorkhouseError(false);
         if (!selectedWarehouse) { setWarehouseError(true); ok = false; }
         if (!selectedCarDetail) { setCarDetailError(true); ok = false; }
+        if (!selectedWorkhouse && !isReturnMode) { setWorkhouseError(true); ok = false; }
         if (!selectedPersonnel && !isReturnMode) { setPersonnelError(true); ok = false; }
         if (kilometer === '' || Number(kilometer) <= 0) { setKilometerError(true); ok = false; }
 
@@ -656,6 +725,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
         if (warehousesList.length > 0) { setSelectedWarehouse(warehousesList[0]); }
         setSelectedCarDetail(null);
         setSelectedPersonnel(null);
+        setSelectedWorkhouse(null);
 
         setDate(new Date());
         setKilometer('');
@@ -663,6 +733,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setSelectedFiles([]);
         setCurrentAttachments([]);
         setWarehouseError(false); setCarDetailError(false); setPersonnelError(false); setKilometerError(false);
+        setWorkhouseError(false);
         setIsFormVisible(false);
     }, [warehousesList]);
 
@@ -684,7 +755,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
         const consignedStatus = !isReturnMode;
 
         const personnelToSend = isReturnMode ? originalRecord!.personnel.id : selectedPersonnel!.id;
-
+        const workhouseToSend = isReturnMode ? originalRecord!.workhouse.id : selectedWorkhouse!.id;
         const payload: ConsignedCarPayload = {
             date: date ? date.toISOString() : new Date().toISOString(),
             attachments: finalAttachments,
@@ -692,6 +763,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             kilometer: Number(kilometer),
             carWarhouseDetailId: Number(selectedCarDetail!.id),
             personnelId: Number(personnelToSend),
+            workhouseId: Number(workhouseToSend),
             consigned: consignedStatus,
         };
 
@@ -797,6 +869,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             kilometer: Number(returnKilometer),
             carWarhouseDetailId: Number(rowToReturn.carWarhouseDetail.id),
             personnelId: Number(rowToReturn.personnel.id),
+            workhouseId: Number(rowToReturn!.workhouse.id),
             consigned: false, // ⭐️ مهم: Consigned = False (برگشت داده شد)
         };
 
@@ -1116,6 +1189,26 @@ const ListConsignedCarwarehouse: React.FC = () => {
                         <Typography variant="h6" mb={2}>{isReturnMode ? 'Araç Geri Alma Formu (Yeni Kayıt)' : 'Yeni Araç Emanet Formu'}</Typography>
                         <Grid container spacing={2}>
                             <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Şantiye</CustomFormLabel>
+                                <Autocomplete
+                                    size="small"
+                                    options={workhousesList}
+                                    getOptionLabel={(option) => `${option.name} (${option.code})`}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={selectedWorkhouse}
+                                    onChange={(_, newValue) => { setSelectedWorkhouse(newValue); setWorkhouseError(false); }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Şantiye Seçin"
+                                            error={workhouseError}
+                                            helperText={workhouseError ? 'Zorunlu alan.' : ''}
+                                        />
+                                    )}
+                                    disabled={isReturnMode || loadingButton}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Araç Depo</CustomFormLabel>
                                 <Autocomplete size="small"
                                     options={warehousesList} getOptionLabel={(option) => `${option.name} (${option.code})`} isOptionEqualToValue={(option, value) => option.id === value.id} value={selectedWarehouse} onChange={(_, newValue) => { setSelectedWarehouse(newValue); setWarehouseError(false); }} renderInput={(params) => (<TextField {...params} label="Araç Depo Seçin" error={warehouseError} helperText={warehouseError ? 'Zorunlu alan.' : ''} />)} disabled={isReturnMode || loadingButton} /></Grid>
@@ -1238,6 +1331,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                 <TableRow>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'date'} direction={orderBy === 'date' ? order : 'asc'} onClick={() => handleRequestSort('date')}><Typography variant="h6">Tarih</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Plaka</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell> {/* ⭐ NEW COLUMN HEADER ⭐ */}
                                     <StyledTableCell><Typography variant="h6">Personel</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'kilometer'} direction={orderBy === 'kilometer' ? order : 'asc'} onClick={() => handleRequestSort('kilometer')}><Typography variant="h6">Kilometre</Typography></TableSortLabel></StyledTableCell>
 
@@ -1253,6 +1347,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                         <TableRow key={row.id}>
                                             <StyledTableCell>{formatDateDisplay(row.date)}</StyledTableCell>
                                             <StyledTableCell>{row.carWarhouseDetail.plaque || '-'}</StyledTableCell>
+                                            <StyledTableCell>{row.workhouse?.name || '-'}</StyledTableCell>
                                             <StyledTableCell>{`${row.personnel.name} ${row.personnel.family}` || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.kilometer.toLocaleString() || '-'}</StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>

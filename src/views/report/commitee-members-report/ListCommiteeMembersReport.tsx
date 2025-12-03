@@ -1,1183 +1,1872 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
-    Box, Grid, Card, CardContent, Typography, Stack, Button, CircularProgress,
-    Alert, TableContainer, Table, TableHead, TableRow, TableBody, TableCell,
-    TablePagination, TextField, InputAdornment, IconButton, MenuItem,
-    Dialog, DialogTitle, DialogContent, DialogActions, FormControl, Select,
-    InputLabel, Chip, Checkbox, FormControlLabel,
+    TableContainer, Table, TableHead, TableRow, TableBody,
+    Typography, Box,
+    TableCell as MuiTableCell,
+    Stack, Alert, CircularProgress, Button,
+    Tooltip,
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    FormControlLabel, Checkbox, TextField, Select, MenuItem, FormControl, InputLabel, Grid,
+    IconButton, RadioGroup, Radio
 } from '@mui/material';
-import {
-    IconFileReport, IconUsers, IconCheck, IconTrash, IconEdit,
-    IconSearch, IconPlus, IconUserPlus, IconBinaryTree,
-} from '@tabler/icons-react';
-
+import { styled } from '@mui/material/styles';
+import { IconCheck, IconEdit, IconUsers, IconTrash, IconPlus, IconSearch, IconFileText, IconFileDownload } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
-import { useAuth } from 'src/context/AuthContext';
-import { CustomTooltip, useTooltip } from 'src/context/TooltipContext';
-import DeleteCommiteeMembersReport from './DeleteCommiteeMembersReport';
+import BlankCard from '../../../components/shared/BlankCard';
+import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 
-type ReportPhase = 'latest' | 'confirmation' | 'member_link' | 'member_answer';
 
-interface CommiteMemberAnswer {
+import { format } from 'date-fns';
+
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
+import Logo from 'src/assets/images/logos/logo.png';
+import Excel from 'exceljs';
+import { saveAs } from 'file-saver';
+
+
+// --- Enums and Utility Types ---
+export enum CommiteMemberPosition { Baskan = 0, Uye = 1 }
+const getCommiteMemberPositionText = (position: number): string => {
+    switch (position) { case CommiteMemberPosition.Baskan: return 'Başkan'; case CommiteMemberPosition.Uye: return 'Üye'; default: return 'Bilinmiyor'; }
+};
+
+export enum CommiteAnswer { ONAYLANAN_KABUL_TUTANAKLARI = 0, KABUL_YAPILMAYANLAR = 1, GDZ_DE_BEKLEYENLER = 2, ISLETMEDE_IMZADA_BEKLEYENLER = 3, IMZADA = 4, IMZALANDI = 5 }
+const getCommiteAnswerText = (answer: number): string => {
+    switch (answer) { case 0: return 'Onaylanan Kabul Tutanakları'; case 1: return 'Kabul Yapılmayanlar'; case 2: return 'GDZ\'de Bekleyenler'; case 3: return 'İşletmede İmzanda Bekleyenler'; case 4: return 'İmzanda'; case 5: return 'İmzalandı'; default: return 'Bilinmiyor'; }
+};
+const CommiteAnswerOptions = Object.keys(CommiteAnswer).filter(key => !isNaN(Number(key))).map(key => ({ id: Number(key), title: getCommiteAnswerText(Number(key)) }));
+
+// Interface Updates (memberStatus added to ConfirmationCommiteeMemberType)
+export interface ProjectReportType { year: number; city: string; town: string | null; region: string | null; tesistype: number; tradi: string | null; projectcount: string; }
+export interface ConfirmationReportType { id: string; year: number; city: string; town: string | null; region: string | null; tesisType: number; trAdi: string | null; projectCount: number; Gecici_tutanak_teslim_alma_durumu: boolean; Kesin_tutanak_teslim_alma_durumu: boolean; }
+export interface CommiteeMemberDropdownType { id: string; name: string; family: string; position: number; title: string; }
+export interface ConfirmationCommiteeMemberType {
     id: string;
-    answer: string; // "1" veya "0"
+    commiteMember: CommiteeMemberDropdownType;
     createAt: string;
-    recordStatus: number;
+    answer?: number | null;
+    // NEW: Indicates if the member is for Kesin (true) or Geçici (false)
+    memberStatus?: boolean;
 }
 
-interface CommiteeMemberDetail {
-    id: string;
-    name: string;
-    family: string;
-    position: number;
+export interface MemberAnswerDTO {
+    id: string; answer: string; createAt: string;
+    confirmationReportCommiteMember: { id: string; createAt: string; recordStatus: number; };
+    commiteMemberName: string;
+    confirmationReportCommiteMemberId: string;
 }
 
-interface CommiteeMemberLinkDisplay {
-    id: string; // ConfirmationReportCommiteMember ID
-    memberFullName: string;
-    answer: string | null; // "1", "0" veya null
+
+interface MemberNameMap {
+    [memberId: string]: { name: string, family: string, position: number };
 }
 
-interface CommiteeMemberType {
-    id: number;
-    name: string;
-    family: string;
-    position: number;
-}
+export interface DisplayReportType extends ProjectReportType { isConfirmed: boolean; confirmationId: string | null; Gecici_tutanak_durumu: boolean; Kesin_tutanak_durumu: boolean; memberCount: number; answeredMemberCount: number; }
+const TesisTypeMap: { [key: number]: string } = { 0: 'Merkez', 1: 'Ana', 2: 'Şube', 3: 'Tasarım', };
+const getTesisTypeText = (type: number): string => { return TesisTypeMap[type] || 'Bilinmiyor'; };
 
-interface LatestProjectReport {
-    year: number;
-    city: string;
-    town: string | null;
-    region: string;
-    tesisType: number;
-    trAdi: string | null;
-    projectCount: number;
-    Gecici_tutanak_teslim_alma_durumu?: boolean;
-    Kesin_tutanak_teslim_alma_durumu?: boolean;
-}
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '1rem', }, color: '#171c23', whiteSpace: 'nowrap',
+}));
 
-interface ConfirmationReport {
-    id: string; // ID تأییدیه
-    year: number;
-    city: string;
-    town: string | null;
-    region: string;
-    tesisType: number;
-    trAdi: string | null;
-    projectCount: number;
-    Gecici_tutanak_teslim_alma_durumu: boolean;
-    Kesin_tutanak_teslim_alma_durumu: boolean;
-    createAt: string;
-    recordStatus: number;
-    confirmationReportCommiteMembers?: ConfirmationReportCommiteMember[];
-}
+// --- MODAL TYPE DEFINITIONS ---
+interface ModalFormValues { year: number; city: string; town: string | null; region: string | null; tesisType: number; tradi: string | null; projectCount: number; geciciDurum: boolean; kesinDurum: boolean; }
+interface ConfirmationModalProps { open: boolean; onClose: () => void; report: DisplayReportType | null; onConfirm: (report: DisplayReportType, newValues: ModalFormValues) => Promise<void>; loading: boolean; }
+interface CommiteeMembersModalProps { open: boolean; onClose: () => void; confirmationId: string | null; refreshData: () => Promise<void>; showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void; }
+interface MemberAnswerModalProps { open: boolean; onClose: () => void; confirmationId: string | null; refreshData: () => Promise<void>; showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void; }
 
-interface ConfirmationReportCommiteMember {
-    id: string; // ConfirmationReportCommiteMember ID (Faz 3 ID)
-    createAt: string;
-    recordStatus: number;
-    confirmationProjectReport?: ConfirmationReport;
-    commiteMember?: CommiteeMemberDetail;
-    confirmationReportCommiteMemberAnswers?: CommiteMemberAnswer[];
-}
 
-const ProjectStatus = {
-    Text: (status: number | undefined) => {
-        switch (status) {
-            case 0: return 'Tesis 0'; case 1: return 'Tesis 1'; case 2: return 'Tesis 2'; default: return 'Bilinmiyor';
-        }
-    },
-    getDeliveryStatus: (isGecici: boolean | undefined, isKesin: boolean | undefined) => {
-        if (isKesin) return { label: 'Kesin Teslim Edildi', color: 'success' };
-        if (isGecici) return { label: 'Geçici Teslim Edildi', color: 'warning' };
-        return { label: 'Teslim Edilmedi', color: 'error' };
-    },
-    getAnswerStatus: (answer: string | null | undefined) => {
-        if (answer === "1") return { label: 'Evet', color: 'success' };
-        if (answer === "0") return { label: 'Hayır', color: 'error' };
-        return { label: 'Cevaplanmadı', color: 'warning' };
+
+const getPositionText = (position: CommiteMemberPosition | number | string): string => {
+    const posId = Number(position);
+    switch (posId) {
+        case CommiteMemberPosition.Baskan: return 'Başkan';
+        case CommiteMemberPosition.Uye: return 'Üye';
+        default: return 'Bilinmiyor';
     }
 };
 
-// ----------------------------------------------------
-// --- 2. Ana Bileşen ---
-// ----------------------------------------------------
+
+const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ open, onClose, report, onConfirm, loading }) => {
+
+    const [formValues, setFormValues] = useState<ModalFormValues>({
+        year: 0, city: '', town: '', region: '', tesisType: 0, tradi: '', projectCount: 0,
+        geciciDurum: false, kesinDurum: false,
+    });
+
+    useEffect(() => {
+        if (report) {
+            setFormValues({
+                year: report.year, city: report.city, town: report.town || '', region: report.region || '',
+                tesisType: report.tesistype, tradi: report.tradi || '', projectCount: Number(report.projectcount),
+                geciciDurum: report.Gecici_tutanak_durumu, kesinDurum: report.Kesin_tutanak_durumu,
+            });
+        }
+    }, [report]);
+
+    // اگر گزارش تأیید نشده باشد، قابلیت ویرایش/ثبت اولیه را فعال می‌کنیم.
+    const isEditingTutanak = report?.isConfirmed ?? false;
+
+    // اگر یکی از وضعیت‌های Tutanak ثبت شده باشد، وضعیت آن Tutanak قفل می‌شود.
+    const isGeciciLocked = formValues.geciciDurum;
+    const isKesinLocked = formValues.kesinDurum;
+
+    const handleChange = (name: keyof ModalFormValues, value: any) => { setFormValues(prev => ({ ...prev, [name]: value })); };
+    const handleAction = () => { if (report) { onConfirm(report, formValues); } };
+
+    if (!report) return null;
+
+    const title = isEditingTutanak ? 'Proje Durumunu Güncelle' : 'Proje Raporu Onayı (İlk Kayıt)';
+
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+            <DialogTitle>{title}</DialogTitle>
+            <DialogContent dividers>
+                <Grid container spacing={4}>
+                    {/* 1. Proje Bilgileri (Görüntüleme) */}
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="h6" mb={2} gutterBottom color="primary">🔍 Proje Temel Bilgileri</Typography>
+                        <Stack spacing={1}>
+                            <CustomTextField label="Yıl" size="small" fullWidth value={formValues.year} disabled />
+                            <CustomTextField label="Şehir" size="small" fullWidth value={formValues.city} disabled />
+                            <CustomTextField label="İlçe" size="small" fullWidth value={formValues.town} disabled />
+                            <CustomTextField label="Bölge" size="small" fullWidth value={formValues.region} disabled />
+                            <CustomTextField label="Tesis Tipi" size="small" fullWidth value={getTesisTypeText(formValues.tesisType)} disabled />
+                            <CustomTextField label="Proje Sayısı" size="small" fullWidth value={formValues.projectCount} disabled />
+                        </Stack>
+                    </Grid>
+
+                    {/* 2. Onay Protokolleri (Veri ورودی) */}
+                    <Grid item xs={12} md={6}>
+                        <Typography variant="h6" gutterBottom color={isEditingTutanak ? "info" : "success"}>
+                            {isEditingTutanak ? '⚙️ Tutanak Durumu Güncelle' : '✅ İlk Onay Kaydı'}
+                        </Typography>
+
+                        {!isEditingTutanak && (
+                            <Alert severity="info" sx={{ mb: 2 }}>
+                                Bu işlem raporu komite onay sürecine dahil eder.
+                            </Alert>
+                        )}
+
+                        {isEditingTutanak && (
+                            <Stack spacing={2} mt={2}>
+                                {/* Checkbox 1: Geçici Tutanak */}
+                                <Tooltip title={isGeciciLocked ? "Durum kaydedilmiştir, değiştirilemez." : "Geçici Tutanak Teslim Alındı olarak işaretle."}>
+                                    <span>
+                                        <FormControlLabel
+                                            control={<Checkbox
+                                                checked={formValues.geciciDurum}
+                                                onChange={(e) => handleChange('geciciDurum', e.target.checked)}
+                                                color="warning"
+                                                disabled={isGeciciLocked || loading}
+                                            />}
+                                            label={
+                                                <Typography fontWeight="bold" color={isGeciciLocked ? "textSecondary" : "textPrimary"}>
+                                                    Geçici Tutanak Teslim Alma Durumu {isGeciciLocked && "(Kilitli)"}
+                                                </Typography>
+                                            }
+                                        />
+                                    </span>
+                                </Tooltip>
+
+                                {/* Checkbox 2: Kesin Tutanak */}
+                                <Tooltip title={isKesinLocked ? "Durum kaydedilmiştir, değiştirilemez." : "Kesin Tutanak Teslim Alındı olarak işaretle."}>
+                                    <span>
+                                        <FormControlLabel
+                                            control={<Checkbox
+                                                checked={formValues.kesinDurum}
+                                                onChange={(e) => handleChange('kesinDurum', e.target.checked)}
+                                                color="success"
+                                                disabled={isKesinLocked || loading}
+                                            />}
+                                            label={
+                                                <Typography fontWeight="bold" color={isKesinLocked ? "textSecondary" : "textPrimary"}>
+                                                    Kesin Tutanak Teslim Alma Durumu {isKesinLocked && "(Kilitli)"}
+                                                </Typography>
+                                            }
+                                        />
+                                    </span>
+                                </Tooltip>
+                            </Stack>
+                        )}
+
+                    </Grid>
+                </Grid>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="secondary" disabled={loading}>İptal Et</Button>
+                <Button onClick={handleAction} color={isEditingTutanak ? 'info' : 'success'} variant="contained" disabled={loading}
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : (isEditingTutanak ? <IconEdit size={20} /> : <IconCheck size={20} />)}>
+                    {loading ? 'Bekleniyor...' : (isEditingTutanak ? 'Tutanakları Güncelle' : 'Onayla ve Başlat')}
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+
+const CommiteeMembersModal: React.FC<CommiteeMembersModalProps> = ({
+    open, onClose, confirmationId, refreshData, showAlert
+}) => {
+
+    const [allMembersDropdown, setAllMembersDropdown] = useState<CommiteeMemberDropdownType[]>([]);
+    const [registeredMembers, setRegisteredMembers] = useState<ConfirmationCommiteeMemberType[]>([]);
+    const [selectedMemberId, setSelectedMemberId] = useState<string>('');
+    const [memberStatus, setMemberStatus] = useState<boolean>(false); // false: Geçici, true: Kesin (NEW)
+    const [loadingDropdown, setLoadingDropdown] = useState(true);
+    const [loadingRegistration, setLoadingRegistration] = useState(false);
+    const [loadingList, setLoadingList] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+
+    const authToken = localStorage.getItem('authToken');
+
+    // const availableMembers = useMemo(() => {
+    //     const registeredIds = new Set(registeredMembers.map(reg => reg.commiteMember.id));
+
+    //     return allMembersDropdown
+    //         .filter(member => !registeredIds.has(member.id))
+    //         .filter(member =>
+    //             member.title.toLowerCase().includes(searchTerm.toLowerCase())
+    //         );
+    // }, [allMembersDropdown, registeredMembers, searchTerm]);
+
+    const availableMembers = useMemo(() => {
+        // شناسه اعضایی که در "نوع کمیته فعلی" (memberStatus) ثبت شده‌اند
+        const registeredIdsInCurrentStatus = new Set(
+            registeredMembers
+                .filter(reg => reg.memberStatus === memberStatus) // فیلتر بر اساس وضعیت انتخاب شده (Geçici/Kesin)
+                .map(reg => reg.commiteMember.id)
+        );
+
+        // اعضایی را برمی‌گرداند که هنوز در "نوع کمیته فعلی" ثبت نشده‌اند
+        return allMembersDropdown
+            .filter(member => !registeredIdsInCurrentStatus.has(member.id))
+            .filter(member =>
+                member.title.toLowerCase().includes(searchTerm.toLowerCase())
+            );
+    }, [allMembersDropdown, registeredMembers, searchTerm, memberStatus]);
+
+    const fetchCommiteeMembersForDropdown = useCallback(async () => {
+        if (!authToken) return;
+        setLoadingDropdown(true);
+        try {
+            const result = await axios.request({
+                baseURL: server.baseurl + server.report + "get-all-commitee-members",
+                method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (result.data.httpStatusCode === 200 && result.data.data) {
+                const formattedMembers: CommiteeMemberDropdownType[] = result.data.data.map((item: any) => ({
+                    id: String(item.id), name: item.name, family: item.family, position: item.position,
+                    title: `${item.name} ${item.family} (${getCommiteMemberPositionText(item.position)})`
+                }));
+                setAllMembersDropdown(formattedMembers);
+            }
+        } catch (e) { console.error("Error fetching commitee members dropdown:", e); } finally { setLoadingDropdown(false); }
+    }, [authToken]);
+
+    const fetchRegisteredMembers = useCallback(async () => {
+        if (!authToken || !confirmationId) return;
+        setLoadingList(true);
+        try {
+            const result = await axios.request({
+                baseURL: server.baseurl + server.report + `get-confirmation-report-commite-member/${confirmationId}`,
+                method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (result.data.httpStatusCode === 200 && result.data.data) {
+                const registered: ConfirmationCommiteeMemberType[] = result.data.data.map((item: any) => ({
+                    ...item,
+                    commiteMember: { ...item.commiteMember, id: String(item.commiteMember.id) },
+                    memberStatus: item.memberStatus // Assuming API returns this new field
+                }));
+                setRegisteredMembers(registered);
+            } else { setRegisteredMembers([]); }
+        } catch (e) { console.error("Error fetching registered members:", e); } finally { setLoadingList(false); }
+    }, [authToken, confirmationId]);
+
+
+    const handleRegisterMember = async () => {
+        if (!authToken || !confirmationId || !selectedMemberId) { showAlert("Lütfen bir komite üyesi seçin.", 'warning'); return; }
+
+        setLoadingRegistration(true);
+        try {
+            // memberStatus: false => Geçici, true => Kesin
+            const payload = {
+                commiteMembersId: Number(selectedMemberId),
+                confirmationProjectReportId: Number(confirmationId),
+                memberStatus: memberStatus // NEW FIELD
+            };
+            debugger
+            await axios.post(
+                server.baseurl + server.report + "create-confirmation-report-commite-member",
+                payload,
+                { headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` } }
+            );
+
+            showAlert("Komite üyesi başarıyla eklendi.", 'success');
+            setSelectedMemberId(''); setSearchTerm(''); setMemberStatus(false); // Reset
+            await fetchRegisteredMembers();
+            await refreshData();
+
+        } catch (e: any) { showAlert(e.response?.data?.message || 'Üye kaydı sırasında bir hata oluştu.', 'error'); } finally { setLoadingRegistration(false); }
+    };
+
+    const handleDeleteMember = async (memberRegistrationId: string) => {
+        if (!authToken) return;
+
+        setDeletingId(memberRegistrationId);
+        try {
+            await axios.delete(
+                server.baseurl + server.report + "delete-confirmation-report-commite-member",
+                { data: { id: Number(memberRegistrationId) }, headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+
+            showAlert("Komite üyesi başarıyla silindi.", 'success');
+            await fetchRegisteredMembers();
+            await refreshData();
+        } catch (e: any) { showAlert(e.response?.data?.message || 'Üye silinirken bir hata oluştu.', 'error'); } finally { setDeletingId(null); }
+    };
+
+    const handleStatusChange = (status: boolean) => {
+        setMemberStatus(status);
+        setSelectedMemberId(''); // پس از تغییر وضعیت، انتخاب قبلی را پاک کنید
+        setSearchTerm('');
+    }
+
+    useEffect(() => {
+        if (open && confirmationId) {
+            fetchCommiteeMembersForDropdown();
+            fetchRegisteredMembers();
+            setMemberStatus(false);
+        }
+    }, [open, confirmationId, fetchCommiteeMembersForDropdown, fetchRegisteredMembers]);
+
+
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+            <DialogTitle>Komite Üyeleri Yönetimi (Rapor ID: {confirmationId})</DialogTitle>
+            <DialogContent dividers>
+
+                {/* NEW: Member Status Selection (Radio Buttons) */}
+                <FormControl component="fieldset" margin="normal" sx={{ mb: 2 }}>
+                    <Typography variant="subtitle1" gutterBottom>Komite Üyeliği Tipi:</Typography>
+                    <RadioGroup row value={memberStatus ? 'kesin' : 'gecici'} onChange={(e) => handleStatusChange(e.target.value === 'kesin')}>
+                        {/* ... Radio Buttons ... */}
+                        <FormControlLabel
+                            value="gecici"
+                            control={<Radio />}
+                            label="Geçici Tutanak Komitesi"
+                        />
+                        <FormControlLabel
+                            value="kesin"
+                            control={<Radio />}
+                            label="Kesin Tutanak Komitesi"
+                        />
+                    </RadioGroup>
+                </FormControl>
+
+                <Stack direction="row" spacing={2} mb={3} alignItems="flex-end">
+                    <FormControl fullWidth size="small">
+                        <InputLabel id="commiteMember-label">Komite Üyesi Seçin</InputLabel>
+                        <Select labelId="commiteMember-label" label="Komite Üyesi Seçin"
+                            value={selectedMemberId} onChange={(e) => setSelectedMemberId(e.target.value as string)}
+                            disabled={loadingDropdown || loadingRegistration} MenuProps={{ style: { maxHeight: 300 } }}
+                        >
+                            <MenuItem disabled value="">
+                                <TextField fullWidth size="small" placeholder="Üye adı veya pozisyonu ara..."
+                                    value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
+                                    InputProps={{ startAdornment: <IconSearch size={18} style={{ marginRight: 8 }} /> }}
+                                />
+                            </MenuItem>
+                            {loadingDropdown ? (<MenuItem disabled>Yükleniyor...</MenuItem>)
+                                : availableMembers.length === 0 && searchTerm === '' ? (<MenuItem disabled>Tüm üyeler eklenmiş.</MenuItem>)
+                                    : availableMembers.length === 0 && searchTerm !== '' ? (<MenuItem disabled>Arama sonucu bulunamadı.</MenuItem>)
+                                        : (availableMembers.map(member => (<MenuItem key={member.id} value={member.id}>{member.title}</MenuItem>)))}
+                        </Select>
+                    </FormControl>
+
+                    <Button
+                        variant="contained" color="primary" onClick={handleRegisterMember}
+                        disabled={!selectedMemberId || loadingRegistration || loadingDropdown}
+                        startIcon={loadingRegistration ? <CircularProgress size={20} color="inherit" /> : <IconPlus size={20} />}
+                        sx={{ minWidth: 120 }}>
+                        Ekle
+                    </Button>
+                </Stack>
+
+                <Typography variant="subtitle1" mt={4} mb={2}>Kayıtlı Üyeler:</Typography>
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow style={{ background: "#e0e0e0" }}>
+                                <MuiTableCell>Üye Adı Soyadı</MuiTableCell>
+                                <MuiTableCell>Pozisyon</MuiTableCell>
+                                <MuiTableCell>Tutanak Tipi</MuiTableCell> {/* NEW COLUMN */}
+                                <MuiTableCell align="right">İşlemler</MuiTableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {loadingList ? (<TableRow><MuiTableCell colSpan={4} align="center"><CircularProgress size={20} /></MuiTableCell></TableRow>)
+                                : registeredMembers.length === 0 ? (<TableRow><MuiTableCell colSpan={4} align="center">Henüz üye eklenmedi.</MuiTableCell></TableRow>)
+                                    : (registeredMembers.map((reg, _index) => (
+                                        <TableRow key={reg.id}>
+                                            <MuiTableCell>{reg.commiteMember.name} {reg.commiteMember.family}</MuiTableCell>
+                                            <MuiTableCell>{getCommiteMemberPositionText(reg.commiteMember.position)}</MuiTableCell>
+                                            <MuiTableCell>
+                                                <Typography
+                                                    variant="body2"
+                                                    color={reg.memberStatus ? 'success.main' : 'warning.main'}
+                                                    fontWeight="bold"
+                                                >
+                                                    {reg.memberStatus ? 'Kesin' : 'Geçici'}
+                                                </Typography>
+                                            </MuiTableCell>
+                                            <MuiTableCell align="right">
+                                                <Tooltip title="Üyeyi sil">
+                                                    <IconButton size="small" color="error" onClick={() => handleDeleteMember(reg.id)} disabled={deletingId === reg.id}>
+                                                        {deletingId === reg.id ? <CircularProgress size={16} color="inherit" /> : <IconTrash size={16} />}
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </MuiTableCell>
+                                        </TableRow>
+                                    ))
+                                    )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="primary" variant="contained">Kapat</Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+
+const MemberAnswerModal: React.FC<MemberAnswerModalProps> = ({
+    open, onClose, confirmationId, refreshData, showAlert
+}) => {
+
+    const [membersList, setMembersList] = useState<ConfirmationCommiteeMemberType[]>([]);
+    const [memberAnswers, setMemberAnswers] = useState<MemberAnswerDTO[]>([]);
+    const [selectedAnswer, setSelectedAnswer] = useState<number | ''>('');
+    const [selectedMemberReportId, setSelectedMemberReportId] = useState<string>('');
+    const [loadingList, setLoadingList] = useState(true);
+    const [loadingAnswers, setLoadingAnswers] = useState(false);
+    const [loadingSubmission, setLoadingSubmission] = useState(false);
+    const [memberSearchTerm, setMemberSearchTerm] = useState('');
+    const [deletingAnswerId, setDeletingAnswerId] = useState<string | null>(null);
+
+    const authToken = localStorage.getItem('authToken');
+
+    // ... (UTILITIES: filteredMembersList, hasAnswered, getCommiteMemberPositionText)
+
+    const filteredMembersList = useMemo(() => {
+        if (!memberSearchTerm) return membersList;
+        return membersList.filter(member =>
+            member.commiteMember.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+            member.commiteMember.family.toLowerCase().includes(memberSearchTerm.toLowerCase())
+        );
+    }, [membersList, memberSearchTerm]);
+
+    const hasAnswered = useMemo(() => {
+        return memberAnswers.length > 0;
+    }, [memberAnswers]);
+
+    // NEW: Get the type of tutanak (Geçici or Kesin) for the currently selected member
+    const selectedMemberTutanakType = useMemo(() => {
+        const member = membersList.find(m => m.id === selectedMemberReportId);
+        if (member?.memberStatus === true) return 'Kesin';
+        if (member?.memberStatus === false) return 'Geçici';
+        return 'Belirtilmemiş';
+    }, [membersList, selectedMemberReportId]);
+
+
+    const fetchRegisteredMembers = useCallback(async () => {
+        if (!authToken || !confirmationId) return;
+        setLoadingList(true);
+        try {
+            const result = await axios.request({
+                baseURL: server.baseurl + server.report + `get-confirmation-report-commite-member/${confirmationId}`,
+                method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+            });
+            if (result.data.httpStatusCode === 200 && result.data.data) {
+                const members = result.data.data.map((item: any) => ({
+                    ...item,
+                    commiteMember: { ...item.commiteMember, id: String(item.commiteMember.id) },
+                    memberStatus: item.memberStatus // Assuming this is now returned by the API
+                })) as ConfirmationCommiteeMemberType[];
+                setMembersList(members);
+            } else { setMembersList([]); }
+        } catch (e) { console.error("Error fetching registered members for answer:", e); } finally { setLoadingList(false); }
+    }, [authToken, confirmationId]);
+
+    const fetchAnswersByMemberId = useCallback(async (memberReportId: string) => {
+        if (!authToken || !memberReportId) { setMemberAnswers([]); return; }
+
+        setLoadingAnswers(true);
+        try {
+            const result = await axios.request({
+                baseURL: server.baseurl + server.report + `get-confirmation_report-commite-member-answer-dto-by-member-id/${memberReportId}`,
+                method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (result.data.httpStatusCode === 200 && result.data.data) {
+                const answers: any[] = result.data.data;
+
+                const combinedAnswers: MemberAnswerDTO[] = answers.map(answer => {
+                    const memberRecord = membersList.find(m => m.id === memberReportId);
+                    const memberName = memberRecord
+                        ? `${memberRecord.commiteMember.name} ${memberRecord.commiteMember.family}`
+                        : `Üye ID: ${memberReportId} (Bilinmiyor)`;
+
+                    return {
+                        id: String(answer.id),
+                        answer: String(answer.answer),
+                        createAt: answer.createAt,
+                        confirmationReportCommiteMemberId: memberReportId,
+                        commiteMemberName: memberName,
+                    } as MemberAnswerDTO;
+                });
+                setMemberAnswers(combinedAnswers);
+            } else { setMemberAnswers([]); }
+        } catch (e) {
+            console.error("Error fetching answers by member ID:", e);
+            setMemberAnswers([]);
+        } finally {
+            setLoadingAnswers(false);
+        }
+    }, [authToken, membersList]);
+
+    const handleAnswerSubmission = async () => {
+        if (!authToken || selectedAnswer === '' || !selectedMemberReportId) { showAlert("Lütfen hem üye hem de cevabı seçin.", 'warning'); return; }
+        if (hasAnswered) { showAlert("Bu üye zaten cevap kaydetmiştir.", 'warning'); return; }
+
+        setLoadingSubmission(true);
+        try {
+            const payload = { answer: Number(selectedAnswer), ConfirmationReportCommiteMemberId: Number(selectedMemberReportId) };
+
+            await axios.post(
+                server.baseurl + server.report + "create-confirmation-report-commite-member-answer",
+                payload,
+                { headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` } }
+            );
+
+            showAlert("Cevap başarıyla kaydedildi.", 'success');
+
+            setSelectedAnswer('');
+
+            await fetchAnswersByMemberId(selectedMemberReportId);
+            await refreshData();
+
+        } catch (e: any) { showAlert(e.response?.data?.message || 'Cevap kaydı sırasında bir hata oluştu.', 'error'); } finally { setLoadingSubmission(false); }
+    };
+
+    const handleDeleteAnswer = async (answerId: string) => {
+        if (!authToken) return;
+
+        setDeletingAnswerId(answerId);
+        try {
+            await axios.delete(
+                server.baseurl + server.report + "delete-confirmation-report-commite-member-answer",
+                { data: { id: Number(answerId) }, headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+
+            showAlert("Cevap başarıyla silindi.", 'success');
+            await fetchAnswersByMemberId(selectedMemberReportId);
+            await refreshData();
+        } catch (e: any) { showAlert(e.response?.data?.message || 'Cevap silinirken bir hata oluştu.', 'error'); } finally { setDeletingAnswerId(null); }
+    };
+
+
+    useEffect(() => {
+        if (open && confirmationId) {
+            fetchRegisteredMembers();
+            setMemberSearchTerm('');
+            setSelectedMemberReportId('');
+            setSelectedAnswer('');
+            setMemberAnswers([]);
+            setLoadingAnswers(false);
+        }
+    }, [open, confirmationId, fetchRegisteredMembers]);
+
+    useEffect(() => {
+        if (selectedMemberReportId && open) {
+            fetchAnswersByMemberId(selectedMemberReportId);
+        } else if (open && !selectedMemberReportId) {
+            setMemberAnswers([]);
+        }
+    }, [selectedMemberReportId, open, fetchAnswersByMemberId]);
+
+
+    const handleMemberSelectChange = (value: string) => {
+        setSelectedMemberReportId(value);
+        setSelectedAnswer('');
+    };
+
+    const isTableLoading = loadingList || loadingAnswers;
+
+
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+            <DialogTitle>Komite Üyesi Cevabı Kaydı</DialogTitle>
+            <DialogContent dividers>
+
+                {/* --- 1. Cevap Kayıt Alanı --- */}
+                <Typography variant="h6" mb={2}>Yeni Cevap Ekle</Typography>
+                {selectedMemberReportId && (
+                    <Box mb={2}>
+                        <Typography
+                            variant="subtitle1"
+                            fontWeight="bold"
+                            color={selectedMemberTutanakType === 'Kesin' ? 'success.main' : 'warning.main'}
+                        >
+                            {selectedMemberTutanakType} Tutanak Komitesine Cevap Veriliyor
+                        </Typography>
+                    </Box>
+                )}
+
+                <Stack spacing={3} mt={2}>
+
+                    {/* Select Member (ConfirmationReportCommiteMemberId) with Search */}
+                    <FormControl fullWidth size="small" disabled={loadingList || loadingSubmission}>
+                        <InputLabel id="member-report-id-label">Komite Üyesi Rapor Kaydı</InputLabel>
+                        <Select labelId="member-report-id-label" label="Komite Üyesi Rapor Kaydı"
+                            value={selectedMemberReportId} onChange={(e) => handleMemberSelectChange(e.target.value as string)}
+                            MenuProps={{ style: { maxHeight: 300 } }}
+                        >
+                            <MenuItem disabled value="">
+                                <TextField fullWidth size="small" placeholder="Üye adı veya pozisyonu ara..."
+                                    value={memberSearchTerm} onChange={(e) => setMemberSearchTerm(e.target.value)}
+                                    onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}
+                                    InputProps={{ startAdornment: <IconSearch size={18} style={{ marginRight: 8 }} /> }}
+                                />
+                            </MenuItem>
+                            {loadingList && membersList.length === 0 ? (<MenuItem disabled>Yükleniyor...</MenuItem>)
+                                : filteredMembersList.length === 0 && memberSearchTerm !== '' ? (<MenuItem disabled>Arama sonucu bulunamadı.</MenuItem>)
+                                    : filteredMembersList.length === 0 && memberSearchTerm === '' ? (<MenuItem disabled>Üye kaydı bulunamadı.</MenuItem>)
+                                        : (filteredMembersList.map(member => (
+                                            <MenuItem key={member.id} value={member.id}>
+                                                {member.commiteMember.name} {member.commiteMember.family} ({getCommiteMemberPositionText(member.commiteMember.position)})
+                                                <Box component="span" sx={{ ml: 1, color: member.memberStatus ? 'success.main' : 'warning.main', fontWeight: 'bold' }}>
+                                                    ({member.memberStatus ? 'Kesin' : 'Geçici'})
+                                                </Box>
+                                            </MenuItem>
+                                        ))
+                                        )}
+                        </Select>
+                    </FormControl>
+
+                    {/* Select Answer */}
+                    <FormControl fullWidth size="small" disabled={loadingSubmission || !selectedMemberReportId || hasAnswered}>
+                        <InputLabel id="answer-label">Cevap Durumu</InputLabel>
+                        <Select labelId="answer-label" label="Cevap Durumu"
+                            value={selectedAnswer} onChange={(e) => setSelectedAnswer(Number(e.target.value))}
+                            disabled={hasAnswered || !selectedMemberReportId}
+                        >
+                            {CommiteAnswerOptions.map(option => (<MenuItem key={option.id} value={option.id}>{option.title}</MenuItem>))}
+                        </Select>
+                    </FormControl>
+                </Stack>
+
+                <DialogActions sx={{ p: 0, pt: 2, justifyContent: 'flex-end' }}>
+                    <Tooltip title={hasAnswered ? "Bu üye zaten cevap kaydetmiştir." : "Cevabı kaydet"}>
+                        <span>
+                            <Button onClick={handleAnswerSubmission} color="success" variant="contained"
+                                disabled={loadingSubmission || selectedAnswer === '' || selectedMemberReportId === '' || hasAnswered}
+                                startIcon={loadingSubmission ? <CircularProgress size={20} color="inherit" /> : <IconCheck size={20} />}>
+                                Kaydet
+                            </Button>
+                        </span>
+                    </Tooltip>
+                </DialogActions>
+
+                {/* --- 2. Kayıtlı Cevaplar Tablosu (Filtered by selectedMemberReportId) --- */}
+                <Typography variant="h6" mt={4} mb={2}>
+                    {selectedMemberReportId ?
+                        `Kayıtlı Cevaplar (${memberAnswers.length})` :
+                        "Lütfen üye seçimi yapın."
+                    }
+                </Typography>
+                <TableContainer>
+                    <Table size="small">
+                        <TableHead>
+                            <TableRow style={{ background: "#e0e0e0" }}>
+                                <MuiTableCell>Üye</MuiTableCell>
+                                <MuiTableCell>Cevap Durumu</MuiTableCell>
+                                <MuiTableCell align="right">İşlemler</MuiTableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {isTableLoading && memberAnswers.length === 0 && selectedMemberReportId ?
+                                (<TableRow><MuiTableCell colSpan={3} align="center"><CircularProgress size={20} /></MuiTableCell></TableRow>)
+                                : memberAnswers.length === 0 && selectedMemberReportId ?
+                                    (<TableRow><MuiTableCell colSpan={3} align="center">Hiç cevap bulunamadı.</MuiTableCell></TableRow>)
+                                    : memberAnswers.length === 0 && !selectedMemberReportId ?
+                                        (<TableRow><MuiTableCell colSpan={3} align="center">Üye seçin.</MuiTableCell></TableRow>)
+                                        : (memberAnswers.map((answer) => (
+                                            <TableRow key={answer.id}>
+                                                <MuiTableCell>{answer.commiteMemberName}</MuiTableCell>
+                                                <MuiTableCell>{getCommiteAnswerText(Number(answer.answer))}</MuiTableCell>
+                                                <MuiTableCell align="right">
+                                                    <Tooltip title="Cevabı sil">
+                                                        <IconButton size="small" color="error" onClick={() => handleDeleteAnswer(answer.id)} disabled={deletingAnswerId === answer.id}>
+                                                            {deletingAnswerId === answer.id ? <CircularProgress size={16} color="inherit" /> : <IconTrash size={16} />}
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </MuiTableCell>
+                                            </TableRow>
+                                        ))
+                                        )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="primary" variant="contained">Kapat</Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const docAny = doc as any;
+    // Font ekleme (Projenizdeki gerçek font dosyası ile değiştirin)
+    try { docAny.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular); docAny.addFont("NotoSans-Regular.ttf", "NotoSans", "normal"); doc.setFont("NotoSans"); } catch (e) { }
+
+    docAny.addImage(Logo, "PNG", pageWidth - 50, 15, 40, 25); // Logo ekleme (Eğer Base64 tanımlıysa)
+    doc.setFontSize(18);
+    doc.text(title, pageWidth / 2, 15, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`Rapor Tarihi:`, 15, 30);
+    doc.text(`${new Date().toLocaleDateString('tr-TR')}`, 80, 30);
+    if (subtitle) doc.text(subtitle, pageWidth / 2, 55, { align: "center" });
+};
+
+const addPdfFooter = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİم İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+    ];
+    let footerY = pageHeight - 50;
+    companyInfo.forEach((line) => { doc.text(line, pageWidth / 2, footerY, { align: "center" }); footerY += 10; });
+
+    doc.setFontSize(10);
+    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    const docAny = doc as any;
+    const pageCount = docAny.internal.getNumberOfPages();
+    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+};
+
 
 const ListCommiteeMembersReport = () => {
     const navigate = useNavigate();
-    const { allowedOperations } = useAuth();
-    const { isTooltipGloballyEnabled } = useTooltip();
 
-    // --- State'ler ---
-    const [loading, setLoading] = useState(false);
-
-    // States اصلی برای نمایش داده ها
-    const [latestReports, setLatestReports] = useState<LatestProjectReport[]>([]); // Faz 1
-    const [confirmationReports, setConfirmationReports] = useState<ConfirmationReport[]>([]); // Faz 2 (جدول و Dropdown)
-    const [memberLinks, setMemberLinks] = useState<ConfirmationReportCommiteMember[]>([]); // Faz 3
-    const [memberAnswers, setMemberAnswers] = useState<CommiteMemberAnswer[]>([]); // Faz 4
-
-    // فیلتر و Pagination
-    const [filteredLatestReports, setFilteredLatestReports] = useState<LatestProjectReport[]>([]);
-    const [filteredConfirmationReports, setFilteredConfirmationReports] = useState<ConfirmationReport[]>([]);
-
-    const [selectedPhase, setSelectedPhase] = useState<ReportPhase>('latest');
+    // --- State Definitions ---
+    const [reportData, setReportData] = useState<DisplayReportType[]>([]);
+    const [confirmationData, setConfirmationData] = useState<ConfirmationReportType[]>([]);
+    const [loadingData, setLoadingData] = useState<boolean>(true);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [openConfirmationModal, setOpenConfirmationModal] = useState(false);
+    const [selectedReportToConfirm, setSelectedReportToConfirm] = useState<DisplayReportType | null>(null);
+    const [confirmationLoading, setConfirmationLoading] = useState<boolean>(false);
 
-    // States برای عملیات حذف
-    const [reportIdToDelete, setReportIdToDelete] = useState<string | null>(null);
-    const [phaseToDelete, setPhaseToDelete] = useState<ReportPhase | null>(null);
-    const [openDeleteModal, setOpenDeleteModal] = useState(false);
+    const [openMembersModal, setOpenMembersModal] = useState(false);
+    const [selectedConfirmationId, setSelectedConfirmationId] = useState<string | null>(null);
 
-    // States برای Faz 1/2 Modal (ثبت/ویرایش گزارش تأییدیه)
-    const [openModalPhase1, setOpenModalPhase1] = useState(false);
-    const [editingReportPhase1, setEditingReportPhase1] = useState<ConfirmationReport | null>(null);
+    const [openAnswerModal, setOpenAnswerModal] = useState(false);
+    const [selectedAnswerConfirmationId, setSelectedAnswerConfirmationId] = useState<string | null>(null);
 
-    // States برای Faz 2/3/4 Modal (مدیریت اعضا و پاسخ‌ها)
-    const [openModalPhase2, setOpenModalPhase2] = useState(false);
-    const [selectedProjectPhase2, setSelectedProjectPhase2] = useState<ConfirmationReport | null>(null);
-    const [allCommiteeMembers, setAllCommiteeMembers] = useState<CommiteeMemberType[]>([]);
-    const [selectedMemberId, setSelectedMemberId] = useState<number | ''>('');
-    const [membersListForProject, setMembersListForProject] = useState<CommiteeMemberLinkDisplay[]>([]);
+    const [openDownloadModal, setOpenDownloadModal] = useState(false);
+    const [downloadLoading, setDownloadLoading] = useState(false);
 
-    // States برای Dropdown های فاز 3 و 4 در بالای جدول
-    const [selectedConfirmationReportId, setSelectedConfirmationReportId] = useState<string | ''>('');
-    const [selectedMemberLinkId, setSelectedMemberLinkId] = useState<string | ''>('');
-
-    // --- Yardımcı Fonksiyonlar ---
-
-    const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
-        setAlertMessage(message);
-        setAlertSeverity(severity);
-        setTimeout(() => setAlertMessage(null), 7000);
-    }, []);
-
+    // --- Utility Callbacks ---
+    const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => { setAlertMessage(message); setAlertSeverity(severity); }, []);
+    const clearAlert = () => { setAlertMessage(null); };
     const handleApiError = useCallback((e: any) => {
-        if (e.response?.status === 401) {
-            localStorage.removeItem('authToken');
-            showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error');
-            navigate('/');
-        } else if (e.response?.status === 500) {
-            showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
-        }
-        else {
-            showAlert(e.response?.data?.message || 'Bir hata oluştu, lütfen tekrar deneyin.', 'error');
-        }
+        if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+        else { console.error("API Error:", e); showAlert(e.response?.data?.message || 'Bir hata oluştu.', 'error'); }
     }, [navigate, showAlert]);
 
-    const hasPermission = useCallback((operationName: string) => {
-        return allowedOperations.some(op => op.systemOperationName === operationName);
-    }, [allowedOperations]);
-
-    // --- Veri Çekme (Core Fetcher) ---
-
-    // 💡 تابع جدید: بارگذاری اختصاصی داده‌های فاز 2 (Confirmation Reports)
-    const fetchConfirmationReports = useCallback(async () => {
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
-
+    const getTesisTypeText = (type: number): string => {
+        const TesisTypeMap: { [key: number]: string } = { 0: 'AG', 1: 'OG', 2: 'TesisKet' };
+        return TesisTypeMap[type] || 'Bilinmiyor';
+    };
+    const formatDateDisplay = (dateString: string | null): string => {
+        if (!dateString || dateString === 'null') return "N/A";
         try {
-            const endpoint = server.report + "get-all-confirmation-project-reports";
-            const response = await axios.get(server.baseurl + endpoint, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-
-            if (response.data.httpStatusCode === 200) {
-                const data = response.data.data.map((item: any) => ({
-                    ...item,
-                    id: String(item.id || ''),
-                    projectCount: Number(item.projectCount),
-                    confirmationReportCommiteMembers: item.confirmationReportCommiteMembers || []
-                })) as ConfirmationReport[];
-                setConfirmationReports(data);
-            } else {
-                showAlert(response.data.message || 'Onay Raporları yüklenirken bir hata oluştu.', 'error');
-                setConfirmationReports([]);
-            }
+            const date = new Date(dateString);
+            return date.toLocaleDateString('tr-TR');
         } catch (e) {
-            handleApiError(e);
-            setConfirmationReports([]);
+            return "Geçersiz Tarih";
         }
-    }, [navigate, showAlert, handleApiError]);
+    };
 
-
-    // این تابع فقط داده‌های مورد نیاز برای جدول فاز فعال را می‌کشد (Faz 1, Faz 3, Faz 4)
-    const fetchReports = useCallback(async () => {
-        setLoading(true);
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); setLoading(false); return; }
-
-        let endpoint = "";
-        let targetSetter: Function = setLatestReports;
-        let neededId = null;
-
-        if (selectedPhase === 'latest') {
-            endpoint = server.report + "get-latest-project-reports";
-            targetSetter = setLatestReports;
-        }
-        else if (selectedPhase === 'confirmation') {
-            // فاز 2 اکنون با fetchConfirmationReports بارگذاری می‌شود، این بلوک باید خالی باشد 
-            // تا از تداخل جلوگیری شود یا به عنوان یک fallback استفاده شود.
-            await fetchConfirmationReports();
-            setLoading(false);
-            return;
-        }
-        else if (selectedPhase === 'member_link') {
-            neededId = selectedConfirmationReportId;
-            if (!neededId) { setMemberLinks([]); setLoading(false); return; }
-            endpoint = server.report + `get-confirmation-report-commite-member/${neededId}`;
-            targetSetter = setMemberLinks;
-        }
-        else if (selectedPhase === 'member_answer') {
-            neededId = selectedMemberLinkId;
-            if (!neededId) { setMemberAnswers([]); setLoading(false); return; }
-            endpoint = server.report + `get-confirmation_report-commite-member-answer-dto-by-member-id/${neededId}`;
-            targetSetter = setMemberAnswers;
-        }
-        else {
-            setLoading(false); return;
-        }
-
-        try {
-            const response = await axios.get(server.baseurl + endpoint, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
-
-            if (response.data.httpStatusCode === 200) {
-                let data = response.data.data;
-
-                // تبدیل نوع داده برای فاز 1
-                if (selectedPhase === 'latest') {
-                    data = response.data.data.map((item: any) => ({
-                        ...item,
-                        projectCount: Number(item.projectCount),
-                    }));
-                }
-
-                targetSetter(data);
-            } else {
-                showAlert(response.data.message || 'Raporlar yüklenirken bir hata oluştu.', 'error');
-                targetSetter([]);
-            }
-        } catch (e) {
-            handleApiError(e);
-            targetSetter([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [navigate, showAlert, handleApiError, selectedPhase, selectedConfirmationReportId, selectedMemberLinkId, fetchConfirmationReports]);
-
-    const fetchCommiteeMembers = useCallback(async () => {
+    // --- 1. Fetch Confirmation Data ---
+    const fetchConfirmationData = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
 
         try {
-            const response = await axios.get(server.baseurl + server.report + "get-all-commitee-members", {
-                headers: { "Authorization": `Bearer ${authToken}` }
+            const result = await axios.request({
+                baseURL: server.baseurl + server.report + "get-all-confirmation-project-reports",
+                method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
 
-            if (response.data.httpStatusCode === 200) {
-                const activeMembers = response.data.data
-                    .filter((m: any) => m.recordStatus === 0)
-                    .map((m: any) => ({
-                        id: Number(m.id),
-                        name: m.name,
-                        family: m.family,
-                        position: m.position
-                    })) as CommiteeMemberType[];
-                setAllCommiteeMembers(activeMembers);
-            }
-        } catch (e) {
-            console.error("Komite üyeleri çekilirken hata oluştu:", e);
-        }
+            if (result.data.httpStatusCode === 200 && result.data.data) { setConfirmationData(result.data.data as ConfirmationReportType[]); }
+            else { setConfirmationData([]); }
+        } catch (e: any) { console.error("Error fetching confirmation data:", e); }
     }, []);
 
-
-    // --- Etkیل و منطق بارگذاری داده‌ها (تفکیک شده) ---
-    // این useEffect مسئول کنترل تغییر فاز و فراخوانی API است.
-    useEffect(() => {
-        setPage(0); // هنگام تغییر فاز، صفحه را ریست کن
-        fetchCommiteeMembers(); // اعضا همیشه برای Modal نیاز هستند.
-
-        // فاز 1: گزارش‌های خام (Latest)
-        if (selectedPhase === 'latest') {
-            setConfirmationReports([]); // حذف ریست فاز 2/3/4
-            setMemberLinks([]);
-            setMemberAnswers([]);
-            fetchReports();
-        }
-
-        // فاز 2: گزارش‌های تأییدیه (Confirmation)
-        else if (selectedPhase === 'confirmation') {
-            setLatestReports([]); // حذف ریست فاز 1
-            setMemberLinks([]);
-            setMemberAnswers([]);
-            fetchConfirmationReports(); // فراخوانی تابع جدید
-        }
-
-        // فاز 3 و 4: نیاز به داده‌های فاز 2 (برای Dropdown اول) و داده‌های فاز فعال (برای جدول)
-        else if (selectedPhase === 'member_link' || selectedPhase === 'member_answer') {
-            setLatestReports([]);
-            setMemberAnswers([]); // برای فاز 3 ریست می‌شود
-
-            // 💡 این خط حیاتی است: تضمین می‌کند که Dropdown اول (Faz 2) پر باشد
-            fetchConfirmationReports();
-
-            if (selectedPhase === 'member_link' && selectedConfirmationReportId) {
-                fetchReports(); // بارگذاری داده‌های فاز 3 برای جدول
+    const isFlexibleMatch = (value1: string | number | null | undefined, value2: string | number | null | undefined): boolean => {
+        // تبدیل Null، undefined یا رشته خالی به یک مقدار استاندارد (مثلاً null)
+        const normalize = (val: any) => {
+            if (val === null || val === undefined || (typeof val === 'string' && val.trim() === '')) {
+                return null;
             }
-
-            if (selectedPhase === 'member_answer' && selectedConfirmationReportId && selectedMemberLinkId) {
-                fetchReports(); // بارگذاری داده‌های فاز 4 برای جدول
+            // اگر عدد بود، به عدد تبدیل شود
+            if (typeof val === 'string' && !isNaN(Number(val))) {
+                return Number(val);
             }
+            return val;
+        };
 
-            if (selectedPhase === 'member_link' && !selectedConfirmationReportId) {
-                setMemberLinks([]);
-            }
-            if (selectedPhase === 'member_answer' && !selectedMemberLinkId) {
-                setMemberAnswers([]);
-            }
-        }
+        const n1 = normalize(value1);
+        const n2 = normalize(value2);
 
-        // پاکسازی انتخاب‌های Dropdown هنگام خروج از فازهای 3 و 4
-        if (selectedPhase === 'latest' || selectedPhase === 'confirmation') {
-            setSelectedConfirmationReportId('');
-            setSelectedMemberLinkId('');
-        }
+        return n1 === n2;
+    };
 
-    }, [
-        fetchReports,
-        fetchCommiteeMembers,
-        fetchConfirmationReports, // 💡 اضافه شدن برای وابستگی
-        selectedPhase,
-        selectedConfirmationReportId,
-        selectedMemberLinkId
-    ]);
-
-
-    // **FIX** : منطق پر کردن Dropdown فاز 3 هنگام انتخاب فاز 2 در فاز 4
-    // این useEffect تضمین می‌کند که Dropdown فاز 3 (memberLinks) با انتخاب Dropdown فاز 2 پر شود.
-    useEffect(() => {
-        // این منطق هم برای فاز 3 و هم برای فاز 4 که نیاز به Dropdown دوم دارد، کار می‌کند
-        if (selectedPhase === 'member_answer' || selectedPhase === 'member_link') {
-
-            // 1. پیدا کردن گزارش تأییدیه انتخاب شده از لیست کامل
-            const selectedReport = confirmationReports.find(r => r.id === selectedConfirmationReportId);
-
-            if (selectedReport) {
-                // 2. استخراج لینک‌های اعضا (Faz 3 Data) و تنظیم State برای پر شدن Dropdown
-                const members = selectedReport.confirmationReportCommiteMembers || [];
-                setMemberLinks(members as ConfirmationReportCommiteMember[]);
-            } else {
-                // اگر چیزی انتخاب نشده یا داده‌ای برای گزارش انتخاب شده وجود ندارد
-                setMemberLinks([]);
-                setSelectedMemberLinkId('');
-            }
-        }
-
-    }, [selectedPhase, selectedConfirmationReportId, confirmationReports]); // این منطق به درستی به confirmationReports وابسته است
-
-
-    // --- منطق فیلتر و Pagination (با رفع باگ رفرش بی‌پایان) ---
-    const handleSearch = useCallback((reports: LatestProjectReport[] | ConfirmationReport[]) => {
-        const term = searchTerm.toLowerCase();
-        return reports.filter(report =>
-            report.city.toLowerCase().includes(term) ||
-            report.region.toLowerCase().includes(term) ||
-            (report.trAdi && report.trAdi.toLowerCase().includes(term))
-        );
-    }, [searchTerm]);
-
-    useEffect(() => {
-        if (selectedPhase === 'latest') {
-            setFilteredLatestReports(handleSearch(latestReports) as LatestProjectReport[]);
-            setPage(0);
-        } else if (selectedPhase === 'confirmation') {
-            setFilteredConfirmationReports(handleSearch(confirmationReports) as ConfirmationReport[]);
-            setPage(0);
-        } else {
-            setFilteredLatestReports([]);
-            setFilteredConfirmationReports([]);
-        }
-    }, [latestReports, confirmationReports, searchTerm, handleSearch, selectedPhase]);
-
-    const displayReports = useMemo(() => {
-        const dataToPaginate = selectedPhase === 'latest' ? filteredLatestReports : filteredConfirmationReports;
-        const start = page * rowsPerPage;
-        const end = start + rowsPerPage;
-        return dataToPaginate.slice(start, end);
-    }, [filteredLatestReports, filteredConfirmationReports, page, rowsPerPage, selectedPhase]);
-
-    // --- Faz 1/2 CRUD ---
-
-    const handleSavePhase1 = async (data: any, isEdit: boolean) => {
+    // --- 2. Fetch Main Report Data and Combine (Simplified member fetching logic) ---
+    const fetchLatestProjectReports = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        setLoadingData(true);
+        if (!authToken) { navigate("/"); setLoadingData(false); return; }
 
-        setLoading(true);
         try {
-            const endpoint = isEdit ? "update-confirmation-project-report" : "create-confirmation-project-report";
-            const method = isEdit ? axios.put : axios.post;
-
-            const payload: any = {
-                year: Number(data.year) || new Date().getFullYear(),
-                city: data.city || '',
-                town: data.town || null,
-                region: data.region || '',
-                tesisType: Number(data.tesisType) || 0,
-                trAdi: data.trAdi || null,
-                projectCount: Number(data.projectCount) || 1,
-                Gecici_tutanak_teslim_alma_durumu: data.Gecici_tutanak_teslim_alma_durumu || false,
-                Kesin_tutanak_teslim_alma_durumu: data.Kesin_tutanak_teslim_alma_durumu || false
-            };
-
-            if (isEdit) {
-                payload.id = data.id;
-            }
-
-            const response = await method(server.baseurl + server.report + endpoint, payload, {
-                headers: { "Authorization": `Bearer ${authToken}` }
+            const result = await axios.request({
+                baseURL: server.baseurl + server.report + "get-latest-project-reports",
+                method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
 
-            if (response.data.httpStatusCode === (isEdit ? 200 : 201)) {
-                showAlert(`Rapor başarıyla ${isEdit ? 'güncellendi' : 'onay raporuna dönüştürüldü'}.`, 'success');
-                setOpenModalPhase1(false);
-                setEditingReportPhase1(null);
-                setSelectedPhase('confirmation');
-                fetchReports();
-            } else {
-                showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
-            }
-        } catch (e) {
-            handleApiError(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+            if (result.data.httpStatusCode === 200 && result.data.data) {
+                const mainReports = result.data.data as ProjectReportType[];
 
-    const handleEditPhase1 = (report: ConfirmationReport) => {
-        setEditingReportPhase1(report);
-        setOpenModalPhase1(true);
-    };
+                const combinedData: DisplayReportType[] = await Promise.all(mainReports.map(async (report) => {
+                    const existingConfirmation = confirmationData.find(conf =>
+                        // مقایسه‌های قطعی
+                        conf.year === report.year &&
+                        conf.city === report.city &&
+                        conf.tesisType === report.tesistype &&
 
-    const handleDeletePhase1 = (reportId: string) => {
-        setReportIdToDelete(reportId);
-        setPhaseToDelete('confirmation');
-        setOpenDeleteModal(true);
-    };
+                        // مقایسه‌های انعطاف‌پذیر برای Project Count و فیلدهای اختیاری
+                        isFlexibleMatch(conf.projectCount, report.projectcount) &&
+                        isFlexibleMatch(conf.town, report.town) &&
+                        isFlexibleMatch(conf.region, report.region) &&
+                        isFlexibleMatch(conf.trAdi, report.tradi)
+                    );
+
+                    const confirmationId = existingConfirmation ? existingConfirmation.id : null;
+                    let memberCount = 0;
+                    let answeredMemberCount = 0;
+
+                    if (confirmationId) {
+                        // Fetch member list/answers to get counts (NOTE: This causes N+1 problem, but is maintained for functional correctness)
+                        const memberListResult = await axios.request({
+                            baseURL: server.baseurl + server.report + `get-confirmation-report-commite-member/${confirmationId}`,
+                            method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+                        });
+
+                        const members = (memberListResult.data.data || []) as ConfirmationCommiteeMemberType[];
+                        memberCount = members.length;
+                        // Assuming the API returns the 'answer' field directly on the member list for count purposes
+                        answeredMemberCount = members.filter(m => m.answer !== null && m.answer !== undefined).length;
+                    }
+
+                    return {
+                        ...report, isConfirmed: !!existingConfirmation, confirmationId: confirmationId,
+                        Gecici_tutanak_durumu: existingConfirmation ? existingConfirmation.Gecici_tutanak_teslim_alma_durumu : false,
+                        Kesin_tutanak_durumu: existingConfirmation ? existingConfirmation.Kesin_tutanak_teslim_alma_durumu : false,
+                        memberCount: memberCount,
+                        answeredMemberCount: answeredMemberCount,
+                    };
+                }));
+
+                setReportData(combinedData);
+                showAlert('Rapor verileri başarıyla yüklendi.', 'success');
+            } else { setReportData([]); showAlert(result.data.message || 'Rapor verileri alınırken bir hata oluştu.', 'error'); }
+        } catch (e: any) { handleApiError(e); } finally { setLoadingData(false); }
+    }, [confirmationData, navigate, showAlert, handleApiError]);
 
 
-    // --- Faz 2 CRUD (Komite Üyesi Ekleme/Yönetimi) ---
+    // --- 3. CRUD API Calls (INSERT/UPDATE) ---
 
-    const handleAssignMemberClick = (report: ConfirmationReport) => {
-        if (!report.id) {
-            showAlert('Bu rapor henüz bir onay raporu olarak kaydedilmemiş.', 'warning');
-            return;
-        }
-
-        setSelectedProjectPhase2(report);
-
-        const currentMembers: CommiteeMemberLinkDisplay[] = (report.confirmationReportCommiteMembers || []).map(link => {
-            const memberIdToFind = link.commiteMember?.id;
-
-            const memberDetail = memberIdToFind
-                ? allCommiteeMembers.find(m => String(m.id) === String(memberIdToFind))
-                : null;
-
-            const answer = link.confirmationReportCommiteMemberAnswers?.[0]?.answer || null;
-
-            return {
-                id: link.id!,
-                memberFullName: memberDetail ? `${memberDetail.name} ${memberDetail.family}` : `Üye Bilgisi Eksik (ID: ${link.commiteMember?.id})`,
-                answer: answer
-            } as CommiteeMemberLinkDisplay;
-        });
-
-        setMembersListForProject(currentMembers);
-        setOpenModalPhase2(true);
-    };
-
-    const handleSavePhase2 = async () => {
-        if (!selectedProjectPhase2 || !selectedProjectPhase2.id || !selectedMemberId) {
-            showAlert('Lütfen Proje ve Komite Üyesi seçin.', 'warning');
-            return;
-        }
-
+    // NEW FUNCTION: Direct Confirmation (no modal)
+    const handleConfirmReport = async (oldReport: DisplayReportType) => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        setConfirmationLoading(true);
 
-        setLoading(true);
+        const apiUrl = server.baseurl + server.report + "create-confirmation-project-report";
+
+        // Helper to send empty string instead of null/undefined
+        const getEmptyIfNull = (value: string | number | null | undefined) => {
+            if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+                return "";
+            }
+            return value;
+        };
+
         try {
             const payload = {
-                commiteMembersId: Number(selectedMemberId),
-                confirmationProjectReportId: selectedProjectPhase2.id,
+                year: oldReport.year,
+                city: oldReport.city,
+                town: getEmptyIfNull(oldReport.town),
+                region: getEmptyIfNull(oldReport.region),
+                tesisType: oldReport.tesistype,
+                trAdi: getEmptyIfNull(oldReport.tradi),
+                projectCount: Number(oldReport.projectcount),
+
+                // İlk onayda false gönderilir
+                Gecici_tutanak_teslim_alma_durumu: false,
+                Kesin_tutanak_teslim_alma_durumu: false,
             };
+            debugger
 
-            const response = await axios.post(server.baseurl + server.report + "create-confirmation-report-commite-member", payload, {
-                headers: { "Authorization": `Bearer ${authToken}` }
-            });
+            await axios.request({ url: apiUrl, method: 'post', data: payload, headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` } });
 
-            if (response.data.httpStatusCode === 201) {
-                showAlert('Komite Üyesi projeye başarıyla atandı.', 'success');
-                setSelectedMemberId('');
-                fetchConfirmationReports(); // به‌روزرسانی داده‌های فاز 2 (برای Modal)
-                setOpenModalPhase2(false);
-                setSelectedProjectPhase2(null);
-            } else {
-                showAlert(response.data.message || 'Üye atanırken bir hata oluştu.', 'error');
-            }
-        } catch (e) {
-            handleApiError(e);
-        } finally {
-            setLoading(false);
-        }
+            showAlert(`Proje raporu başarıyla onaylandı!`, 'success');
+
+            await fetchConfirmationData();
+            await fetchLatestProjectReports();
+
+        } catch (e: any) { handleApiError(e); } finally { setConfirmationLoading(false); }
     };
 
-    // --- Faz 3 & 4 Mantığı ---
 
-    const handleDeleteMemberLink = (memberLinkId: string) => {
-        setReportIdToDelete(memberLinkId);
-        setPhaseToDelete('member_link');
-        setOpenDeleteModal(true);
-    }
+    // --- Modal Handlers ---
+    // handleOpenModal now only views the details
+    const handleOpenModal = (report: DisplayReportType) => { setSelectedReportToConfirm(report); setOpenConfirmationModal(true); };
+    const handleCloseModal = () => { setOpenConfirmationModal(false); setSelectedReportToConfirm(null); setConfirmationLoading(false); };
 
-    const handleSavePhase3 = async (ConfirmationReportCommiteMemberId: string, answer: 0 | 1) => {
+    const handleOpenMembersModal = (confirmationId: string) => { setSelectedConfirmationId(confirmationId); setOpenMembersModal(true); };
+    const handleCloseMembersModal = () => { setOpenMembersModal(false); setSelectedConfirmationId(null); fetchLatestProjectReports(); };
+
+    const handleOpenAnswerModal = (confirmationId: string) => { setSelectedAnswerConfirmationId(confirmationId); setOpenAnswerModal(true); };
+    const handleCloseAnswerModal = () => { setOpenAnswerModal(false); setSelectedAnswerConfirmationId(null); fetchLatestProjectReports(); };
+
+
+    // --- UseEffects ---
+    useEffect(() => { fetchConfirmationData(); }, [fetchConfirmationData]);
+    useEffect(() => { fetchLatestProjectReports(); }, [fetchLatestProjectReports]);
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
+        return () => { clearTimeout(timer); };
+    }, [alertMessage]);
+
+
+    const handleExportExcelDynamic = async (reportType: 'all' | 'confirmed') => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
 
-        setLoading(true);
+        setOpenDownloadModal(false);
+        setDownloadLoading(true);
+        showAlert('Excel dosyası oluşturuluyor, lütfen bekleyin...', 'info');
+
         try {
-            const payload = {
-                answer: String(answer),
-                ConfirmationReportCommiteMemberId: ConfirmationReportCommiteMemberId,
-            };
+            let confirmationReports: any[] = [];
+            let mainReportsData: any[] = [];
+            const memberNameMap: MemberNameMap = {}; // Key: CommiteeMember ID, Value: {name, family, position}
 
-            const response = await axios.post(server.baseurl + server.report + "create-confirmation-report-commite-member-answer", payload, {
-                headers: { "Authorization": `Bearer ${authToken}` }
+            // 1. Fetch ALL Confirmation Data (Includes raw member registration and answers)
+            const confirmedResult = await axios.get(
+                server.baseurl + server.report + "get-all-confirmation-project-reports",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            confirmationReports = confirmedResult.data.data || [];
+
+            // 2. Fetch ALL Commitee Members (To create a global name map)
+            const membersResult = await axios.get(
+                server.baseurl + server.report + "get-all-commitee-members",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            (membersResult.data.data || []).forEach((m: any) => {
+                memberNameMap[String(m.id)] = { name: m.name, family: m.family, position: m.position };
             });
 
-            if (response.data.httpStatusCode === 201) {
-                showAlert('Cevap başarıyla kaydedildi.', 'success');
-
-                // به‌روزرسانی داده‌های فاز 3 برای نمایش پاسخ جدید
-                if (selectedPhase === 'member_link') {
-                    fetchReports();
-                }
-                // اگر در Modal هستیم، فقط داده‌های فاز 2 را رفرش کن (تا Modal به‌روز شود)
-                if (selectedProjectPhase2) {
-                    fetchConfirmationReports();
-                    // برای به‌روزرسانی Modal، نیاز به بستن و باز کردن مجدد Modal نیست، اما باید داده‌ها را به‌روز کنید.
-                    // اینجا نیاز به پیاده‌سازی منطق به‌روزرسانی لیست اعضا در Modal داریم.
-                    // فعلاً فرض می‌کنیم که کاربر Modal را می‌بندد و دوباره باز می‌کند.
-                }
-
-            } else {
-                showAlert(response.data.message || 'Cevap kaydedilirken bir hata oluştu.', 'error');
+            // 3. Determine Base Data Source (mainReportsData for 'all', confirmationReports for 'confirmed')
+            if (reportType === 'all') {
+                const mainReportsResult = await axios.get(
+                    server.baseurl + server.report + "get-latest-project-reports",
+                    { headers: { "Authorization": `Bearer ${authToken}` } }
+                );
+                mainReportsData = mainReportsResult.data.data || [];
             }
-        } catch (e) {
+
+            // --- Prepare Final Merged Data ---
+            let finalData: any[] = [];
+
+            if (reportType === 'confirmed') {
+                finalData = confirmationReports.map(report => ({
+                    ...report,
+                    isConfirmed: true,
+                    confirmationDetails: report // Detailed data is the report itself
+                }));
+            } else { // 'all' report
+                finalData = mainReportsData.map((mainReport: any) => {
+                    const confirmationMatch = confirmationReports.find((confReport: any) =>
+                        // Match logic using flexible comparison
+                        isFlexibleMatch(confReport.year, mainReport.year) &&
+                        isFlexibleMatch(confReport.city, mainReport.city) &&
+                        isFlexibleMatch(confReport.town, mainReport.town) &&
+                        isFlexibleMatch(confReport.region, mainReport.region) &&
+                        isFlexibleMatch(confReport.tesisType, mainReport.tesistype) &&
+                        isFlexibleMatch(confReport.trAdi, mainReport.tradi) &&
+                        isFlexibleMatch(confReport.projectCount, mainReport.projectcount)
+                    );
+
+                    return {
+                        ...mainReport, // Base fields from main report
+                        isConfirmed: !!confirmationMatch,
+                        confirmationDetails: confirmationMatch || null // Detailed confirmation record
+                    };
+                });
+            }
+
+
+            if (!finalData || finalData.length === 0) {
+                showAlert('Dışa aktarılacak veri bulunamadı.', 'warning');
+                setDownloadLoading(false);
+                return;
+            }
+
+            // --- 4. Calculate Max Member Counts (Geçici & Kesin) ---
+            let maxGeciciMemberCount = 0;
+            let maxKesinMemberCount = 0;
+
+            finalData.forEach((report) => {
+                const details = report.confirmationDetails;
+                if (details && details.confirmationReportCommiteMembers) {
+                    const members: any[] = details.confirmationReportCommiteMembers;
+                    const geciciMembers = members.filter((m: any) => m.memberStatus === false);
+                    const kesinMembers = members.filter((m: any) => m.memberStatus === true);
+
+                    if (geciciMembers.length > maxGeciciMemberCount) maxGeciciMemberCount = geciciMembers.length;
+                    if (kesinMembers.length > maxKesinMemberCount) maxKesinMemberCount = kesinMembers.length;
+                }
+            });
+
+            // --- 5. Utility Function for Dynamic Member Data Fetching (N\*M Operation) ---
+            const getMemberAndAnswerDetails = async (memberRegistrationRecord: any) => {
+                let memberName = `ID: ${memberRegistrationRecord.id} (Bilinmiyor)`;
+                let answerText = 'Cevaplanmadı';
+                let commiteMemberId: string | undefined;
+
+                // 🛑 CRITICAL STEP: Fetch CommiteeMember ID using the Registration ID
+                try {
+                    const memberDetailResult = await axios.get(
+                        server.baseurl + server.report + `get-confirmation-report-commite-member-by-id/${memberRegistrationRecord.id}`,
+                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                    );
+                    commiteMemberId = memberDetailResult.data.data?.commiteMember?.id;
+                } catch (error) {
+                    // Ignore error for missing detail, use fallback name
+                }
+
+                if (commiteMemberId) {
+                    const memberDetails = memberNameMap[String(commiteMemberId)];
+                    if (memberDetails) {
+                        memberName = `${memberDetails.name} ${memberDetails.family} (${getPositionText(memberDetails.position)})`;
+                    }
+                }
+
+                // Get Answer (Answer ID is available in the first API call)
+                const latestAnswer = memberRegistrationRecord.confirmationReportCommiteMemberAnswers?.[0];
+                if (latestAnswer) {
+                    answerText = getCommiteAnswerText(Number(latestAnswer.answer));
+                }
+
+                return { memberName, answerText };
+            };
+
+
+            // --- 6. Setup Excel & Define Dynamic Headers ---
+            const workbook = new Excel.Workbook();
+            const sheetName = reportType === 'confirmed' ? 'Onaylanan Raporlar' : 'Tüm Proje Raporları';
+            const worksheet = workbook.addWorksheet(sheetName, { views: [{ rightToLeft: false }] });
+
+            // Styles (unchanged)
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const headerFont = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+            const fullHeaderStyle = { border: border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
+            const bodyStyle = { border: border, alignment: leftAlignment, font: font } as Partial<Excel.Style>;
+
+
+            // Define Headers
+            let tableHeaders = [
+                'Yıl', 'Şehir', 'İlçe', 'Bölge', 'Tesis Türü', 'Tradi', 'Proje Sayısı',
+                'Geçici Tutanak Teslim Durumu'
+            ];
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Üye ${i}`); }
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Cevap ${i}`); }
+            tableHeaders.push('Kesin Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Üye ${i}`); }
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Cevap ${i}`); }
+
+            // Add Title/Date/Headers
+            const titleText = reportType === 'confirmed' ? 'Onaylanan Proje Raporları Detaylı Rapor' : 'Tüm Proje Raporları Özet Rapor';
+            const titleRow = worksheet.addRow([titleText]);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+                worksheet.mergeCells(`A${titleRow.number}:${String.fromCharCode(65 + tableHeaders.length - 1)}${titleRow.number}`);
+            }
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.addRow([]);
+
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell(cell => { cell.style = fullHeaderStyle; });
+
+
+            // --- 7. Populate Data Rows (Processing Promises) ---
+
+            const rowPromises = finalData.map(async (report) => {
+                const confirmedDetails = report.confirmationDetails;
+                const isConfirmed = !!confirmedDetails;
+
+                // Base Data (7 fixed columns)
+                let rowData: (string | number | null)[] = [
+                    report.year, report.city, report.town || '-', report.region || '-',
+                    getTesisTypeText(report.tesisType || report.tesistype), report.trAdi || report.tradi || '-',
+                    report.projectCount || report.projectcount,
+                ];
+
+                const allMembers: any[] = confirmedDetails?.confirmationReportCommiteMembers || [];
+                const geciciMembers = allMembers.filter((m: any) => m.memberStatus === false);
+                const kesinMembers = allMembers.filter((m: any) => m.memberStatus === true);
+
+                // A. Geçici Tutanak Teslim Durumu
+                const geciciDurum = isConfirmed && confirmedDetails.Gecici_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+                rowData.push(geciciDurum);
+
+                // B & C. Dynamic Geçici Members & Answers
+                const geciciDetailsPromises = geciciMembers.map(getMemberAndAnswerDetails);
+                const geciciDetails = await Promise.all(geciciDetailsPromises);
+
+                const geciciMemberNames = geciciDetails.map(d => d.memberName);
+                const geciciAnswers = geciciDetails.map(d => d.answerText);
+
+                // Push Geçici Member Names (padded)
+                rowData.push(...geciciMemberNames);
+                for (let i = 0; i < maxGeciciMemberCount - geciciMemberNames.length; i++) { rowData.push(''); }
+
+                // Push Geçici Answers (padded)
+                rowData.push(...geciciAnswers);
+                for (let i = 0; i < maxGeciciMemberCount - geciciAnswers.length; i++) { rowData.push(''); }
+
+                // D. Kesin Tutanak Teslim Durumu
+                const kesinDurum = isConfirmed && confirmedDetails.Kesin_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+                rowData.push(kesinDurum);
+
+                // E & F. Dynamic Kesin Members & Answers
+                const kesinDetailsPromises = kesinMembers.map(getMemberAndAnswerDetails);
+                const kesinDetails = await Promise.all(kesinDetailsPromises);
+
+                const kesinMemberNames = kesinDetails.map(d => d.memberName);
+                const kesinAnswers = kesinDetails.map(d => d.answerText);
+
+                // Push Kesin Member Names (padded)
+                rowData.push(...kesinMemberNames);
+                for (let i = 0; i < maxKesinMemberCount - kesinMemberNames.length; i++) { rowData.push(''); }
+
+                // Push Kesin Answers (padded)
+                rowData.push(...kesinAnswers);
+                for (let i = 0; i < maxKesinMemberCount - kesinAnswers.length; i++) { rowData.push(''); }
+
+                return rowData;
+            });
+
+            // 🛑 Execute all row processing concurrently (where N*M API calls happen)
+            const allRowData = await Promise.all(rowPromises);
+
+            // --- 8. Add processed rows to worksheet ---
+            allRowData.forEach((rowData) => {
+                const row = worksheet.addRow(rowData);
+                row.eachCell(cell => { cell.style = bodyStyle; });
+            });
+
+            // --- 9. Finalize and Save ---
+            worksheet.columns.forEach((column) => {
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? String(cell.value).length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `${sheetName.replace(/\s/g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+
+        } catch (e: any) {
             handleApiError(e);
         } finally {
-            setLoading(false);
+            setDownloadLoading(false);
         }
     };
 
-    // --- JSX RENDER: Tablo İçری و سرتیتر ---
 
-    const renderTableHead = () => {
-        let columns: string[] = [];
-        if (selectedPhase === 'latest' || selectedPhase === 'confirmation') {
-            columns = ['Yıl', 'Bölge', 'Tesis Tipi', 'Proje Sayısı', 'Teslim Durumu', 'Üye Ataması', 'İşlemler'];
-        } else if (selectedPhase === 'member_link') {
-            columns = ['Üye Adı Soyadı', 'Pozisyon', 'Atama Tarihi', 'Cevap Durumu', 'İşlem'];
-        } else if (selectedPhase === 'member_answer') {
-            columns = ['Cevap ID', 'Cevap (1/0)', 'Tarih', 'İşlem'];
-        }
 
-        return (
-            <TableHead>
-                <TableRow sx={{ background: "#f5f5f5" }}>
-                    {columns.map(col => <TableCell key={col}>{col}</TableCell>)}
-                </TableRow>
-            </TableHead>
-        );
-    }
+    const handleExportPdfDetailConsolidated = async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
 
-    const renderTableContent = () => {
-        if (loading) {
-            return <TableRow><TableCell colSpan={7} align="center"><CircularProgress size={20} /> Yükleniyor...</TableCell></TableRow>
-        }
+        setOpenDownloadModal(false);
+        setDownloadLoading(true);
+        showAlert('PDF raporu oluşturuluyor, lütfen bekleyin (Bu işlem uzun sürebilir)...', 'info');
 
-        let dataToRender: any[] = [];
-        let colSpan = 7;
+        try {
+            let confirmationReports: any[] = [];
+            let mainReportsData: any[] = [];
+            const memberNameMap: MemberNameMap = {};
 
-        if (selectedPhase === 'latest') {
-            dataToRender = displayReports as LatestProjectReport[];
-            colSpan = 7;
-        } else if (selectedPhase === 'confirmation') {
-            dataToRender = displayReports as ConfirmationReport[];
-            colSpan = 7;
-        } else if (selectedPhase === 'member_link') {
-            if (!selectedConfirmationReportId) {
-                return <TableRow><TableCell colSpan={5} align="center">Lütfen yukarıdan bir Onay Raporu seçin.</TableCell></TableRow>
+            // 1. Fetch ALL Confirmation Data (for matching)
+            const confirmedResult = await axios.get(
+                server.baseurl + server.report + "get-all-confirmation-project-reports",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            confirmationReports = confirmedResult.data.data || [];
+
+            // 2. Fetch ALL Commitee Members (Global Map)
+            const membersResult = await axios.get(
+                server.baseurl + server.report + "get-all-commitee-members",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            (membersResult.data.data || []).forEach((m: any) => {
+                memberNameMap[String(m.id)] = { name: m.name, family: m.family, position: m.position };
+            });
+
+            // 3. Fetch Main Report Data (Source for 'all')
+            const mainReportsResult = await axios.get(
+                server.baseurl + server.report + "get-latest-project-reports",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            mainReportsData = mainReportsResult.data.data || [];
+
+            // --- Prepare Final Merged Data ('all' type logic) ---
+            let finalData: any[] = mainReportsData.map((mainReport: any) => {
+                const confirmationMatch = confirmationReports.find((confReport: any) =>
+                    // Match logic using flexible comparison
+                    isFlexibleMatch(confReport.year, mainReport.year) &&
+                    isFlexibleMatch(confReport.city, mainReport.city) &&
+                    isFlexibleMatch(confReport.town, mainReport.town) &&
+                    isFlexibleMatch(confReport.region, mainReport.region) &&
+                    isFlexibleMatch(confReport.tesisType, mainReport.tesistype) &&
+                    isFlexibleMatch(confReport.trAdi, mainReport.tradi) &&
+                    isFlexibleMatch(confReport.projectCount, mainReport.projectcount)
+                );
+                return {
+                    ...mainReport,
+                    isConfirmed: !!confirmationMatch,
+                    confirmationDetails: confirmationMatch || null
+                };
+            });
+
+            // 🛑 تفاوت کلیدی: فیلتر کردن نهایی برای محدود کردن به گزارش‌های تأیید شده
+            finalData = finalData.filter(report => report.isConfirmed);
+
+            if (!finalData || finalData.length === 0) {
+                showAlert('PDF oluşturulacak onaylanmış veri bulunamadı.', 'warning');
+                setDownloadLoading(false);
+                return;
             }
-            dataToRender = memberLinks;
-            colSpan = 5;
-        } else if (selectedPhase === 'member_answer') {
-            if (!selectedMemberLinkId) {
-                return <TableRow><TableCell colSpan={5} align="center">Lütfen yukarıdan bir Üye Bağlantısı seçin.</TableCell></TableRow>
+
+            // 4. Calculate Max Member Counts (Dynamic Column Sizing)
+            let maxGeciciMemberCount = 0;
+            let maxKesinMemberCount = 0;
+
+            finalData.forEach((report) => {
+                const details = report.confirmationDetails;
+                if (details && details.confirmationReportCommiteMembers) {
+                    const members: any[] = details.confirmationReportCommiteMembers;
+                    const geciciMembers = members.filter((m: any) => m.memberStatus === false);
+                    const kesinMembers = members.filter((m: any) => m.memberStatus === true);
+                    if (geciciMembers.length > maxGeciciMemberCount) maxGeciciMemberCount = geciciMembers.length;
+                    if (kesinMembers.length > maxKesinMemberCount) maxKesinMemberCount = kesinMembers.length;
+                }
+            });
+
+            // 5. Utility Function for Dynamic Member Data Fetching (Copied from Excel Logic)
+            const getMemberAndAnswerDetails = async (memberRegistrationRecord: any) => {
+                let memberName = `ID: ${memberRegistrationRecord.id} (Bilinmiyor)`;
+                let answerText = 'Cevaplanmadı';
+                let commiteMemberId: string | undefined;
+
+                try {
+                    const memberDetailResult = await axios.get(
+                        server.baseurl + server.report + `get-confirmation-report-commite-member-by-id/${memberRegistrationRecord.id}`,
+                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                    );
+                    commiteMemberId = memberDetailResult.data.data?.commiteMember?.id;
+                } catch (error) { /* Ignore error */ }
+
+                if (commiteMemberId) {
+                    const memberDetails = memberNameMap[String(commiteMemberId)];
+                    if (memberDetails) {
+                        memberName = `${memberDetails.name} ${memberDetails.family} (${getPositionText(memberDetails.position)})`;
+                    }
+                }
+                const latestAnswer = memberRegistrationRecord.confirmationReportCommiteMemberAnswers?.[0];
+                if (latestAnswer) {
+                    answerText = getCommiteAnswerText(Number(latestAnswer.answer));
+                }
+                return { memberName, answerText };
+            };
+
+            // --- 6. Setup PDF (Landscape) & Define Dynamic Headers ---
+            const doc = new jsPDF('landscape', 'pt', 'a4');
+
+            // 🟢 تنظیمات فونت
+            (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+            (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+            doc.setFont("NotoSans", "normal");
+
+            // Add Dynamic Headers
+            let tableHeaders = [
+                'Yıl', 'Şehir', 'İlçe', 'Bölge', 'Tesis Türü', 'Tradi', 'Proje Sayısı',
+            ];
+
+            // Geçici Tutanak Headers
+            tableHeaders.push('Geçici Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Üye ${i}`); }
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Cevap ${i}`); }
+
+            // Kesin Tutanak Headers
+            tableHeaders.push('Kesin Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Üye ${i}`); }
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Cevap ${i}`); }
+
+            // --- 7. Populate Data Rows (Processing Promises) ---
+            const rowPromises = finalData.map(async (report) => {
+                const confirmedDetails = report.confirmationDetails;
+                const isConfirmed = !!confirmedDetails;
+
+                let rowData: (string | number | null)[] = [
+                    report.year, report.city, report.town || '-', report.region || '-',
+                    getTesisTypeText(report.tesisType || report.tesistype), report.trAdi || report.tradi || '-',
+                    report.projectCount || report.projectcount,
+                ];
+
+                const allMembers: any[] = confirmedDetails?.confirmationReportCommiteMembers || [];
+                const geciciMembers = allMembers.filter((m: any) => m.memberStatus === false);
+                const kesinMembers = allMembers.filter((m: any) => m.memberStatus === true);
+
+                // Fetch Geçici Details
+                const geciciDetailsPromises = geciciMembers.map(getMemberAndAnswerDetails);
+                const geciciDetails = await Promise.all(geciciDetailsPromises);
+                const geciciMemberNames = geciciDetails.map(d => d.memberName);
+                const geciciAnswers = geciciDetails.map(d => d.answerText);
+
+                // A. Geçici Tutanak Teslim Durumu
+                const geciciDurum = isConfirmed && confirmedDetails.Gecici_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+                rowData.push(geciciDurum);
+
+                // B & C. Dynamic Geçici Members & Answers (Padded)
+                rowData.push(...geciciMemberNames);
+                for (let i = 0; i < maxGeciciMemberCount - geciciMemberNames.length; i++) { rowData.push(''); }
+                rowData.push(...geciciAnswers);
+                for (let i = 0; i < maxGeciciMemberCount - geciciAnswers.length; i++) { rowData.push(''); }
+
+                // D. Kesin Tutanak Teslim Durumu
+                const kesinDurum = isConfirmed && confirmedDetails.Kesin_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+                rowData.push(kesinDurum);
+
+                // E & F. Dynamic Kesin Members & Answers (Padded)
+                const kesinDetailsPromises = kesinMembers.map(getMemberAndAnswerDetails);
+                const kesinDetails = await Promise.all(kesinDetailsPromises);
+                const kesinMemberNames = kesinDetails.map(d => d.memberName);
+                const kesinAnswers = kesinDetails.map(d => d.answerText);
+
+                rowData.push(...kesinMemberNames);
+                for (let i = 0; i < maxKesinMemberCount - kesinMemberNames.length; i++) { rowData.push(''); }
+                rowData.push(...kesinAnswers);
+                for (let i = 0; i < maxKesinMemberCount - kesinAnswers.length; i++) { rowData.push(''); }
+
+                return rowData;
+            });
+
+            // 🛑 Execute all row processing concurrently
+            const allRowData = await Promise.all(rowPromises);
+
+            // --- 8. Create PDF Table ---
+            const topMargin = 70;
+            const sideMargin = 20;
+            const bottomMargin = 50;
+
+            autoTable(doc, {
+                startY: topMargin,
+                head: [tableHeaders],
+                body: allRowData,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: "normal",
+                    fontSize: 6,
+                    cellPadding: 3,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [149, 147, 125], textColor: [0, 0, 0] },
+                margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+
+                didDrawPage: (_data: any) => {
+                    // 🟢 فراخوانی هدر و فوتر جدید
+                    addPdfHeader(doc, "Onaylanan Proje Raporları Özet Rapor");
+                    addPdfFooter(doc);
+                },
+                showHead: 'everyPage',
+            });
+
+            doc.save(`Onaylanan_Raporlar_Ozet_${format(new Date(), 'yyyyMMdd')}.pdf`);
+            showAlert('PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+
+        } catch (e: any) {
+            handleApiError(e);
+        } finally {
+            setDownloadLoading(false);
+        }
+    };
+
+    const handleExportPdfTable = async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
+
+        setOpenDownloadModal(false);
+        setDownloadLoading(true);
+        showAlert('PDF raporu oluşturuluyor, lütfen bekleyin (Bu işlem uzun sürebilir)...', 'info');
+
+        try {
+            let confirmationReports: any[] = [];
+            let mainReportsData: any[] = [];
+            const memberNameMap: MemberNameMap = {};
+
+            // 🟢 تنظیمات فونت: باید قبل از هر عملیات رسم (مانند autoTable) انجام شود
+            const doc = new jsPDF('landscape', 'pt', 'a4');
+            (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+            (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+            doc.setFont("NotoSans", "normal");
+
+            // 1. Fetch ALL Confirmation Data (for matching)
+            const confirmedResult = await axios.get(
+                server.baseurl + server.report + "get-all-confirmation-project-reports",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            confirmationReports = confirmedResult.data.data || [];
+
+            // 2. Fetch ALL Commitee Members (Global Map)
+            const membersResult = await axios.get(
+                server.baseurl + server.report + "get-all-commitee-members",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            (membersResult.data.data || []).forEach((m: any) => {
+                memberNameMap[String(m.id)] = { name: m.name, family: m.family, position: m.position };
+            });
+
+            // 3. Fetch Main Report Data (Source for 'all')
+            const mainReportsResult = await axios.get(
+                server.baseurl + server.report + "get-latest-project-reports",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            mainReportsData = mainReportsResult.data.data || [];
+
+            // --- Prepare Final Merged Data ('all' type logic) ---
+            let finalData: any[] = mainReportsData.map((mainReport: any) => {
+                const confirmationMatch = confirmationReports.find((confReport: any) =>
+                    // Match logic using flexible comparison
+                    isFlexibleMatch(confReport.year, mainReport.year) &&
+                    isFlexibleMatch(confReport.city, mainReport.city) &&
+                    isFlexibleMatch(confReport.town, mainReport.town) &&
+                    isFlexibleMatch(confReport.region, mainReport.region) &&
+                    isFlexibleMatch(confReport.tesisType, mainReport.tesistype) &&
+                    isFlexibleMatch(confReport.trAdi, mainReport.tradi) &&
+                    isFlexibleMatch(confReport.projectCount, mainReport.projectcount)
+                );
+                return {
+                    ...mainReport,
+                    isConfirmed: !!confirmationMatch,
+                    confirmationDetails: confirmationMatch || null
+                };
+            });
+
+            if (!finalData || finalData.length === 0) {
+                showAlert('PDF oluşturulacak veri bulunamadı.', 'warning');
+                setDownloadLoading(false);
+                return;
             }
-            dataToRender = memberAnswers;
-            colSpan = 5;
+
+            // 4. Calculate Max Member Counts (Dynamic Column Sizing)
+            let maxGeciciMemberCount = 0;
+            let maxKesinMemberCount = 0;
+
+            finalData.forEach((report) => {
+                const details = report.confirmationDetails;
+                if (details && details.confirmationReportCommiteMembers) {
+                    const members: any[] = details.confirmationReportCommiteMembers;
+                    const geciciMembers = members.filter((m: any) => m.memberStatus === false);
+                    const kesinMembers = members.filter((m: any) => m.memberStatus === true);
+                    if (geciciMembers.length > maxGeciciMemberCount) maxGeciciMemberCount = geciciMembers.length;
+                    if (kesinMembers.length > maxKesinMemberCount) maxKesinMemberCount = kesinMembers.length;
+                }
+            });
+
+            // 5. Utility Function for Dynamic Member Data Fetching (Copied from Excel Logic)
+            const getMemberAndAnswerDetails = async (memberRegistrationRecord: any) => {
+                let memberName = `ID: ${memberRegistrationRecord.id} (Bilinmiyor)`;
+                let answerText = 'Cevaplanmadı';
+                let commiteMemberId: string | undefined;
+
+                try {
+                    const memberDetailResult = await axios.get(
+                        server.baseurl + server.report + `get-confirmation-report-commite-member-by-id/${memberRegistrationRecord.id}`,
+                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                    );
+                    commiteMemberId = memberDetailResult.data.data?.commiteMember?.id;
+                } catch (error) { /* Ignore error */ }
+
+                if (commiteMemberId) {
+                    const memberDetails = memberNameMap[String(commiteMemberId)];
+                    if (memberDetails) {
+                        memberName = `${memberDetails.name} ${memberDetails.family} (${getPositionText(memberDetails.position)})`;
+                    }
+                }
+                const latestAnswer = memberRegistrationRecord.confirmationReportCommiteMemberAnswers?.[0];
+                if (latestAnswer) {
+                    answerText = getCommiteAnswerText(Number(latestAnswer.answer));
+                }
+                return { memberName, answerText };
+            };
+
+            // --- 6. Setup Dynamic Headers ---
+            let tableHeaders = [
+                'Yıl', 'Şehir', 'İlçe', 'Bölge', 'Tesis Türü', 'Tradi', 'Proje Sayısı',
+            ];
+
+            // Geçici Tutanak Headers
+            tableHeaders.push('Geçici Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Üye ${i}`); }
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Cevap ${i}`); }
+
+            // Kesin Tutanak Headers
+            tableHeaders.push('Kesin Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Üye ${i}`); }
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Cevap ${i}`); }
+
+            // --- 7. Populate Data Rows (Processing Promises) ---
+            const rowPromises = finalData.map(async (report) => {
+                const confirmedDetails = report.confirmationDetails;
+                const isConfirmed = !!confirmedDetails;
+
+                let rowData: (string | number | null)[] = [
+                    report.year, report.city, report.town || '-', report.region || '-',
+                    getTesisTypeText(report.tesisType || report.tesistype), report.trAdi || report.tradi || '-',
+                    report.projectCount || report.projectcount,
+                ];
+
+                const allMembers: any[] = confirmedDetails?.confirmationReportCommiteMembers || [];
+                const geciciMembers = allMembers.filter((m: any) => m.memberStatus === false);
+                const kesinMembers = allMembers.filter((m: any) => m.memberStatus === true);
+
+                // Fetch Geçici Details
+                const geciciDetailsPromises = geciciMembers.map(getMemberAndAnswerDetails);
+                const geciciDetails = await Promise.all(geciciDetailsPromises);
+                const geciciMemberNames = geciciDetails.map(d => d.memberName);
+                const geciciAnswers = geciciDetails.map(d => d.answerText);
+
+                // A. Geçici Tutanak Teslim Durumu
+                const geciciDurum = isConfirmed && confirmedDetails.Gecici_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+                rowData.push(geciciDurum);
+
+                // B & C. Dynamic Geçici Members & Answers (Padded)
+                rowData.push(...geciciMemberNames);
+                for (let i = 0; i < maxGeciciMemberCount - geciciMemberNames.length; i++) { rowData.push(''); }
+                rowData.push(...geciciAnswers);
+                for (let i = 0; i < maxGeciciMemberCount - geciciAnswers.length; i++) { rowData.push(''); }
+
+                // D. Kesin Tutanak Teslim Durumu
+                const kesinDurum = isConfirmed && confirmedDetails.Kesin_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+                rowData.push(kesinDurum);
+
+                // E & F. Dynamic Kesin Members & Answers (Padded)
+                const kesinDetailsPromises = kesinMembers.map(getMemberAndAnswerDetails);
+                const kesinDetails = await Promise.all(kesinDetailsPromises);
+                const kesinMemberNames = kesinDetails.map(d => d.memberName);
+                const kesinAnswers = kesinDetails.map(d => d.answerText);
+
+                rowData.push(...kesinMemberNames);
+                for (let i = 0; i < maxKesinMemberCount - kesinMemberNames.length; i++) { rowData.push(''); }
+                rowData.push(...kesinAnswers);
+                for (let i = 0; i < maxKesinMemberCount - kesinAnswers.length; i++) { rowData.push(''); }
+
+                return rowData;
+            });
+
+            // 🛑 Execute all row processing concurrently
+            const allRowData = await Promise.all(rowPromises);
+
+            // --- 8. Create PDF Table ---
+            const topMargin = 70;
+            const sideMargin = 20;
+            const bottomMargin = 50;
+
+            autoTable(doc, {
+                startY: topMargin,
+                head: [tableHeaders],
+                body: allRowData,
+                theme: 'grid',
+                styles: {
+                    font: 'NotoSans',
+                    fontStyle: "normal",
+                    fontSize: 6,
+                    cellPadding: 3,
+                    overflow: 'linebreak'
+                },
+                headStyles: { fillColor: [149, 147, 125], textColor: [0, 0, 0] },
+                margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+
+                didDrawPage: (_data: any) => {
+                    // 🟢 فراخوانی هدر و فوتر جدید
+                    addPdfHeader(doc, "Tüm Proje Raporları Özet Rapor");
+                    addPdfFooter(doc);
+                },
+                showHead: 'everyPage',
+            });
+
+            doc.save(`Tüm_Proje_Raporları_Ozet_${format(new Date(), 'yyyyMMdd')}.pdf`);
+            showAlert('PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
+
+        } catch (e: any) {
+            handleApiError(e);
+        } finally {
+            setDownloadLoading(false);
         }
+    };
+    // --- Table Headers Configuration ---
+    const headers = [
+        { label: 'Yıl', key: 'year' }, { label: 'Şehir', key: 'city' }, { label: 'İlçe', key: 'town' },
+        { label: 'Bölge', key: 'region' }, { label: 'Tesis Türü', key: 'tesistype' }, { label: 'Tradi', key: 'tradi' },
+        { label: 'Proje', key: 'projectcount' },
+        { label: 'Komite Üyeleri', key: 'memberCount' },
+        { label: 'Üye Cevabı', key: 'memberAnswer' },
+        { label: 'İşlemler', key: 'actions' },
+    ];
 
-        if (dataToRender.length === 0) {
-            return <TableRow><TableCell colSpan={colSpan} align="center">Veri bulunamadı.</TableCell></TableRow>
-        }
-
-        // --- Faz 1 Rendering (Latest) ---
-        if (selectedPhase === 'latest') {
-            return dataToRender.map((row: LatestProjectReport) => (
-                <TableRow key={`${row.trAdi}-${row.city}-${row.year}`}>
-                    <TableCell>{row.year}</TableCell>
-                    <TableCell>{`${row.city} / ${row.region}`}</TableCell>
-                    <TableCell>{ProjectStatus.Text(row.tesisType)}</TableCell>
-                    <TableCell>{String(row.projectCount)}</TableCell>
-
-                    <TableCell>
-                        <Chip label="Ham Veri" color='info' size="small" />
-                    </TableCell>
-                    <TableCell>
-                        <Chip label="Atama Gerekmez" color='default' size="small" />
-                    </TableCell>
-
-                    <TableCell>
-
-                    </TableCell>
-                </TableRow>
-            ));
-        }
-        // --- Faz 2 Rendering (Confirmation) ---
-        else if (selectedPhase === 'confirmation') {
-            return dataToRender.map((row: ConfirmationReport) => (
-                <TableRow key={String(row.id)}>
-                    <TableCell>{row.year}</TableCell>
-                    <TableCell>{`${row.city} / ${row.region}`}</TableCell>
-                    <TableCell>{ProjectStatus.Text(row.tesisType)}</TableCell>
-                    <TableCell>{String(row.projectCount)}</TableCell>
-
-                    <TableCell>
-                        <Chip
-                            label={ProjectStatus.getDeliveryStatus(row.Gecici_tutanak_teslim_alma_durumu, row.Kesin_tutanak_teslim_alma_durumu).label}
-                            color={ProjectStatus.getDeliveryStatus(row.Gecici_tutanak_teslim_alma_durumu, row.Kesin_tutanak_teslim_alma_durumu).color as any}
-                            size="small"
-                        />
-                    </TableCell>
-                    <TableCell>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Komite üyelerini ata veya cevaplarını gör" : ""}>
-                            <Button
-                                variant="outlined"
-                                size="small"
-                                onClick={() => handleAssignMemberClick(row)}
-                                startIcon={<IconUsers size={18} />}
-                            >
-                                Üyeler ({row.confirmationReportCommiteMembers?.length || 0})
-                            </Button>
-                        </CustomTooltip>
-                    </TableCell>
-
-                    <TableCell>
-                        <Stack direction="row" spacing={1}>
-                            {hasPermission('Düzenlemek') && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Rapor bilgilerini düzenle" : ""}>
-                                    <IconButton onClick={() => handleEditPhase1(row)}>
-                                        <IconEdit size={18} />
-                                    </IconButton>
-                                </CustomTooltip>
-                            )}
-                            {hasPermission('Silmek') && (
-                                <CustomTooltip title={isTooltipGloballyEnabled ? "Raporu sil" : ""}>
-                                    <IconButton onClick={() => handleDeletePhase1(row.id!)} color="error">
-                                        <IconTrash size={18} />
-                                    </IconButton>
-                                </CustomTooltip>
-                            )}
-                        </Stack>
-                    </TableCell>
-                </TableRow>
-            ));
-        }
-        // --- Faz 3 Rendering (Member Links) ---
-        else if (selectedPhase === 'member_link') {
-            return dataToRender.map((row: ConfirmationReportCommiteMember) => (
-                <TableRow key={row.id}>
-                    <TableCell>{row.commiteMember?.name} {row.commiteMember?.family}</TableCell>
-                    <TableCell>{ProjectStatus.Text(row.commiteMember?.position)}</TableCell>
-                    <TableCell>{new Date(row.createAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                        <Chip
-                            label={ProjectStatus.getAnswerStatus(row.confirmationReportCommiteMemberAnswers?.[0]?.answer).label}
-                            color={ProjectStatus.getAnswerStatus(row.confirmationReportCommiteMemberAnswers?.[0]?.answer).color as any}
-                            size="small"
-                        />
-                    </TableCell>
-                    <TableCell>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Üye atamasını kaldır" : ""}>
-                            <IconButton color="error" size="small" onClick={() => handleDeleteMemberLink(row.id!)}>
-                                <IconTrash size={18} />
-                            </IconButton>
-                        </CustomTooltip>
-                    </TableCell>
-                </TableRow>
-            ));
-        }
-        // --- Faz 4 Rendering (Member Answers) ---
-        else if (selectedPhase === 'member_answer') {
-            return dataToRender.map((row: CommiteMemberAnswer) => (
-                <TableRow key={row.id}>
-                    <TableCell>{row.id}</TableCell>
-                    <TableCell>
-                        <Chip
-                            label={ProjectStatus.getAnswerStatus(row.answer).label}
-                            color={ProjectStatus.getAnswerStatus(row.answer).color as any}
-                            size="small"
-                        />
-                    </TableCell>
-                    <TableCell>{new Date(row.createAt).toLocaleDateString()}</TableCell>
-                    <TableCell>
-                        <CustomTooltip title={isTooltipGloballyEnabled ? "Cevabı Sil" : ""}>
-                            <IconButton color="error" size="small" onClick={() => { setReportIdToDelete(row.id); setPhaseToDelete('member_answer'); setOpenDeleteModal(true); }}>
-                                <IconTrash size={18} />
-                            </IconButton>
-                        </CustomTooltip>
-                    </TableCell>
-                </TableRow>
-            ));
-        }
-        return null;
-    }
-
-    const cardData = useMemo(() => {
-        const confirmationCount = confirmationReports.length;
-        const linkedMembersCount = confirmationReports.reduce((sum, report) => sum + (report.confirmationReportCommiteMembers?.length || 0), 0);
-
-        return [
-            {
-                title: 'Proje Listesi (Faz 1)',
-                count: latestReports.length,
-                icon: <IconFileReport size={25} color="#1e88e5" />,
-                phase: 'latest' as ReportPhase,
-                description: 'API’den gelen ilk rapor verileri.'
-            },
-            {
-                title: 'Onay Raporları (Faz 2)',
-                count: confirmationCount,
-                icon: <IconUsers size={25} color="#fb8c00" />,
-                phase: 'confirmation' as ReportPhase,
-                description: 'Üye atanması gereken onay projeleri.'
-            },
-            {
-                title: 'Üye Atamaları (Faz 3)',
-                count: linkedMembersCount,
-                icon: <IconBinaryTree size={25} color="#00bcd4" />,
-                phase: 'member_link' as ReportPhase,
-                description: 'Tüm onay projelerindeki atanmış üye bağlantıları.'
-            },
-            {
-                title: 'Üye Cevapları (Faz 4)',
-                count: memberAnswers.length,
-                icon: <IconCheck size={25} color="#43a047" />,
-                phase: 'member_answer' as ReportPhase,
-                description: 'Seçili bağlantı için kayıtlı cevapların toplamı.'
-            },
-        ];
-    }, [latestReports, confirmationReports, memberAnswers]);
-
+    // --- JSX Render ---
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h4" gutterBottom mb={2}>Proje Raporu Kontrol Paneli</Typography>
-            {alertMessage && (
-                <Alert
-                    severity={alertSeverity}
-                    onClose={() => setAlertMessage(null)}
-                    sx={{ mb: 3 }}
+        <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={4}>
+                <Typography variant="h4">Proje Raporları Özeti</Typography>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setOpenDownloadModal(true)}
+                    startIcon={<IconFileDownload />}
                 >
-                    {alertMessage}
-                </Alert>
-            )}
+                    Rapor İndir
+                </Button>
+            </Stack>
 
-            {/* --- Card Data (Faz Seçimi) --- */}
-            <Grid container spacing={3} mb={4}>
-                {cardData.map((card) => (
-                    <Grid item xs={12} sm={6} md={3} key={card.phase}>
-                        <Card
-                            onClick={() => setSelectedPhase(card.phase)}
-                            sx={{
-                                cursor: 'pointer',
-                                border: card.phase === selectedPhase ? '2px solid #1e88e5' : '1px solid #ccc',
-                                transition: '0.3s',
-                                '&:hover': { boxShadow: 3 },
-                                backgroundColor: card.phase === selectedPhase ? '#e3f2fd' : 'white',
-                            }}
-                        >
-                            <CardContent>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                    <Box>
-                                        <Typography variant="h5">{card.title}</Typography>
-                                        <Typography variant="h3" color="primary">{card.count}</Typography>
-                                    </Box>
-                                    {card.icon}
-                                </Stack>
-                                <Typography variant="caption" color="textSecondary" mt={1}>{card.description}</Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                ))}
-            </Grid>
+            {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            <hr />
+            <BlankCard>
+                <TableContainer sx={{ overflowX: 'auto' }}>
+                    <Table aria-label="project report table">
+                        <TableHead style={{ background: "rgb(149 147 125 / 65%)" }}>
+                            <TableRow>{headers.map((header) => (<StyledTableCell key={header.key}><Typography variant="h6" fontWeight="bold">{header.label}</Typography></StyledTableCell>))}</TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {loadingData ? (
+                                <TableRow><StyledTableCell colSpan={headers.length} align="center"><CircularProgress sx={{ mb: 2 }} />
+                                    <Typography variant="subtitle1" color="textSecondary">Rapor verileri yükleniyor...</Typography>
+                                </StyledTableCell></TableRow>
+                            ) : reportData.length > 0 ? (
+                                reportData.map((row, index) => {
+                                    const isRowLoading = selectedReportToConfirm && selectedReportToConfirm.year === row.year && selectedReportToConfirm.city === row.city && confirmationLoading;
 
-            {/* --- Aksiyon Butonları، Arama ve Dropdownlar (Faz 3 & 4 için) --- */}
-            <Card sx={{ mb: 3 }}>
-                <CardContent>
-                    <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2} flexWrap="wrap">
+                                    return (
+                                        <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                            <StyledTableCell><Typography variant="body1">{row.year}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.city}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.town || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.region || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1" fontWeight="bold">{getTesisTypeText(row.tesistype)}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.tradi || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1" color="primary" fontWeight="bold">{row.projectcount}</Typography></StyledTableCell>
 
-                        {/* Arama */}
-                        <TextField
-                            label="Arama (Şehir/Bölge/TR Adı)"
-                            variant="outlined"
-                            size="small"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            InputProps={{
-                                startAdornment: <InputAdornment position="start"><IconSearch size={20} /></InputAdornment>,
-                            }}
-                            sx={{ flexGrow: 1, minWidth: '200px' }}
-                            disabled={selectedPhase !== 'latest' && selectedPhase !== 'confirmation'}
-                        />
+                                            {/* Komite Üyeleri Column */}
+                                            <StyledTableCell>
+                                                {row.isConfirmed && row.confirmationId ? (
+                                                    <Button variant="outlined" color="primary" size="small"
+                                                        onClick={() => handleOpenMembersModal(row.confirmationId!)}
+                                                        startIcon={<IconUsers size={20} />}>
+                                                        {row.memberCount}
+                                                    </Button>
+                                                ) : <Button variant="outlined" disabled size="small">0 </Button>}
+                                            </StyledTableCell>
 
-                        {/* Dropdown فاز 2/3: انتخاب گزارش تأییدیه (فقط در فاز 3 و 4) */}
-                        {(selectedPhase === 'member_link' || selectedPhase === 'member_answer') && (
-                            <FormControl size="small" sx={{ minWidth: 250 }}>
-                                <InputLabel>Faz 2 Projesi Seç (Üye Ataması Olanlar)</InputLabel>
-                                <Select
-                                    value={selectedConfirmationReportId}
-                                    label="Faz 2 Projesi Seç (Üye Ataması Olanlar)"
-                                    onChange={(e) => {
-                                        setSelectedConfirmationReportId(e.target.value as string);
-                                        setSelectedMemberLinkId(''); // ریست کردن Dropdown دوم
-                                    }}
-                                >
-                                    <MenuItem value={''}>--- Proje Seçin ---</MenuItem>
-                                    {confirmationReports.filter(r => r.confirmationReportCommiteMembers?.length).map(report => (
-                                        report.id && <MenuItem key={report.id} value={report.id}>
-                                            {report.city} / {report.region} ({report.year})
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        )}
+                                            {/* Member Answer Column */}
+                                            <StyledTableCell>
+                                                {row.isConfirmed && row.confirmationId && row.memberCount > 0 ? (
+                                                    <Button
+                                                        variant="contained"
+                                                        color={row.answeredMemberCount === row.memberCount ? "success" : "secondary"}
+                                                        size="small"
+                                                        onClick={() => handleOpenAnswerModal(row.confirmationId!)}
+                                                        startIcon={<IconFileText size={20} />}
+                                                    >
+                                                        {row.answeredMemberCount}/{row.memberCount}
+                                                    </Button>
+                                                ) : (
+                                                    <Tooltip title="Komite üyesi eklenmedi">
+                                                        <Button variant="contained" disabled size="small">Cevap Ver</Button>
+                                                    </Tooltip>
+                                                )}
+                                            </StyledTableCell>
 
-                        {/* Dropdown فاز 3/4: انتخاب لینک عضو (فقط در فاز 4) */}
-                        {selectedPhase === 'member_answer' && (
-                            <FormControl size="small" sx={{ minWidth: 250 }}>
-                                <InputLabel>Faz 3 Üye Bağlantısı Seç</InputLabel>
-                                <Select
-                                    value={selectedMemberLinkId}
-                                    label="Faz 3 Üye Bağlantısı Seç"
-                                    onChange={(e) => setSelectedMemberLinkId(e.target.value as string)}
-                                    // Dropdown فاز 3 فقط زمانی فعال است که فاز 2 انتخاب شده باشد
-                                    disabled={!selectedConfirmationReportId}
-                                >
-                                    <MenuItem value={''}>--- Bağlantı Seçin ---</MenuItem>
-                                    {memberLinks.map(link => ( // 💡 memberLinks اکنون از useEffect دوم پر شده است
-                                        link.id && <MenuItem key={link.id} value={link.id}>
-                                            {
-                                                confirmationReports.find(r => r.id === selectedConfirmationReportId)
-                                                    ?.confirmationReportCommiteMembers
-                                                    ?.find(m => m.id === link.id)?.commiteMember
-                                                    ? `${link.commiteMember?.name} ${link.commiteMember?.family}`
-                                                    : 'Üye Bilgisi Eksik'
-                                            }
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        )}
+                                            {/* Actions Column (Onayla / Düzenle Tutanak) - REVISED */}
+                                            <StyledTableCell>
+                                                {row.isConfirmed ? (
+                                                    <Stack direction="row" spacing={1} alignItems="center">
 
 
-                        {/* دکمه "Yeni Onay Raporu Ekle" (فقط در فاز 2) */}
-                        {selectedPhase === 'confirmation' && hasPermission('Eklemek') && (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                startIcon={<IconPlus size={20} />}
-                                onClick={() => {
-                                    setEditingReportPhase1(null);
-                                    setOpenModalPhase1(true);
-                                }}
-                                disabled={loading}
-                            >
-                                Yeni Onay Raporu Ekle
-                            </Button>
-                        )}
-                    </Stack>
-                </CardContent>
-            </Card>
+                                                        {/* View Details Button */}
+                                                        <Tooltip title="Proje Detaylarını Görüntüle">
+                                                            <Button variant="contained" color="info" size="small"
+                                                                onClick={() => handleOpenModal(row)}
+                                                                disabled={isRowLoading || false}
+                                                            >
+                                                                <IconEdit size={20} />
+                                                            </Button>
+                                                        </Tooltip>
+                                                    </Stack>
 
-            <hr />
+                                                ) : (
+                                                    <Tooltip title="Raporu Onayla">
+                                                        <Button variant="contained" color="success" size="small"
+                                                            onClick={() => handleConfirmReport(row)}
+                                                            disabled={isRowLoading || false}
+                                                            startIcon={isRowLoading ? <CircularProgress size={20} color="inherit" /> : <IconCheck size={20} />}
+                                                        >
 
-            {/* --- Rapor Tablosu --- */}
-            <Card>
-                <Box sx={{ p: 2 }}>
-                    <Typography variant="h6" mb={2}>
-                        {cardData.find(c => c.phase === selectedPhase)?.title || 'Rapor Listesi'}
-                    </Typography>
-                    <TableContainer>
-                        <Table>
-                            {renderTableHead()}
-                            <TableBody>
-                                {renderTableContent()}
-                            </TableBody>
-                        </Table>
-
-                        {/* Pagination فقط برای فاز 1 و 2 فعال است */}
-                        {(selectedPhase === 'latest' || selectedPhase === 'confirmation') && (
-                            <TablePagination
-                                rowsPerPageOptions={[5, 10, 25]}
-                                component="div"
-                                count={selectedPhase === 'latest' ? filteredLatestReports.length : filteredConfirmationReports.length}
-                                rowsPerPage={rowsPerPage}
-                                page={page}
-                                onPageChange={(_e, newPage) => setPage(newPage)}
-                                onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                                labelRowsPerPage="Sayfa başına satır:"
-                            />
-                        )}
-                    </TableContainer>
-                </Box>
-            </Card>
-
-            {/* --- Modallar --- */}
-
-            {/* Faz 1/2 Modal: Onay Raporu Kaydet/Düzenle */}
-            <Dialog open={openModalPhase1} onClose={() => { setOpenModalPhase1(false); setEditingReportPhase1(null) }} fullWidth maxWidth="sm">
-                <DialogTitle>{editingReportPhase1 ? 'Onay Raporu Düzenle' : 'Yeni Onay Raporu Kaydı'}</DialogTitle>
-                <DialogContent>
-                    <ReportFormPhase1
-                        initialData={editingReportPhase1 || {} as ConfirmationReport}
-                        onSave={handleSavePhase1}
-                        onCancel={() => { setOpenModalPhase1(false); setEditingReportPhase1(null); }}
-                        isLoading={loading}
-                    />
-                </DialogContent>
-            </Dialog>
-
-            {/* Faz 2/3/4 Modal: Komite Üyesi Yönetimi ve Cevapları */}
-            <Dialog open={openModalPhase2} onClose={() => { setOpenModalPhase2(false); setSelectedProjectPhase2(null); setMembersListForProject([]) }} fullWidth maxWidth="md">
-                <DialogTitle>
-                    {selectedProjectPhase2?.city} - {selectedProjectPhase2?.region} Projesi Üye Yönetimi (Faz 3 & 4)
-                </DialogTitle>
-                <DialogContent dividers>
-                    <Stack direction="column" spacing={3}>
-
-                        {/* Faz 3: Komite Üyesi Ekle (انتصاب عضو) */}
-                        <Box sx={{ border: '1px solid #eee', p: 2 }}>
-                            <Typography variant="h6" mb={2}><IconUserPlus size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }} /> Yeni Komite Üyesi Ata (Faz 3 Giriş)</Typography>
-                            <Stack direction="row" spacing={2} alignItems="center">
-                                <FormControl fullWidth size="small">
-                                    <InputLabel>Komite Üyesi Seç</InputLabel>
-                                    <Select
-                                        value={selectedMemberId}
-                                        label="Komite Üyesi Seç"
-                                        onChange={(e) => setSelectedMemberId(Number(e.target.value))}
-                                    >
-                                        <MenuItem value={''}>Üye Seçin</MenuItem>
-                                        {allCommiteeMembers.map((member) => (
-                                            <MenuItem key={member.id} value={member.id}>
-                                                {member.name} {member.family} ({ProjectStatus.Text(member.position)})
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
-                                <Button onClick={handleSavePhase2} color="primary" variant="contained" disabled={!selectedMemberId || loading}>
-                                    {loading ? <CircularProgress size={20} /> : 'Ata'}
-                                </Button>
-                            </Stack>
-                        </Box>
-
-                        {/* Faz 3/4: Atanan Üyeler و Cevapları (نمایش لینک‌ها و امکان ثبت پاسخ) */}
-                        <Box sx={{ border: '1px solid #eee', p: 2 }}>
-                            <Typography variant="h6" mb={2}><IconBinaryTree size={20} style={{ verticalAlign: 'middle', marginRight: '8px' }} /> Atanan Üyeler ve Cevapları (Faz 3 Listesi & Faz 4 Cevaplama)</Typography>
-                            <TableContainer>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow sx={{ background: "#f5f5f5" }}>
-                                            <TableCell>Üye Adı Soyadı</TableCell>
-                                            <TableCell>Cevap Durumu</TableCell>
-                                            <TableCell>Cevap/İşlem</TableCell>
+                                                        </Button>
+                                                    </Tooltip>
+                                                )}
+                                            </StyledTableCell>
                                         </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {membersListForProject.length === 0 ? (
-                                            <TableRow><TableCell colSpan={3}>Bu rapora atanmış üye bulunmamaktadır.</TableCell></TableRow>
-                                        ) : (
-                                            membersListForProject.map(memberLink => (
-                                                <TableRow key={memberLink.id}>
-                                                    <TableCell>{memberLink.memberFullName}</TableCell>
-                                                    <TableCell>
-                                                        <Chip
-                                                            label={ProjectStatus.getAnswerStatus(memberLink.answer).label}
-                                                            color={ProjectStatus.getAnswerStatus(memberLink.answer).color as any}
-                                                            size="small"
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Stack direction="row" spacing={1}>
-                                                            {/* ثبت پاسخ (Faz 4) */}
-                                                            <Button
-                                                                variant="contained"
-                                                                color="success"
-                                                                size="small"
-                                                                onClick={() => handleSavePhase3(memberLink.id, 1)}
-                                                                disabled={memberLink.answer === "1" || loading}
-                                                            >
-                                                                Evet (1)
-                                                            </Button>
-                                                            <Button
-                                                                variant="contained"
-                                                                color="error"
-                                                                size="small"
-                                                                onClick={() => handleSavePhase3(memberLink.id, 0)}
-                                                                disabled={memberLink.answer === "0" || loading}
-                                                            >
-                                                                Hayır (0)
-                                                            </Button>
-                                                            {/* حذف لینک (Faz 3 Delete) */}
-                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Üye atamasını kaldır" : ""}>
-                                                                <IconButton color="error" size="small" onClick={() => handleDeleteMemberLink(memberLink.id)}>
-                                                                    <IconTrash size={16} />
-                                                                </IconButton>
-                                                            </CustomTooltip>
+                                    );
+                                })
+                            ) : (
+                                <TableRow><StyledTableCell colSpan={headers.length} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç rapor verisi bulunamadı.</Typography></StyledTableCell></TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
+            </BlankCard>
 
-                                                        </Stack>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </Box>
+            {/* Modal 1: Confirmation/Edit Modal (Simplified to view details) */}
+            <ConfirmationModal open={openConfirmationModal} onClose={handleCloseModal} report={selectedReportToConfirm} onConfirm={() => Promise.resolve()} loading={confirmationLoading} />
+
+            {/* Modal 2: Commitee Members Modal (Added memberStatus) */}
+            <CommiteeMembersModal open={openMembersModal} onClose={handleCloseMembersModal} confirmationId={selectedConfirmationId} refreshData={fetchLatestProjectReports} showAlert={showAlert} />
+
+            {/* Modal 3: Member Answer Modal (Shows Tutanak Type) */}
+            <MemberAnswerModal open={openAnswerModal} onClose={handleCloseAnswerModal} confirmationId={selectedAnswerConfirmationId} refreshData={fetchLatestProjectReports} showAlert={showAlert} />
+
+            {/* Download Modal (Unchanged) */}
+            <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)} fullWidth maxWidth="xs">
+                <DialogTitle>Hangi Excel Raporu İndirilsin?</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2}>
+                        {/* ✅ دکمه دانلود PDF جزئیات (Onaylanan Raporlar Detaylı) */}
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleExportPdfDetailConsolidated} // 👈 فراخوانی تابع جدید PDF
+                            disabled={downloadLoading}
+                        >
+                            Onaylanan Raporlar (PDF Detaylı)
+                        </Button>
+
+                        {/* دکمه دانلود PDF خلاصه (که در درخواست قبلی ساختیم) */}
+                        <Button
+                            variant="contained"
+                            color="info"
+                            startIcon={<IconFileDownload />}
+                            onClick={handleExportPdfTable}
+                            disabled={downloadLoading}
+                        >
+                            Tüm Proje Raporları (PDF Özet)
+                        </Button>
+
+                        {/* دکمه‌های Excel اصلی (حفظ شده‌اند اما ممکن است با درخواست شما متفاوت باشند) */}
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleExportExcelDynamic('confirmed')}
+                            disabled={downloadLoading}
+                        >
+                            Onaylanan Raporlar (Excel Detaylı)
+                        </Button>
+
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileDownload />}
+                            onClick={() => handleExportExcelDynamic('all')}
+                            disabled={downloadLoading}
+                        >
+                            Tüm Proje Raporları (Excel Özet)
+                        </Button>
+
                     </Stack>
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => { setOpenModalPhase2(false); setSelectedProjectPhase2(null); setMembersListForProject([]) }} color="secondary">Kapat</Button>
+                    <Button onClick={() => setOpenDownloadModal(false)} color="secondary" disabled={downloadLoading}>
+                        İptal
+                    </Button>
                 </DialogActions>
             </Dialog>
-
-            {/* Silme Modalı (برای Faz 2, Faz 3, Faz 4 Delete) */}
-            <DeleteCommiteeMembersReport
-                openModal={openDeleteModal}
-                onClose={() => setOpenDeleteModal(false)}
-                reportIdToDelete={reportIdToDelete}
-                phase={phaseToDelete as any}
-                onDeleteSuccess={fetchReports}
-                showAlert={showAlert}
-            />
-
         </Box>
     );
 };
 
 export default ListCommiteeMembersReport;
-
-
-// ----------------------------------------------------
-// --- 3. Yardımcı Bileşen: Faz 1 Formu (MOCK UP) ---
-// ----------------------------------------------------
-
-interface ReportFormPhase1Props {
-    initialData: Partial<ConfirmationReport>;
-    onSave: (data: any, isEdit: boolean) => void;
-    onCancel: () => void;
-    isLoading: boolean;
-}
-
-const ReportFormPhase1: React.FC<ReportFormPhase1Props> = ({ initialData, onSave, onCancel, isLoading }) => {
-    const [year, setYear] = useState(initialData?.year || new Date().getFullYear());
-    const [city, setCity] = useState(initialData?.city || '');
-    const [region, setRegion] = useState(initialData?.region || '');
-    const [town, setTown] = useState(initialData?.town || '');
-    const [trAdi, setTrAdi] = useState(initialData?.trAdi || '');
-    const [projectCount, setProjectCount] = useState(initialData?.projectCount || 1);
-    const [isGecici, setIsGecici] = useState(initialData?.Gecici_tutanak_teslim_alma_durumu || false);
-    const [isKesin, setIsKesin] = useState(initialData?.Kesin_tutanak_teslim_alma_durumu || false);
-
-    const handleSubmit = () => {
-        if (!city || !region || !year) {
-            alert('Lütfen zorunlu alanları (Şehir, Bölge, Yıl) doldurun.');
-            return;
-        }
-
-        const dataToSend = {
-            id: initialData.id,
-            year: Number(year),
-            city: city,
-            town: town,
-            region: region,
-            tesisType: initialData?.tesisType || 0,
-            trAdi: trAdi,
-            projectCount: Number(projectCount),
-            Gecici_tutanak_teslim_alma_durumu: isGecici,
-            Kesin_tutanak_teslim_alma_durumu: isKesin,
-        };
-
-        onSave(dataToSend, !!initialData.id);
-    };
-
-    return (
-        <Stack spacing={2} mt={1}>
-            <Grid container spacing={2}>
-                <Grid item xs={6}>
-                    <TextField label="Yıl" fullWidth size="small" type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} required />
-                </Grid>
-                <Grid item xs={6}>
-                    <TextField label="Proje Sayısı" fullWidth size="small" type="number" value={projectCount} onChange={(e) => setProjectCount(Number(e.target.value))} />
-                </Grid>
-                <Grid item xs={6}>
-                    <TextField label="Şehir (Gerekli)" fullWidth size="small" value={city} onChange={(e) => setCity(e.target.value)} required />
-                </Grid>
-                <Grid item xs={6}>
-                    <TextField label="Bölge (Gerekli)" fullWidth size="small" value={region} onChange={(e) => setRegion(e.target.value)} required />
-                </Grid>
-                <Grid item xs={6}>
-                    <TextField label="İlçe (Town)" fullWidth size="small" value={town} onChange={(e) => setTown(e.target.value)} />
-                </Grid>
-                <Grid item xs={6}>
-                    <TextField label="TR Adı" fullWidth size="small" value={trAdi} onChange={(e) => setTrAdi(e.target.value)} />
-                </Grid>
-                <Grid item xs={6}>
-                    <FormControlLabel control={<Checkbox checked={isGecici} onChange={(e) => setIsGecici(e.target.checked)} color="primary" />} label="Geçici Tutanak Teslim Alındı" />
-                </Grid>
-                <Grid item xs={6}>
-                    <FormControlLabel control={<Checkbox checked={isKesin} onChange={(e) => setIsKesin(e.target.checked)} color="primary" />} label="Kesin Tutanak Teslim Alındı" />
-                </Grid>
-            </Grid>
-
-            <Stack direction="row" spacing={2} justifyContent="flex-end" pt={2}>
-                <Button onClick={onCancel} color="secondary" disabled={isLoading}>İptal</Button>
-                <Button onClick={handleSubmit} variant="contained" color="primary" disabled={isLoading}>
-                    {isLoading ? <CircularProgress size={20} color="inherit" sx={{ mr: 1 }} /> : (initialData.id ? 'Güncelle' : 'Kaydet')}
-                </Button>
-            </Stack>
-        </Stack>
-    );
-};

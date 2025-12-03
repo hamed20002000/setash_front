@@ -357,11 +357,20 @@ const Notifications = () => {
 
   const fetchStores = useCallback(async () => {
     setSelectLoading(true);
+    const authToken = localStorage.getItem('authToken');
+    const role = localStorage.getItem('activeUserRoleName') || '';
+    if (!authToken) {
+      navigate("/");
+      return;
+    }
+    let requestParams = {};
+    if (role.toLowerCase() !== 'admin') {
+      requestParams = { rolename: role };
+    }
     try {
-      const authToken = localStorage.getItem('authToken');
-      if (!authToken) return;
       const res = await axios.get(server.baseurl + server.initialoperations + 'get-stores', {
         headers: { Authorization: `Bearer ${authToken}` },
+        params: requestParams
       });
       if (res.data?.httpStatusCode === 200) setStores(res.data.data || []);
     } finally { setSelectLoading(false); }
@@ -371,9 +380,18 @@ const Notifications = () => {
     setSelectLoading(true);
     try {
       const authToken = localStorage.getItem('authToken');
-      if (!authToken) return;
+      const role = localStorage.getItem('activeUserRoleName') || '';
+      if (!authToken) {
+        navigate("/");
+        return;
+      }
+      let requestParams = {};
+      if (role.toLowerCase() !== 'admin') {
+        requestParams = { rolename: role };
+      }
       const res = await axios.get(server.baseurl + server.warehouse + 'get-project', {
         headers: { Authorization: `Bearer ${authToken}` },
+        params: requestParams
       });
       if (res.data?.httpStatusCode === 200) {
         const list: ProjectType[] = (res.data.data || []).map((p: any) => ({

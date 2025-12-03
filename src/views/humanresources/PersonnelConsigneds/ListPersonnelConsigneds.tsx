@@ -3750,7 +3750,8 @@ const ListPersonnelConsigneds: React.FC = () => {
         if (!authToken) { navigate("/"); return; }
         try {
             // فراخوانی API جدید: get-available-consignments
-            const res = await axios.get(`${server.baseurl}${server.hr}get-available-consignments`, { headers: { Authorization: `Bearer ${authToken}` } });
+            const res = await axios.get(`${server.baseurl}${server.hr}get-available-consignments`,
+                { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200) {
                 setConsignmentList(res.data.data.map((item: any) => ({
@@ -3770,7 +3771,6 @@ const ListPersonnelConsigneds: React.FC = () => {
         }
     }, [navigate]);
 
-    // تابع واکشی برای حالت IADE (بدون تغییر)
     const fetchReturnableConsignments = useCallback(async (personnelId: number) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken || !personnelId) {
@@ -3851,15 +3851,6 @@ const ListPersonnelConsigneds: React.FC = () => {
     }, [navigate]);
 
 
-    // ❌ منطق زیر (فیلتر سمت کلاینت) حذف می‌شود زیرا API جدید مستقیماً کالاهای آزاد را می‌دهد
-    // const activeConsignedConsignmentIds = useMemo(() => {
-    //     return personnelConsigneds
-    //         .filter(r => r.parentId === 0 && r.returnDate === null)
-    //         .map(r => Number(r.consignment?.id))
-    //         .filter(id => !isNaN(id));
-    // }, [personnelConsigneds]);
-
-    // 💡 منطق جدید: consignmentList اکنون مستقیماً کالاهای Available است
     const availableConsignmentList = useMemo(() => {
         // این لیست فقط برای حالت ZIMMET VER (ASSIGN) استفاده می‌شود
         if (isAssignmentMode) {

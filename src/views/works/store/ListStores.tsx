@@ -484,13 +484,19 @@ const ListStores = () => {
     const fetchWorkhouseInfo = useCallback(async () => {
         if (!workhouseId) return;
         const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
             return;
         }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + `get-workhouse-by-id/${workhouseId}`, {
-                headers: { "Authorization": `Bearer ${authToken}` }
+                headers: { "Authorization": `Bearer ${authToken}` },
+                params: requestParams
             });
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 setWorkhouseInfo(response.data.data);
@@ -607,14 +613,19 @@ const ListStores = () => {
     const fetchStores = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
-            setLoadingData(false);
             return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
         }
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-stores", {
-                headers: { "Authorization": `Bearer ${authToken}` }
+                headers: { "Authorization": `Bearer ${authToken}` },
+                params: requestParams
             });
             if (response.data.httpStatusCode === 200) {
                 let allStores = response.data.data as StoreType[];

@@ -321,11 +321,23 @@ const RequestReceiptTabs: React.FC = () => {
 
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { setLoadingData(false); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
 
         try {
             const url = `${server.baseurl}${server.initialoperations}get-workhouse-rent-by-workhouse-id/${workhouseId}`;
-            const response = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
+            const response = await axios.get(url,
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                });
 
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 // ⬅️ Mapping داده‌ها (از خروجی API شما)

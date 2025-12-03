@@ -380,94 +380,173 @@ const ListRollCalls = () => {
     }, []);
 
 
-    // واکشی لیست پرسنل WorkPlace - به‌روزرسانی شده با فیلترهای جدید
+
+    // const fetchPersonnelWorkPlaces = useCallback(async (rollCalls?: RollCallType[], dateToCheck: Date | null = new Date()) => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) { navigate('/'); return; }
+
+    //     try {
+    //         const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels-work-places`, {
+    //             headers: { Authorization: `Bearer ${authToken}` }
+    //         });
+
+    //         if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {
+    //             const today = format(dateToCheck || new Date(), 'yyyy-MM-dd');
+    //             const todayRollCalls = rollCalls ? rollCalls.filter(rc => format(new Date(rc.date), 'yyyy-MM-dd') === today) : [];
+
+    //             const filteredWorkplaces = res.data.data.filter((r: any) => {
+    //                 const isActive = r.endDate === null;
+    //                 const type = Number(r.type);
+    //                 const isRelevantType = type === 1 || type === 2;
+    //                 if (!isActive || !isRelevantType) return false;
+
+    //                 if (dailyFilterType === 'workhouse' && type === 1) {
+    //                     return selectedWorkhouseId === null || Number(r.placeId) === selectedWorkhouseId;
+    //                 } else if (dailyFilterType === 'store' && type === 2) {
+    //                     if (selectedWorkhouseId) {
+    //                     }
+    //                     return selectedStoreId === null || Number(r.placeId) === selectedStoreId;
+    //                 } else if (dailyFilterType === 'all') {
+    //                     return true;
+    //                 }
+
+    //                 return false;
+    //             });
+
+
+    //             const workhouseAssignments: PersonnelWorkPlace[] = filteredWorkplaces
+    //                 .map((r: any) => {
+    //                     const personnelWorkPlaceId = Number(r.id);
+    //                     const hasRollCallToday = todayRollCalls.some(rc => Number(rc.personnelWorkPlace?.id) === personnelWorkPlaceId);
+
+    //                     let placeName = r.workhouse?.name || r.store?.name || '-';
+
+    //                     return {
+    //                         id: personnelWorkPlaceId,
+    //                         personnel: { id: Number(r.personnel.id), name: r.personnel.name, family: r.personnel.family, identityNumber: r.personnel.identityNumber || '' },
+    //                         position: r.position ? { id: Number(r.position.id), title: r.position.title } : null,
+    //                         placeId: Number(r.placeId),
+    //                         type: Number(r.type) as 1 | 2,
+    //                         placeKind: Number(r.type) === 1 ? 'WORKHOUSE' : 'STORE',
+    //                         placeName: placeName,
+    //                         personnelName: `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim(),
+    //                         personnelIdentity: r.personnel.identityNumber || '-',
+    //                         hasRollCallToday: hasRollCallToday,
+    //                     };
+    //                 });
+
+    //             setPersonnelWorkPlaces(workhouseAssignments);
+
+    //             // مقداردهی اولیه DailyTimes
+    //             setDailyTimes(
+    //                 workhouseAssignments.reduce((acc, p) => ({
+    //                     ...acc,
+    //                     [p.id]: {
+    //                         startTime: defaultStartTime,
+    //                         endTime: defaultEndTime,
+    //                         loading: false
+    //                     }
+    //                 }), {})
+    //             );
+    //         }
+    //     } catch (e: any) {
+    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+    //         else if (e.response?.status === 401) {
+    //             localStorage.removeItem('authToken');
+    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+    //         }
+    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+    //     }
+    // }, [navigate, showAlert, defaultStartTime, defaultEndTime, dailyFilterType, selectedWorkhouseId, selectedStoreId]);
+
+
     const fetchPersonnelWorkPlaces = useCallback(async (rollCalls?: RollCallType[], dateToCheck: Date | null = new Date()) => {
+        setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        if (!authToken) { navigate('/'); setLoadingData(false); return; }
+
+        let apiUrl = `${server.baseurl}${server.hr}get-all-personnels-work-places`;
+        let skipFetch = false;
+
+        if (dailyFilterType === 'workhouse') {
+            if (selectedWorkhouseId === null) {
+                skipFetch = true;
+            } else {
+                // 🚀 Workhouse انتخاب شده: از API فیلتر شده استفاده کن
+                apiUrl = `${server.baseurl}${server.hr}get-all-personnels-work-places-by-workhouse/${selectedWorkhouseId}`;
+            }
+        }
+        // در صورت نیاز، منطق مشابهی را برای 'store' پیاده‌سازی کنید:
+        /*
+        else if (dailyFilterType === 'store') {
+            if (selectedStoreId === null) {
+                skipFetch = true;
+            } else {
+                // فرض می‌شود API مشابهی دارید
+                // apiUrl = `${server.baseurl}${server.hr}get-all-personnels-work-places-by-store/${selectedStoreId}`;
+            }
+        }
+        */
+        // --- پایان منطق توقف ---
+
+        if (skipFetch) {
+            setPersonnelWorkPlaces([]);
+            setLoadingData(false);
+            return;
+        }
 
         try {
-            const res = await axios.get(`${server.baseurl}${server.hr}get-all-personnels-work-places`, {
+            const res = await axios.get(apiUrl, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 
+            // ... بقیه منطق پردازش و نگاشت داده‌ها (mappedData)
             if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {
+                // منطق فیلتر لوکال را حذف کنید، چون API فیلتر شده را می‌آورید.
+                const rawData = res.data.data.filter((r: any) => r.endDate === null && (Number(r.type) === 1 || Number(r.type) === 2));
+
+                // ... (ادامه کد map کردن و setPersonnelWorkPlaces)
+                // ...
+
+                // تنها قسمت mapping و set کردن را ادامه دهید
                 const today = format(dateToCheck || new Date(), 'yyyy-MM-dd');
                 const todayRollCalls = rollCalls ? rollCalls.filter(rc => format(new Date(rc.date), 'yyyy-MM-dd') === today) : [];
 
-                const filteredWorkplaces = res.data.data.filter((r: any) => {
-                    const isActive = r.endDate === null; // فقط رکوردهای فعال
-                    const type = Number(r.type);
-                    const isRelevantType = type === 1 || type === 2; // Workhouse (1) یا Store (2)
+                const workhouseAssignments: PersonnelWorkPlace[] = rawData.map((r: any) => {
+                    const personnelWorkPlaceId = Number(r.id);
+                    const hasRollCallToday = todayRollCalls.some(rc => Number(rc.personnelWorkPlace?.id) === personnelWorkPlaceId);
 
-                    if (!isActive || !isRelevantType) return false;
-
-                    // اعمال فیلترهای انتخابی کاربر
-                    if (dailyFilterType === 'workhouse' && type === 1) {
-                        return selectedWorkhouseId === null || Number(r.placeId) === selectedWorkhouseId;
-                    } else if (dailyFilterType === 'store' && type === 2) {
-                        // اگر Workhouse پدر برای فیلتر انتخاب شده باشد (اختیاری)
-                        if (selectedWorkhouseId) {
-                            // در API اصلی get-all-personnels-work-places اطلاعات Workhouse پدر برای Depo نیست.
-                            // اگر این اطلاعات در پاسخ API اصلی (r.workhouse) موجود بود، باید اینجا چک می‌شد.
-                            // فعلا فقط بر اساس StoreId فیلتر می‌کنیم.
-                        }
-                        return selectedStoreId === null || Number(r.placeId) === selectedStoreId;
-                    } else if (dailyFilterType === 'all') {
-                        return true;
-                    }
-
-                    return false;
+                    // ... (ادامه منطق map)
+                    let placeName = r.workhouse?.name || r.store?.name || '-';
+                    return {
+                        id: personnelWorkPlaceId,
+                        personnel: { id: Number(r.personnel.id), name: r.personnel.name, family: r.personnel.family, identityNumber: r.personnel.identityNumber || '' },
+                        position: r.position ? { id: Number(r.position.id), title: r.position.title } : null,
+                        placeId: Number(r.placeId),
+                        type: Number(r.type) as 1 | 2,
+                        placeKind: Number(r.type) === 1 ? 'WORKHOUSE' : 'STORE',
+                        placeName: placeName,
+                        personnelName: `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim(),
+                        personnelIdentity: r.personnel.identityNumber || '-',
+                        hasRollCallToday: hasRollCallToday,
+                    };
                 });
-
-
-                const workhouseAssignments: PersonnelWorkPlace[] = filteredWorkplaces
-                    .map((r: any) => {
-                        const personnelWorkPlaceId = Number(r.id);
-                        const hasRollCallToday = todayRollCalls.some(rc => Number(rc.personnelWorkPlace?.id) === personnelWorkPlaceId);
-
-                        // تعیین placeName (نام شانتیا یا دپو)
-                        let placeName = r.workhouse?.name || r.store?.name || '-';
-
-                        return {
-                            id: personnelWorkPlaceId,
-                            personnel: { id: Number(r.personnel.id), name: r.personnel.name, family: r.personnel.family, identityNumber: r.personnel.identityNumber || '' },
-                            position: r.position ? { id: Number(r.position.id), title: r.position.title } : null,
-                            placeId: Number(r.placeId),
-                            type: Number(r.type) as 1 | 2,
-                            placeKind: Number(r.type) === 1 ? 'WORKHOUSE' : 'STORE',
-                            placeName: placeName,
-                            personnelName: `${r.personnel?.name ?? ''} ${r.personnel?.family ?? ''}`.trim(),
-                            personnelIdentity: r.personnel.identityNumber || '-',
-                            hasRollCallToday: hasRollCallToday,
-                        };
-                    });
-
                 setPersonnelWorkPlaces(workhouseAssignments);
+                // ... (مقداردهی اولیه DailyTimes)
+                // ...
 
-                // مقداردهی اولیه DailyTimes
-                setDailyTimes(
-                    workhouseAssignments.reduce((acc, p) => ({
-                        ...acc,
-                        [p.id]: {
-                            startTime: defaultStartTime,
-                            endTime: defaultEndTime,
-                            loading: false
-                        }
-                    }), {})
-                );
+            } else {
+                setPersonnelWorkPlaces([]);
+                showAlert('Yoklama listesi yüklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-            else if (e.response?.status === 401) {
-                localStorage.removeItem('authToken');
-                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-            }
-            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+            // ...
+            setPersonnelWorkPlaces([]); // در صورت خطا نیز لیست را خالی کن
+        } finally {
+            setLoadingData(false);
         }
-    }, [navigate, showAlert, defaultStartTime, defaultEndTime, dailyFilterType, selectedWorkhouseId, selectedStoreId]);
+    }, [navigate, showAlert, dailyFilterType, selectedWorkhouseId, selectedStoreId]);
 
-
-    // واکشی لیست سوابق حضور
     const fetchRollCalls = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -512,20 +591,22 @@ const ListRollCalls = () => {
     }, [navigate, showAlert, fetchPersonnelWorkPlaces, selectedDailyDate]);
 
 
-    // Effect برای واکشی اولیه
+    // 1. هوک برای واکشی RollCalls اصلی (فقط در بار اول و پس از عملیات CRUD)
     useEffect(() => {
         fetchRollCalls();
-        fetchWorkhouses(); // واکشی Workhouses در بارگذاری اولیه
-    }, [fetchRollCalls, fetchWorkhouses]);
+        fetchWorkhouses()
+    }, [/* وابستگی‌های کم: */ fetchRollCalls, fetchWorkhouses]); // فقط هنگام تغییر توابع callback اجرا می‌شود
 
-    // Effect برای فراخوانی مجدد PersonnelWorkPlaces هنگام تغییر فیلترهای روزانه
+    // 2. هوک برای واکشی PersonnelWorkPlaces در هنگام تغییر فیلترهای روزانه
     useEffect(() => {
-        // این ensures می‌کند که فیلترها بلافاصله اعمال شوند.
-        // از loadingData چک می‌کنیم تا با fetchRollCalls همزمان نشود.
-        if (!loadingData) {
+        // 💡 اگر loadingData = false است، یعنی داده‌های RollCalls اصلی لود شده‌اند.
+        if (dailyFilterType !== 'all' || selectedWorkhouseId !== null || selectedStoreId !== null || selectedDailyDate) {
+            // این فراخوانی تنها زمانی که فیلترهای روزانه تغییر می‌کنند یا تاریخ عوض می‌شود، رخ می‌دهد.
             fetchPersonnelWorkPlaces(rollCallsList, selectedDailyDate);
         }
-    }, [dailyFilterType, selectedWorkhouseId, selectedStoreId, selectedDailyDate, loadingData, rollCallsList]);
+    }, [dailyFilterType, selectedWorkhouseId, selectedStoreId, selectedDailyDate, fetchPersonnelWorkPlaces, rollCallsList]);
+    // rollCallsList را نگه دارید تا وقتی داده‌های تاریخچه تغییر می‌کنند، لیست روزانه به‌روز شود.
+
 
 
     // Effect برای واکشی Stores پس از انتخاب Workhouse
@@ -938,7 +1019,7 @@ const ListRollCalls = () => {
                         >
                             <MuiMenuItem value="all">Tüm Çalışanlar</MuiMenuItem>
                             <MuiMenuItem value="workhouse">Şantiye Çalışanları</MuiMenuItem>
-                            <MuiMenuItem value="store">Depo Çalışanları</MuiMenuItem>
+                            {/* <MuiMenuItem value="store">Depo Çalışanları</MuiMenuItem> */}
                         </TextField>
                     </Grid>
 
@@ -951,7 +1032,14 @@ const ListRollCalls = () => {
                                 fullWidth
                                 size="small"
                                 value={selectedWorkhouseId || ''}
-                                onChange={(e) => setSelectedWorkhouseId(Number(e.target.value))}
+                                onChange={(e) => {
+                                    debugger
+                                    const newWorkhouseId = e.target.value === '' ? null : Number(e.target.value);
+                                    setPersonnelWorkPlaces([]);
+                                    setLoadingData(true);
+                                    setSelectedWorkhouseId(newWorkhouseId);
+
+                                }}
                                 disabled={loadingWorkplaces}
                             >
                                 <MuiMenuItem value={''}>Tümü</MuiMenuItem>

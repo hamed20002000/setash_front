@@ -435,21 +435,24 @@ const generateLeavePDFFooter = (doc: jsPDF, row: LeaveType) => {
     doc.setFont("Arial", "normal");
     doc.setFontSize(10);
     doc.text(leaveTypedesc.title3, 40, footerYPosition);
+
     const approvalDateYPosition = footerYPosition + 20;
-    doc.text("Onay", 320, approvalDateYPosition);
+    doc.text("AD-SOYAD / İMZA", 380, approvalDateYPosition + 20);
+    doc.text("Onay", 300, approvalDateYPosition + 70);
     const currentDate = new Date();
     const formattedDate = `${currentDate.getDate() < 10 ? '0' + currentDate.getDate() : currentDate.getDate()}/${(currentDate.getMonth() + 1) < 10 ? '0' + (currentDate.getMonth() + 1) : (currentDate.getMonth() + 1)}/${currentDate.getFullYear()}`;
 
-    doc.text(formattedDate, 320, approvalDateYPosition + 20);
+    doc.text(formattedDate, 300, approvalDateYPosition + 90);
 
     const leaveTypeTitle = getLeaveTypeTitle(row.type);
-    const leavePeriodYPosition = approvalDateYPosition + 70;
-    doc.text(`${leaveTypeTitle} Mesai izinimi`, 40, leavePeriodYPosition);
+    const leavePeriodYPosition = approvalDateYPosition + 120;
+    doc.text(`${leaveTypeTitle} Mesai izinimi ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)}  kullandım.`, 40, leavePeriodYPosition);
 
     const leavePeriodYPosition1 = leavePeriodYPosition + 20;
-    doc.text(` ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)} tarihleri arasında kullandım.`, 40, leavePeriodYPosition1);
+    // doc.text(` ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)} tarihleri arasında kullandım.`, 40, leavePeriodYPosition1);
+    // doc.text(` ${fmtTR(row.startDate)} - ${fmtTR(row.endDate)}  kullandım.`, 40, leavePeriodYPosition1);
 
-    const signatureYPosition = leavePeriodYPosition1 + 80;
+    const signatureYPosition = leavePeriodYPosition1 + 90;
     doc.text("Adı Soyadı", 380, signatureYPosition);
     doc.text("İmza", 380, signatureYPosition + 20);
 };
@@ -457,17 +460,17 @@ const generateLeavePDFFooter = (doc: jsPDF, row: LeaveType) => {
 const getLeaveTypeTitle = (leaveType: number) => {
     switch (leaveType) {
         case 0:
-            return "ÜCRETLİ FAZLA MESAİ İZİN TALEP DİLEKÇESİ";
+            return "ÜCRETLİ FAZLA MESAİ İZİN  ";
         case 1:
-            return "YILLIK İZİN TALEP DİLEKÇESİ";
+            return "YILLIK İZİN  ";
         case 2:
-            return "SAATLİK İZİN TALEP DİLEKÇESİ";
+            return "SAATLİK İZİN  ";
         case 3:
-            return "ÜCRETSİZ İZİN TALEP DİLEKÇESİ";
+            return "ÜCRETSİZ İZİN  ";
         case 4:
-            return "MAZERET İZİN TALEP DİLEKÇESİ";
+            return "MAZERET İZİN  ";
         default:
-            return "İZİN TALEP DİLEKÇESİ";
+            return "İZİN  ";
     }
 };
 const getLeaveTypedesc = (leaveType: number): LeaveDescription => {
@@ -639,7 +642,13 @@ const generateLeaveExcelFooter = (ws: ExcelWorksheet, row: LeaveType) => {
     ws.mergeCells(`A${nextRow}:H${nextRow}`);
     ws.getCell(`A${nextRow}`).style = { font: { size: 10, name: 'Arial' } };
 
-    nextRow += 2;
+
+    ws.addRow([]);
+    nextRow = ws.lastRow ? ws.lastRow.number + 1 : nextRow;
+    ws.addRow(["", "", "", "", "", "AD-SOYAD / İMZA"]);
+    ws.mergeCells(`F${nextRow}:H${nextRow}`);
+
+    nextRow += 1;
     ws.addRow(["", "", "", "", "Onay", formattedDate]);
     ws.getCell(`E${nextRow}`).style = { font: { bold: true, size: 10, name: 'Arial' } };
 

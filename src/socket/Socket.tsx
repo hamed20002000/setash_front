@@ -97,8 +97,6 @@ export function reEstablishConnection() {
     const role = readRoleFromStorage();
     currentRole = role as any;
 
-    // به‌روزرسانی پارامترهای Query قبل از اتصال
-    // این کار تضمین می‌کند که پارامتر 'role' جدید به سرور Socket.IO ارسال شود.
     const opts = (s.io.opts as any) || {};
     opts.query = { ...(opts.query || {}), role };
 

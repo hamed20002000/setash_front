@@ -44,6 +44,7 @@ import {
 } from "recharts";
 
 import { blue, green, grey } from "@mui/material/colors";
+import { useNavigate } from "react-router";
 
 /* ========= Types ========= */
 type ProjectItem = { id: string; title: string; code: string; startDate?: string; endDate?: string; };
@@ -133,6 +134,8 @@ const endOfDay = (d: Date) => { const x = new Date(d); x.setHours(23, 59, 59, 99
 
 /* ========= Component ========= */
 const ProjectPlanningImplementationReport: React.FC = () => {
+
+    const navigate = useNavigate();
     const [loadingProjects, setLoadingProjects] = useState(true);
     const [projects, setProjects] = useState<ProjectItem[]>([]);
     const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
@@ -161,9 +164,20 @@ const ProjectPlanningImplementationReport: React.FC = () => {
     const loadProjects = useCallback(async () => {
         setLoadingProjects(true);
         setErrorMsg(null);
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const res = await axios.get(`${server.baseurl}${server.warehouse}get-project`, {
-                headers: { Authorization: `Bearer ${authToken}` }
+                headers: { Authorization: `Bearer ${authToken}` },
+                params: requestParams
             });
             const data = (res.data?.data ?? []) as any[];
             const mapped: ProjectItem[] = data.map(p => ({

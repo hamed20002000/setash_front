@@ -260,11 +260,21 @@ const ListProjectPlanningImplementation = () => {
     const [detailDateId, setDetailDateId] = useState<number | null>(null);
 
     const fetchProjects = useCallback(async () => {
-        if (!authToken) { navigate("/"); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         setLoading(true);
         try {
             const res = await axios.get<ApiResponse<any[]>>(server.baseurl + server.warehouse + "get-project", {
-                headers: { Authorization: `Bearer ${authToken}` }
+                headers: { Authorization: `Bearer ${authToken}` },
+                params: requestParams
             });
             if (res.data?.httpStatusCode === 200) {
                 const list: Project[] = (res.data.data || [])

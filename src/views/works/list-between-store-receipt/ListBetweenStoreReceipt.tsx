@@ -375,10 +375,23 @@ const ListBetweenStoreReceipt = () => {
     /* ---------------- Fetchers ---------------- */
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const [storesRes, receiptsRes] = await Promise.all([
-                axios.get<ApiResponse<StoreType[]>>(server.baseurl + server.initialoperations + "get-stores", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<StoreType[]>>(server.baseurl + server.initialoperations + "get-stores",
+                    {
+                        headers: { "Authorization": `Bearer ${authToken}` },
+                        params: requestParams
+                    }),
                 axios.get<ApiResponse<BetweenStoreReceiptType[]>>(server.baseurl + server.warehouse + `get-between-store-receipts`, { headers: { "Authorization": `Bearer ${authToken}` } }),
             ]);
             setStores((storesRes.data?.data || []).filter(s => s.recordStatus === 0).map(s => ({ ...s, id: String(s.id) })));
