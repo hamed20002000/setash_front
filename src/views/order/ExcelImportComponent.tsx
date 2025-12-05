@@ -130,7 +130,7 @@ export interface RegisterItemInitialData {
 
 // Table Style and Functions
 // type SortableOrderKeys = 'network.title' | 'docDate' | 'status';
-type SortableOrderKeys = 'network.title' | 'docDate' | 'status' | 'createAt';
+type SortableOrderKeys = 'id' | 'network.title' | 'docDate' | 'status' | 'createAt';
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': { color: 'white', ...(value === 'all' && selected && { backgroundColor: theme.palette.primary.main, '&:hover': { backgroundColor: theme.palette.primary.dark } }), ...(value === 'pending' && selected && { backgroundColor: theme.palette.warning.main, '&:hover': { backgroundColor: theme.palette.warning.dark } }), ...(value === 'approved' && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }), ...(value === 'rejected' && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }), },
@@ -1093,7 +1093,10 @@ const ExcelImportComponent = () => {
     const handleChangePage = (_event: unknown, newPage: number) => { setPage(newPage); };
     const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => { setRowsPerPage(parseInt(event.target.value, 10)); setPage(0); };
     const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => { setSearchTerm(event.target.value); setPage(0); };
-    const handleRequestSort = (property: 'network.title' | 'docDate' | 'status') => { const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc'); setOrderBy(property); setPage(0); };
+    const handleRequestSort = (property: 'id' | 'network.title' | 'docDate' | 'status') => {
+        const isAsc = orderBy === property && order === 'asc'; setOrder(isAsc ? 'desc' : 'asc');
+        setOrderBy(property); setPage(0);
+    };
     const handleOpenModal = (details: OrderDetailType[]) => { setModalDetails(details); setOpenModal(true); };
     const handleCloseModal = () => { setOpenModal(false); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: OrderType) => { setAnchorEl(event.currentTarget); setSelectedOrderForMenu(row); };
@@ -1619,6 +1622,15 @@ const ExcelImportComponent = () => {
                         <TableHead sx={{ backgroundColor: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 <StyledTableCell>
+                                    <TableSortLabel
+                                        active={orderBy === 'id'}
+                                        direction={orderBy === 'id' ? order : 'asc'}
+                                        onClick={() => handleRequestSort('id')}
+                                    >
+                                        <Typography variant="h6">Code</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
+                                <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'network.title'} direction={orderBy === 'network.title' ? order : 'asc'} onClick={() => handleRequestSort('network.title')}>
                                         <Typography variant="h6">Şebeke Adı</Typography>
                                     </TableSortLabel>
@@ -1651,6 +1663,9 @@ const ExcelImportComponent = () => {
                                 paginatedOrders.length > 0 ? (
                                     paginatedOrders.map((row) => (
                                         <TableRow key={row.id}>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">#{row.id}</Typography>
+                                            </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1">

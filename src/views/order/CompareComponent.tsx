@@ -117,7 +117,7 @@ interface WarehouseType { id: string; name: string; code: number; recordStatus: 
 interface TenderType { id: string; title: string; recordStatus: number; createAt: string; }
 
 // Table Style and Functions
-type SortableOrderKeys = 'network.title' | 'docDate' | 'status' | 'createAt';
+type SortableOrderKeys = 'id' | 'network.title' | 'docDate' | 'status' | 'createAt';
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -1600,6 +1600,15 @@ const CompareComponent = () => {
                         <TableHead sx={{ backgroundColor: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 <StyledTableCell>
+                                    <TableSortLabel
+                                        active={orderBy === 'id'}
+                                        direction={orderBy === 'id' ? order : 'asc'}
+                                        onClick={() => handleRequestSort('id')}
+                                    >
+                                        <Typography variant="h6">Code</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
+                                <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'network.title'} direction={orderBy === 'network.title' ? order : 'asc'} onClick={() => handleRequestSort('network.title')}>
                                         <Typography variant="h6">Şebeke Adı</Typography>
                                     </TableSortLabel>
@@ -1631,6 +1640,9 @@ const CompareComponent = () => {
                                 paginatedOrders.length > 0 ? (
                                     paginatedOrders.map((row) => (
                                         <TableRow key={row.id}>
+                                            <StyledTableCell>
+                                                <Typography variant="body1">#{row.id}</Typography>
+                                            </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1">

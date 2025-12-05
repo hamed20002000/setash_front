@@ -1376,11 +1376,11 @@ const ListInvoices = () => {
     };
 
     const handleUpdateStatus = async () => {
-        if (!description.trim()) {
-            setStatusError(true);
-            showAlert('Lütfen bir açıklama giriniz.', 'warning');
-            return;
-        }
+        // if (!description.trim()) {
+        //     setStatusError(true);
+        //     showAlert('Lütfen bir açıklama giriniz.', 'warning');
+        //     return;
+        // }
 
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
@@ -1795,15 +1795,20 @@ const ListInvoices = () => {
                                                 />
                                             </StyledTableCell>
                                             <StyledTableCell>
-                                                <Chip
-                                                    label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
-                                                    color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
-                                                />
-                                                {row.invoiceHeaderStatusHistories && row.invoiceHeaderStatusHistories.length > 0 && (
-                                                    <CustomTooltip title="Durum geçmişini gör" placement="right">
-                                                        <IconButton size="small" onClick={() => handleOpenStatusHistoryModal(row)}><IconInfoCircle size={18} /></IconButton>
-                                                    </CustomTooltip>
-                                                )}
+
+                                                <Stack direction="row" spacing={1} alignItems="center">
+
+                                                    <Chip
+                                                        label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
+                                                        color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
+                                                    />
+                                                    {row.invoiceHeaderStatusHistories && row.invoiceHeaderStatusHistories.length > 0 && (
+                                                        <CustomTooltip title="Durum geçmişini gör" placement="right">
+                                                            <IconButton size="small" onClick={() => handleOpenStatusHistoryModal(row)}><IconInfoCircle size={18} /></IconButton>
+                                                        </CustomTooltip>
+                                                    )}
+                                                </Stack>
+
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.invoiceDetails, row.provider)}>Görünüm</Button>

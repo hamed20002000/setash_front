@@ -595,8 +595,6 @@ const ListWorks = () => {
                         recordStatusText = 'Aktif';
                     } else if (item.recordStatus === 1) {
                         recordStatusText = 'Pasif';
-                    } else if (item.recordStatus === 2) {
-                        recordStatusText = 'Silindi';
                     }
                     return {
                         id: item.id,

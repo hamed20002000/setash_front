@@ -24,7 +24,7 @@ const formatHours = (hours: string): string => {
         return hours;
     }
 };
-const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
+const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
     // Font ekleme (Projenizdeki gerçek font dosyası ile değiştirin)
@@ -36,7 +36,7 @@ const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     doc.setFontSize(10);
     doc.text(`Rapor Tarihi:`, 15, 30);
     doc.text(`${new Date().toLocaleDateString('tr-TR')}`, 45, 30);
-    if (subtitle) doc.text(subtitle, pageWidth / 2, 55, { align: "center" });
+    // if (subtitle) doc.text(subtitle, pageWidth / 2, 55, { align: "center" });
 };
 
 const addPdfFooter = (doc: jsPDF) => {
@@ -154,33 +154,37 @@ const ListParticipationCertificate: React.FC = () => {
     ) => {
         // 1. Dökümanı Hazırla
         const doc = new jsPDF();
-        const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const sideMargin = 20;
         let finalY = 50;
 
         // 2. Başlık
         const title = "KATILIM SERTİFİKASI (BAŞARI BELGESİ)";
+        doc.setFont('NotoSans', 'normal');
 
         const boldText11 = `${course.courseTitle}`;
+        addPdfHeader(doc, title); // فقط عنوان اصلی را پاس دهید
+
+        // نمایش زیرنویس سفارشی شده با bold
+        const sideMargin = 10;
+        const subtitleY = 55;
+        const textPrefix = "Kurs Adı: ";
+        const docAny = doc as any; // برای دسترسی به متد addFont/setFont
+
+        // تنظیم فونت برای بخش اول
+        doc.setFontSize(10);
+        doc.setFont('NotoSans', 'normal');
+        doc.text(textPrefix, doc.internal.pageSize.getWidth() / 2 - 5, subtitleY, { align: "right" });
+        let cursorX1 = doc.internal.pageSize.getWidth() / 2 - 20 + doc.getStringUnitWidth(textPrefix) * doc.getFontSize() / doc.internal.scaleFactor + 1;
+
+        let cursorX = sideMargin;
+        // تنظیم فونت برای بخش بُلد
         doc.setFont('NotoSans', 'bold');
-        addPdfHeader(doc, title, `Kurs Adı: ${boldText11}`);
+        doc.text(boldText11, cursorX1, subtitleY, { align: "left" });
 
-        // 3. Sertifika Metni ve İçerik
-        //     doc.setFontSize(14);
-        //     doc.setFont('NotoSans', 'normal');
-        //     doc.setTextColor(0, 0, 0);
-        //     doc.text(`Sayın ${personnel.name} ${personnel.family},`, sideMargin, finalY);
-        //     finalY += 10;
+        // بازگشت به فونت عادی برای بقیه سند
+        doc.setFont('NotoSans', 'normal');
 
-        //     doc.setFontSize(12);
-        //     const certificateText = `
-        //     T.C. Kimlik Numaralı   (${personnel.identityNumber})   personelimiz,
-        //     Şirketimiz bünyesinde düzenlenen   ${course.courseTitle}         
-        //     adlı eğitime başarıyla katılım sağlamış ve toplam    ${formatHours(course.totalHours)}   süre ile eğitim almıştır. 
-        //     Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır.
-        //     Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.
-        // `;
+
 
 
         doc.setFontSize(14);
@@ -191,7 +195,6 @@ const ListParticipationCertificate: React.FC = () => {
 
         // شروع متن اصلی گواهی
         doc.setFontSize(11);
-        let cursorX = sideMargin;
         let lineY = finalY;
         const space = 2; // فاصله بین کلمات/بخش‌ها
 

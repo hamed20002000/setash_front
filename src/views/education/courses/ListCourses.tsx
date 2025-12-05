@@ -2140,7 +2140,6 @@ const ListCourses: React.FC = () => {
                 endDateTime: new Date(endCourseDate).toISOString(),
             };
 
-            // ⭐️ API CALL: set-course-isend ⭐️
             const res = await axios.put(
                 `${server.baseurl}${server.education}set-course-isend`,
                 payload,
@@ -2167,7 +2166,6 @@ const ListCourses: React.FC = () => {
         }
     };
 
-    // ... (sendStatusUpdate function remains the same)
     const sendStatusUpdate = async (id: number, statusValue: number) => {
         clearAlert();
         const authToken = localStorage.getItem('authToken');
@@ -2198,11 +2196,6 @@ const ListCourses: React.FC = () => {
             handleCloseMenu();
         }
     };
-
-
-    // ------------------------------------
-    // --- Table/Filter/Sort Logic (remains the same) ---
-    // ------------------------------------
 
     const filteredCourses = useMemo(() => {
         const list = courses.filter(r => {
@@ -2407,7 +2400,6 @@ const ListCourses: React.FC = () => {
         setCourseEndForModal(null);
     };
 
-    // --- Handlers for ListCourseParticipants Modal (با بررسی شرط) ---
     const handleOpenParticipantsModal = async (row: CourseDetail) => {
 
         const authToken = localStorage.getItem('authToken');

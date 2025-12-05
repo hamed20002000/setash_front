@@ -1090,7 +1090,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
                             {receiptDetails.map((detail, idx) => {
                                 const rel = selectedInvoice?.invoiceDetails.find((d) => Number(d.id) === Number(detail.invoiceDetailId));
                                 const maxQ = rel ? Number(rel.quantity) : 0;
-                                const balance = rel ? `(Fatura Miktar: ${maxQ})` : "";
+                                const balance = rel ? `(Max: ${maxQ})` : "";
                                 return (
                                     <Grid item xs={12} key={idx}>
                                         <Grid container spacing={1.5} alignItems="center">

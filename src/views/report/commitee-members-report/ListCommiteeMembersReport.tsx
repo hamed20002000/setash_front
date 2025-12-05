@@ -8,10 +8,10 @@ import {
     Tooltip,
     Dialog, DialogTitle, DialogContent, DialogActions,
     FormControlLabel, Checkbox, TextField, Select, MenuItem, FormControl, InputLabel, Grid,
-    IconButton, RadioGroup, Radio
+    IconButton, RadioGroup, Radio, Menu, MenuItem as MuiMenuItem, ListItemIcon
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { IconCheck, IconEdit, IconUsers, IconTrash, IconPlus, IconSearch, IconFileText, IconFileDownload } from '@tabler/icons-react';
+import { IconDots, IconCheck, IconEdit, IconUsers, IconTrash, IconPlus, IconSearch, IconFileText, IconFileDownload } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -42,7 +42,13 @@ const CommiteAnswerOptions = Object.keys(CommiteAnswer).filter(key => !isNaN(Num
 
 // Interface Updates (memberStatus added to ConfirmationCommiteeMemberType)
 export interface ProjectReportType { year: number; city: string; town: string | null; region: string | null; tesistype: number; tradi: string | null; projectcount: string; }
-export interface ConfirmationReportType { id: string; year: number; city: string; town: string | null; region: string | null; tesisType: number; trAdi: string | null; projectCount: number; Gecici_tutanak_teslim_alma_durumu: boolean; Kesin_tutanak_teslim_alma_durumu: boolean; }
+export interface ConfirmationReportType {
+    id: string; year: number;
+    city: string; town: string | null; region: string | null; tesisType: number; trAdi: string | null;
+    projectCount: number; Gecici_tutanak_teslim_alma_durumu: boolean;
+    Kesin_tutanak_teslim_alma_durumu: boolean;
+    confirmationReportCommiteMembers?: ConfirmationCommiteeMemberType[];
+}
 export interface CommiteeMemberDropdownType { id: string; name: string; family: string; position: number; title: string; }
 export interface ConfirmationCommiteeMemberType {
     id: string;
@@ -75,10 +81,234 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 
 // --- MODAL TYPE DEFINITIONS ---
 interface ModalFormValues { year: number; city: string; town: string | null; region: string | null; tesisType: number; tradi: string | null; projectCount: number; geciciDurum: boolean; kesinDurum: boolean; }
-interface ConfirmationModalProps { open: boolean; onClose: () => void; report: DisplayReportType | null; onConfirm: (report: DisplayReportType, newValues: ModalFormValues) => Promise<void>; loading: boolean; }
+interface ConfirmationModalProps {
+    open: boolean; onClose: () => void; report: DisplayReportType | null;
+    onConfirm: (report: DisplayReportType, newValues: ModalFormValues) => Promise<void>; loading: boolean;
+}
 interface CommiteeMembersModalProps { open: boolean; onClose: () => void; confirmationId: string | null; refreshData: () => Promise<void>; showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void; }
 interface MemberAnswerModalProps { open: boolean; onClose: () => void; confirmationId: string | null; refreshData: () => Promise<void>; showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void; }
 
+interface DetailViewModalProps {
+    open: boolean;
+    onClose: () => void;
+    report: DisplayReportType | null;
+    onExportExcel: (report: DisplayReportType) => Promise<void>;
+    onExportPdf: (report: DisplayReportType) => Promise<void>;
+    // Tabular actions needed for consistency:
+    handleOpenMembersModal: (confirmationId: string) => void;
+    handleOpenAnswerModal: (confirmationId: string) => void;
+    handleOpenModal: (report: DisplayReportType) => void; // For Edit Tutanak
+    showAlert: (message: string, severity: 'success' | 'error' | 'warning' | 'info') => void;
+}
+
+// --- NEW MODAL COMPONENT ---
+interface DownloadRowModalProps {
+    open: boolean;
+    onClose: () => void;
+    report: DisplayReportType | null;
+    onExportExcel: (report: DisplayReportType) => Promise<void>;
+    onExportPdf: (report: DisplayReportType) => Promise<void>;
+    loading: boolean;
+}
+
+const DownloadRowModal: React.FC<DownloadRowModalProps> = ({
+    open, onClose, report, onExportExcel, onExportPdf, loading
+}) => {
+    if (!report) return null;
+
+
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+            <DialogContent dividers>
+                <Typography variant="body1" mb={2}>
+                    Seçilen onaylanmış proje raporunun detaylarını hangi formatta indirmek istediğinizi seçin.
+                </Typography>
+                <Stack direction="column" spacing={2}>
+                    <Button
+                        variant="contained" color="primary" fullWidth
+                        startIcon={<IconFileDownload />}
+                        onClick={() => onExportExcel(report)}
+                        disabled={loading}
+                    >
+                        {loading ? <CircularProgress size={20} color="inherit" /> : 'Excel Olarak İndir'}
+                    </Button>
+                    <Button
+                        variant="contained" color="success" fullWidth
+                        startIcon={<IconFileDownload />}
+                        onClick={() => onExportPdf(report)}
+                        disabled={loading}
+                    >
+                        {loading ? <CircularProgress size={20} color="inherit" /> : 'PDF Olarak İndir'}
+                    </Button>
+                </Stack>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="secondary" disabled={loading}>
+                    Kapat
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
+export interface MemberDisplayData {
+    member: ConfirmationCommiteeMemberType;
+
+    latestAnswer: MemberAnswerDTO | null;
+}
+const DetailViewModal: React.FC<DetailViewModalProps> = ({
+    open, onClose, report, onExportExcel, onExportPdf, showAlert
+}) => {
+    const [loading, setLoading] = useState(true);
+    const [fullMemberDetails, setFullMemberDetails] = useState<MemberDisplayData[]>([]);
+    const authToken = localStorage.getItem('authToken');
+
+    // 💡 تابعی برای واکشی جزئیات کامل اعضای کمیته و پاسخ‌هایشان
+    const fetchFullDetails = useCallback(async (confirmationId: string) => {
+        if (!authToken || !confirmationId) { return; }
+        setLoading(true);
+        try {
+            // 1. واکشی اعضای ثبت شده
+            const membersResult = await axios.get(
+                server.baseurl + server.report + `get-confirmation-report-commite-member/${confirmationId}`,
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            const members: ConfirmationCommiteeMemberType[] = membersResult.data.data || [];
+
+            // 2. واکشی پاسخ‌ها برای هر عضو (N+1 call for correct latest answer)
+            const detailPromises = members.map(async (member) => {
+                let latestAnswer: MemberAnswerDTO | null = null;
+                if (member.id) {
+                    const answersResult = await axios.get(
+                        server.baseurl + server.report + `get-confirmation_report-commite-member-answer-dto-by-member-id/${member.id}`,
+                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                    );
+                    const answers: MemberAnswerDTO[] = answersResult.data.data || [];
+                    // فقط آخرین پاسخ را می‌گیریم (اگرچه API شما ممکن است همیشه یک عنصر برگرداند)
+                    latestAnswer = answers.length > 0 ? answers[0] : null;
+                }
+                return { member, latestAnswer };
+            });
+
+            const resolvedDetails = await Promise.all(detailPromises);
+            setFullMemberDetails(resolvedDetails);
+
+        } catch (e) {
+            console.error("Detaylı veri yükleme hatası:", e);
+            showAlert('Detaylı komite verileri yüklenirken hata oluştu.', 'error');
+            setFullMemberDetails([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [authToken, showAlert]);
+
+    useEffect(() => {
+        if (open && report?.confirmationId) {
+            fetchFullDetails(report.confirmationId);
+        } else if (!open) {
+            setFullMemberDetails([]);
+        }
+    }, [open, report?.confirmationId, fetchFullDetails]);
+
+    if (!report) return null;
+
+    // --- RENDER ---
+    return (
+        <Dialog open={open} onClose={onClose} fullWidth maxWidth="md"> {/* افزایش maxWidth به md */}
+            <DialogTitle>Proje Detayları: {report.city} - {report.year}</DialogTitle>
+            <DialogContent dividers>
+                {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                        <CircularProgress />
+                        <Typography sx={{ ml: 2 }}>Detaylar yükleniyor...</Typography>
+                    </Box>
+                ) : (
+                    <Grid container spacing={4}>
+                        {/* 1. اطلاعات پایه (بخش ستون سمت چپ) */}
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="h6" mb={2} color="primary">🔍 Temel Bilgiler</Typography>
+                            <Stack spacing={1}>
+                                <CustomTextField label="Yıl" size="small" fullWidth value={report.year} disabled />
+                                <CustomTextField label="Şehir" size="small" fullWidth value={report.city} disabled />
+                                <CustomTextField label="İlçe" size="small" fullWidth value={report.town || '-'} disabled />
+                                <CustomTextField label="Bölge" size="small" fullWidth value={report.region || '-'} disabled />
+                                <CustomTextField label="Tesis Tipi" size="small" fullWidth value={getTesisTypeText(report.tesistype)} disabled />
+                                <CustomTextField label="Proje Sayısı" size="small" fullWidth value={report.projectcount} disabled />
+                            </Stack>
+
+                            {/* وضعیت Tutanak و دکمه ویرایش */}
+                            <Box mt={3}>
+                                <Typography variant="h6" mb={1} color="info">Tutanak Durumu</Typography>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <Alert severity={report.Gecici_tutanak_durumu ? "success" : "warning"} icon={false} sx={{ py: 0, px: 1 }}>Geçici:  {report.Gecici_tutanak_durumu ? 'Alındı' : 'Bekleniyor'} </Alert>
+                                    <Alert severity={report.Kesin_tutanak_durumu ? "success" : "warning"} icon={false} sx={{ py: 0, px: 1 }}>Kesin:  {report.Kesin_tutanak_durumu ? 'Alındı' : 'Bekleniyor'} </Alert>
+                                    {/* <Button size="small" onClick={() => { onClose(); handleOpenModal(report); }}>
+                                        <IconEdit size={16} />
+                                    </Button> */}
+                                </Stack>
+                            </Box>
+                        </Grid>
+
+                        {/* 2. جزئیات اعضای کمیته و پاسخ‌ها (بخش ستون سمت راست) */}
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="h6" mb={2} color="secondary">🧑‍💻 Komite Üyeleri ve Cevaplar</Typography>
+
+                            {fullMemberDetails.length === 0 ? (
+                                <Alert severity="warning">Bu rapor için kayıtlı komite üyesi bulunamadı.</Alert>
+                            ) : (
+                                <Stack spacing={1}>
+                                    {fullMemberDetails.map((item, _index) => (
+                                        <Box key={item.member.id} p={1.5} sx={{ border: '1px solid #eee', borderRadius: 1, backgroundColor: item.member.memberStatus ? '#e6f7ff' : '#fff7e6' }}>
+                                            <Typography variant="subtitle1" fontWeight="bold">
+                                                {item.member.commiteMember.name} {item.member.commiteMember.family}
+                                            </Typography>
+                                            <Typography variant="body2" color="textSecondary">
+                                                Pozisyon: {getCommiteMemberPositionText(item.member.commiteMember.position)} |
+                                                Tutanak Tipi: <Box component="span" fontWeight="bold" color={item.member.memberStatus ? 'success.main' : 'warning.main'}>{item.member.memberStatus ? 'Kesin' : 'Geçici'}</Box>
+                                            </Typography>
+                                            <Typography variant="body2" mt={0.5}>
+                                                Cevap Durumu:  {item.latestAnswer ? getCommiteAnswerText(Number(item.latestAnswer.answer)) : 'Cevaplanmadı'}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            )}
+
+                            {/* <Stack direction="row" spacing={1} mt={3}>
+                                <Button variant="outlined" size="small" startIcon={<IconUsers size={16} />}
+                                    onClick={() => { onClose(); handleOpenMembersModal(report.confirmationId!); }}>
+                                    Üyeleri Yönet
+                                </Button>
+                                <Button variant="outlined" size="small" color="secondary" startIcon={<IconFileText size={16} />}
+                                    onClick={() => { onClose(); handleOpenAnswerModal(report.confirmationId!); }}>
+                                    Cevap Gir
+                                </Button>
+                            </Stack> */}
+                        </Grid>
+
+                        {/* 3. دکمه‌های دانلود (عرض کامل) */}
+                        <Grid item xs={12} mt={2}>
+                            <Typography variant="h6" mb={1} color="secondary">📥 Raporu İndir</Typography>
+                            <Stack direction="row" spacing={2}>
+                                <Button variant="contained" color="success" startIcon={<IconFileDownload />}
+                                    onClick={() => onExportPdf(report)} disabled={loading} fullWidth>
+                                    PDF Olarak İndir
+                                </Button>
+                                <Button variant="contained" color="primary" startIcon={<IconFileDownload />}
+                                    onClick={() => onExportExcel(report)} disabled={loading} fullWidth>
+                                    Excel Olarak İndir
+                                </Button>
+                            </Stack>
+                        </Grid>
+                    </Grid>
+                )}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose} color="secondary">Kapat</Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
 
 
 const getPositionText = (position: CommiteMemberPosition | number | string): string => {
@@ -207,6 +437,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({ open, onClose, re
         </Dialog>
     );
 };
+
 
 
 const CommiteeMembersModal: React.FC<CommiteeMembersModalProps> = ({
@@ -797,6 +1028,46 @@ const ListCommiteeMembersReport = () => {
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
     const [downloadLoading, setDownloadLoading] = useState(false);
 
+    const [selectedReportToDownload, setSelectedReportToDownload] = useState<DisplayReportType | null>(null); // ✅ جدید: نگهداری گزارش برای دانلود
+
+    const [openSingleDownloadModal, setOpenSingleDownloadModal] = useState(false);
+
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<DisplayReportType | null>(null);
+
+    const [openDetailViewModal, setOpenDetailViewModal] = useState(false);
+
+    const openMenu = Boolean(anchorEl);
+
+    const handleOpenSingleDownloadModal = (report: DisplayReportType) => {
+        if (!report.isConfirmed || !report.confirmationId) {
+            showAlert('Bu rapor henüz onaylanmadı.', 'warning');
+            return;
+        }
+        setSelectedReportToDownload(report);
+        setOpenSingleDownloadModal(true); // 🔴 از State تکی استفاده می‌کند
+    };
+    const handleCloseSingleDownloadModal = () => {
+        setOpenSingleDownloadModal(false); // 🔴 از State تکی استفاده می‌کند
+        setSelectedReportToDownload(null);
+    };
+
+    const handleOpenDetailViewModal = () => { setOpenDetailViewModal(true); };
+    const handleCloseDetailViewModal = () => {
+        setOpenDetailViewModal(false);
+        setSelectedReportToDownload(null);
+    };
+
+    const handleViewDetailsFromMenu = () => {
+        if (selectedRowForMenu) {
+            handleCloseMenu();
+            // 1. تنظیم ردیف انتخاب شده برای Modal جزئیات
+            setSelectedReportToDownload(selectedRowForMenu);
+            // 2. باز کردن Modal جزئیات
+            handleOpenDetailViewModal();
+        }
+    };
+
     // --- Utility Callbacks ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => { setAlertMessage(message); setAlertSeverity(severity); }, []);
     const clearAlert = () => { setAlertMessage(null); };
@@ -916,6 +1187,79 @@ const ListCommiteeMembersReport = () => {
     }, [confirmationData, navigate, showAlert, handleApiError]);
 
 
+    const handleUpdateTutanakStatus = async (
+        oldReport: DisplayReportType,
+        newValues: ModalFormValues
+    ) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken || !oldReport.confirmationId) {
+            showAlert('Oturum süreniz doldu veya rapor kimliği eksik.', 'error');
+            return;
+        }
+
+        // اگر هیچ یک از وضعیت‌های tutanak (Geçici یا Kesin) تغییر نکرده باشد، نیازی به به‌روزرسانی نیست.
+        const hasChanged = newValues.geciciDurum !== oldReport.Gecici_tutanak_durumu ||
+            newValues.kesinDurum !== oldReport.Kesin_tutanak_durumu;
+
+        if (!hasChanged) {
+            showAlert('Herhangi bir tutanak durumu değişikliği yapılmadı.', 'warning');
+            handleCloseModal();
+            return;
+        }
+
+        setConfirmationLoading(true);
+
+        const apiUrl = server.baseurl + server.report + "update-confirmation-project-report";
+
+        // Helper برای ارسال رشته خالی به جای null/undefined
+        const getEmptyIfNull = (value: string | number | null | undefined) => {
+            if (value === null || value === undefined || (typeof value === 'string' && value.trim() === '')) {
+                return "";
+            }
+            return value;
+        };
+
+        try {
+            const payload = {
+                // فیلدهای مورد نیاز API برای شناسایی گزارش (از گزارش اصلی)
+                id: Number(oldReport.confirmationId), // شناسه گزارش تایید (Confirmation Report ID)
+                year: oldReport.year,
+                city: oldReport.city,
+                town: getEmptyIfNull(oldReport.town),
+                region: getEmptyIfNull(oldReport.region),
+                tesisType: oldReport.tesistype,
+                trAdi: getEmptyIfNull(oldReport.tradi),
+                projectCount: Number(oldReport.projectcount),
+
+                // وضعیت‌های جدید Tutanak (از مقادیر فرم)
+                Gecici_tutanak_teslim_alma_durumu: newValues.geciciDurum,
+                Kesin_tutanak_teslim_alma_durumu: newValues.kesinDurum,
+            };
+            // debugger // 🛑 این را حذف کنید
+
+            const response = await axios.request({
+                url: apiUrl,
+                method: 'put', // 👈 از PUT برای به‌روزرسانی استفاده می‌شود
+                data: payload,
+                headers: { "Accept": "application/json", 'Content-Type': 'application/json', "Authorization": `Bearer ${authToken}` }
+            });
+
+            if (response.data.httpStatusCode === 200 && response.data.success) {
+                showAlert('Tutanak durumları başarıyla güncellendi!', 'success');
+            } else {
+                showAlert(response.data.message || 'Tutanak durumları güncellenirken bir hata oluştu.', 'error');
+            }
+
+            handleCloseModal();
+            await fetchConfirmationData();
+            await fetchLatestProjectReports(); // رفرش لیست اصلی
+
+        } catch (e: any) {
+            handleApiError(e);
+        } finally {
+            setConfirmationLoading(false);
+        }
+    };
     // --- 3. CRUD API Calls (INSERT/UPDATE) ---
 
     // NEW FUNCTION: Direct Confirmation (no modal)
@@ -959,6 +1303,31 @@ const ListCommiteeMembersReport = () => {
         } catch (e: any) { handleApiError(e); } finally { setConfirmationLoading(false); }
     };
 
+    // --- Menu Handlers ---
+
+    const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: DisplayReportType) => {
+        setAnchorEl(event.currentTarget);
+        setSelectedRowForMenu(row);
+    };
+
+    const handleCloseMenu = () => {
+        setAnchorEl(null);
+        setSelectedRowForMenu(null);
+    };
+
+    const handleEditTutanakFromMenu = () => {
+        if (selectedRowForMenu) {
+            handleCloseMenu();
+            handleOpenModal(selectedRowForMenu); // فرض می‌کنیم handleOpenModal همان کار ویرایش/جزئیات را انجام می‌دهد
+        }
+    };
+
+    const handleDownloadFromMenu = () => {
+        if (selectedRowForMenu) {
+            handleCloseMenu();
+            handleOpenSingleDownloadModal(selectedRowForMenu); // 🔴 استفاده از Handler اختصاصی دانلود تکی
+        }
+    };
 
     // --- Modal Handlers ---
     // handleOpenModal now only views the details
@@ -980,7 +1349,6 @@ const ListCommiteeMembersReport = () => {
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
-
 
     const handleExportExcelDynamic = async (reportType: 'all' | 'confirmed') => {
         const authToken = localStorage.getItem('authToken');
@@ -1678,6 +2046,357 @@ const ListCommiteeMembersReport = () => {
             setDownloadLoading(false);
         }
     };
+
+
+    // --- تابع Export Excel برای یک ردیف (در ListCommiteeMembersReport) ---
+    const handleExportExcelSingle = async (report: DisplayReportType) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken || !report.confirmationId) { showAlert('Rapor kimliği eksik.', 'warning'); return; }
+
+        handleCloseSingleDownloadModal(); // بستن Modal اصلی دانلود
+        setDownloadLoading(true);
+        showAlert('Excel dosyası oluşturuluyor, lütfen bekleyin...', 'info');
+
+        try {
+            // 1. Fetch ALL Confirmation Data (We only need member details for the single report)
+            // برای ساده‌سازی، فقط اطلاعات کمیته عضو را می‌گیریم
+            let memberDetailsResult = await axios.get(
+                server.baseurl + server.report + `get-confirmation-report-commite-member/${report.confirmationId}`,
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            const registeredMembers = memberDetailsResult.data.data || [];
+            const reportTitle = `${report.year} / ${report.city} / ${getTesisTypeText(report.tesistype)}`;
+            // 2. Fetch ALL Commitee Members (To create a global name map) - نیاز به این call داریم
+            // ... (کد واکشی memberNameMap) ... 
+            const membersResult = await axios.get(
+                server.baseurl + server.report + "get-all-commitee-members",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            const memberNameMap: MemberNameMap = {};
+            (membersResult.data.data || []).forEach((m: any) => {
+                memberNameMap[String(m.id)] = { name: m.name, family: m.family, position: m.position };
+            });
+
+            // 3. Prepare Single Data Structure
+            const confirmedDetails = confirmationData.find(conf => conf.id === report.confirmationId) || null;
+
+            if (!confirmedDetails) {
+                showAlert('Onaylanmış rapor detayı bulunamadı.', 'error');
+                setDownloadLoading(false);
+                return;
+            }
+
+            // افزودن اعضای ثبت شده به جزئیات گزارش تایید شده
+            confirmedDetails.confirmationReportCommiteMembers = registeredMembers;
+
+            const finalData = [{ ...report, isConfirmed: true, confirmationDetails: confirmedDetails }];
+
+            // --- 4. Calculate Max Member Counts (Gecici & Kesin) ---
+            // برای یک سطر، maxCount برابر با تعداد اعضا در آن سطر است.
+            const allMembers: any[] = confirmedDetails.confirmationReportCommiteMembers || [];
+            const maxGeciciMemberCount = allMembers.filter((m: any) => m.memberStatus === false).length;
+            const maxKesinMemberCount = allMembers.filter((m: any) => m.memberStatus === true).length;
+
+            // --- 5. Utility Function for Dynamic Member Data Fetching (N*M Operation) ---
+            // ... (کد getMemberAndAnswerDetails را کپی کنید - این تابع باید در دسترس باشد) ...
+            const getMemberAndAnswerDetails = async (memberRegistrationRecord: any) => {
+                // ... (همان منطق قبلی) ...
+                let memberName = `ID: ${memberRegistrationRecord.id} (Bilinmiyor)`;
+                let answerText = 'Cevaplanmadı';
+                let commiteMemberId: string | undefined;
+
+                try {
+                    const memberDetailResult = await axios.get(
+                        server.baseurl + server.report + `get-confirmation-report-commite-member-by-id/${memberRegistrationRecord.id}`,
+                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                    );
+                    commiteMemberId = memberDetailResult.data.data?.commiteMember?.id;
+                } catch (error) { /* Ignore error */ }
+
+                if (commiteMemberId) {
+                    const memberDetails = memberNameMap[String(commiteMemberId)];
+                    if (memberDetails) {
+                        memberName = `${memberDetails.name} ${memberDetails.family} (${getPositionText(memberDetails.position)})`;
+                    }
+                }
+
+                const latestAnswer = memberRegistrationRecord.confirmationReportCommiteMemberAnswers?.[0];
+                if (latestAnswer) {
+                    answerText = getCommiteAnswerText(Number(latestAnswer.answer));
+                }
+
+                return { memberName, answerText };
+            };
+            // --- 6. Setup Excel & Define Dynamic Headers ---
+            // ... (همان منطق Excel با استفاده از maxGeciciMemberCount و maxKesinMemberCount) ...
+            const workbook = new Excel.Workbook();
+            const sheetName = 'Tekil Proje Raporu Detay';
+            const worksheet = workbook.addWorksheet(sheetName, { views: [{ rightToLeft: false }] });
+
+            const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
+            const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
+            const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            const headerFont = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FF000000' } };
+            const font = { name: 'Calibri', size: 11, bold: false, color: { argb: 'FF000000' } };
+            const centerAlignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+            const leftAlignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+            const fullHeaderStyle = { border: border, alignment: centerAlignment, font: headerFont, fill: headerFill } as Partial<Excel.Style>;
+            const bodyStyle = { border: border, alignment: leftAlignment, font: font } as Partial<Excel.Style>;
+
+
+            let tableHeaders = [
+                'Yıl', 'Şehir', 'İlçe', 'Bölge', 'Tesis Türü', 'Tradi', 'Proje Sayısı',
+                'Geçici Tutanak Teslim Durumu'
+            ];
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Üye ${i}`); }
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Cevap ${i}`); }
+            tableHeaders.push('Kesin Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Üye ${i}`); }
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Cevap ${i}`); }
+
+            const titleText = `${reportTitle} Detaylı Rapor`;
+            const titleRow = worksheet.addRow([titleText]);
+            if (titleRow) {
+                titleRow.font = { name: 'Times New Roman', size: 12, bold: true };
+                titleRow.getCell(1).alignment = { horizontal: 'center' };
+                worksheet.mergeCells(`A${titleRow.number}:${String.fromCharCode(65 + tableHeaders.length - 1)}${titleRow.number}`);
+            }
+            worksheet.addRow([`Tarih: ${formatDateDisplay(new Date().toISOString())}`]);
+            worksheet.addRow([]);
+
+            const headerRow = worksheet.addRow(tableHeaders);
+            headerRow.eachCell(cell => { cell.style = fullHeaderStyle; });
+
+
+            // --- 7. Populate Data Rows (Only one row) ---
+            const singleReport = finalData[0];
+            const rowData: (string | number | null)[] = [
+                singleReport.year, singleReport.city, singleReport.town || '-', singleReport.region || '-',
+                getTesisTypeText(singleReport.tesistype), singleReport.tradi || '-',
+                singleReport.projectcount,
+            ];
+
+            const allMembersData: any[] = singleReport.confirmationDetails?.confirmationReportCommiteMembers || [];
+            const geciciMembers = allMembersData.filter((m: any) => m.memberStatus === false);
+            const kesinMembers = allMembersData.filter((m: any) => m.memberStatus === true);
+
+            // A. Geçici Tutanak Teslim Durumu
+            const geciciDurum = confirmedDetails.Gecici_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+            rowData.push(geciciDurum);
+
+            // B & C. Dynamic Geçici Members & Answers
+            const geciciDetailsPromises = geciciMembers.map(getMemberAndAnswerDetails);
+            const geciciDetails = await Promise.all(geciciDetailsPromises);
+            const geciciMemberNames = geciciDetails.map(d => d.memberName);
+            const geciciAnswers = geciciDetails.map(d => d.answerText);
+
+            rowData.push(...geciciMemberNames);
+            for (let i = 0; i < maxGeciciMemberCount - geciciMemberNames.length; i++) { rowData.push(''); }
+            rowData.push(...geciciAnswers);
+            for (let i = 0; i < maxGeciciMemberCount - geciciAnswers.length; i++) { rowData.push(''); }
+
+            // D. Kesin Tutanak Teslim Durumu
+            const kesinDurum = confirmedDetails.Kesin_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+            rowData.push(kesinDurum);
+
+            // E & F. Dynamic Kesin Members & Answers
+            const kesinDetailsPromises = kesinMembers.map(getMemberAndAnswerDetails);
+            const kesinDetails = await Promise.all(kesinDetailsPromises);
+            const kesinMemberNames = kesinDetails.map(d => d.memberName);
+            const kesinAnswers = kesinDetails.map(d => d.answerText);
+
+            rowData.push(...kesinMemberNames);
+            for (let i = 0; i < maxKesinMemberCount - kesinMemberNames.length; i++) { rowData.push(''); }
+            rowData.push(...kesinAnswers);
+            for (let i = 0; i < maxKesinMemberCount - kesinAnswers.length; i++) { rowData.push(''); }
+
+            // --- 8. Add processed row to worksheet ---
+            const row = worksheet.addRow(rowData);
+            row.eachCell(cell => { cell.style = bodyStyle; });
+
+
+            // --- 9. Finalize and Save ---
+            worksheet.columns.forEach((column) => {
+                // ... (تنظیم عرض ستون) ...
+                let maxLength = 0;
+                if (column.eachCell) {
+                    column.eachCell({ includeEmpty: true }, (cell) => {
+                        const columnLength = cell.value ? String(cell.value).length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                }
+                column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const fileName = `${sheetName.replace(/\s/g, '_')}_${report.city}_${report.year}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
+            saveAs(new Blob([buffer]), fileName);
+
+            showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+
+        } catch (e: any) {
+            handleApiError(e);
+        } finally {
+            setDownloadLoading(false);
+        }
+    };
+    // --- تابع Export PDF برای یک ردیف (در ListCommiteeMembersReport) ---
+    const handleExportPdfSingle = async (report: DisplayReportType) => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken || !report.confirmationId) { showAlert('Rapor kimliği eksik.', 'warning'); return; }
+
+        handleCloseSingleDownloadModal();
+        setDownloadLoading(true);
+        showAlert('PDF raporu oluşturuluyor, lütfen bekleyin...', 'info');
+
+        try {
+            // 1. Setup PDF & Font
+            const doc = new jsPDF('landscape', 'pt', 'a4');
+            (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+            (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+            doc.setFont("NotoSans", "normal");
+
+            // 2. Fetch required data (similar to Excel single export)
+            let memberDetailsResult = await axios.get(
+                server.baseurl + server.report + `get-confirmation-report-commite-member/${report.confirmationId}`,
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            const registeredMembers = memberDetailsResult.data.data || [];
+
+            const membersResult = await axios.get(
+                server.baseurl + server.report + "get-all-commitee-members",
+                { headers: { "Authorization": `Bearer ${authToken}` } }
+            );
+            const memberNameMap: MemberNameMap = {};
+            (membersResult.data.data || []).forEach((m: any) => {
+                memberNameMap[String(m.id)] = { name: m.name, family: m.family, position: m.position };
+            });
+
+            const confirmedDetails = confirmationData.find(conf => conf.id === report.confirmationId) || null;
+
+            if (!confirmedDetails) {
+                showAlert('Onaylanmış rapor detayı bulunamadı.', 'error');
+                setDownloadLoading(false);
+                return;
+            }
+
+            // 3. Prepare Single Data Structure and calculate Max Counts (Only one row data)
+            const allMembers: any[] = registeredMembers;
+            const maxGeciciMemberCount = allMembers.filter((m: any) => m.memberStatus === false).length;
+            const maxKesinMemberCount = allMembers.filter((m: any) => m.memberStatus === true).length;
+
+            // 4. Utility Function for Dynamic Member Data Fetching
+            const getMemberAndAnswerDetails = async (memberRegistrationRecord: any) => {
+                // ... (همان منطق قبلی) ...
+                let memberName = `ID: ${memberRegistrationRecord.id} (Bilinmiyor)`;
+                let answerText = 'Cevaplanmadı';
+                let commiteMemberId: string | undefined;
+
+                try {
+                    const memberDetailResult = await axios.get(
+                        server.baseurl + server.report + `get-confirmation-report-commite-member-by-id/${memberRegistrationRecord.id}`,
+                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                    );
+                    commiteMemberId = memberDetailResult.data.data?.commiteMember?.id;
+                } catch (error) { /* Ignore error */ }
+
+                if (commiteMemberId) {
+                    const memberDetails = memberNameMap[String(commiteMemberId)];
+                    if (memberDetails) {
+                        memberName = `${memberDetails.name} ${memberDetails.family} (${getPositionText(memberDetails.position)})`;
+                    }
+                }
+
+                const latestAnswer = memberRegistrationRecord.confirmationReportCommiteMemberAnswers?.[0];
+                if (latestAnswer) {
+                    answerText = getCommiteAnswerText(Number(latestAnswer.answer));
+                }
+
+                return { memberName, answerText };
+            };
+
+            const geciciMembers = allMembers.filter((m: any) => m.memberStatus === false);
+            const kesinMembers = allMembers.filter((m: any) => m.memberStatus === true);
+
+            // Populate Row Data
+            let rowData: (string | number | null)[] = [
+                report.year, report.city, report.town || '-', report.region || '-',
+                getTesisTypeText(report.tesistype), report.tradi || '-',
+                report.projectcount,
+            ];
+
+            const geciciDetailsPromises = geciciMembers.map(getMemberAndAnswerDetails);
+            const geciciDetails = await Promise.all(geciciDetailsPromises);
+            const geciciMemberNames = geciciDetails.map(d => d.memberName);
+            const geciciAnswers = geciciDetails.map(d => d.answerText);
+
+            const geciciDurum = confirmedDetails.Gecici_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+            rowData.push(geciciDurum);
+            rowData.push(...geciciMemberNames);
+            for (let i = 0; i < maxGeciciMemberCount - geciciMemberNames.length; i++) { rowData.push(''); }
+            rowData.push(...geciciAnswers);
+            for (let i = 0; i < maxGeciciMemberCount - geciciAnswers.length; i++) { rowData.push(''); }
+
+            const kesinDurum = confirmedDetails.Kesin_tutanak_teslim_alma_durumu ? 'Arşivde' : '';
+            rowData.push(kesinDurum);
+
+            const kesinDetailsPromises = kesinMembers.map(getMemberAndAnswerDetails);
+            const kesinDetails = await Promise.all(kesinDetailsPromises);
+            const kesinMemberNames = kesinDetails.map(d => d.memberName);
+            const kesinAnswers = kesinDetails.map(d => d.answerText);
+
+            rowData.push(...kesinMemberNames);
+            for (let i = 0; i < maxKesinMemberCount - kesinMemberNames.length; i++) { rowData.push(''); }
+            rowData.push(...kesinAnswers);
+            for (let i = 0; i < maxKesinMemberCount - kesinAnswers.length; i++) { rowData.push(''); }
+
+
+            // 5. Setup Dynamic Headers
+            let tableHeaders = [
+                'Yıl', 'Şehir', 'İlçe', 'Bölge', 'Tesis Türü', 'Tradi', 'Proje Sayısı',
+            ];
+            tableHeaders.push('Geçici Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Üye ${i}`); }
+            for (let i = 1; i <= maxGeciciMemberCount; i++) { tableHeaders.push(`Geçici Cevap ${i}`); }
+            tableHeaders.push('Kesin Tutanak Teslim Durumu');
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Üye ${i}`); }
+            for (let i = 1; i <= maxKesinMemberCount; i++) { tableHeaders.push(`Kesin Cevap ${i}`); }
+
+            // 6. Create PDF Table
+            const topMargin = 70;
+            const sideMargin = 20;
+            const bottomMargin = 50;
+
+            autoTable(doc, {
+                startY: topMargin,
+                head: [tableHeaders],
+                body: [rowData],
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 6, cellPadding: 3, overflow: 'linebreak' },
+                headStyles: { fillColor: [149, 147, 125], textColor: [0, 0, 0] },
+                margin: { top: topMargin, bottom: bottomMargin, left: sideMargin, right: sideMargin },
+                didDrawPage: (_data: any) => {
+                    addPdfHeader(doc, `${report.city} / ${report.year} Projesi Detay Raporu`);
+                    addPdfFooter(doc);
+                },
+                showHead: 'everyPage',
+            });
+
+            doc.save(`Rapor_${report.city}_${report.year}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+            showAlert('PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+
+        } catch (e: any) {
+            handleApiError(e);
+        } finally {
+            setDownloadLoading(false);
+        }
+    };
+
+
+
+
     // --- Table Headers Configuration ---
     const headers = [
         { label: 'Yıl', key: 'year' }, { label: 'Şehir', key: 'city' }, { label: 'İlçe', key: 'town' },
@@ -1763,28 +2482,64 @@ const ListCommiteeMembersReport = () => {
                                             {/* Actions Column (Onayla / Düzenle Tutanak) - REVISED */}
                                             <StyledTableCell>
                                                 {row.isConfirmed ? (
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-
-
-                                                        {/* View Details Button */}
-                                                        <Tooltip title="Proje Detaylarını Görüntüle">
-                                                            <Button variant="contained" color="info" size="small"
-                                                                onClick={() => handleOpenModal(row)}
-                                                                disabled={isRowLoading || false}
+                                                    <Box>
+                                                        <Tooltip title="Daha fazla seçenek">
+                                                            <IconButton
+                                                                id={`basic-button-${row.confirmationId}`} // استفاده از confirmationId یا id خود row
+                                                                aria-controls={openMenu ? 'basic-menu' : undefined}
+                                                                aria-haspopup="true"
+                                                                aria-expanded={openMenu && selectedRowForMenu?.confirmationId === row.confirmationId ? 'true' : undefined}
+                                                                onClick={(event) => handleClickMenu(event, row)}
+                                                                color="info"
+                                                                size="small"
+                                                                disabled={isRowLoading || downloadLoading}
                                                             >
-                                                                <IconEdit size={20} />
-                                                            </Button>
+                                                                {isRowLoading ? <CircularProgress size={20} color="inherit" /> : <IconDots width={20} />}
+                                                            </IconButton>
                                                         </Tooltip>
-                                                    </Stack>
+
+                                                        <Menu
+                                                            id="basic-menu"
+                                                            anchorEl={anchorEl}
+                                                            open={openMenu && selectedRowForMenu?.confirmationId === row.confirmationId} // فقط برای ردیف انتخاب شده باز شود
+                                                            onClose={handleCloseMenu}
+                                                            MenuListProps={{
+                                                                'aria-labelledby': `basic-button-${row.confirmationId}`,
+                                                            }}
+                                                        >
+                                                            {/* 1. گزینه ویرایش وضعیت Tutanak (جایگزین دکمه Edit/View Details قبلی) */}
+                                                            <MuiMenuItem onClick={handleEditTutanakFromMenu}>
+                                                                <ListItemIcon>
+                                                                    <IconEdit width={18} />
+                                                                </ListItemIcon>
+                                                                Tutanak Durumunu Düzenle
+                                                            </MuiMenuItem>
+
+                                                            {/* 2. گزینه دانلود (جایگزین دکمه دانلود تکی قبلی) */}
+                                                            <MuiMenuItem onClick={handleDownloadFromMenu}>
+                                                                <ListItemIcon>
+                                                                    <IconFileDownload width={18} />
+                                                                </ListItemIcon>
+                                                                Raporu İndir (Excel/PDF)
+                                                            </MuiMenuItem>
+
+                                                            <MuiMenuItem onClick={handleViewDetailsFromMenu}>
+                                                                <ListItemIcon>
+                                                                    <IconFileText width={18} />
+                                                                </ListItemIcon>
+                                                                Detayları Görüntüle
+                                                            </MuiMenuItem>
+
+                                                        </Menu>
+                                                    </Box>
 
                                                 ) : (
                                                     <Tooltip title="Raporu Onayla">
                                                         <Button variant="contained" color="success" size="small"
                                                             onClick={() => handleConfirmReport(row)}
                                                             disabled={isRowLoading || false}
-                                                            startIcon={isRowLoading ? <CircularProgress size={20} color="inherit" /> : <IconCheck size={20} />}
                                                         >
-
+                                                            <IconCheck size={20} />
                                                         </Button>
                                                     </Tooltip>
                                                 )}
@@ -1801,7 +2556,12 @@ const ListCommiteeMembersReport = () => {
             </BlankCard>
 
             {/* Modal 1: Confirmation/Edit Modal (Simplified to view details) */}
-            <ConfirmationModal open={openConfirmationModal} onClose={handleCloseModal} report={selectedReportToConfirm} onConfirm={() => Promise.resolve()} loading={confirmationLoading} />
+            <ConfirmationModal open={openConfirmationModal}
+                onClose={handleCloseModal}
+                report={selectedReportToConfirm}
+                // onConfirm={() => Promise.resolve()} 
+                onConfirm={handleUpdateTutanakStatus}
+                loading={confirmationLoading} />
 
             {/* Modal 2: Commitee Members Modal (Added memberStatus) */}
             <CommiteeMembersModal open={openMembersModal} onClose={handleCloseMembersModal} confirmationId={selectedConfirmationId} refreshData={fetchLatestProjectReports} showAlert={showAlert} />
@@ -1809,6 +2569,28 @@ const ListCommiteeMembersReport = () => {
             {/* Modal 3: Member Answer Modal (Shows Tutanak Type) */}
             <MemberAnswerModal open={openAnswerModal} onClose={handleCloseAnswerModal} confirmationId={selectedAnswerConfirmationId} refreshData={fetchLatestProjectReports} showAlert={showAlert} />
 
+            <DownloadRowModal
+                open={openSingleDownloadModal}
+                onClose={handleCloseSingleDownloadModal}
+                report={selectedReportToDownload}
+                onExportExcel={handleExportExcelSingle} // 👈 تابع جدید
+                onExportPdf={handleExportPdfSingle}     // 👈 تابع جدید
+                loading={downloadLoading}
+            />
+
+            <DetailViewModal
+                open={openDetailViewModal}
+                onClose={handleCloseDetailViewModal}
+                report={selectedReportToDownload}
+                onExportExcel={handleExportExcelSingle}
+                onExportPdf={handleExportPdfSingle}
+
+                // توابع اصلی Modalها برای استفاده داخل این Modal
+                handleOpenMembersModal={handleOpenMembersModal}
+                handleOpenAnswerModal={handleOpenAnswerModal}
+                handleOpenModal={handleOpenModal} // برای باز کردن ConfirmationModal
+                showAlert={showAlert}
+            />
             {/* Download Modal (Unchanged) */}
             <Dialog open={openDownloadModal} onClose={() => setOpenDownloadModal(false)} fullWidth maxWidth="xs">
                 <DialogTitle>Hangi Excel Raporu İndirilsin?</DialogTitle>

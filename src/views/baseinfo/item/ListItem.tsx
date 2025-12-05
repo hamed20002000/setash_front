@@ -17,6 +17,7 @@ import {
   TableSortLabel, // ✅ Added: For sorting icons and functionality
 } from '@mui/material';
 
+
 import { keyframes, styled } from '@mui/material/styles';
 
 import ReactQuill from 'react-quill';
@@ -460,6 +461,8 @@ const ListItemComponent = () => {
 
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [isBlinking, setIsBlinking] = useState(true);
+
+
 
   const { allowedOperations } = useAuth();
   const hasCreatePermission = useMemo(() => {
@@ -1120,17 +1123,29 @@ const ListItemComponent = () => {
     setPage(0); // Reset to first page when sort changes
   };
 
-
   const filteredItems = itemsList.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.abbreviation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.unit.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.weight !== null && item.weight.toString().includes(searchTerm)); // ✅ اضافه شده: فیلتر کردن بر اساس وزن
+    // 💡 استفاده از عملگر Optional Chaining (?. ) و Nullish Coalescing (??)
+    // تا اگر فیلدی وجود نداشت، به جای خطا، رشته خالی ("") در نظر گرفته شود.
+
+    const itemName = item.name ?? "";
+    const itemAbbreviation = item.abbreviation ?? "";
+    const unitTitle = item.unit?.title ?? "";
+    const categoryName = item.category?.name ?? "";
+
+    const searchLower = searchTerm.toLowerCase();
+
+    const matchesSearch =
+      itemName.toLowerCase().includes(searchLower) ||
+      itemAbbreviation.toLowerCase().includes(searchLower) ||
+      unitTitle.toLowerCase().includes(searchLower) ||
+      categoryName.toLowerCase().includes(searchLower) ||
+      (item.weight !== null && item.weight.toString().includes(searchTerm));
+
     const matchesStatus =
       statusFilter === 'all' ||
       (statusFilter === 'active' && item.recordStatus === 0) ||
       (statusFilter === 'inactive' && item.recordStatus === 1);
+
     return matchesSearch && matchesStatus;
   });
 

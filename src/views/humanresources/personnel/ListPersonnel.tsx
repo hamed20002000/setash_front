@@ -1003,15 +1003,6 @@ const ListPersonnel: React.FC = () => {
         doc.save(filename);
     };
 
-    // const handleDownloadChoosePDF = () => {
-    //     if (downloadScope === "all") {
-    //         pdfForRows(sorted, "Personel_Detay_Raporu.pdf");
-    //     } else if (rowForDownload) {
-    //         const fileSlug = `${rowForDownload.name || ""}_${rowForDownload.family || ""}`.trim().replace(/\s+/g, "_");
-    //         pdfForRows([rowForDownload], `Personel_Detay_${fileSlug || rowForDownload.id}.pdf`);
-    //     }
-    //     setOpenDownloadModal(false);
-    // };
 
     const handleDownloadChoosePDF = async () => {
         setOpenDownloadModal(false);
@@ -1696,87 +1687,6 @@ const ListPersonnel: React.FC = () => {
         navigate(location.pathname, { replace: true, state: { ...(location.state as any), notifIds: [] } });
         setPage(0);
     };
-
-
-    // const handleEndCooperationCheck = async (personnel: PersonnelType) => {
-    //     handleCloseMenu();
-    //     setPersonnelToEndCooperation(personnel);
-
-    //     const authToken = localStorage.getItem('authToken');
-    //     if (!authToken) { showAlert("Lütfen giriş yapın.", "warning"); navigate("/"); return; }
-
-    //     showAlert("Zimmet ve Araç kayıtları kontrol ediliyor...", "info");
-    //     setLoadingButton(true);
-
-    //     setActiveCarConsignment([]);
-    //     setActiveConsignments([]);
-
-    //     try {
-    //         const consignmentRes = await axios.get(
-    //             `${server.baseurl}${server.hr}ckeck-personnel-consignments/${personnel.id}`,
-    //             { headers: { Authorization: `Bearer ${authToken}` } }
-    //         );
-
-    //         const activeGeneralConsignments = (consignmentRes.data?.httpStatusCode === 200 && consignmentRes.data?.data)
-    //             ? (consignmentRes.data.data as any[])
-    //                 .filter(item => item.returnDate === null)
-    //                 .map(item => ({
-    //                     type: 'Zimmet (Genel)',
-    //                     assignmentDate: item.assignmentDate,
-    //                     description: item.description,
-    //                     attachments: item.consignment?.attachments || [],
-    //                     name: item.consignment?.name || 'Bilinmiyor',
-    //                     code: item.consignment?.code || '-',
-    //                 }))
-    //             : [];
-
-    //         setActiveConsignments(activeGeneralConsignments);
-
-    //         const carConsignmentRes = await axios.get(
-    //             `${server.baseurl}${server.warehouse}personnel-current-car/${personnel.id}`,
-    //             { headers: { Authorization: `Bearer ${authToken}` } }
-    //         );
-
-    //         let rawCarData: any[] = [];
-    //         if (carConsignmentRes.data?.httpStatusCode === 200 && carConsignmentRes.data?.data) {
-    //             if (Array.isArray(carConsignmentRes.data.data)) {
-    //                 rawCarData = carConsignmentRes.data.data;
-    //             } else if (carConsignmentRes.data.data.consigned === true) {
-    //                 rawCarData = [carConsignmentRes.data.data];
-    //             }
-    //         }
-
-    //         const activeCarConsignments = rawCarData
-    //             .filter(item => item.consigned === true) // فقط اقلامی که هنوز واگذار شده‌اند
-    //             .map(currentCarData => ({
-    //                 id: currentCarData.id,
-    //                 type: 'Zimmet (Araç)',
-    //                 assignmentDate: currentCarData.date,
-    //                 description: currentCarData.description,
-    //                 name: `${currentCarData.carWarhouseDetail?.brand} (${currentCarData.carWarhouseDetail?.plaque})`,
-    //                 code: currentCarData.carWarhouseDetail?.model || '-',
-    //                 attachments: currentCarData.attachments || [],
-    //             }));
-
-    //         setActiveCarConsignment(activeCarConsignments); 
-    //         const totalActiveCarCount = activeCarConsignments.length;
-    //         const totalActiveCount = activeGeneralConsignments.length + totalActiveCarCount;
-
-    //         if (totalActiveCount > 0) {
-    //             setOpenActiveConsignmentsModal(true);
-    //             showAlert(`Personelin ${totalActiveCount} adet teslim etmediği zimmeti bulunmaktadır! (Genel: ${activeGeneralConsignments.length}, Araç: ${totalActiveCarCount})`, "error");
-    //         } else {
-    //             setEndDate(null);
-    //             setOpenEndCooperationModal(true);
-    //             showAlert("Zimmet kontrolü başarılı. İşten ayrılma tarihi belirlenebilir.", "success");
-    //         }
-
-    //     } catch (e: any) {
-    //         showAlert(e?.response?.data?.message || "Sunucuya bağlanılamadı veya zimmet kontrolü başarısız oldu.", "error");
-    //     } finally {
-    //         setLoadingButton(false);
-    //     }
-    // };
 
 
     const handleEndCooperationCheck = async (personnel: PersonnelType) => {

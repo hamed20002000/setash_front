@@ -70,6 +70,13 @@ const ListCourses = Loadable(lazy(() => import('../views/education/courses/ListC
 const ListParticipationCertificate = Loadable(lazy(() => import('../views/education/participation-certificate/ListParticipationCertificate')));
 const ListCommiteeMembers = Loadable(lazy(() => import('../views/report/commitee-members/ListCommiteeMembers')));
 const ListCommiteeMembersReport = Loadable(lazy(() => import('../views/report/commitee-members-report/ListCommiteeMembersReport')));
+const ListConcreteReport = Loadable(lazy(() => import('../views/report/concrete-report/ListConcreteReport')));
+const ListItemReport = Loadable(lazy(() => import('../views/report/concrete-report/ListItemReport')));
+const ListCarwarehouseReport = Loadable(lazy(() => import('../views/report/concrete-report/ListCarwarehouseReport')));
+const ListPersonalWorkhouseReport = Loadable(lazy(() => import('../views/report/concrete-report/ListPersonalWorkhouseReport')));
+const ListPersonalCourse = Loadable(lazy(() => import('../views/report/concrete-report/ListPersonalCourse')));
+const ListTenderFlowReport = Loadable(lazy(() => import('../views/report/concrete-report/ListTenderFlowReport')));
+
 
 
 
@@ -647,6 +654,54 @@ const Router = [
         element: (
           <PermissionGuard requiredOperationName="Görüntülemek">
             <ListCommiteeMembersReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-concrete/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListConcreteReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-item/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListItemReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-carwarehouse/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListCarwarehouseReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-personall-workhouse/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPersonalWorkhouseReport />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-personall-course/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListPersonalCourse />
+          </PermissionGuard>
+        )
+      },
+      {
+        path: '/report/report-tender-flow/',
+        element: (
+          <PermissionGuard requiredOperationName="Görüntülemek">
+            <ListTenderFlowReport />
           </PermissionGuard>
         )
       },

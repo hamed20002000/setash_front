@@ -1012,8 +1012,6 @@ const ListTender = () => {
             recordStatusText = 'Aktif';
           } else if (item.recordStatus === 1) {
             recordStatusText = 'Pasif';
-          } else {
-            recordStatusText = 'Silindi';
           }
           let approvedTenderText = '';
           let approvedTenderDate = null;
@@ -1032,7 +1030,6 @@ const ListTender = () => {
             showRejectedIcon = true;
             approvedTenderDate = item.statusDate;
           }
-          debugger
           return {
             id: item.id,
             title: item.title,
