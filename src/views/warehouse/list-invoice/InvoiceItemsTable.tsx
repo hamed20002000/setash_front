@@ -5,7 +5,9 @@ import React, { useState, useEffect } from 'react';
 import {
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton,
     TextField, Box, Typography, Autocomplete, Dialog, DialogTitle, DialogContent, DialogActions,
-    Grid, Button, Chip, Stack
+    Grid, Button, Chip, Stack,
+    keyframes,
+    styled
 } from '@mui/material';
 import { IconTrash, IconEye, IconEdit, IconCheck, IconRotate2, IconReload, IconEyeOff } from '@tabler/icons-react';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
@@ -83,6 +85,17 @@ const cleanAndFormatPrice = (val: string | number | null | undefined): string =>
 };
 const noop = (_m: string, _s: any) => { };
 
+
+const blinkAnimation = keyframes`
+    0% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+    50% { transform: scale(1.05); box-shadow: 0 0 10px 5px rgba(103, 58, 183, 0.7); }
+    100% { transform: scale(1); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0.7); }
+`;
+const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) => ({
+    animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
+    transition: 'transform 0.3s ease-in-out',
+}));
+
 // ===== Component =====
 const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     items,
@@ -108,6 +121,9 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     const [deletedItems, setDeletedItems] = useState<InvoiceItem[]>([]);
     const [editingItems, setEditingItems] = useState<Record<number, Partial<InvoiceItem>>>({});
 
+
+    const [isBlinking, setIsBlinking] = useState(true);
+
     const { isTooltipGloballyEnabled } = useTooltip();
 
     // ---- Load Orders (initial + on refreshSignal) ----
@@ -131,7 +147,13 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         }
     };
 
-    useEffect(() => { fetchOrders(); }, []);           // initial
+    useEffect(() => { fetchOrders(); }, []);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setIsBlinking(false), 5000);
+        return () => { clearTimeout(timer); };
+    }, []);
+    // initial
 
     // اگر سفارش انتخابی بعد از ریفرش دیگر در Active نبود → انتخاب و آیتم‌ها را پاک کن
     useEffect(() => {
@@ -173,14 +195,67 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
     // ---- Editing handlers ----
     const handleItemChange = (id: number, field: keyof InvoiceItem, value: any) => {
         setEditingItems(prev => {
-            const updated: Partial<InvoiceItem> = { ...(prev[id] || {}), [field]: value };
+            const currentItem = items.find(i => i.id === id);
+            const pendingEdit = prev[id] || {};
+
+            // 1. آیتم پایه (همراه با تغییر جدید)
+            const updated: Partial<InvoiceItem> = {
+                ...(currentItem as InvoiceItem),
+                ...pendingEdit,
+                [field]: value
+            };
+
+            // 2. تعریف مرجع محاسبه: فقط قیمت واحد (Fiyat)
+            const basePrice = cleanAndConvertNumber(updated.price);
+
+            // مقادیر تخفیف فعلی (یا مقدار 0 اگر معتبر نباشند)
+            let discountPercent = cleanAndConvertNumber(updated.discountPercent);
+            let discountAmount = cleanAndConvertNumber(updated.discountAmount);
+
+            // 3. اعمال منطق محاسبه متقابل (بر اساس basePrice)
+            if (basePrice > 0) {
+
+                if (field === 'discountPercent') {
+                    discountPercent = cleanAndConvertNumber(value);
+
+                    // محدودیت‌ها (باید بین 0 تا 100 باشد)
+                    if (discountPercent < 0) discountPercent = 0;
+                    if (discountPercent > 100) discountPercent = 100;
+
+                    // محاسبه مقدار تخفیف بر اساس درصد (از قیمت واحد)
+                    discountAmount = parseFloat(((basePrice * discountPercent) / 100).toFixed(2));
+
+                } else if (field === 'discountAmount') {
+                    discountAmount = cleanAndConvertNumber(value);
+
+                    // محدودیت‌ها (نباید از قیمت واحد بیشتر باشد)
+                    if (discountAmount < 0) discountAmount = 0;
+                    if (discountAmount > basePrice) discountAmount = basePrice; // ⬅️ محدودیت بر اساس قیمت واحد
+
+                    // محاسبه درصد تخفیف بر اساس مقدار (از قیمت واحد)
+                    discountPercent = parseFloat(((discountAmount / basePrice) * 100).toFixed(2));
+                }
+            } else {
+                // اگر قیمت واحد 0 باشد، تخفیف نیز 0 است
+                discountPercent = 0;
+                discountAmount = 0;
+            }
+
+            // 4. به‌روزرسانی نهایی
+            updated.discountPercent = discountPercent;
+            updated.discountAmount = discountAmount;
+
+            // 5. مدیریت تغییر Provider (مانند قبل)
             if (field === 'providerId') {
                 const p = providersList.find(x => x.id === value);
                 updated.firm = p ? p.firm === '1' : false;
             }
+
+            // 6. بازگرداندن وضعیت به‌روز شده
             return { ...prev, [id]: updated };
         });
     };
+
     const handleStartEdit = (item: InvoiceItem) => {
         setEditingItems(prev => ({ ...prev, [item.id]: { ...item, providerId: item.providerId || undefined } }));
     };
@@ -413,17 +488,17 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                             {editing ? (
                                                 <Stack direction="column" spacing={1}>
                                                     <TextField label="İndirim %" type="number" size="small"
-                                                        value={current?.discountPercent || 0}
+                                                        value={Number(current?.discountPercent).toFixed(1) || 0} // ⬅️ نمایش مقدار محاسبه شده
                                                         onChange={(e) => handleItemChange(item.id, 'discountPercent', e.target.value)}
                                                     />
                                                     <TextField label="İndirim Miktar" type="number" size="small"
-                                                        value={current?.discountAmount || 0}
+                                                        value={Number(current?.discountAmount).toFixed(0) || 0} // ⬅️ نمایش مقدار محاسبه شده
                                                         onChange={(e) => handleItemChange(item.id, 'discountAmount', e.target.value)}
                                                     />
                                                 </Stack>
                                             ) : (
                                                 <>
-                                                    <Typography variant="subtitle1" noWrap>{Number(item.discountPercent).toFixed(2)}%</Typography>
+                                                    <Typography variant="subtitle1" noWrap>{Number(item.discountPercent).toFixed(1)}%</Typography>
                                                     <Typography variant="body2" color="textSecondary">{cleanAndFormatPrice(item.discountAmount)}</Typography>
                                                 </>
                                             )}
@@ -448,11 +523,12 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                         <TableCell align="right">
                                             {editing ? (
                                                 <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Değişiklikleri kaydet" : ""}>
-                                                    <span>
+                                                    <BlinkingButton variant="outlined" color="inherit" isBlinking={isBlinking} sx={{ padding: "1px" }}>
+
                                                         <IconButton color="success" onClick={() => handleSaveEdit(item)} disabled={!isSaveEnabled(item)}>
                                                             <IconCheck size={20} />
                                                         </IconButton>
-                                                    </span>
+                                                    </BlinkingButton>
                                                 </CustomTooltip>
                                             ) : (
                                                 <>
