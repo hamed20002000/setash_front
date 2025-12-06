@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -15,6 +16,7 @@ import {
     Autocomplete,
     IconButton,
     MenuItem,
+    InputAdornment,
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -37,7 +39,6 @@ import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
-
 import Logo from 'src/assets/images/logos/logo.png';
 
 
@@ -60,23 +61,23 @@ interface CarReportRowType {
     workhouse_id: number | null;
     workhouse_code: string | null;
     workhouse_name: string | null;
-    personnel_id: string | null; // Note: IDs are strings in sample data
+    personnel_id: string | null;
     personnel_name: string | null;
     personnel_family: string | null;
     brand: string;
     model: string;
-    manufacture_date: string; // ISO date string
+    manufacture_date: string;
     plaque: string;
     fuel_type: 'GASOLINE' | 'DIESEL' | 'LPG' | 'ELECTRIC';
-    fuel_date: string; // ISO date string
-    fuel_fee: string; // E.g., "$10.00" - Must be parsed/formatted
+    fuel_date: string;
+    fuel_fee: string;
     fuel_amount: number;
-    total_price: string; // E.g., "$2,000.00" - This is the cost for the specific fuel record.
+    total_price: string;
 }
 
 interface CarReportResponseType {
     totalCount: number;
-    totalPrice: number | null; // 📌 NEW: Total price for all filtered records
+    totalPrice: number | null;
     page: number;
     pageSize: number;
     totalPages: number;
@@ -87,13 +88,12 @@ interface FilterParams {
     fromDate: string;
     toDate: string;
     workhouseId: number | null;
-    storeId: number | null; // Not used but kept for context consistency
-    dispatchId: string | null; // Not used but kept for context consistency
+    storeId: number | null;
+    dispatchId: string | null;
     page: number;
     pageSize: number;
 
     workId: number | null;
-    // 📌 HIDDEN FIELDS - KEPT IN PARAMS FOR BACKEND CONSISTENCY IF NEEDED
     personnelId: number | null;
     brand: string;
     model: string;
@@ -104,14 +104,26 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 }));
 
 // --- Helper function to safely parse and clean currency string ---
-const parseCurrencyToNumber = (currencyString: string): number => {
+const parseCurrencyToNumber = (currencyString: string | number): number => {
+    if (typeof currencyString === 'number') return currencyString;
     if (!currencyString) return 0;
-    // Remove currency symbols ($, TL, etc.) and thousands separators (,)
-    const cleanedString = currencyString.replace(/[^\d.,]/g, '');
 
-    // Replace comma with dot for decimal point if necessary (assuming Turkish/European format)
-    // If the API always returns US format (e.g. $1,000.00), this works:
-    return parseFloat(cleanedString.replace(/,/g, ''));
+    // تمیز کردن رشته برای تبدیل به عدد
+    let clean = currencyString.toString().replace(/[^\d.,-]/g, '');
+
+    // تشخیص فرمت (1.200,00 یا 1,200.00)
+    const hasCommaDecimal = clean.includes(',') && !clean.includes('.');
+    const hasDotThousand = clean.includes('.') && clean.includes(',');
+
+    if (hasDotThousand || hasCommaDecimal) {
+        // فرمت اروپایی/ترکی: حذف نقطه، تبدیل کاما به نقطه
+        clean = clean.replace(/\./g, '').replace(',', '.');
+    } else {
+        // فرمت استاندارد: حذف کاما
+        clean = clean.replace(/,/g, '');
+    }
+
+    return parseFloat(clean) || 0;
 };
 
 
@@ -192,7 +204,9 @@ const ListCarwarehouseReport = () => {
 
     const [startDate, setStartDate] = useState<Date | null>(currentYearStart);
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
-    const [searchTrigger, setSearchTrigger] = useState(0);
+
+    // ✨ NEW: Search Term State (برای جستجوی متنی)
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         fromDate: format(currentYearStart, 'yyyy-MM-dd'),
@@ -202,9 +216,7 @@ const ListCarwarehouseReport = () => {
         dispatchId: null,
         page: 1,
         pageSize: 10,
-
         workId: null,
-        // 📌 HIDDEN/UNUSED FILTER FIELDS
         personnelId: null,
         brand: '',
         model: '',
@@ -215,10 +227,9 @@ const ListCarwarehouseReport = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Dropdown States (Kept for Autocomplete fields)
+    // Dropdown States
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
     const [worksList, setWorksList] = useState<WorkType[]>([]);
-    // const [personnelList, setPersonnelList] = useState<PersonnelType[]>([]); // Not needed since the filter is hidden
 
     // Menu/Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -232,7 +243,6 @@ const ListCarwarehouseReport = () => {
     const formatDateDisplay = (dateString: string | null | undefined): string => {
         if (!dateString) return '-';
         try {
-            // ابتدا سعی می‌کند به عنوان DateTime فرمت کند، در غیر این صورت فقط تاریخ
             return format(new Date(dateString), 'dd/MM/yyyy HH:mm').includes('NaN') ?
                 format(new Date(dateString.substring(0, 10)), 'dd/MM/yyyy') :
                 format(new Date(dateString), 'dd/MM/yyyy HH:mm');
@@ -255,15 +265,9 @@ const ListCarwarehouseReport = () => {
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
 
+    // ✨ UPDATE: با تغییر فیلتر، صفحه به 1 برمی‌گردد و دیتا ریلود می‌شود (چون useEffect به filterParams وابسته است)
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
-    };
-
-    const handleSearchClick = () => {
-        if (filterParams.page !== 1) {
-            setFilterParams(prev => ({ ...prev, page: 1 }));
-        }
-        setSearchTrigger(prev => prev + 1);
     };
 
     // --- Menu/Modal Handlers ---
@@ -315,7 +319,6 @@ const ListCarwarehouseReport = () => {
     }, [navigate, authToken, showAlert, handleApiError]);
 
 
-
     const getWorkhousesList = useCallback(async () => {
         const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) { navigate("/"); return; }
@@ -336,32 +339,22 @@ const ListCarwarehouseReport = () => {
     }, [navigate, showAlert, handleApiError]);
 
 
-
-    // --- Main Data Fetching (Updated to match the final API structure) ---
+    // --- Main Data Fetching ---
 
     const fetchCarwarehouseReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
 
-        // Map filterParams to API structure for GET request query parameters
         const requestParams = {
             workhouseId: Number(filterParams.workhouseId) || null,
             workId: Number(filterParams.workId) || null,
-            // Hidden filter fields sent as null/empty string to backend
             personnelId: filterParams.personnelId || null,
             brand: filterParams.brand || null,
             model: filterParams.model || null,
-
             fromDate: format(new Date(filterParams.fromDate), 'yyyy-MM-dd') || null,
             toDate: format(new Date(filterParams.toDate), 'yyyy-MM-dd') || null,
             page: filterParams.page,
             pageSize: filterParams.pageSize,
         };
-        if (filterParams.fromDate) {
-            requestParams.fromDate = filterParams.fromDate; // format قبلا در handleFilterChange انجام شده
-        }
-        if (filterParams.toDate) {
-            requestParams.toDate = filterParams.toDate; // format قبلا در handleFilterChange انجام شده
-        }
 
         setLoadingData(true);
         try {
@@ -385,32 +378,33 @@ const ListCarwarehouseReport = () => {
     }, [filterParams, navigate, authToken, showAlert, handleApiError]);
 
 
-    // --- Effects for Data Loading ---
+    // --- Effects ---
     useEffect(() => {
         getWorkhousesList();
         getListWork();
-        // getAllPersonnels(); // 📌 Hidden
-        fetchCarwarehouseReportData();
-    }, [getWorkhousesList, getListWork]); // Removed getAllPersonnels
+    }, [getWorkhousesList, getListWork]);
 
-    // Sync DatePicker Date (Date object) with FilterParams Date (string)
     useEffect(() => {
         if (startDate) handleFilterChange('fromDate', format(startDate, 'yyyy-MM-dd'));
-        // 📌 اگر کاربر تاریخ را پاک کند، فیلتر را خالی کنید
         else handleFilterChange('fromDate', '');
     }, [startDate]);
 
     useEffect(() => {
         if (endDate) handleFilterChange('toDate', format(endDate, 'yyyy-MM-dd'));
-        // 📌 اگر کاربر تاریخ را پاک کند، فیلتر را خالی کنید
         else handleFilterChange('toDate', '');
     }, [endDate]);
 
+    // ✨ NEW: Auto-Fetch on any filter change (Replaces Search Button)
     useEffect(() => {
-        if (searchTrigger > 0 || filterParams.page !== 1) {
-            fetchCarwarehouseReportData();
-        }
-    }, [searchTrigger, filterParams.page]);
+        fetchCarwarehouseReportData();
+    }, [
+        filterParams.fromDate,
+        filterParams.toDate,
+        filterParams.workhouseId,
+        filterParams.workId,
+        filterParams.page // Pagination triggers fetch
+        // Add other params here if you un-hide them
+    ]);
 
 
     // --- Handlers for Pagination ---
@@ -419,20 +413,38 @@ const ListCarwarehouseReport = () => {
     };
 
 
-    // A new function to add a header to the PDF document
+    // ✨ NEW: Client-Side Filtering for Table View
+    const filteredReportData = useMemo(() => {
+        if (!reportData?.data) return [];
+        if (!searchTerm) return reportData.data;
+
+        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+
+        return reportData.data.filter(row => {
+            const columnsToSearch = [
+                row.plaque,
+                row.brand,
+                row.model,
+                row.workhouse_name,
+                row.work_title,
+                row.personnel_name,
+                row.personnel_family,
+                row.fuel_type
+            ];
+            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+        });
+    }, [reportData, searchTerm]);
+
+
+    // --- PDF & EXCEL HELPERS ---
+
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const docAny = doc as any;
-
-        // Add company logo at the top-right
         docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-
-        // Add report title at the center
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
         doc.text(title, pageWidth / 2, 35, { align: 'center' });
-
-        // Add report date at the top-left
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'normal');
         doc.text(`Rapor Tarihi:`, 15, 50);
@@ -440,7 +452,6 @@ const ListCarwarehouseReport = () => {
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 85, 50);
     };
 
-    // A new function to add a footer to the PDF document
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -479,7 +490,6 @@ const ListCarwarehouseReport = () => {
             const totalCostNumber = parseCurrencyToNumber(report.total_price);
             const fuelFeeNumber = parseCurrencyToNumber(report.fuel_fee);
 
-            // 🆕 فراخوانی Header
             addPdfHeader(doc, `Yakıt Kaydı Detayı: ${report.plaque}`);
 
             const tableColumn = ["Alan (Field)", "Değer (Value)"];
@@ -494,15 +504,12 @@ const ListCarwarehouseReport = () => {
                 ["Toplam Maliyet", totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })],
             ];
 
-
             autoTable(doc, {
-                startY: 70, // تنظیم ارتفاع شروع جدول
+                startY: 70,
                 head: [tableColumn], body: tableRows, theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 6, },
                 headStyles: { fillColor: [60, 141, 188], textColor: 255 },
-                didDrawPage: (_data) => {
-                    addPdfFooter(doc); // 🆕 فراخوانی Footer
-                }
+                didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`Yakıt_Detay_${report.plaque}_${format(new Date(), 'yyyyMMddHHmm')}.pdf`);
@@ -511,10 +518,61 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
+    // ✨ UPDATE: این تابع اکنون "جستجوی متنی" را هم در دانلود اعمال می‌کند
+    const fetchAllFilteredData = useCallback(async () => {
+        if (!authToken) { navigate("/"); return null; }
+
+        const requestParams = {
+            workhouseId: Number(filterParams.workhouseId) || null,
+            workId: Number(filterParams.workId) || null,
+            fromDate: format(new Date(filterParams.fromDate), 'yyyy-MM-dd') || null,
+            toDate: format(new Date(filterParams.toDate), 'yyyy-MM-dd') || null,
+            page: 1,
+            pageSize: 10000, // واکشی همه داده‌ها برای دانلود
+        };
+
+        try {
+            const response = await axios.get(
+                server.baseurl + server.report + `get-car-fuel-report-data`,
+                { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams }
+            );
+
+            if (response.data.httpStatusCode === 200 && response.data.data) {
+                let allData = response.data.data.data as CarReportRowType[];
+
+                // ✨ CRITICAL UPDATE: اعمال فیلتر جستجوی متنی روی داده‌های دانلود شده
+                if (searchTerm) {
+                    const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+                    allData = allData.filter(row => {
+                        const columnsToSearch = [
+                            row.plaque,
+                            row.brand,
+                            row.model,
+                            row.workhouse_name,
+                            row.work_title,
+                            row.personnel_name,
+                            row.personnel_family,
+                            row.fuel_type
+                        ];
+                        return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+                    });
+                }
+
+                return allData;
+            }
+            showAlert(response.data.message || 'Tüm rapor verileri alınamadı.', 'error');
+            return null;
+        } catch (e: any) {
+            handleApiError(e, 'Tüm rapor verileri alınırken bir sorun oluştu.');
+            return null;
+        }
+    }, [filterParams, navigate, authToken, showAlert, handleApiError, searchTerm]); // searchTerm به وابستگی‌ها اضافه شد
+
+
     const handleExportPdfAll = async () => {
         showAlert('Tüm verilerin PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
-        // 1. Fetch all data using the filter
+        // داده‌ها با اعمال فیلتر سرچ گرفته می‌شوند
         const allData = await fetchAllFilteredData();
         if (!allData || allData.length === 0) {
             showAlert('Dışa aktarılacak veri bulunamadı.', 'warning');
@@ -522,12 +580,11 @@ const ListCarwarehouseReport = () => {
         }
 
         try {
-            const doc = new jsPDF('landscape', 'pt', 'a4'); // Landscape for more columns
+            const doc = new jsPDF('landscape', 'pt', 'a4');
             (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
             (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
             doc.setFont("NotoSans", "normal");
 
-            // 🆕 فراخوانی Header
             addPdfHeader(doc, `Araç Yakıt Genel Raporu (${format(new Date(), 'dd/MM/yyyy')})`);
 
             const tableColumn = [
@@ -548,39 +605,22 @@ const ListCarwarehouseReport = () => {
                 ];
             });
 
-            // 📌 محاسبه مجدد مجموع (چون از fetchAllFilteredData استفاده می‌کنیم)
             const calculatedTotalPrice = allData.reduce((sum, row) => sum + parseCurrencyToNumber(row.total_price), 0);
             const totalDisplay = calculatedTotalPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
 
-
             autoTable(doc, {
-                startY: 70, // تنظیم ارتفاع شروع جدول
+                startY: 70,
                 head: [tableColumn], body: tableRows, theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 5 },
                 headStyles: { fillColor: [60, 141, 188], textColor: 255 },
-
-                // 🆕 نمایش جمع کل (Totals) در Footer جدول
-                foot: [
-                    ['', '', '', '', '', '', 'Toplam Maliyet:', totalDisplay, ''],
-                ],
-                footStyles: {
-                    fillColor: [230, 240, 245],
-                    textColor: [192, 0, 0], // Bold color for cost
-                    fontStyle: 'normal',
-                    fontSize: 9
-                },
-                columnStyles: {
-                    7: { fontStyle: 'bold', halign: 'right' }, // Bold Total Cost column
-                    8: { fontStyle: 'bold', halign: 'right' }, // Bold Total Cost column
-                },
-                didDrawPage: (_data) => {
-                    addPdfFooter(doc); // 🆕 فراخوانی Footer
-                }
+                foot: [['', '', '', '', '', '', 'Toplam Maliyet:', totalDisplay, '']],
+                footStyles: { fillColor: [230, 240, 245], textColor: [192, 0, 0], fontStyle: 'normal', fontSize: 9 },
+                columnStyles: { 7: { fontStyle: 'bold', halign: 'right' }, 8: { fontStyle: 'bold', halign: 'right' }, },
+                didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`Tum_Yakıt_Raporu_${format(new Date(), 'yyyyMMddHHmm')}.pdf`);
-            showAlert('PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
+            showAlert('PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'Toplu PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -595,7 +635,6 @@ const ListCarwarehouseReport = () => {
             const personnelFullName = `${report.personnel_name || ''} ${report.personnel_family || ''}`.trim() || '-';
             const totalCostNumber = parseCurrencyToNumber(report.total_price);
             const fuelFeeNumber = parseCurrencyToNumber(report.fuel_fee);
-
 
             const data = [
                 ['Plaka', report.plaque], ['Marka / Model', `${report.brand} / ${report.model}`],
@@ -620,60 +659,22 @@ const ListCarwarehouseReport = () => {
 
             data.forEach((row, _index) => {
                 const newRow = sheet.addRow(row);
-                newRow.eachCell((cell) => {
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
-
-                // Apply currency format to Maliyet and Birim Fiyat rows
+                newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
                 const fieldName = row[0] as string;
-                if (fieldName.includes('Maliyet') || fieldName.includes('Birim Fiyat')) {
-                    newRow.getCell(2).numFmt = '₺ #,##0.00';
-                }
+                if (fieldName.includes('Maliyet') || fieldName.includes('Birim Fiyat')) { newRow.getCell(2).numFmt = '₺ #,##0.00'; }
             });
 
             sheet.columns[0].width = 25; sheet.columns[1].width = 35;
-
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Yakıt_Detay_${report.plaque}_${format(new Date(), 'yyyyMMddHHmm')}.xlsx`);
-
             showAlert('Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
-
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
-
-    const fetchAllFilteredData = useCallback(async () => {
-        if (!authToken) { navigate("/"); return null; }
-
-        const requestParams = {
-            workhouseId: Number(filterParams.workhouseId) || null,
-            workId: Number(filterParams.workId) || null,
-            fromDate: format(new Date(filterParams.fromDate), 'yyyy-MM-dd') || null,
-            toDate: format(new Date(filterParams.toDate), 'yyyy-MM-dd') || null,
-            page: 1, // Fetch all data
-            pageSize: 10000, // Large page size to ensure all data is fetched
-        };
-
-        try {
-            const response = await axios.get(
-                server.baseurl + server.report + `get-car-fuel-report-data`,
-                { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams }
-            );
-
-            if (response.data.httpStatusCode === 200 && response.data.data) {
-                return response.data.data.data as CarReportRowType[];
-            }
-            showAlert(response.data.message || 'Tüm rapor verileri alınamadı.', 'error');
-            return null;
-        } catch (e: any) {
-            handleApiError(e, 'Tüm rapor verileri alınırken bir sorun oluştu.');
-            return null;
-        }
-    }, [filterParams, navigate, authToken, showAlert, handleApiError]);
-
-
     const handleExportExcelAll = async () => {
         showAlert('Tüm verilerin Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
+
+        // داده‌ها با اعمال فیلتر سرچ گرفته می‌شوند
         const allData = await fetchAllFilteredData();
         if (!allData || allData.length === 0) {
             showAlert('Dışa aktarılacak veri bulunamadı.', 'warning');
@@ -689,55 +690,34 @@ const ListCarwarehouseReport = () => {
                 "Yakıt Tipi", "Yakıt Tarihi", "Miktar (L)", "Birim Fiyat (TL)", "Toplam Maliyet (TL)"
             ];
 
-            // Add Header Row
             const headerRow = sheet.addRow(tableColumn);
             headerRow.eachCell((cell) => {
                 cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; cell.font = { bold: true };
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
 
-            // Add Data Rows
             allData.forEach(row => {
                 const totalCostNumber = parseCurrencyToNumber(row.total_price);
                 const fuelFeeNumber = parseCurrencyToNumber(row.fuel_fee);
 
                 sheet.addRow([
-                    row.plaque,
-                    row.brand,
-                    row.model,
-                    row.workhouse_name || '-',
-                    row.workhouse_code || '-',
-                    row.work_title || '-',
-                    row.personnel_name || '-',
-                    row.personnel_family || '-',
-                    row.fuel_type,
-                    format(new Date(row.fuel_date), 'dd/MM/yyyy HH:mm'),
-                    row.fuel_amount,
-                    fuelFeeNumber,
-                    totalCostNumber,
+                    row.plaque, row.brand, row.model, row.workhouse_name || '-', row.workhouse_code || '-',
+                    row.work_title || '-', row.personnel_name || '-', row.personnel_family || '-',
+                    row.fuel_type, format(new Date(row.fuel_date), 'dd/MM/yyyy HH:mm'),
+                    row.fuel_amount, fuelFeeNumber, totalCostNumber,
                 ]);
             });
 
-            // Set column widths and currency formats
             sheet.columns.forEach((column, index) => {
                 const header = tableColumn[index];
                 column.width = header.length < 15 ? 15 : header.length * 1.2;
-
-                if (header.includes('(TL)')) {
-                    column.numFmt = '₺ #,##0.00'; // Apply currency format
-                } else if (header.includes('(L)')) {
-                    column.numFmt = '#,##0.00';
-                } else if (header.includes('Tarihi')) {
-                    column.numFmt = 'dd/mm/yyyy hh:mm';
-                }
+                if (header.includes('(TL)')) { column.numFmt = '₺ #,##0.00'; }
+                else if (header.includes('(L)')) { column.numFmt = '#,##0.00'; }
             });
-
 
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Tum_Yakıt_Raporu_${format(new Date(), 'yyyyMMddHHmm')}.xlsx`);
-
             showAlert('Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
-
         } catch (e: any) { handleApiError(e, 'Toplu Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -755,112 +735,74 @@ const ListCarwarehouseReport = () => {
     ];
 
 
-
     return (
         <Box>
             <Typography variant="h4" mb={4} sx={{ display: 'flex', alignItems: 'center' }}>
                 <IconCar size={28} style={{ marginRight: 8 }} /> Araç Yakıt Raporları
             </Typography>
 
-            {/* --- Alert Section --- */}
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
             {/* --- Filter Section --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
-
-                    {/* Work (İş) */}
                     <Grid item xs={12} sm={4} md={3}>
                         <Autocomplete
-                            id="work-select"
-                            options={worksList}
-                            getOptionLabel={(o) => `${o.title} (${o.status})`}
+                            id="work-select" options={worksList} getOptionLabel={(o) => `${o.title} (${o.status})`}
                             value={worksList.find(w => w.id === filterParams.workId) || null}
                             onChange={(_, newValue) => handleFilterChange('workId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="İş" fullWidth size="small" />)}
                         />
                     </Grid>
-
-
-                    {/* Workhouse (Şantiye) */}
                     <Grid item xs={12} sm={4} md={3}>
                         <Autocomplete
-                            id="workhouse-select"
-                            options={workhousesList}
-                            getOptionLabel={(o) => `${o.name} (${o.code})`}
+                            id="workhouse-select" options={workhousesList} getOptionLabel={(o) => `${o.name} (${o.code})`}
                             value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null}
                             onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
                         />
                     </Grid>
-
-                    {/* From Date - Using DatePicker */}
                     <Grid item xs={12} sm={4} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
-                                label="Başlangıç Tarihi"
-                                value={startDate}
-                                onChange={(v) => setStartDate(v)}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />
-                                )}
+                                label="Başlangıç Tarihi" value={startDate} onChange={(v) => setStartDate(v)} inputFormat="dd/MM/yyyy"
+                                renderInput={(params) => (<TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />)}
                             />
                         </LocalizationProvider>
                     </Grid>
-
-                    {/* To Date - Using DatePicker */}
                     <Grid item xs={12} sm={4} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
-                                label="Bitiş Tarihi"
-                                value={endDate}
-                                onChange={(v) => setEndDate(v)}
-                                inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (
-                                    <TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />
-                                )}
+                                label="Bitiş Tarihi" value={endDate} onChange={(v) => setEndDate(v)} inputFormat="dd/MM/yyyy"
+                                renderInput={(params) => (<TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />)}
                             />
                         </LocalizationProvider>
                     </Grid>
-
-                    {/* 📌 HIDDEN FIELDS - Used only for spacing, fields are removed/hidden as requested */}
-                    {/* <Grid item xs={12} sm={4} md={3}> Personnel Autocomplete </Grid> */}
-                    {/* <Grid item xs={12} sm={4} md={3}> Brand TextField </Grid> */}
-                    {/* <Grid item xs={12} sm={4} md={3}> Model TextField </Grid> */}
-
                 </Grid>
-                {/* Search Button */}
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2 }}>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<IconSearch size={20} />}
-                        onClick={handleSearchClick}
-                        disabled={loadingData}
-                    >
-                        Filtreyi Uygula
-                    </Button>
+
+                {/* ✨ NEW: Search Bar & Global Export Buttons */}
+                <Box sx={{ p: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                label="Tabloda Ara (Plaka, Marka, Şantiye, Personel...)"
+                                variant="outlined" fullWidth size="small"
+                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6} display="flex" justifyContent="flex-end" gap={1}>
+                            <Button variant="outlined" color="success" startIcon={<IconFileSpreadsheet />} onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
+                                Tümünü Excel
+                            </Button>
+                            <Button variant="outlined" color="error" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
+                                Tümünü PDF
+                            </Button>
+                        </Grid>
+                    </Grid>
                 </Box>
             </BlankCard>
-
-            <Box sx={{ margin: "20px 0" }}>
-                {/* 📌 NEW: Global Download Buttons */}
-                <Typography variant="h6" mb={1} color="secondary">📥 Tüm Filtrelenmiş Verileri İndir</Typography>
-                <Stack direction="row" spacing={2} mb={3}>
-                    <Button variant="contained" color="success" startIcon={<IconFileDownload />}
-                        onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
-                        Tümünü PDF Olarak İndir
-                    </Button>
-                    <Button variant="contained" color="primary" startIcon={<IconFileSpreadsheet />}
-                        onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
-                        Tümünü Excel Olarak İndir
-                    </Button>
-                </Stack>
-            </Box>
 
 
             {/* --- Data Table --- */}
@@ -875,8 +817,8 @@ const ListCarwarehouseReport = () => {
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : reportData?.data?.length ? (
-                                reportData.data.map((row, index) => {
+                            ) : filteredReportData.length ? (
+                                filteredReportData.map((row, index) => {
                                     const totalCostNumber = parseCurrencyToNumber(row.total_price);
                                     const fuelFeeNumber = parseCurrencyToNumber(row.fuel_fee);
 
@@ -897,29 +839,24 @@ const ListCarwarehouseReport = () => {
                                                     <IconButton
                                                         id={`actions-button-${index}`}
                                                         onClick={(event) => handleClickMenu(event, row)}
-                                                        color="secondary"
-                                                        size="small"
+                                                        color="secondary" size="small"
                                                     >
                                                         <IconDots width={20} />
                                                     </IconButton>
                                                 </Tooltip>
-
                                                 <Menu
                                                     id="actions-menu" anchorEl={anchorEl}
                                                     open={openMenu && selectedRowForMenu === row}
                                                     onClose={handleCloseMenu}
                                                 >
                                                     <MenuItem onClick={() => handleOpenDetailViewModal(row)}>
-                                                        <ListItemIcon><IconRuler width={18} /></ListItemIcon>
-                                                        Detayları Görüntüle
+                                                        <ListItemIcon><IconRuler width={18} /></ListItemIcon> Detayları Görüntüle
                                                     </MenuItem>
                                                     <MenuItem onClick={() => handleExportPdfSingle(row)}>
-                                                        <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                        PDF İndir
+                                                        <ListItemIcon><IconFileDownload width={18} /></ListItemIcon> PDF İndir
                                                     </MenuItem>
                                                     <MenuItem onClick={() => handleExportExcelSingle(row)}>
-                                                        <ListItemIcon><IconFileSpreadsheet width={18} /></ListItemIcon>
-                                                        Excel İndir
+                                                        <ListItemIcon><IconFileSpreadsheet width={18} /></ListItemIcon> Excel İndir
                                                     </MenuItem>
                                                 </Menu>
                                             </StyledTableCell>
@@ -930,44 +867,48 @@ const ListCarwarehouseReport = () => {
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun yakıt kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
                             )}
                         </TableBody>
+                        <>
+                            {reportData && (
+                                <TableBody>
+                                    <TableRow>
+                                        <StyledTableCell colSpan={9} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
+                                            <Stack direction="row" justifyContent="flex-end" alignItems="center" spacing={2}>
+                                                <Typography variant="h6" fontWeight="bold" color="error.main">
+                                                    TOPLAM RAPOR MALİYETİ:
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="error.main">
+                                                    {reportData.totalPrice !== null ?
+                                                        Number(reportData.totalPrice).toLocaleString('en-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })
+                                                        : 'Hesaplanıyor...'
+                                                    }
+                                                </Typography>
+                                            </Stack>
+                                        </StyledTableCell>
+                                    </TableRow>
+                                </TableBody>
+                            )}
+                        </>
                     </Table>
                 </TableContainer>
                 <>
-                    {reportData && (
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #eee' }}>
-                            <Stack direction="row" spacing={2} alignItems="center">
-                                <Typography variant="h6" fontWeight="bold" color="error.main">
-                                    TOPLAM RAPOR MALİYETİ:
-                                </Typography>
-                                <Typography variant="h5" fontWeight="bold" color="error.main">
-                                    {reportData.totalPrice !== null ?
-                                        Number(reportData.totalPrice).toLocaleString('en-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })
-                                        : 'Hesaplanıyor...'
-                                    }
-                                </Typography>
-                            </Stack>
-                            {reportData.totalPages > 1 && (
-                                <Stack direction="row" alignItems="center">
-                                    <Pagination
-                                        count={reportData.totalPages} page={filterParams.page} onChange={handlePageChange}
-                                        color="primary" showFirstButton showLastButton size="small"
-                                    />
-                                    <Typography variant="body2" sx={{ ml: 2 }}>
-                                        Toplam: {reportData.totalCount} kayıt
-                                    </Typography>
-                                </Stack>
-                            )}
+                    {reportData && reportData.totalPages > 1 && (
+                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center', borderTop: '1px solid #eee' }}>
+                            <Pagination
+                                count={reportData.totalPages} page={filterParams.page} onChange={handlePageChange}
+                                color="primary" showFirstButton showLastButton size="small"
+                            />
+                            <Typography variant="body2" sx={{ ml: 2 }}>
+                                Toplam: {reportData.totalCount} kayıt
+                            </Typography>
                         </Box>
                     )}
                 </>
-
             </BlankCard>
 
             <DetailViewModal
                 open={openDetailViewModal} onClose={handleCloseDetailViewModal}
                 report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle}
             />
-
         </Box>
     );
 };

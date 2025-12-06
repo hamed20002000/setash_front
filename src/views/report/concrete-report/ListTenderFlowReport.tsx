@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -15,6 +15,7 @@ import {
     Autocomplete,
     IconButton,
     MenuItem,
+    InputAdornment, // اضافه شده
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -33,7 +34,6 @@ import autoTable from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
-
 import Logo from 'src/assets/images/logos/logo.png';
 
 
@@ -59,7 +59,6 @@ interface WorkhouseType {
     id: number; name: string; code: string; address: string; createAt: string; recordStatus: number;
 }
 
-// ساختار داده‌ای ردیف گزارش (Row)
 interface TenderFlowReportRowType {
     ihale_title: string; ihale_category: string;
     Demontaj: string; DemontajMontaj: string; DemontajMontajPrice: string;
@@ -76,7 +75,6 @@ interface TenderFlowReportRowType {
     workhouse_name: string;
 }
 
-// ساختار داده‌ای اصلی پاسخ API (لایه بیرونی)
 interface APIResponseData {
     totalCount: number;
     totalDemontaj: number;
@@ -85,7 +83,7 @@ interface APIResponseData {
     pageSize: number;
     totalPages: number;
     success: boolean;
-    data: TenderFlowReportRowType[]; // این آرایه‌ی ردیف‌های جدول است
+    data: TenderFlowReportRowType[];
 }
 
 interface FilterParams {
@@ -102,14 +100,11 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 
 
 // --- UTILITY FUNCTIONS ---
-
 const parseNumberFromString = (value: string | number | null): number => {
     if (value === null) return 0;
     if (typeof value === 'number') return value;
-
     const cleanedValue = String(value).replace(/[$,]/g, '').trim();
     const parsed = parseFloat(cleanedValue);
-
     return isNaN(parsed) ? 0 : parsed;
 };
 
@@ -121,7 +116,6 @@ const formatPriceDisplay = (priceString: string | number | null): string => {
 const formatDateDisplay = (dateString: string | null | undefined): string => {
     if (!dateString) return '-';
     try {
-        // ابتدا سعی می‌کند به عنوان DateTime فرمت کند، در غیر این صورت فقط تاریخ
         return format(new Date(dateString), 'dd/MM/yyyy HH:mm').includes('NaN') ?
             format(new Date(dateString.substring(0, 10)), 'dd/MM/yyyy') :
             format(new Date(dateString), 'dd/MM/yyyy HH:mm');
@@ -131,8 +125,7 @@ const formatDateDisplay = (dateString: string | null | undefined): string => {
 };
 
 
-// --- MODAL FOR SINGLE ROW DETAILS (تغییر یافته برای استفاده از لایه درونی data) ---
-
+// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -151,7 +144,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
             <DialogTitle>{reportTitle}</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={3}>
-
                     {/* Sütun 1: İhale ve İş Bilgileri */}
                     <Grid item xs={12} md={3}>
                         <Typography variant="h6" mb={1} color="primary">İhale ve İş Bilgileri</Typography>
@@ -218,11 +210,11 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         <Stack direction="row" spacing={2}>
                             <Button variant="contained" color="success" startIcon={<IconFileDownload />}
                                 onClick={() => onExportPdf(report)} fullWidth>
-                                PDF Olarak İندیر (Tüm Detaylar)
+                                PDF Olarak İndir (Tüm Detaylar)
                             </Button>
                             <Button variant="contained" color="primary" startIcon={<IconFileDownload />}
                                 onClick={() => onExportExcel(report)} fullWidth>
-                                Excel Olarak İندیر (Tüm Detaylar)
+                                Excel Olarak İndir (Tüm Detaylar)
                             </Button>
                         </Stack>
                     </Grid>
@@ -242,7 +234,9 @@ const ListTenderFlowReport = () => {
     const authToken = localStorage.getItem('authToken');
 
     // --- State Definitions ---
-    const [searchTrigger, setSearchTrigger] = useState(0);
+
+    // ✨ NEW: Search Term State
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         tenderId: null,
@@ -252,7 +246,6 @@ const ListTenderFlowReport = () => {
         pageSize: 10,
     });
 
-    // اینجا باید ساختار را به APIResponseData تغییر دهیم
     const [reportData, setReportData] = useState<APIResponseData | null>(null);
     const [loadingData, setLoadingData] = useState(false);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
@@ -262,7 +255,6 @@ const ListTenderFlowReport = () => {
     const [tendersList, setTendersList] = useState<TenderType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
-
 
     // Menu/Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -281,23 +273,16 @@ const ListTenderFlowReport = () => {
     const clearAlert = () => { setAlertMessage(null); };
 
     const handleApiError = useCallback((e: any, defaultMessage: string = 'Bir hata oluştu.') => {
-        if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu، lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
-        else if (e.response?.status === 500) { showAlert('Sistem hatası oluştu، lütfen deneyin.', 'error'); }
+        if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+        else if (e.response?.status === 500) { showAlert('Sistem hatası oluştu, lütfen deneyin.', 'error'); }
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
 
+    // ✨ UPDATE: تغییر فیلتر صفحه را ریست می‌کند (برای Auto-Fetch)
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
 
-    const handleSearchClick = () => {
-        if (filterParams.page !== 1) {
-            setFilterParams(prev => ({ ...prev, page: 1 }));
-        }
-        setSearchTrigger(prev => prev + 1);
-    };
-
-    // --- Menu/Modal Handlers ---
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: TenderFlowReportRowType) => {
         setAnchorEl(event.currentTarget);
         setSelectedRowForMenu(row);
@@ -316,93 +301,53 @@ const ListTenderFlowReport = () => {
         setOpenDetailViewModal(false);
         setSelectedReportToDownload(null);
     };
-    // ------------------------------------
 
     // --- Data Fetching (Dropdowns & Main) ---
 
-    // 1. Fetch Tenders 
     const getListTender = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
         try {
-            const result = await axios.request({
-                baseURL: server.baseurl + server.initialoperations + "get-tenders",
-                method: "get",
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-            });
-
+            const result = await axios.get(server.baseurl + server.initialoperations + "get-tenders", { headers: { "Authorization": `Bearer ${authToken}` } });
             if (result.data.httpStatusCode === 200) {
-                const formattedData: TenderType[] = result.data.data.map((item: any) => {
-                    let recordStatusText = item.recordStatus === 0 ? 'Aktif' : 'Pasif';
-                    let approvedTenderText = '';
-                    let approvedTenderDate = null;
-                    let showApprovedIcon = false;
-                    let showRejectedIcon = false;
-                    let showPendingIcon = false;
-                    if (item.status === 0) { approvedTenderText = 'Beklemede'; showPendingIcon = true; }
-                    else if (item.status === 1) { approvedTenderText = 'Onaylandı'; showApprovedIcon = true; approvedTenderDate = item.statusDate; }
-                    else if (item.status === 2) { approvedTenderText = 'Reddedildi'; showRejectedIcon = true; approvedTenderDate = item.statusDate; }
-
-                    return {
-                        id: item.id, title: item.title, recordStatus: item.recordStatus, createAt: item.createAt,
-                        status: recordStatusText, tenderStatus: item.status, approvedTenderText: approvedTenderText,
-                        approvedTenderDate: approvedTenderDate, showApprovedIcon: showApprovedIcon,
-                        showRejectedIcon: showRejectedIcon, showPendingIcon: showPendingIcon, attachments: item.attachments || [],
-                    };
-                });
+                const formattedData: TenderType[] = result.data.data.map((item: any) => ({
+                    id: item.id, title: item.title, recordStatus: item.recordStatus, createAt: item.createAt,
+                    status: item.recordStatus === 0 ? 'Aktif' : 'Pasif', tenderStatus: item.status,
+                    approvedTenderText: item.status === 1 ? 'Onaylandı' : 'Beklemede',
+                    approvedTenderDate: item.statusDate, showApprovedIcon: item.status === 1,
+                    showRejectedIcon: item.status === 2, showPendingIcon: item.status === 0, attachments: item.attachments || [],
+                }));
                 setTendersList(formattedData.filter(t => t.recordStatus === 0));
-            } else {
-                showAlert(result.data.message || 'İhale listesi alınırken bir hata oluştu.', 'error');
             }
-        } catch (e: any) {
-            handleApiError(e, 'İhale listesi yüklenirken bir hata oluştu، lütfen tekrar deneyin.');
-        }
-    }, [navigate, authToken, showAlert, handleApiError]);
+        } catch (e: any) { handleApiError(e, 'İhale listesi yüklenirken hata oluştu.'); }
+    }, [navigate, authToken, handleApiError]);
 
-
-    // 2. Fetch Items
     const getItemsList = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
         try {
-            const response = await axios.get(server.baseurl + server.baseinfo + "get-item", {
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-            });
+            const response = await axios.get(server.baseurl + server.baseinfo + "get-item", { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data && response.data.success) {
                 const processedData: ItemType[] = response.data.data.filter((item: any) => item.recordStatus === 0).map((item: any) => ({
                     id: item.id, name: item.name, description: item.description, abbreviation: item.abbreviation,
-                    recordStatus: item.recordStatus ?? 0,
-                    category: item.category,
-                    unit: item.unit,
-                    status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
+                    recordStatus: item.recordStatus ?? 0, category: item.category, unit: item.unit, status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
                 }));
                 setItemsList(processedData);
-            } else {
-                showAlert('Ürünler yüklenmedi.', 'error');
             }
-        } catch (e: any) {
-            handleApiError(e, 'Ürünler sunucudan alınamadı');
-        }
-    }, [navigate, authToken, showAlert, handleApiError]);
+        } catch (e: any) { handleApiError(e, 'Ürünler sunucudan alınamadı'); }
+    }, [navigate, authToken, handleApiError]);
 
-
-    // 3. Fetch Workhouses
     const getWorkhousesList = useCallback(async () => {
         const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) { navigate("/"); return; }
         let requestParams = {};
         if (role.toLowerCase() !== 'admin') { requestParams = { rolename: role }; }
         try {
-            const response = await axios.get(
-                server.baseurl + server.initialoperations + "get-workhouse",
-                { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams }
-            );
+            const response = await axios.get(server.baseurl + server.initialoperations + "get-workhouse", { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams });
             if (response.data.httpStatusCode === 200) {
                 const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
                 setWorkhousesList(activeWorkhouses);
-            } else {
-                showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
             }
         } catch (e: any) { handleApiError(e, 'Şantiye listesi alınamadı.'); }
-    }, [navigate, authToken, showAlert, handleApiError]);
+    }, [navigate, authToken, handleApiError]);
 
 
     const fetchTenderFlowReportData = useCallback(async () => {
@@ -424,7 +369,6 @@ const ListTenderFlowReport = () => {
             );
 
             if (response.data.success && response.data.data) {
-                // **اصلاحیه کلیدی:** ذخیره لایه درونی data که شامل totalCount و آرایه‌ی ردیف‌ها است
                 setReportData(response.data.data as APIResponseData);
             } else {
                 setReportData(null);
@@ -440,40 +384,59 @@ const ListTenderFlowReport = () => {
 
 
     // --- Effects for Data Loading ---
-
     useEffect(() => {
         getListTender();
         getItemsList();
         getWorkhousesList();
-        fetchTenderFlowReportData();
-    }, [getListTender, getItemsList, getWorkhousesList, fetchTenderFlowReportData]);
+        // حذف fetch اولیه دستی
+    }, [getListTender, getItemsList, getWorkhousesList]);
 
+    // ✨ NEW: Auto-Fetch on any filter change
     useEffect(() => {
-        if (searchTrigger > 0 || filterParams.page !== 1) {
-            fetchTenderFlowReportData();
-        }
-    }, [searchTrigger, filterParams.page, fetchTenderFlowReportData]); // اضافه شدن fetchTenderFlowReportData به وابستگی
+        fetchTenderFlowReportData();
+    }, [
+        filterParams.tenderId,
+        filterParams.itemId,
+        filterParams.workhouseId,
+        filterParams.page // Pagination triggers fetch
+    ]);
 
 
-    // --- Handlers for Pagination & Export ---
+    // --- Handlers for Pagination ---
     const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
         setFilterParams(prev => ({ ...prev, page: value }));
     };
 
-    // A new function to add a header to the PDF document
+    // ✨ NEW: Client-Side Search Logic
+    const filteredReportData = useMemo(() => {
+        if (!reportData?.data) return [];
+        if (!searchTerm) return reportData.data;
+
+        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+
+        return reportData.data.filter(row => {
+            const columnsToSearch = [
+                row.ihale_title,
+                row.item_name,
+                row.workhouse_name,
+                row.warehouse_name,
+                row.order_no,
+                row.invoice_no
+            ];
+            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+        });
+    }, [reportData, searchTerm]);
+
+
+    // --- EXPORT HELPERS ---
+
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const docAny = doc as any;
-
-        // Add company logo at the top-right
         docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-
-        // Add report title at the center
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
         doc.text(title, pageWidth / 2, 35, { align: 'center' });
-
-        // Add report date at the top-left
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'normal');
         doc.text(`Rapor Tarihi:`, 15, 50);
@@ -481,7 +444,6 @@ const ListTenderFlowReport = () => {
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 85, 50);
     };
 
-    // A new function to add a footer to the PDF document
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -505,10 +467,9 @@ const ListTenderFlowReport = () => {
         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
 
-
     const handleExportPdfSingle = async (report: TenderFlowReportRowType) => {
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
-        showAlert('PDF raporu hazırlanıyor، lütfen bekleyin...', 'info');
+        showAlert('PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
         try {
             const doc = new jsPDF('portrait', 'pt', 'a4');
@@ -517,7 +478,7 @@ const ListTenderFlowReport = () => {
             doc.setFont("NotoSans", "normal");
 
             const reportTitle = `İhale Akış Detay Raporu: ${report.item_name}`;
-            addPdfHeader(doc, reportTitle); // false for Portrait
+            addPdfHeader(doc, reportTitle);
 
             const tableColumn = ["Alan", "Değer"];
             const tableRows = [
@@ -534,46 +495,26 @@ const ListTenderFlowReport = () => {
                 ["Fatura Fiyatı", formatPriceDisplay(report.invoice_price)],
                 ["Fatura Miktarı", parseNumberFromString(report.invoice_qty)],
                 ["Şantiye", report.workhouse_name], ["Ambar", report.warehouse_name],
-                ["Ambar Sevk Kodu", report.warhouse_dispatch_code], ["Ambar Sevk Tarihi", formatDateDisplay(report.warhouse_dispatch_date)],
-                ["Ambar Sevk Miktarı", parseNumberFromString(report.warhouse_dispatch_qty)],
-                ["Ambar Makbuz Kodu", report.store_receipt_code], ["Ambar Makbuz Tarihi", formatDateDisplay(report.store_receipt_date)],
-                ["Ambar Makbuz Miktarı", parseNumberFromString(report.store_receipt_qty)],
                 ["Toplam Miktar (Makbuz)", parseNumberFromString(report.Quantity)],
             ];
 
             autoTable(doc, {
-                startY: 70,
-                head: [tableColumn], body: tableRows, theme: 'grid',
+                startY: 70, head: [tableColumn], body: tableRows, theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 9, cellPadding: 5, },
                 headStyles: { fillColor: [60, 141, 188], textColor: 255 },
-
-                // نمایش جمع‌بندی قیمتی در پاورقی جدول جزئیات
-                foot: [
-                    ['Demontaj Tutarı', formatPriceDisplay(report.DemontajTutari)],
-                    ['Montaj Fiyatı', formatPriceDisplay(report.MontajPrice)],
-                    ['Demontaj+Montaj Fiyatı', formatPriceDisplay(report.DemontajMontajPrice)],
-                ],
-                footStyles: {
-                    fillColor: [240, 250, 240],
-                    textColor: [0, 0, 0],
-                    fontStyle: "normal",
-                    fontSize: 9
-                },
-
-                didDrawPage: (_data) => {
-                    addPdfFooter(doc);
-                }
+                foot: [['Demontaj Tutarı', formatPriceDisplay(report.DemontajTutari)]],
+                footStyles: { fillColor: [240, 250, 240], textColor: [0, 0, 0], fontStyle: "normal", fontSize: 9 },
+                didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`İhale_Akış_Detay_${report.item_name}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-            showAlert('PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
+            showAlert('PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
-    // 2. Export Excel Single (Detay - شامل تمام فیلدها)
+
     const handleExportExcelSingle = async (report: TenderFlowReportRowType) => {
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
-        showAlert('Excel raporu hazırlanıyor، لطفاً bekleyin...', 'info');
+        showAlert('Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
         try {
             const workbook = new Excel.Workbook();
@@ -593,10 +534,6 @@ const ListTenderFlowReport = () => {
                 ['Fatura Fiyatı', parseNumberFromString(report.invoice_price)],
                 ['Fatura Miktarı', parseNumberFromString(report.invoice_qty)],
                 ['Şantiye', report.workhouse_name], ['Ambar', report.warehouse_name],
-                ['Ambar Sevk Kodu', report.warhouse_dispatch_code], ['Ambar Sevk Tarihi', formatDateDisplay(report.warhouse_dispatch_date)],
-                ['Ambar Sevk Miktarı', parseNumberFromString(report.warhouse_dispatch_qty)],
-                ['Ambar Makbuz Kodu', report.store_receipt_code], ['Ambar Makbuz Tarihi', formatDateDisplay(report.store_receipt_date)],
-                ['Ambar Makbuz Miktarı', parseNumberFromString(report.store_receipt_qty)],
                 ['Toplam Miktar (Makbuz)', parseNumberFromString(report.Quantity)],
             ];
 
@@ -612,32 +549,76 @@ const ListTenderFlowReport = () => {
 
             data.forEach(row => {
                 const newRow = sheet.addRow(row);
-                newRow.eachCell((cell) => {
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
+                newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
                 const fieldName = row[0] as string;
-
                 if (fieldName.includes('Tutarı') || fieldName.includes('Fiyatı')) { newRow.getCell(2).numFmt = '₺ #,##0.00'; }
                 else if (fieldName.includes('Miktarı') || fieldName.includes('Miktar')) { newRow.getCell(2).numFmt = '#,##0.00'; }
             });
 
             sheet.columns[0].width = 30; sheet.columns[1].width = 40;
-
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `İhale_Akış_Detay_${report.item_name}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-
-            showAlert('Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
+            showAlert('Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    const handleExportPdfAll = () => {
-        if (!reportData || reportData.data.length === 0) {
-            showAlert('Rapor indirilemedi: Tabloda veri bulunmamaktadır.', 'warning');
+    // ✨ NEW: Fetch All Data + Apply Client Search for Export
+    const fetchAllFilteredData = useCallback(async () => {
+        if (!authToken) { navigate("/"); return null; }
+
+        const requestParams = {
+            tenderId: filterParams.tenderId || null,
+            itemId: filterParams.itemId || null,
+            workhouseId: filterParams.workhouseId || null,
+            page: 1,
+            pageSize: 10000, // Fetch All
+        };
+
+        try {
+            const response = await axios.get(
+                server.baseurl + server.report + `get-tender-flow-report-data`,
+                { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams }
+            );
+
+            if (response.data.success && response.data.data) {
+                let allData = response.data.data.data as TenderFlowReportRowType[];
+                const totals = { totalDemontaj: response.data.data.totalDemontaj, totalMontaj: response.data.data.totalMontaj };
+
+                // ✨ Apply Search Filter
+                if (searchTerm) {
+                    const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+                    allData = allData.filter(row => {
+                        const columnsToSearch = [
+                            row.ihale_title,
+                            row.item_name,
+                            row.workhouse_name,
+                            row.warehouse_name,
+                            row.order_no,
+                            row.invoice_no
+                        ];
+                        return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+                    });
+                }
+                return { data: allData, ...totals };
+            }
+            showAlert('Dışa aktarılacak veri bulunamadı.', 'error');
+            return null;
+        } catch (e: any) {
+            handleApiError(e, 'Veri alınırken hata oluştu.');
+            return null;
+        }
+    }, [filterParams, navigate, authToken, searchTerm, showAlert, handleApiError]);
+
+
+    // 3. Export PDF All (Global)
+    const handleExportPdfAll = async () => {
+        showAlert('Genel PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
+
+        const result = await fetchAllFilteredData();
+        if (!result || result.data.length === 0) {
+            showAlert('Rapor indirilemedi: Veri bulunmamaktadır.', 'warning');
             return;
         }
-
-        showAlert('Genel PDF raporu hazırlanıyor، lütfen bekleyin...', 'info');
 
         try {
             const doc = new jsPDF('landscape', 'pt', 'a4');
@@ -645,13 +626,11 @@ const ListTenderFlowReport = () => {
             (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
             doc.setFont("NotoSans", "normal");
 
-            addPdfHeader(doc, "İhale Akış Genel Raporu"); // true for Landscape
+            addPdfHeader(doc, "İhale Akış Genel Raporu");
 
-            const tableColumn = [
-                "İhale", "Ürün", "Şantiye", "Ambar", "Sipariş Tarihi", "Toplam Miktar", "Demontaj Tutarı"
-            ];
+            const tableColumn = ["İhale", "Ürün", "Şantiye", "Ambar", "Sipariş Tarihi", "Toplam Miktar", "Demontaj Tutarı"];
 
-            const tableRows = reportData.data.map(row => [
+            const tableRows = result.data.map(row => [
                 row.ihale_title,
                 row.item_name,
                 row.workhouse_name,
@@ -661,81 +640,66 @@ const ListTenderFlowReport = () => {
                 formatPriceDisplay(row.DemontajTutari),
             ]);
 
-            // تنظیمات جدول
             autoTable(doc, {
-                startY: 65, // ارتفاع شروع جدول تنظیم شد (بعد از Header)
-                margin: { top: 65 },
+                startY: 65, margin: { top: 65 },
                 head: [tableColumn], body: tableRows, theme: 'striped',
                 styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 8, cellPadding: 5, },
                 headStyles: { fillColor: [30, 100, 120], textColor: 255 },
-
-                // نمایش جمع کل در Footer جدول
                 foot: [
-                    ['', '', '', '', 'TOPLAM DEMONTAJ', '', formatPriceDisplay(reportData.totalDemontaj ?? 0)],
-                    ['', '', '', '', 'TOPLAM MONTAJ', '', formatPriceDisplay(reportData.totalMontaj ?? 0)],
+                    ['', '', '', '', 'TOPLAM DEMONTAJ', '', formatPriceDisplay(result.totalDemontaj ?? 0)],
+                    ['', '', '', '', 'TOPLAM MONTAJ', '', formatPriceDisplay(result.totalMontaj ?? 0)],
                 ],
-                footStyles: {
-                    fillColor: [230, 240, 245],
-                    textColor: [0, 0, 0],
-                    fontStyle: 'normal',
-                    fontSize: 9
-                },
-
-                didDrawPage: (_data) => {
-                    addPdfFooter(doc);
-                }
+                footStyles: { fillColor: [230, 240, 245], textColor: [0, 0, 0], fontStyle: 'normal', fontSize: 9 },
+                didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`İhale_Akış_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
-            showAlert('Genel PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-        } catch (e) {
-            handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.');
-        }
-    }
-    // 4. Export Excel All (Genel)
+            showAlert('Genel PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
+        } catch (e) { handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.'); }
+    };
+
+    // 4. Export Excel All (Global)
     const handleExportExcelAll = async () => {
-        if (!reportData || reportData.data.length === 0) {
-            showAlert('Rapor indirilemedi: Tabloda veri bulunmamaktadır.', 'warning');
+        showAlert('Genel Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
+
+        const result = await fetchAllFilteredData();
+        if (!result || result.data.length === 0) {
+            showAlert('Rapor indirilemedi: Veri bulunmamaktadır.', 'warning');
             return;
         }
-
-        showAlert('Genel Excel raporu hazırlanıyor، لطفاً bekleyin...', 'info');
 
         try {
             const workbook = new Excel.Workbook();
             const sheet = workbook.addWorksheet('İhale Akış Genel Raporu', { views: [{ rightToLeft: false }] });
 
-            const data = reportData.data.map(row => [
+            const data = result.data.map(row => [
                 row.ihale_title,
                 row.item_name,
                 row.workhouse_name,
                 row.warehouse_name,
                 formatDateDisplay(row.order_date),
-                parseNumberFromString(row.Quantity), // مقدار عددی برای اکسل
-                parseNumberFromString(row.DemontajTutari), // مقدار عددی برای اکسل
+                parseNumberFromString(row.Quantity),
+                parseNumberFromString(row.DemontajTutari),
             ]);
 
-            const headerRowData = ["İhale", "Ürün", "Şantiye", "Ambar", "Sipariş Tarihi", `Toplam Miktar (${reportData.data[0]?.unit ?? ''})`, "Demontaj Tutarı"];
+            const headerRowData = ["İhale", "Ürün", "Şantiye", "Ambar", "Sipariş Tarihi", `Toplam Miktar (${result.data[0]?.unit ?? ''})`, "Demontaj Tutarı"];
 
             sheet.addRow(["İhale Akış Genel Raporu"]);
             sheet.mergeCells('A1:G1'); sheet.getRow(1).font = { bold: true, size: 14 };
-            sheet.addRow(["Toplam Kayıt:", reportData.totalCount, "Toplam Demontaj:", parseNumberFromString(reportData.totalDemontaj ?? 0), "Toplam Montaj:", parseNumberFromString(reportData.totalMontaj ?? 0)]);
+            sheet.addRow(["Toplam Kayıt:", result.data.length, "Toplam Demontaj:", parseNumberFromString(result.totalDemontaj ?? 0), "Toplam Montaj:", parseNumberFromString(result.totalMontaj ?? 0)]);
             sheet.getRow(2).getCell(4).numFmt = '₺ #,##0.00';
             sheet.getRow(2).getCell(6).numFmt = '₺ #,##0.00';
             sheet.addRow([]);
 
             const headerRow = sheet.addRow(headerRowData);
             headerRow.eachCell((cell) => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0E6F0' } };
-                cell.font = { bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0E6F0' } }; cell.font = { bold: true };
                 cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
 
             data.forEach(row => {
                 const newRow = sheet.addRow(row);
-                newRow.eachCell((cell) => {
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
+                newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
                 newRow.getCell(6).numFmt = '#,##0.00';
                 newRow.getCell(7).numFmt = '₺ #,##0.00';
             });
@@ -745,12 +709,9 @@ const ListTenderFlowReport = () => {
                 column.width = minWidth;
             });
 
-
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `İhale_Akış_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
-
-            showAlert('Genel Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
+            showAlert('Genel Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'Genel Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -773,7 +734,6 @@ const ListTenderFlowReport = () => {
                 <IconCurrencyTaka size={28} style={{ marginRight: 8 }} /> İhale Akış Raporu
             </Typography>
 
-            {/* --- Alert Section --- */}
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
             {/* --- Filter Section --- */}
@@ -789,7 +749,6 @@ const ListTenderFlowReport = () => {
                             getOptionLabel={(o) => `${o.title} (${o.approvedTenderText})`}
                             value={tendersList.find(t => t.id === filterParams.tenderId) || null}
                             onChange={(_, newValue) => handleFilterChange('tenderId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="İhale Seçiniz" fullWidth size="small" />)}
                         />
                     </Grid>
@@ -802,7 +761,6 @@ const ListTenderFlowReport = () => {
                             getOptionLabel={(o) => `${o.name} (${o.abbreviation})`}
                             value={itemsList.find(i => i.id === filterParams.itemId) || null}
                             onChange={(_, newValue) => handleFilterChange('itemId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="Ürün Seçiniz" fullWidth size="small" />)}
                         />
                     </Grid>
@@ -815,66 +773,60 @@ const ListTenderFlowReport = () => {
                             getOptionLabel={(o) => `${o.name} (${o.code})`}
                             value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null}
                             onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
                         />
                     </Grid>
                 </Grid>
 
-                {/* Search Button & General Export Buttons */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', p: 2 }}>
-                    <Stack direction="row" spacing={2}>
-                        {/* دانلود کلی */}
-                        <Button variant="outlined" color="success" startIcon={<IconFileDownload />}
-                            onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
-                            Genel PDF İndir
-                        </Button>
-                        <Button variant="outlined" color="primary" startIcon={<IconFileSpreadsheet />}
-                            onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
-                            Genel Excel İndir
-                        </Button>
-                    </Stack>
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<IconSearch size={20} />}
-                        onClick={handleSearchClick}
-                        disabled={loadingData}
-                    >
-                        Filtreyi Uygula
-                    </Button>
+                {/* ✨ NEW: Search Bar & Global Export Buttons */}
+                <Box sx={{ p: 2, mt: 1 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                label="Tabloda Ara (İhale, Ürün, Şantiye, Fatura No...)"
+                                variant="outlined" fullWidth size="small"
+                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6} display="flex" justifyContent="flex-end" gap={1}>
+                            <Button variant="outlined" color="success" startIcon={<IconFileSpreadsheet />} onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
+                                Genel Excel İndir
+                            </Button>
+                            <Button variant="outlined" color="primary" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
+                                Genel PDF İndir
+                            </Button>
+                        </Grid>
+                    </Grid>
                 </Box>
             </BlankCard>
-            <Box sx={{ margin: "20px 0" }}></Box>
 
             {/* --- Data Table --- */}
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="tender flow report table">
                         <TableHead style={{ background: "#f0f0f0" }}>
-                            {tableHeaders.map((header) => (
-                                <StyledTableCell
-                                    key={header.key}
-                                    // **اعمال عرض 120px به ستون İşlemler**
-                                    sx={header.key === 'item_name' ? { width: '120px', minWidth: '120px', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word' } : {}}
-
-                                >
-                                    <Typography variant="h6" fontWeight="bold">
-                                        {header.label}
-                                    </Typography>
-                                </StyledTableCell>
-                            ))}
+                            <TableRow>
+                                {tableHeaders.map((header) => (
+                                    <StyledTableCell
+                                        key={header.key}
+                                        sx={header.key === 'item_name' ? { width: '120px', minWidth: '120px', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word' } : {}}
+                                    >
+                                        <Typography variant="h6" fontWeight="bold">{header.label}</Typography>
+                                    </StyledTableCell>
+                                ))}
+                            </TableRow>
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : reportData?.data?.length ? (
-                                reportData.data.map((row, index) => (
+                            ) : filteredReportData.length ? (
+                                filteredReportData.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.ihale_title}</StyledTableCell>
                                         <StyledTableCell sx={{ width: '120px', minWidth: '120px', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
-
-                                            {row.item_name}</StyledTableCell>
+                                            {row.item_name}
+                                        </StyledTableCell>
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
                                         <StyledTableCell>{formatDateDisplay(row.order_date)}</StyledTableCell>
                                         <StyledTableCell>{row.warehouse_name}</StyledTableCell>
@@ -891,8 +843,7 @@ const ListTenderFlowReport = () => {
                                                 <IconButton
                                                     id={`actions-button-${index}`}
                                                     onClick={(event) => handleClickMenu(event, row)}
-                                                    color="secondary"
-                                                    size="small"
+                                                    color="secondary" size="small"
                                                 >
                                                     <IconDots width={20} />
                                                 </IconButton>
@@ -904,16 +855,13 @@ const ListTenderFlowReport = () => {
                                                 onClose={handleCloseMenu}
                                             >
                                                 <MenuItem onClick={() => handleOpenDetailViewModal(row)}>
-                                                    <ListItemIcon><IconRuler width={18} /></ListItemIcon>
-                                                    Detayları Görüntüle
+                                                    <ListItemIcon><IconRuler width={18} /></ListItemIcon> Detayları Görüntüle
                                                 </MenuItem>
                                                 <MenuItem onClick={() => handleExportPdfSingle(row)}>
-                                                    <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                    PDF İndir
+                                                    <ListItemIcon><IconFileDownload width={18} /></ListItemIcon> PDF İndir
                                                 </MenuItem>
                                                 <MenuItem onClick={() => handleExportExcelSingle(row)}>
-                                                    <ListItemIcon><IconFileSpreadsheet width={18} /></ListItemIcon>
-                                                    Excel İndir
+                                                    <ListItemIcon><IconFileSpreadsheet width={18} /></ListItemIcon> Excel İndir
                                                 </MenuItem>
                                             </Menu>
                                         </StyledTableCell>

@@ -1,14 +1,14 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react'; // ✨ useMemo added
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     Typography, Box,
     TableCell as MuiTableCell,
-    TableFooter, // Added for total price
+    TableFooter,
     Stack, Alert, CircularProgress, Button,
     Tooltip,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    Grid, MenuItem, TextField, IconButton,
+    Grid, MenuItem, TextField, IconButton, InputAdornment,
     Pagination,
     Menu,
     ListItemIcon,
@@ -23,7 +23,6 @@ import axios from 'axios';
 import server from '../../../assets/address.json';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
-// ✨ Added startOfYear, endOfYear
 import { format, startOfYear, endOfYear } from 'date-fns';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -32,53 +31,32 @@ import { tr } from 'date-fns/locale';
 // --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-// NOTE: NotoSansRegular should be correctly imported/defined
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
-
-
 import Logo from 'src/assets/images/logos/logo.png';
 
 
-// --- TYPE DEFINITIONS (UPDATED FOR API MATCHING) ---
+// --- TYPE DEFINITIONS ---
 interface WorkhouseType { id: number; name: string; code: string; address: string; createAt: string; recordStatus: number; }
 
-interface ItemType {
-    id: number; name: string; description: string; abbreviation: string; recordStatus: number;
-    category: { id: number; name: string; depth: number; recordStatus: number; };
-    unit: { id: number; title: string; recordStatus: number; };
-    status?: string;
-}
-
-// ✨ Renamed and adjusted ReportRowType fields based on provided JSON structure
 interface ReportRowType {
     workhouse_id: string; workhouse_code: string; workhousen_name: string;
-    tarih: string;           // Date field name
-    proje_kodu: string;      // Project Code field name
-    bolge_adi: string;       // Region field name
-    ekip_adi: string;        // Team name field name
-    il: string | null;       // Province field name
-    ilce: string;            // District field name
-    proje_adi: string;       // Project Name field name
-    is_turu: string;         // Work Type field name
-    itemcode: string | null;
-    itemname: string;
-    unit: string;
-    quantity: string;        // String in API output
-    price: string | null;    // String/Null in API output
-    discount: string | null;
-    total: string | null;    // String/Null in API output
+    tarih: string; proje_kodu: string; bolge_adi: string; ekip_adi: string; il: string | null;
+    ilce: string; proje_adi: string; is_turu: string; itemcode: string | null;
+    itemname: string; unit: string; quantity: string; price: string | null; discount: string | null;
+    total: string | null;
 }
 
 interface ReportResponseType {
     totalCount: number;
-    totalPrice: number; // Number in API output
+    totalPrice: number;
     page: number; pageSize: number; totalPages: number; data: ReportRowType[];
 }
 
 interface FilterParams {
-    docNumber: string; fromDate: string; toDate: string; projectId: number | null; workhouseId: number | null;
+    // docNumber: حذف شد و برای جستجوی API استفاده نمی‌شود
+    fromDate: string; toDate: string; projectId: number | null; workhouseId: number | null;
     maxQuantity: number | null; minQuantity: number | null; page: number; pageSize: number;
     storeId: number | null; dispatchId: string | null; itemId: number | null;
 }
@@ -88,13 +66,10 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 }));
 
 
-// --- MODAL FOR SINGLE ROW DETAILS (UNCHANGED LOGIC) ---
+// --- MODAL FOR SINGLE ROW DETAILS (UNCHANGED) ---
 interface DetailViewModalProps {
-    open: boolean;
-    onClose: () => void;
-    report: ReportRowType | null;
-    onExportExcel: (report: ReportRowType) => Promise<void>;
-    onExportPdf: (report: ReportRowType) => Promise<void>;
+    open: boolean; onClose: () => void; report: ReportRowType | null;
+    onExportExcel: (report: ReportRowType) => Promise<void>; onExportPdf: (report: ReportRowType) => Promise<void>;
 }
 
 const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report, onExportExcel, onExportPdf }) => {
@@ -122,7 +97,6 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         <Stack spacing={1}>
                             <CustomTextField label="Miktar" size="small" fullWidth value={report.quantity} disabled />
                             <CustomTextField label="Birim" size="small" fullWidth value={report.unit} disabled />
-                            {/* Uses nullish coalescing for price/total */}
                             <CustomTextField label="Birim Fiyat" size="small" fullWidth value={report.price ? `${report.price}` : '-'} disabled />
                             <CustomTextField label="Toplam Tutar" size="small" fullWidth value={report.total ? `${report.total}` : '-'} disabled />
                         </Stack>
@@ -164,27 +138,37 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
 const ListItemReport = () => {
     const navigate = useNavigate();
 
-    // ✨ Calculate start/end of current year
     const currentYearStart = startOfYear(new Date());
     const currentYearEnd = endOfYear(new Date());
 
     // --- State Definitions ---
     const [startDate, setStartDate] = useState<Date | null>(currentYearStart);
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
-    const [searchTrigger, setSearchTrigger] = useState(0);
+
+    // ✨ State برای جستجوی متنی (سمت کلاینت)
+    const [searchTerm, setSearchTerm] = useState('');
+
+
+    const [openDetailViewModal, setOpenDetailViewModal] = useState(false);
+    const [selectedReportToDownload, setSelectedReportToDownload] = useState<ReportRowType | null>(null);
+
+
+    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+    const [selectedRowForMenu, setSelectedRowForMenu] = useState<ReportRowType | null>(null);
+    const openMenu = Boolean(anchorEl);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
-        docNumber: '',
+        // docNumber حذف شد
         fromDate: format(currentYearStart, 'yyyy-MM-dd'),
         toDate: format(currentYearEnd, 'yyyy-MM-dd'),
-        projectId: null,    // Hidden
+        projectId: null,
         workhouseId: null,
         maxQuantity: null,
         minQuantity: null,
         page: 1,
         pageSize: 10,
-        storeId: null,      // Hidden
-        dispatchId: null,   // Hidden
+        storeId: null,
+        dispatchId: null,
         itemId: null,
     });
 
@@ -195,21 +179,10 @@ const ListItemReport = () => {
 
     // Dropdown States
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
-    const [itemsList, setItemsList] = useState<ItemType[]>([]);
-
-    // Menu/Modal States
-    const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [selectedRowForMenu, setSelectedRowForMenu] = useState<ReportRowType | null>(null);
-    const openMenu = Boolean(anchorEl);
-
-    const [openDetailViewModal, setOpenDetailViewModal] = useState(false);
-    const [selectedReportToDownload, setSelectedReportToDownload] = useState<ReportRowType | null>(null);
-
 
     const formatDateDisplay = (dateString: string | null | undefined): string => {
         if (!dateString) return '-';
         try {
-            // ابتدا سعی می‌کند به عنوان DateTime فرمت کند، در غیر این صورت فقط تاریخ
             return format(new Date(dateString), 'dd/MM/yyyy HH:mm').includes('NaN') ?
                 format(new Date(dateString.substring(0, 10)), 'dd/MM/yyyy') :
                 format(new Date(dateString), 'dd/MM/yyyy HH:mm');
@@ -233,47 +206,17 @@ const ListItemReport = () => {
     }, [navigate, showAlert]);
 
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
+        // ✨ CHANGE: همیشه صفحه را به 1 برمی‌گرداند مگر اینکه فقط pagination باشد
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
 
-    const handleSearchClick = () => {
-        if (filterParams.page !== 1) {
-            setFilterParams(prev => ({ ...prev, page: 1 }));
-        }
-        setSearchTrigger(prev => prev + 1);
-    };
-
-    // Helper to clean price/total strings from symbols (e.g., "$35,000.00" -> 35000)
     const cleanCurrencyValue = (value: string | null): number => {
         if (!value) return 0;
-        // Removes symbols, commas (thousand separators), and parses float
         return parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
     };
 
 
-    // --- Data Fetching (Dropdowns - Logic for hidden fields maintained) ---
-
-    const getItemsList = useCallback(async () => {
-        const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); showAlert('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.', 'error'); return; }
-        try {
-            const response = await axios.get(server.baseurl + server.baseinfo + "get-item", {
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-            });
-            if (response.data && response.data.success) {
-                const processedData = response.data.data.filter((item: any) => item.recordStatus === 0).map((item: any) => ({
-                    id: item.id, name: item.name, description: item.description, abbreviation: item.abbreviation,
-                    recordStatus: item.recordStatus ?? 0, category: item.category, unit: item.unit, status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
-                }));
-                setItemsList(processedData as ItemType[]);
-            } else {
-                showAlert('Ürünler yüklenmedi.', 'error');
-            }
-        } catch (e: any) {
-            handleApiError(e, 'Ürünler sunucudan alınamadı');
-        }
-    }, [navigate, showAlert, handleApiError]);
-
+    // --- Data Fetching (Dropdowns) ---
 
     const getWorkhousesList = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -296,18 +239,17 @@ const ListItemReport = () => {
     }, [navigate, showAlert, handleApiError]);
 
 
-
+    // --- Main Data Fetching (for Table) ---
     const fetchListItemReportData = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { navigate("/"); return; }
 
         const requestParams = {
-            docNumber: filterParams.dispatchId || null,
+            // ✨ CHANGE: docNumber و dispatchId حذف شد
             fromDate: filterParams.fromDate || null,
             toDate: filterParams.toDate || null,
             projectId: Number(filterParams.projectId) || null,
             workhouseId: Number(filterParams.workhouseId) || null,
-            itemId: Number(filterParams.itemId) || null,
             maxQuantity: filterParams.maxQuantity || null,
             minQuantity: filterParams.minQuantity || null,
             page: filterParams.page,
@@ -322,7 +264,6 @@ const ListItemReport = () => {
             );
 
             if (response.data.httpStatusCode === 200 && response.data.data) {
-                // Ensure number types are used for direct access like totalPrice
                 setReportData(response.data.data as ReportResponseType);
             } else {
                 setReportData(null);
@@ -334,15 +275,20 @@ const ListItemReport = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [filterParams.dispatchId, filterParams.fromDate, filterParams.toDate, filterParams.projectId, filterParams.workhouseId, filterParams.itemId, filterParams.maxQuantity, filterParams.minQuantity, filterParams.page, filterParams.pageSize, navigate, showAlert, handleApiError]);
+    }, [
+        filterParams.fromDate, filterParams.toDate, filterParams.projectId, filterParams.workhouseId,
+        filterParams.maxQuantity, filterParams.minQuantity, filterParams.page, filterParams.pageSize,
+        navigate, showAlert, handleApiError
+    ]);
 
+
+    // --- Effects for Data Loading (REACTIVE) ---
 
     useEffect(() => {
         getWorkhousesList();
-        getItemsList();
-        fetchListItemReportData();
-    }, [getWorkhousesList, getItemsList]);
+    }, [getWorkhousesList]);
 
+    // Effect برای به‌روزرسانی تاریخ‌ها
     useEffect(() => {
         if (startDate) handleFilterChange('fromDate', format(startDate, 'yyyy-MM-dd'));
     }, [startDate]);
@@ -351,13 +297,39 @@ const ListItemReport = () => {
         if (endDate) handleFilterChange('toDate', format(endDate, 'yyyy-MM-dd'));
     }, [endDate]);
 
-
-
+    // ✨ NEW: useEffect اصلی برای واکشی داده‌ها با تغییر هر پارامتر فیلتر یا صفحه (بدون وابستگی به SearchTerm)
     useEffect(() => {
-        if (searchTrigger > 0 || filterParams.page !== 1) {
-            fetchListItemReportData();
-        }
-    }, [searchTrigger, filterParams.page]);
+        fetchListItemReportData();
+    }, [
+        filterParams.fromDate, filterParams.toDate, filterParams.projectId,
+        filterParams.workhouseId, filterParams.maxQuantity, filterParams.minQuantity,
+        filterParams.page // برای pagination
+    ]);
+
+    // --- Client-Side Filtering Logic (NEW) ---
+
+    // ✨ استفاده از useMemo برای فیلتر کردن داده‌های جدول بر اساس searchTerm
+    const filteredReportData = useMemo(() => {
+        // اگر هنوز داده‌ای از API نیامده یا لودینگ فعال است
+        if (!reportData?.data) return [];
+        // اگر فیلد جستجو خالی است، کل داده‌های واکشی شده را برگردان
+        if (!searchTerm) return reportData.data;
+
+        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+
+        return reportData.data.filter(row => {
+            // ستون‌های مورد نظر برای جستجو: Malzeme Adı, Şantiye Adı, Proje Adı, Proje Kodu
+            const columnsToSearch = [
+                row.itemname,
+                row.workhousen_name,
+                row.proje_adi,
+                row.proje_kodu,
+                row.itemcode // اضافه شدن کدها برای جستجوی جامع
+            ];
+
+            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+        });
+    }, [reportData, searchTerm]);
 
 
     // --- Handlers for Pagination, Menu, Modal (Unchanged) ---
@@ -383,6 +355,8 @@ const ListItemReport = () => {
         setOpenDetailViewModal(false);
         setSelectedReportToDownload(null);
     };
+
+
 
 
     // A new function to add a header to the PDF document
@@ -606,8 +580,6 @@ const ListItemReport = () => {
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
-
-
     const handleExportExcelAll = async (data: ReportRowType[]) => {
         showAlert('Tüm verilerin Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
@@ -668,9 +640,9 @@ const ListItemReport = () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
         const requestParams = {
-            docNumber: filterParams.dispatchId || null, fromDate: filterParams.fromDate || null, toDate: filterParams.toDate || null,
+            fromDate: filterParams.fromDate || null, toDate: filterParams.toDate || null,
             projectId: Number(filterParams.projectId) || null, workhouseId: Number(filterParams.workhouseId) || null,
-            itemId: Number(filterParams.itemId) || null, maxQuantity: filterParams.maxQuantity || null, minQuantity: filterParams.minQuantity || null,
+            maxQuantity: filterParams.maxQuantity || null, minQuantity: filterParams.minQuantity || null,
         };
         const exportMessage = `Tüm rapor verileri için ${exportType.toUpperCase()} hazırlanıyor, lütfen bekleyin...`;
         showAlert(exportMessage, 'info');
@@ -710,39 +682,25 @@ const ListItemReport = () => {
             {/* --- Alert Section --- */}
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            {/* --- Filter Section (Hidden fields logic maintained) --- */}
+            {/* --- Filter Section (Reactive) --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
 
-                    {/* Item (Malzeme) - VISIBLE */}
-                    <Grid item xs={12} sm={4} md={3}>
-                        <Autocomplete
-                            id="item-select" options={itemsList}
-                            getOptionLabel={(o) => `${o.name} (${o.abbreviation || o.category.name})`}
-                            value={itemsList.find(i => i.id === filterParams.itemId) || null}
-                            onChange={(_, newValue) => handleFilterChange('itemId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
-                            renderInput={(params) => (<TextField {...params} label="Malzeme (Ürün)" fullWidth size="small" />)}
-                        />
-                    </Grid>
-
                     {/* Workhouse (Şantiye) - VISIBLE */}
-                    <Grid item xs={12} sm={4} md={3}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <Autocomplete
                             id="workhouse-select" options={workhousesList}
                             getOptionLabel={(o) => `${o.name} (${o.code})`}
                             value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null}
                             onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)}
                             isOptionEqualToValue={(o, v) => o.id === v.id}
-                            renderInput={(params) => (<TextField {...params} label="Şantiye (Workhouse)" fullWidth size="small" />)}
+                            renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
                         />
                     </Grid>
 
-                    {/* Project, Store, Dispatch are HIDDEN but state/logic is maintained */}
-
                     {/* From Date - VISIBLE */}
-                    <Grid item xs={12} sm={4} md={3}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
                                 label="Başlangıç Tarihi" value={startDate} onChange={(v) => setStartDate(v)} inputFormat="dd/MM/yyyy"
@@ -752,7 +710,7 @@ const ListItemReport = () => {
                     </Grid>
 
                     {/* To Date - VISIBLE */}
-                    <Grid item xs={12} sm={4} md={3}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
                                 label="Bitiş Tarihi" value={endDate} onChange={(v) => setEndDate(v)} inputFormat="dd/MM/yyyy"
@@ -762,7 +720,7 @@ const ListItemReport = () => {
                     </Grid>
 
                     {/* Min Quantity - VISIBLE */}
-                    <Grid item xs={12} sm={4} md={3}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <CustomTextField
                             label="Min. Miktar" size="small" type="number" fullWidth
                             value={filterParams.minQuantity || ''}
@@ -771,7 +729,7 @@ const ListItemReport = () => {
                     </Grid>
 
                     {/* Max Quantity - VISIBLE */}
-                    <Grid item xs={12} sm={4} md={3}>
+                    <Grid item xs={12} sm={6} md={3}>
                         <CustomTextField
                             label="Max. Miktar" size="small" type="number" fullWidth
                             value={filterParams.maxQuantity || ''}
@@ -780,23 +738,40 @@ const ListItemReport = () => {
                     </Grid>
                 </Grid>
 
-                {/* Search & Export All Buttons */}
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2, gap: 2 }}>
-                    <Button
-                        variant="outlined" color="success" startIcon={<IconFileSpreadsheet size={20} />}
-                        onClick={() => fetchFullReportData('excel')} disabled={loadingData}>
-                        Tüm Veriyi Excel İndir
-                    </Button>
-                    <Button
-                        variant="outlined" color="error" startIcon={<IconFileDownload size={20} />}
-                        onClick={() => fetchFullReportData('pdf')} disabled={loadingData}>
-                        Tüm Veriyi PDF İndir
-                    </Button>
-                    <Button
-                        variant="contained" color="primary" startIcon={<IconSearch size={20} />}
-                        onClick={handleSearchClick} disabled={loadingData}>
-                        Filtreyi Uygula
-                    </Button>
+                {/* Search Bar and Export All Buttons (Filtreyi Uygula REMOVED) */}
+                <Box sx={{ p: 2 }}>
+                    <Grid container spacing={2} alignItems="center">
+
+                        {/* ✨ NEW: فیلد جستجوی متنی (Client-Side) */}
+                        <Grid item xs={12} sm={7} md={7}>
+                            <TextField
+                                label="Tabloda Ara (Malzeme Adı/Kodu, Proje Adı, Şantiye Adı)"
+                                variant="outlined"
+                                fullWidth
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                size="small"
+                                InputProps={{
+                                    startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>)
+                                }}
+                            />
+                        </Grid>
+
+                        <Grid item xs={12} sm={5} md={5} spacing={2} display={'flex'} justifyContent={'space-evenly'}>
+                            <Button
+                                variant="outlined" color="success" startIcon={<IconFileSpreadsheet size={20} />}
+                                onClick={() => fetchFullReportData('excel')} disabled={loadingData}
+                            >
+                                Tüm Veriyi Excel İndir
+                            </Button>
+                            <Button
+                                variant="outlined" color="error" startIcon={<IconFileDownload size={20} />}
+                                onClick={() => fetchFullReportData('pdf')} disabled={loadingData}
+                            >
+                                Tüm Veriyi PDF İndir
+                            </Button>
+                        </Grid>
+                    </Grid>
                 </Box>
             </BlankCard>
             <Box sx={{ margin: "20px 0" }}></Box>
@@ -810,7 +785,6 @@ const ListItemReport = () => {
                                 {tableHeaders.map((header) => (
                                     <StyledTableCell
                                         key={header.key}
-                                        // ✨ اعمال عرض 100px به ستون Malzeme Adı
                                         sx={header.key === 'itemname' ? { width: '120px', minWidth: '120px', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word' } : {}}
                                     >
                                         <Typography variant="h6" fontWeight="bold">
@@ -823,8 +797,9 @@ const ListItemReport = () => {
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : reportData?.data?.length ? (
-                                reportData.data.map((row, index) => (
+                            ) : filteredReportData.length ? (
+                                // ✨ CHANGE: استفاده از filteredReportData
+                                filteredReportData.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell sx={{ width: '120px', minWidth: '120px', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                                             {row.itemname}
@@ -870,19 +845,17 @@ const ListItemReport = () => {
                         {reportData && reportData.data?.length > 0 && (
                             <TableFooter>
                                 <TableRow>
-                                    {/* 6 ستون اول را ادغام می‌کند (7 ستون - 1 ستون عملیات) */}
                                     <StyledTableCell colSpan={6} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h6" fontWeight="bold">
                                             Genel Toplam (Toplam Tutar):
                                         </Typography>
                                     </StyledTableCell>
-                                    {/* نمایش جمع کل با فرمت 'en-US' */}
                                     <StyledTableCell align="left" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h5" color="primary" fontWeight="bold">
+                                            {/* از reportData.totalPrice که از API آمده استفاده می‌شود */}
                                             {reportData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
                                         </Typography>
                                     </StyledTableCell>
-                                    {/* سلول خالی برای ستون عملیات */}
                                     <StyledTableCell sx={{ borderTop: '2px solid #ddd' }}></StyledTableCell>
                                 </TableRow>
                             </TableFooter>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -15,6 +15,7 @@ import {
     Autocomplete,
     IconButton,
     MenuItem,
+    InputAdornment, // اضافه شده
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -73,7 +74,6 @@ interface FilterParams {
     page: number;
     pageSize: number;
 
-    // این فیلدها دیگر در UI تنظیم نمی‌شوند اما برای ارسال به API در State باقی می‌مانند
     personnelId: number | null;
     identityNumber: string;
     position: string;
@@ -84,7 +84,7 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 }));
 
 
-// --- MODAL FOR SINGLE ROW DETAILS --- (بدون تغییر عمده)
+// --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -113,9 +113,8 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         <Typography variant="h6" mb={1} color="primary">Personel Bilgileri</Typography>
                         <Stack spacing={1}>
                             <CustomTextField label="Adı Soyadı" size="small" fullWidth value={fullName} disabled />
-                            {/* Kimlik No & Pozisyon پنهان شده‌اند */}
-                            <CustomTextField label="Kimlik No" size="small" fullWidth value="*** Gizlenmiştir ***" disabled />
-                            <CustomTextField label="Pozisyon" size="small" fullWidth value="*** Gizlenmiştir ***" disabled />
+                            <CustomTextField label="Kimlik No" size="small" fullWidth value="  Gizlenmiştir  " disabled />
+                            <CustomTextField label="Pozisyon" size="small" fullWidth value="  Gizlenmiştir  " disabled />
                         </Stack>
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -153,12 +152,10 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
 
 
 // --- UTILITY FUNCTIONS ---
-
 const getCurrentYearDates = () => {
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const endOfYear = new Date(now.getFullYear(), 11, 31);
-
     return {
         fromDate: format(startOfYear, 'yyyy-MM-dd'),
         toDate: format(endOfYear, 'yyyy-MM-dd'),
@@ -172,7 +169,8 @@ const ListPersonnelWorkhouseReport = () => {
 
     const { fromDate: defaultFromDate, toDate: defaultToDate } = getCurrentYearDates();
 
-    const [searchTrigger, setSearchTrigger] = useState(0);
+    // ✨ NEW: Search Term State
+    const [searchTerm, setSearchTerm] = useState('');
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         fromDate: defaultFromDate,
@@ -180,8 +178,6 @@ const ListPersonnelWorkhouseReport = () => {
         workhouseId: null,
         page: 1,
         pageSize: 10,
-
-        // مقادیر این فیلدها همیشه خالی/null ارسال می‌شوند
         personnelId: null,
         identityNumber: '',
         position: '',
@@ -192,11 +188,8 @@ const ListPersonnelWorkhouseReport = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Dropdown States
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
 
-
-    // Menu/Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<PersonnelReportRowType | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -208,7 +201,6 @@ const ListPersonnelWorkhouseReport = () => {
     const formatDateDisplay = (dateString: string | null | undefined): string => {
         if (!dateString) return '-';
         try {
-            // ابتدا سعی می‌کند به عنوان DateTime فرمت کند، در غیر این صورت فقط تاریخ
             return format(new Date(dateString), 'dd/MM/yyyy HH:mm').includes('NaN') ?
                 format(new Date(dateString.substring(0, 10)), 'dd/MM/yyyy') :
                 format(new Date(dateString), 'dd/MM/yyyy HH:mm');
@@ -231,15 +223,9 @@ const ListPersonnelWorkhouseReport = () => {
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
 
+    // ✨ UPDATE: با تغییر فیلتر، صفحه ریست می‌شود (برای auto-fetch)
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
-    };
-
-    const handleSearchClick = () => {
-        if (filterParams.page !== 1) {
-            setFilterParams(prev => ({ ...prev, page: 1 }));
-        }
-        setSearchTrigger(prev => prev + 1);
     };
 
     const handleCloseMenu = () => {
@@ -289,7 +275,6 @@ const ListPersonnelWorkhouseReport = () => {
     const fetchPersonnelWorkhouseReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
 
-        // فقط workhouseId از فیلتر UI گرفته می‌شود، بقیه فیلدها مقدار null/خالی دارند.
         const requestParams = {
             workhouseId: filterParams.workhouseId || null,
             personnelId: filterParams.personnelId || null,
@@ -307,25 +292,14 @@ const ListPersonnelWorkhouseReport = () => {
             );
 
             if (response.data.httpStatusCode === 200 && response.data.data) {
-
                 const rawData = response.data.data.data.map((item: any) => {
-                    // جداسازی نام و فامیلی
                     const parts = item.personnel_name.split(' ');
                     const family = parts.length > 1 ? parts.pop() || '' : '';
                     const name = parts.join(' ') || item.personnel_name;
-
-                    return {
-                        ...item,
-                        personnel_name: name,
-                        personnel_family: family,
-                    }
+                    return { ...item, personnel_name: name, personnel_family: family }
                 });
 
-                setReportData({
-                    ...response.data.data,
-                    data: rawData
-                } as PersonnelReportResponseType);
-
+                setReportData({ ...response.data.data, data: rawData } as PersonnelReportResponseType);
             } else {
                 setReportData(null);
                 showAlert(response.data.message || 'Personel rapor verileri alınamadı.', 'error');
@@ -342,14 +316,38 @@ const ListPersonnelWorkhouseReport = () => {
     // --- Effects for Data Loading ---
     useEffect(() => {
         getWorkhousesList();
-        fetchPersonnelWorkhouseReportData();
+        // حذف fetch اولیه در اینجا چون در پایین به صورت خودکار با filterParams صدا زده می‌شود
     }, [getWorkhousesList]);
 
+    // ✨ NEW: Auto-Fetch on Filter Change
     useEffect(() => {
-        if (searchTrigger > 0 || filterParams.page !== 1) {
-            fetchPersonnelWorkhouseReportData();
-        }
-    }, [searchTrigger, filterParams.page]);
+        fetchPersonnelWorkhouseReportData();
+    }, [
+        filterParams.workhouseId,
+        filterParams.page, // Pagination triggers fetch
+        // Other params are currently unused/hidden but if added, put here
+    ]);
+
+    // ✨ NEW: Client-Side Search Logic
+    const filteredReportData = useMemo(() => {
+        if (!reportData?.data) return [];
+        if (!searchTerm) return reportData.data;
+
+        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+
+        return reportData.data.filter(row => {
+            const fullName = `${row.personnel_name} ${row.personnel_family}`;
+            const columnsToSearch = [
+                fullName,
+                row.workhouse_name,
+                row.workhouse_code,
+                row.personnel_name,
+                row.personnel_family,
+                row.personnel_salary
+            ];
+            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+        });
+    }, [reportData, searchTerm]);
 
 
     // --- Handlers for Pagination & Export ---
@@ -357,20 +355,14 @@ const ListPersonnelWorkhouseReport = () => {
         setFilterParams(prev => ({ ...prev, page: value }));
     };
 
-    // A new function to add a header to the PDF document
+    // PDF Helpers
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const docAny = doc as any;
-
-        // Add company logo at the top-right
         docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-
-        // Add report title at the center
         doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
         doc.text(title, pageWidth / 2, 35, { align: 'center' });
-
-        // Add report date at the top-left
         doc.setFontSize(10);
         doc.setFont('NotoSans', 'normal');
         doc.text(`Rapor Tarihi:`, 15, 50);
@@ -378,7 +370,6 @@ const ListPersonnelWorkhouseReport = () => {
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 85, 50);
     };
 
-    // A new function to add a footer to the PDF document
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -413,11 +404,9 @@ const ListPersonnelWorkhouseReport = () => {
             doc.setFont("NotoSans", "normal");
 
             const reportTitle = `Personel Şantiye Akış Detay Raporu: ${report.personnel_name} ${report.personnel_family}`;
-            addPdfHeader(doc, reportTitle); // فراخوانی Header
+            addPdfHeader(doc, reportTitle);
 
             const fullName = `${report.personnel_name} ${report.personnel_family}`.trim();
-
-            // استخراج مبلغ حقوق به صورت عدد و فرمت دهی
             const numericSalary = Number(report.personnel_salary.replace(/[^0-9.-]+/g, ""));
             const displaySalary = isNaN(numericSalary) ?
                 report.personnel_salary :
@@ -426,51 +415,88 @@ const ListPersonnelWorkhouseReport = () => {
 
             const tableColumn = ["Alan", "Değer"];
             const tableRows = [
-                ["Adı Soyadı", fullName],
-                ["Kimlik Numarası", 'Gizli'],
-                ["Pozisyon", 'Gizli'],
-                ["Şantiye (İşyeri)", report.workhouse_name],
-                ["Şantiye Kodu", report.workhouse_code],
+                ["Adı Soyadı", fullName], ["Kimlik Numarası", 'Gizli'], ["Pozisyon", 'Gizli'],
+                ["Şantiye (İşyeri)", report.workhouse_name], ["Şantiye Kodu", report.workhouse_code],
                 ["İşe Başlangıç Tarihi", format(new Date(report.personnel_start_date), 'dd/MM/yyyy')],
             ];
 
-            // ایجاد جدول جزئیات
             autoTable(doc, {
-                startY: 70, // تنظیم ارتفاع شروع جدول (بعد از Header)
-                head: [tableColumn], body: tableRows, theme: 'grid',
+                startY: 70, head: [tableColumn], body: tableRows, theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 6, },
                 headStyles: { fillColor: [60, 141, 188], textColor: 255 },
-
-                // نمایش حقوق به عنوان یک سطر مجزا و مهم در پاورقی
-                foot: [
-                    ['Aylık Maaş', displaySalary],
-                ],
-                footStyles: {
-                    fillColor: [240, 250, 240],
-                    textColor: [0, 0, 0],
-                    fontStyle: 'normal',
-                    fontSize: 10
-                },
-
-                didDrawPage: (_data) => {
-                    addPdfFooter(doc); // فراخوانی Footer در انتهای هر صفحه
-                }
+                foot: [['Aylık Maaş', displaySalary]],
+                footStyles: { fillColor: [240, 250, 240], textColor: [0, 0, 0], fontStyle: 'normal', fontSize: 10 },
+                didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`Personel_Detay_${report.personnel_identity_number}_${format(new Date(), 'yyyyMMdd')}.pdf`);
             showAlert('PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // 3. Export PDF (کلیه داده‌های نمایش داده شده در جدول)
-    const handleExportPdfAll = () => {
-        if (!reportData || reportData.data.length === 0) {
-            showAlert('Rapor indirilemedi: Tabloda veri bulunmamaktadır.', 'warning');
+    // ✨ NEW: Function to fetch all data and apply client-side search for export
+    const fetchAllFilteredData = useCallback(async () => {
+        if (!authToken) { navigate("/"); return null; }
+
+        const requestParams = {
+            workhouseId: filterParams.workhouseId || null,
+            personnelId: filterParams.personnelId || null,
+            identityNumber: filterParams.identityNumber || null,
+            position: filterParams.position || null,
+            page: 1,
+            pageSize: 10000, // Fetch all
+        };
+
+        try {
+            const response = await axios.get(
+                server.baseurl + server.report + `get-workhouse-personnel-report-data`,
+                { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams }
+            );
+
+            if (response.data.httpStatusCode === 200 && response.data.data) {
+                let allData = response.data.data.data.map((item: any) => {
+                    const parts = item.personnel_name.split(' ');
+                    const family = parts.length > 1 ? parts.pop() || '' : '';
+                    const name = parts.join(' ') || item.personnel_name;
+                    return { ...item, personnel_name: name, personnel_family: family }
+                }) as PersonnelReportRowType[];
+
+                // ✨ Apply Search Filter if exists
+                if (searchTerm) {
+                    const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+                    allData = allData.filter(row => {
+                        const fullName = `${row.personnel_name} ${row.personnel_family}`;
+                        const columnsToSearch = [
+                            fullName,
+                            row.workhouse_name,
+                            row.workhouse_code,
+                            row.personnel_name,
+                            row.personnel_family,
+                            row.personnel_salary
+                        ];
+                        return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+                    });
+                }
+                return { data: allData, totalSalary: response.data.data.totalSalary }; // You might want to recalculate totalSalary based on filter if needed
+            }
+            showAlert('Veri bulunamadı.', 'error');
+            return null;
+        } catch (e: any) {
+            handleApiError(e, 'Veri alınırken hata oluştu.');
+            return null;
+        }
+    }, [filterParams, navigate, authToken, searchTerm, showAlert, handleApiError]);
+
+
+    // 3. Export PDF (Global)
+    const handleExportPdfAll = async () => {
+        showAlert('Genel PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
+
+        const result = await fetchAllFilteredData();
+        if (!result || result.data.length === 0) {
+            showAlert('Rapor indirilemedi: Veri bulunmamaktadır.', 'warning');
             return;
         }
-
-        showAlert('Genel PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
         try {
             const doc = new jsPDF('landscape', 'pt', 'a4');
@@ -478,16 +504,18 @@ const ListPersonnelWorkhouseReport = () => {
             (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
             doc.setFont("NotoSans", "normal");
 
-            // فراخوانی Header
             addPdfHeader(doc, "Personel Şantiye Genel Raporu");
 
-            const tableColumn = [
-                "Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "Başlangıç Tarihi", "Maaş (TL)"
-            ];
+            const tableColumn = ["Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "Başlangıç Tarihi", "Maaş (TL)"];
 
-            const tableRows = reportData.data.map(row => {
-                // تبدیل به عدد و فرمت دهی برای نمایش
-                const displaySalary = isNaN(Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""))) ? row.personnel_salary : Number(row.personnel_salary.replace(/[^0-9.-]+/g, "")).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+            // محاسبه جمع کل بر اساس داده‌های فیلتر شده (نه دیتای خام سرور)
+            let calculatedTotalSalary = 0;
+
+            const tableRows = result.data.map(row => {
+                const numericSalary = Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""));
+                if (!isNaN(numericSalary)) calculatedTotalSalary += numericSalary;
+
+                const displaySalary = isNaN(numericSalary) ? row.personnel_salary : numericSalary.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
                 return [
                     row.workhouse_name,
                     row.workhouse_code,
@@ -497,37 +525,78 @@ const ListPersonnelWorkhouseReport = () => {
                 ];
             });
 
-            // تنظیمات جدول
             autoTable(doc, {
-                startY: 70, // تنظیم ارتفاع شروع جدول (بعد از Header)
-                head: [tableColumn], body: tableRows, theme: 'striped',
+                startY: 70, head: [tableColumn], body: tableRows, theme: 'striped',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 5, },
                 headStyles: { fillColor: [30, 100, 120], textColor: 255 },
-
-                // 🆕 نمایش جمع کل (Totals) در Footer جدول
-                foot: [
-                    ['', '', '', 'TOPLAM MAAŞ', reportData.totalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2 })],
-                ],
-                footStyles: {
-                    fillColor: [230, 240, 245],
-                    textColor: [0, 0, 0],
-                    fontStyle: 'normal',
-                    fontSize: 9
-                },
-
-                didDrawPage: (_data) => {
-                    addPdfFooter(doc); // فراخوانی Footer در انتهای هر صفحه
-                }
+                foot: [['', '', '', 'TOPLAM MAAŞ', calculatedTotalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2 })]],
+                footStyles: { fillColor: [230, 240, 245], textColor: [0, 0, 0], fontStyle: 'normal', fontSize: 9 },
+                didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`Personel_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
             showAlert('Genel PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-        } catch (e) {
-            handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.');
-        }
+        } catch (e) { handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // 2. Export Excel (جزئیات تکی)
+    // 4. Export Excel (Global)
+    const handleExportExcelAll = async () => {
+        showAlert('Genel Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
+
+        const result = await fetchAllFilteredData();
+        if (!result || result.data.length === 0) {
+            showAlert('Rapor indirilemedi: Veri bulunmamaktadır.', 'warning');
+            return;
+        }
+
+        try {
+            const workbook = new Excel.Workbook();
+            const sheet = workbook.addWorksheet('Genel Personel Raporu', { views: [{ rightToLeft: false }] });
+
+            let calculatedTotalSalary = 0;
+            const data = result.data.map(row => {
+                const numericSalary = Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""));
+                if (!isNaN(numericSalary)) calculatedTotalSalary += numericSalary;
+
+                return [
+                    row.workhouse_name,
+                    row.workhouse_code,
+                    `${row.personnel_name} ${row.personnel_family}`.trim(),
+                    format(new Date(row.personnel_start_date), 'dd/MM/yyyy'),
+                    isNaN(numericSalary) ? row.personnel_salary : numericSalary,
+                ];
+            });
+
+            const headerRowData = ["Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "İşe Başlangıç", "Maaş (TL)"];
+
+            sheet.addRow(["Personel Şantiye Genel Raporu"]);
+            sheet.mergeCells('A1:E1'); sheet.getRow(1).font = { bold: true, size: 14 };
+            sheet.addRow(["Toplam Kayıt:", result.data.length, "Toplam Maaş:", calculatedTotalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })]);
+            sheet.addRow([]);
+
+            const headerRow = sheet.addRow(headerRowData);
+            headerRow.eachCell((cell) => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0E6F0' } }; cell.font = { bold: true };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            });
+
+            data.forEach(row => {
+                const newRow = sheet.addRow(row);
+                newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                newRow.getCell(5).numFmt = '₺ #,##0.00';
+            });
+
+            sheet.columns.forEach((column, index) => {
+                const minWidth = index === 2 ? 30 : 15;
+                column.width = minWidth;
+            });
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `Personel_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
+            showAlert('Genel Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+        } catch (e: any) { handleApiError(e, 'Genel Excel raporu oluşturulurken bir hata oluştu.'); }
+    };
+
     const handleExportExcelSingle = async (report: PersonnelReportRowType) => {
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
         showAlert('Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
@@ -540,11 +609,8 @@ const ListPersonnelWorkhouseReport = () => {
             const numericSalary = Number(report.personnel_salary.replace(/[^0-9.-]+/g, ""));
 
             const data = [
-                ['Adı Soyadı', fullName],
-                ['Kimlik Numarası', 'Gizli'],
-                ['Pozisyon', 'Gizli'],
-                ['Şantiye (İşyeri)', report.workhouse_name],
-                ['Şantiye Kodu', report.workhouse_code],
+                ['Adı Soyadı', fullName], ['Kimlik Numarası', 'Gizli'], ['Pozisyon', 'Gizli'],
+                ['Şantiye (İşyeri)', report.workhouse_name], ['Şantiye Kodu', report.workhouse_code],
                 ['İşe Başlangıç Tarihi', format(new Date(report.personnel_start_date), 'dd/MM/yyyy')],
                 ['Aylık Maaş', isNaN(numericSalary) ? report.personnel_salary : numericSalary],
             ];
@@ -561,85 +627,16 @@ const ListPersonnelWorkhouseReport = () => {
 
             data.forEach(row => {
                 const newRow = sheet.addRow(row);
-                newRow.eachCell((cell) => {
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
+                newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
                 const fieldName = row[0] as string;
-
                 if (fieldName.includes('Maaş') && !isNaN(numericSalary)) { newRow.getCell(2).numFmt = '₺ #,##0.00'; }
             });
 
             sheet.columns[0].width = 25; sheet.columns[1].width = 35;
-
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Personel_Detay_${report.personnel_identity_number}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-
             showAlert('Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
-    };
-
-
-    // 4. Export Excel (کلیه داده‌های نمایش داده شده در جدول)
-    const handleExportExcelAll = async () => {
-        if (!reportData || reportData.data.length === 0) {
-            showAlert('Rapor indirilemedi: Tabloda veri bulunmamaktadır.', 'warning');
-            return;
-        }
-
-        showAlert('Genel Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
-
-        try {
-            const workbook = new Excel.Workbook();
-            const sheet = workbook.addWorksheet('Genel Personel Raporu', { views: [{ rightToLeft: false }] });
-
-            const data = reportData.data.map(row => {
-                const numericSalary = Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""));
-
-                return [
-                    row.workhouse_name,
-                    row.workhouse_code,
-                    `${row.personnel_name} ${row.personnel_family}`.trim(),
-                    format(new Date(row.personnel_start_date), 'dd/MM/yyyy'),
-                    isNaN(numericSalary) ? row.personnel_salary : numericSalary,
-                ];
-            });
-
-            const headerRowData = ["Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "İşe Başlangıç", "Maaş (TL)"];
-
-            sheet.addRow(["Personel Şantiye Genel Raporu"]);
-            sheet.mergeCells('A1:E1'); sheet.getRow(1).font = { bold: true, size: 14 };
-            sheet.addRow(["Toplam Kayıt:", reportData.totalCount, "Toplam Maaş:", reportData.totalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })]);
-            sheet.addRow([]);
-
-            const headerRow = sheet.addRow(headerRowData);
-            headerRow.eachCell((cell) => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC0E6F0' } };
-                cell.font = { bold: true };
-                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            });
-
-            data.forEach(row => {
-                const newRow = sheet.addRow(row);
-                newRow.eachCell((cell) => {
-                    cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-                });
-                // فرمت دهی ستون پنجم (Maaş)
-                newRow.getCell(5).numFmt = '₺ #,##0.00';
-            });
-
-            sheet.columns.forEach((column, index) => {
-                const minWidth = index === 2 ? 30 : 15;
-                column.width = minWidth;
-            });
-
-
-            const buffer = await workbook.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), `Personel_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
-
-            showAlert('Genel Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
-
-        } catch (e: any) { handleApiError(e, 'Genel Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
 
@@ -659,15 +656,12 @@ const ListPersonnelWorkhouseReport = () => {
                 <IconUsers size={28} style={{ marginRight: 8 }} /> Personel Şantiye Raporları
             </Typography>
 
-            {/* --- Alert Section --- */}
             {alertMessage && (<Stack sx={{ width: '100%', mb: 3 }} spacing={2}><Alert severity={alertSeverity} onClose={clearAlert}>{alertMessage}</Alert></Stack>)}
 
-            {/* --- Filter Section (فقط Şantiye نمایش داده می‌شود) --- */}
+            {/* --- Filter Section --- */}
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2} alignItems="flex-end">
-
-                    {/* Workhouse (Şantiye) - تنها کامبوی مورد نیاز */}
                     <Grid item xs={12} sm={6} md={4}>
                         <Autocomplete
                             id="workhouse-select"
@@ -675,41 +669,33 @@ const ListPersonnelWorkhouseReport = () => {
                             getOptionLabel={(o) => `${o.name} (${o.code})`}
                             value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null}
                             onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)}
-                            isOptionEqualToValue={(o, v) => o.id === v.id}
                             renderInput={(params) => (<TextField {...params} label="Şantiye Seçiniz" fullWidth size="small" />)}
                         />
                     </Grid>
-
-
-
                 </Grid>
-                {/* Search Button & General Export Buttons */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, mt: 2 }}>
 
-                    <Stack direction="row" spacing={2}>
-                        {/* دانلود کلی */}
-                        <Button variant="outlined" color="success" startIcon={<IconFileDownload />}
-                            onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
-                            Genel PDF İndir
-                        </Button>
-                        <Button variant="outlined" color="primary" startIcon={<IconFileSpreadsheet />}
-                            onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
-                            Genel Excel İndir
-                        </Button>
-                    </Stack>
-
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<IconSearch size={20} />}
-                        onClick={handleSearchClick}
-                        disabled={loadingData}
-                    >
-                        Filtreyi Uygula
-                    </Button>
+                {/* ✨ NEW: Search Bar & Global Export Buttons */}
+                <Box sx={{ p: 2, mt: 1 }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} md={6}>
+                            <TextField
+                                label="Tabloda Ara (Şantiye, Personel Adı...)"
+                                variant="outlined" fullWidth size="small"
+                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={6} display="flex" justifyContent="flex-end" gap={1}>
+                            <Button variant="outlined" color="success" startIcon={<IconFileSpreadsheet />} onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
+                                Genel Excel İndir
+                            </Button>
+                            <Button variant="outlined" color="primary" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
+                                Genel PDF İndir
+                            </Button>
+                        </Grid>
+                    </Grid>
                 </Box>
             </BlankCard>
-            <Box sx={{ margin: "20px 0" }}></Box>
 
             {/* --- Data Table --- */}
             <BlankCard>
@@ -723,14 +709,12 @@ const ListPersonnelWorkhouseReport = () => {
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : reportData?.data?.length ? (
-                                reportData.data.map((row, index) => (
+                            ) : filteredReportData.length ? (
+                                filteredReportData.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
                                         <StyledTableCell>{row.workhouse_code}</StyledTableCell>
                                         <StyledTableCell>{`${row.personnel_name} ${row.personnel_family}`.trim()}</StyledTableCell>
-
-                                        {/* Maaş */}
                                         <StyledTableCell>
                                             <Typography color="primary" fontWeight="bold">
                                                 {isNaN(Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""))) ?
@@ -739,36 +723,21 @@ const ListPersonnelWorkhouseReport = () => {
                                             </Typography>
                                         </StyledTableCell>
                                         <StyledTableCell>{format(new Date(row.personnel_start_date), 'dd/MM/yyyy')}</StyledTableCell>
-
-                                        {/* Actions Column (Menu) */}
                                         <StyledTableCell>
                                             <Tooltip title="Detaylar ve İşlemler">
-                                                <IconButton
-                                                    id={`actions-button-${index}`}
-                                                    onClick={(event) => handleClickMenu(event, row)}
-                                                    color="secondary"
-                                                    size="small"
-                                                >
+                                                <IconButton onClick={(event) => handleClickMenu(event, row)} color="secondary" size="small">
                                                     <IconDots width={20} />
                                                 </IconButton>
                                             </Tooltip>
-
-                                            <Menu
-                                                id="actions-menu" anchorEl={anchorEl}
-                                                open={openMenu && selectedRowForMenu === row}
-                                                onClose={handleCloseMenu}
-                                            >
+                                            <Menu anchorEl={anchorEl} open={openMenu && selectedRowForMenu === row} onClose={handleCloseMenu}>
                                                 <MenuItem onClick={() => handleOpenDetailViewModal(row)}>
-                                                    <ListItemIcon><IconRuler width={18} /></ListItemIcon>
-                                                    Detayları Görüntüle (Gizli Bilgiler)
+                                                    <ListItemIcon><IconRuler width={18} /></ListItemIcon> Detayları Görüntüle
                                                 </MenuItem>
                                                 <MenuItem onClick={() => handleExportPdfSingle(row)}>
-                                                    <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                    PDF İndir (Detay)
+                                                    <ListItemIcon><IconFileDownload width={18} /></ListItemIcon> PDF İndir (Detay)
                                                 </MenuItem>
                                                 <MenuItem onClick={() => handleExportExcelSingle(row)}>
-                                                    <ListItemIcon><IconFileSpreadsheet width={18} /></ListItemIcon>
-                                                    Excel İndir (Detay)
+                                                    <ListItemIcon><IconFileSpreadsheet width={18} /></ListItemIcon> Excel İndir (Detay)
                                                 </MenuItem>
                                             </Menu>
                                         </StyledTableCell>
@@ -804,7 +773,6 @@ const ListPersonnelWorkhouseReport = () => {
                 </>
             </BlankCard>
 
-            {/* --- Modal --- */}
             <DetailViewModal
                 open={openDetailViewModal} onClose={handleCloseDetailViewModal}
                 report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle}
