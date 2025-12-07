@@ -439,6 +439,14 @@ const ListItemReport = () => {
         } catch (e: any) { handleApiError(e, `Tüm raporu indirirken bir sorun oluştu.`); }
     }, [filterParams, showAlert, handleApiError, handleExportPdfAll, handleExportExcelAll, searchTerm, order, orderBy]); // وابستگی‌ها مهم هستند
 
+    // ✨ محاسبه جمع کل بر اساس داده‌های فیلتر شده (سرچ شده)
+    const calculatedFilteredTotalPrice = useMemo(() => {
+        if (!processedData) return 0;
+        return processedData.reduce((acc, row) => {
+            const val = cleanNumber(row.total); // تبدیل رشته به عدد
+            return acc + val;
+        }, 0);
+    }, [processedData]);
 
     const tableHeaders: { label: string; key: keyof ReportRowType }[] = [
         { label: 'Malzeme Adı', key: 'itemname' },
@@ -527,8 +535,18 @@ const ListItemReport = () => {
                         {reportData && reportData.data?.length > 0 && (
                             <TableFooter>
                                 <TableRow>
-                                    <StyledTableCell colSpan={6} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}><Typography variant="h6" fontWeight="bold">Genel Toplam (Toplam Tutar):</Typography></StyledTableCell>
-                                    <StyledTableCell align="left" sx={{ borderTop: '2px solid #ddd', padding: 2 }}><Typography variant="h5" color="primary" fontWeight="bold">{reportData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL</Typography></StyledTableCell>
+                                    <StyledTableCell colSpan={6} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
+                                        <Typography variant="h6" fontWeight="bold">
+                                            {/* تغییر متن اگر کاربر سرچ کرده باشد */}
+                                            {searchTerm ? 'Toplam (Filtrelenmiş):' : 'Genel Toplam (Tüm Veriler):'}
+                                        </Typography>
+                                    </StyledTableCell>
+                                    <StyledTableCell align="left" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
+                                        <Typography variant="h5" color="primary" fontWeight="bold">
+                                            {/* نمایش مقدار محاسبه شده جدید */}
+                                            {calculatedFilteredTotalPrice.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+                                        </Typography>
+                                    </StyledTableCell>
                                     <StyledTableCell sx={{ borderTop: '2px solid #ddd' }}></StyledTableCell>
                                 </TableRow>
                             </TableFooter>

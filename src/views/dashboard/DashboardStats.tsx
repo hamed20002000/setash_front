@@ -163,7 +163,7 @@ const DashboardStats = () => {
                 {/* 2. Consignments */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="Zimmetler"
+                        title="Demirbaş Sayısı"
                         total={stats.consignment_count}
                         icon={IconPackage}
                         color="#757575"
@@ -197,7 +197,7 @@ const DashboardStats = () => {
                 {/* 2. Store Items */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
-                        title="Mağaza Ürünleri"
+                        title="Şantiye Ürünleri"
                         total={stats.store_items_count}
                         icon={IconBasket}
                         color="#D84315"

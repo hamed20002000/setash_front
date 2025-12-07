@@ -369,6 +369,8 @@ const ListPersonnelWorkhouseReport = () => {
     }, [filterParams, navigate, authToken, showAlert, handleApiError]);
 
 
+
+
     // --- Effects for Data Loading ---
     useEffect(() => {
         getWorkhousesList();
@@ -417,6 +419,19 @@ const ListPersonnelWorkhouseReport = () => {
 
         return data;
     }, [reportData, searchTerm, order, orderBy]);
+
+    // محاسبه جمع کل بر اساس ردیف‌های فیلتر شده (سرچ شده)
+    const calculatedTotalSalary = useMemo(() => {
+        if (!filteredReportData) return 0;
+
+        return filteredReportData.reduce((acc, row) => {
+            // تبدیل رشته حقوق به عدد قابل محاسبه
+            // این لاجیک تمام کاراکترهای غیر عددی و غیر نقطه را حذف می‌کند تا عدد خالص بماند
+            const salaryString = String(row.personnel_salary).replace(/[^0-9.-]+/g, "");
+            const salaryNumber = parseFloat(salaryString) || 0;
+            return acc + salaryNumber;
+        }, 0);
+    }, [filteredReportData]);
 
 
     // --- Handlers for Pagination & Export ---
@@ -718,6 +733,7 @@ const ListPersonnelWorkhouseReport = () => {
         { label: 'Şantiye Adı', key: 'workhouse_name' },
         { label: 'Şantiye Kodu', key: 'workhouse_code' },
         { label: 'Adı Soyadı', key: 'personnel_name' },
+        { label: 'Pozisyon', key: 'personnel_position' },
         { label: 'Maaş (TL)', key: 'personnel_salary' },
         { label: 'İşe Başlangıç', key: 'personnel_start_date' },
     ];
@@ -806,6 +822,7 @@ const ListPersonnelWorkhouseReport = () => {
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
                                         <StyledTableCell>{row.workhouse_code}</StyledTableCell>
                                         <StyledTableCell>{`${row.personnel_name} ${row.personnel_family}`.trim()}</StyledTableCell>
+                                        <StyledTableCell>{row.personnel_position || '-'}</StyledTableCell>
                                         <StyledTableCell>
                                             <Typography color="primary" fontWeight="bold">
                                                 {isNaN(Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""))) ?
@@ -857,7 +874,8 @@ const ListPersonnelWorkhouseReport = () => {
                     {reportData && (
                         <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <Typography variant="h6" color="success.main">
-                                Toplam Maaş: {reportData.totalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}
+                                {/* Toplam Maaş: {reportData.totalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })} */}
+                                Toplam Maaş: {calculatedTotalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}
                             </Typography>
                         </Box>
                     )}

@@ -683,6 +683,15 @@ const ListConcreteReport = () => {
         }
     };
 
+    const calculatedFilteredTotalPrice = useMemo(() => {
+        if (!processedData) return 0;
+        return processedData.reduce((acc, row) => {
+            // استفاده از تابع cleanNumber که بالای فایل تعریف شده برای تبدیل رشته به عدد
+            const val = cleanNumber(row.total);
+            return acc + val;
+        }, 0);
+    }, [processedData]);
+
     const tableHeaders: { label: string; key: keyof ConcreteReportRowType }[] = [
         { label: 'Şantiye Adı', key: 'workhousen_name' },
         { label: 'Proje Adı', key: 'proje_adi' },
@@ -890,12 +899,14 @@ const ListConcreteReport = () => {
                                 <TableRow>
                                     <StyledTableCell colSpan={6} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h6" fontWeight="bold">
-                                            Genel Toplam (Tüm Veriler):
+                                            {/* تغییر متن لیبل اگر جستجو انجام شده باشد */}
+                                            {searchTerm ? 'Toplam (Filtrelenmiş):' : 'Genel Toplam (Tüm Veriler):'}
                                         </Typography>
                                     </StyledTableCell>
                                     <StyledTableCell align="left" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h5" color="primary" fontWeight="bold">
-                                            {reportData.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
+                                            {/* نمایش متغیر محاسبه شده جدید */}
+                                            {calculatedFilteredTotalPrice.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TL
                                         </Typography>
                                     </StyledTableCell>
                                     <StyledTableCell sx={{ borderTop: '2px solid #ddd' }}></StyledTableCell>

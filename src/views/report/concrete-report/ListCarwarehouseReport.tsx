@@ -736,6 +736,14 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'Toplu Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
+    const calculatedFilteredTotalPrice = useMemo(() => {
+        if (!processedData) return 0;
+        return processedData.reduce((acc, row) => {
+            const val = parseCurrencyToNumber(row.total_price);
+            return acc + val;
+        }, 0);
+    }, [processedData]);
+
 
     const tableHeaders = [
         { label: 'Plaka', key: 'plaque' },
@@ -853,7 +861,7 @@ const ListCarwarehouseReport = () => {
                                             <StyledTableCell>{row.workhouse_name || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.fuel_type}</StyledTableCell>
                                             <StyledTableCell>{row.fuel_amount}</StyledTableCell>
-                                            <StyledTableCell>{fuelFeeNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</StyledTableCell>
+                                            <StyledTableCell>{fuelFeeNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</StyledTableCell>
                                             {/* <StyledTableCell>{format(new Date(row.fuel_date), 'dd/MM/yyyy')}</StyledTableCell> */}
                                             <StyledTableCell><Typography color="primary">{totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</Typography></StyledTableCell>
 
@@ -894,7 +902,7 @@ const ListCarwarehouseReport = () => {
                         <>
                             {reportData && (
                                 <TableBody>
-                                    <TableRow>
+                                    {/* <TableRow>
                                         <StyledTableCell colSpan={9} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
                                             <Stack direction="row" justifyContent="flex-end" alignItems="center" spacing={2}>
                                                 <Typography variant="h6" fontWeight="bold" color="error.main">
@@ -905,6 +913,23 @@ const ListCarwarehouseReport = () => {
                                                         Number(reportData.totalPrice).toLocaleString('en-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })
                                                         : 'Hesaplanıyor...'
                                                     }
+                                                </Typography>
+                                            </Stack>
+                                        </StyledTableCell>
+                                    </TableRow> */}
+
+                                    <TableRow>
+                                        <StyledTableCell colSpan={9} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
+                                            <Stack direction="row" justifyContent="flex-end" alignItems="center" spacing={2}>
+                                                <Typography variant="h6" fontWeight="bold" color="error.main">
+                                                    {searchTerm ? 'FİLTRELENMİŞ TOPLAM:' : 'TOPLAM RAPOR MALİYETİ:'}
+                                                </Typography>
+                                                <Typography variant="h5" fontWeight="bold" color="error.main">
+                                                    {calculatedFilteredTotalPrice.toLocaleString('us-US', {
+                                                        style: 'currency',
+                                                        currency: 'TRY',
+                                                        minimumFractionDigits: 2
+                                                    })}
                                                 </Typography>
                                             </Stack>
                                         </StyledTableCell>
