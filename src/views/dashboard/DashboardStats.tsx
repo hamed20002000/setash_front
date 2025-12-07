@@ -3,22 +3,24 @@ import { Grid, Box, CircularProgress, Alert } from '@mui/material';
 import axios from 'axios';
 import {
     IconUsers,
-    IconGavel, // برای Tender (مزایده/مناقصه)
-    IconBriefcase, // برای Works/Projects
-    IconBuildingWarehouse, // برای Workhouses
+    IconGavel,
+    IconBriefcase,
+    IconBuildingWarehouse,
     IconCar,
-    IconPackage, // برای Consignment
-    IconSchool, // برای Course
-    IconTimeline // برای Projects
+    IconPackage,
+    IconSchool,
+    IconTimeline,
+    IconBuildingStore,
+    IconBasket,
+    IconClipboardCheck
 } from '@tabler/icons-react';
-import StatCard from './StatCard'; // مسیر ایمپورت را تنظیم کنید
-import server from '../../assets/address.json'; // مسیر آدرس سرور
+import StatCard from './StatCard';
+import server from '../../assets/address.json';
 
-// تعریف تایپ بر اساس JSON ارسالی شما
 interface DashboardStatsType {
     active_personnel: number;
     all_personnel: number;
-    accepted_tender: number; // فرض بر اینکه accepted همان active است
+    accepted_tender: number;
     all_tender: number;
     active_works: number;
     all_works: number;
@@ -29,6 +31,9 @@ interface DashboardStatsType {
     car_count: number;
     consignment_count: number;
     course_count: number;
+    warhouse_items_count: number;
+    store_items_count: number;
+    kabullar_count: number;
 }
 
 const DashboardStats = () => {
@@ -41,10 +46,10 @@ const DashboardStats = () => {
             const authToken = localStorage.getItem('authToken');
             try {
                 const response = await axios.get(
-                    server.baseurl + server.report + 'get-dashboard-stats', // آدرس دقیق API را چک کنید
+                    server.baseurl + server.report + 'get-dashboard-stats',
                     { headers: { "Authorization": `Bearer ${authToken}` } }
                 );
-                debugger
+
                 if (response.data.httpStatusCode === 200 && response.data.data) {
                     setStats(response.data.data);
                 } else {
@@ -67,96 +72,145 @@ const DashboardStats = () => {
 
     return (
         <Box>
-            <Grid container spacing={3}>
+            {/* Grid Calculation:
+               Row 1 (5 items): md={2.4}
+               Row 2 (3 items): md={4}
+               Row 3 (3 items): md={4}
+            */}
 
-                {/* ردیف اول: Personnel, Workhouses, Projects, Works */}
+            {/* --- ردیف اول: 5 کارت --- */}
+            <Grid container spacing={3} mb={3}>
 
                 {/* 1. Personnel */}
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="Personel"
                         total={stats.all_personnel}
                         active={stats.active_personnel}
+                        activeLabel="Çalışanlar"
+                        inactiveLabel="Ayrılanlar"
                         icon={IconUsers}
-                        color="#5D87FF" // آبی
+                        color="#5D87FF"
                     />
                 </Grid>
 
-                {/* 2. Workhouses (Şantiyeler) */}
-                <Grid item xs={12} sm={6} md={4}>
+                {/* 2. Workhouses */}
+                <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="Şantiyeler"
                         total={stats.all_workhouses}
                         active={stats.active_workhouses}
+                        activeLabel="Aktivler"
+                        inactiveLabel="Kapananlar"
                         icon={IconBuildingWarehouse}
-                        color="#49BEFF" // آبی روشن
+                        color="#49BEFF"
                     />
                 </Grid>
 
                 {/* 3. Projects */}
-                <Grid item xs={12} sm={6} md={4}>
+                <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="Projeler"
                         total={stats.all_projects}
                         active={stats.active_projects}
+                        activeLabel="Aktivler"
+                        inactiveLabel="Bitenler"
                         icon={IconTimeline}
-                        color="#13DEB9" // سبز دودی
+                        color="#13DEB9"
                     />
                 </Grid>
 
-                {/* 4. Works (İşler) */}
-                <Grid item xs={12} sm={6} md={6}>
+                {/* 4. Works */}
+                <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="İşler"
                         total={stats.all_works}
                         active={stats.active_works}
+                        activeLabel="Aktivler"
+                        inactiveLabel="Bitenler"
                         icon={IconBriefcase}
-                        color="#FFAE1F" // زرد/نارنجی
+                        color="#FFAE1F"
                     />
                 </Grid>
 
-
-                {/* ردیف دوم: Tenders, Cars, Consignments, Courses */}
-
-                {/* 5. Tenders (İhaleler) */}
-                <Grid item xs={12} sm={6} md={6}>
+                {/* 5. Tenders */}
+                <Grid item xs={12} sm={6} md={2.4}>
                     <StatCard
                         title="İhaleler"
                         total={stats.all_tender}
-                        active={stats.accepted_tender} // استفاده از accepted به عنوان active
+                        active={stats.accepted_tender}
+                        activeLabel="Aktivler"
+                        inactiveLabel="Reddedilenler"
                         icon={IconGavel}
-                        color="#FA896B" // قرمز/صورتی
+                        color="#FA896B"
                     />
                 </Grid>
+            </Grid>
 
-                {/* 6. Cars (Araçlar) - فقط تعداد کل */}
+            {/* --- ردیف دوم: 3 کارت --- */}
+            <Grid container spacing={3} mb={3}>
+
+                {/* 1. Cars */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Araçlar"
                         total={stats.car_count}
-                        // active={stats.car_count} // اگر می‌خواهید همه را فعال نشان دهید این خط را باز کنید
                         icon={IconCar}
-                        color="#0074BA" // سرمه‌ای
+                        color="#0074BA"
                     />
                 </Grid>
 
-                {/* 7. Consignments (Zimmetler) - فقط تعداد کل */}
+                {/* 2. Consignments */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Zimmetler"
                         total={stats.consignment_count}
                         icon={IconPackage}
-                        color="#757575" // خاکستری
+                        color="#757575"
                     />
                 </Grid>
 
-                {/* 8. Courses (Eğitimler) - فقط تعداد کل */}
+                {/* 3. Courses */}
                 <Grid item xs={12} sm={6} md={4}>
                     <StatCard
                         title="Eğitimler"
                         total={stats.course_count}
                         icon={IconSchool}
-                        color="#8E24AA" // بنفش
+                        color="#8E24AA"
+                    />
+                </Grid>
+            </Grid>
+
+            {/* --- ردیف سوم: 3 کارت --- */}
+            <Grid container spacing={3}>
+
+                {/* 1. Warehouse Items */}
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="Depo Ürünleri"
+                        total={stats.warhouse_items_count}
+                        icon={IconBuildingStore}
+                        color="#2E7D32"
+                    />
+                </Grid>
+
+                {/* 2. Store Items */}
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="Mağaza Ürünleri"
+                        total={stats.store_items_count}
+                        icon={IconBasket}
+                        color="#D84315"
+                    />
+                </Grid>
+
+                {/* 3. Kabullar */}
+                <Grid item xs={12} sm={6} md={4}>
+                    <StatCard
+                        title="Kabullar"
+                        total={stats.kabullar_count}
+                        icon={IconClipboardCheck}
+                        color="#00695C"
                     />
                 </Grid>
 

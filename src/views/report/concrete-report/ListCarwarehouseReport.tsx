@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,6 +16,7 @@ import {
     IconButton,
     MenuItem,
     InputAdornment,
+    TableSortLabel // ✨ Added for sorting
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -42,18 +42,20 @@ import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
+// --- STYLES ---
+const visuallyHiddenStyle = {
+    border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
+    overflow: 'hidden', padding: 0, position: 'absolute',
+    whiteSpace: 'nowrap', width: '1px',
+};
+
 // --- TYPE DEFINITIONS ---
 
 interface WorkhouseType {
     id: number; name: string; code: string; address: string; createAt: string; recordStatus: number;
 }
 
-interface WorkType {
-    id: number; title: string; recordStatus: number;
-    startDate: string; endDate: string | null;
-    tenderId: number; tenderTitle: string;
-    status: string;
-}
+// WorkType removed as per request (Combo removed)
 
 interface CarReportRowType {
     work_id: number | null;
@@ -92,7 +94,6 @@ interface FilterParams {
     dispatchId: string | null;
     page: number;
     pageSize: number;
-
     workId: number | null;
     personnelId: number | null;
     brand: string;
@@ -107,28 +108,66 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 const parseCurrencyToNumber = (currencyString: string | number): number => {
     if (typeof currencyString === 'number') return currencyString;
     if (!currencyString) return 0;
-
-    // تمیز کردن رشته برای تبدیل به عدد
     let clean = currencyString.toString().replace(/[^\d.,-]/g, '');
-
-    // تشخیص فرمت (1.200,00 یا 1,200.00)
     const hasCommaDecimal = clean.includes(',') && !clean.includes('.');
     const hasDotThousand = clean.includes('.') && clean.includes(',');
-
     if (hasDotThousand || hasCommaDecimal) {
-        // فرمت اروپایی/ترکی: حذف نقطه، تبدیل کاما به نقطه
         clean = clean.replace(/\./g, '').replace(',', '.');
     } else {
-        // فرمت استاندارد: حذف کاما
         clean = clean.replace(/,/g, '');
     }
-
     return parseFloat(clean) || 0;
 };
 
+// --- SORTING HELPERS ---
+type Order = 'asc' | 'desc';
+
+function descendingComparator<T>(a: T, b: T, orderBy: keyof T | string) {
+    let aValue: any;
+    let bValue: any;
+
+    // Handle custom composite keys
+    if (orderBy === 'brand_model') {
+        aValue = `${(a as any).brand} ${(a as any).model}`.toLowerCase();
+        bValue = `${(b as any).brand} ${(b as any).model}`.toLowerCase();
+    } else {
+        // Standard keys
+        aValue = (a as any)[orderBy];
+        bValue = (b as any)[orderBy];
+
+        // Numeric Sort
+        if (['fuel_amount', 'fuel_fee', 'total_price'].includes(orderBy as string)) {
+            aValue = parseCurrencyToNumber(aValue);
+            bValue = parseCurrencyToNumber(bValue);
+        }
+        // Date Sort
+        else if (['fuel_date', 'manufacture_date'].includes(orderBy as string)) {
+            aValue = new Date(aValue).getTime();
+            bValue = new Date(bValue).getTime();
+        }
+        // String Sort
+        else if (typeof aValue === 'string') {
+            aValue = aValue.toLowerCase();
+            bValue = bValue ? bValue.toLowerCase() : '';
+        }
+    }
+
+    if (bValue < aValue) return -1;
+    if (bValue > aValue) return 1;
+    return 0;
+}
+
+function getComparator<Key extends keyof any>(
+    order: Order,
+    orderBy: Key,
+): (a: { [key in Key]: any }, b: { [key in Key]: any }) => number {
+    return order === 'desc'
+        ? (a, b) => descendingComparator(a, b, orderBy)
+        : (a, b) => -descendingComparator(a, b, orderBy);
+}
+
 
 // --- MODAL FOR SINGLE ROW DETAILS ---
-
 interface DetailViewModalProps {
     open: boolean;
     onClose: () => void;
@@ -204,9 +243,11 @@ const ListCarwarehouseReport = () => {
 
     const [startDate, setStartDate] = useState<Date | null>(currentYearStart);
     const [endDate, setEndDate] = useState<Date | null>(currentYearEnd);
-
-    // ✨ NEW: Search Term State (برای جستجوی متنی)
     const [searchTerm, setSearchTerm] = useState('');
+
+    // ✨ Sort States
+    const [order, setOrder] = useState<Order>('desc');
+    const [orderBy, setOrderBy] = useState<keyof CarReportRowType | string>('fuel_date');
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         fromDate: format(currentYearStart, 'yyyy-MM-dd'),
@@ -227,11 +268,8 @@ const ListCarwarehouseReport = () => {
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-    // Dropdown States
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
-    const [worksList, setWorksList] = useState<WorkType[]>([]);
 
-    // Menu/Modal States
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
     const [selectedRowForMenu, setSelectedRowForMenu] = useState<CarReportRowType | null>(null);
     const openMenu = Boolean(anchorEl);
@@ -265,7 +303,6 @@ const ListCarwarehouseReport = () => {
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
 
-    // ✨ UPDATE: با تغییر فیلتر، صفحه به 1 برمی‌گردد و دیتا ریلود می‌شود (چون useEffect به filterParams وابسته است)
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
@@ -289,35 +326,9 @@ const ListCarwarehouseReport = () => {
         setOpenDetailViewModal(false);
         setSelectedReportToDownload(null);
     };
-    // ------------------------------------
 
-    // --- Data Fetching (Dropdowns) ---
 
-    const getListWork = useCallback(async () => {
-        if (!authToken) { navigate("/"); return; }
-        try {
-            const result = await axios.request({
-                baseURL: server.baseurl + server.initialoperations + "get-works",
-                method: "get",
-                headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-            });
-            if (result.data.httpStatusCode === 200) {
-                const rawData = result.data.data;
-                const formattedData: WorkType[] = rawData.map((item: any) => ({
-                    id: item.id, title: item.title, startDate: item.startDate, endDate: item.endDate,
-                    tenderId: item.tender ? Number(item.tender.id) : 0, tenderTitle: item.tender ? item.tender.title : '',
-                    createAt: item.createAt, recordStatus: item.recordStatus,
-                    status: item.recordStatus === 0 ? 'Aktif' : 'Pasif',
-                }));
-                setWorksList(formattedData.filter(w => w.recordStatus === 0));
-            } else {
-                showAlert(result.data.message || 'İş listesi alınırken bir hata oluştu.', 'error');
-            }
-        } catch (e: any) {
-            handleApiError(e, 'İş listesi yüklenirken bir hata oluştu, lütfen tekrar deneyin.');
-        }
-    }, [navigate, authToken, showAlert, handleApiError]);
-
+    // --- Data Fetching ---
 
     const getWorkhousesList = useCallback(async () => {
         const role = localStorage.getItem('activeUserRoleName') || '';
@@ -336,11 +347,10 @@ const ListCarwarehouseReport = () => {
                 showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
             }
         } catch (e: any) { handleApiError(e, 'Şantiye listesi alınamadı.'); }
-    }, [navigate, showAlert, handleApiError]);
+    }, [navigate, showAlert, handleApiError, authToken]);
 
 
     // --- Main Data Fetching ---
-
     const fetchCarwarehouseReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
 
@@ -381,8 +391,7 @@ const ListCarwarehouseReport = () => {
     // --- Effects ---
     useEffect(() => {
         getWorkhousesList();
-        getListWork();
-    }, [getWorkhousesList, getListWork]);
+    }, [getWorkhousesList]);
 
     useEffect(() => {
         if (startDate) handleFilterChange('fromDate', format(startDate, 'yyyy-MM-dd'));
@@ -394,7 +403,6 @@ const ListCarwarehouseReport = () => {
         else handleFilterChange('toDate', '');
     }, [endDate]);
 
-    // ✨ NEW: Auto-Fetch on any filter change (Replaces Search Button)
     useEffect(() => {
         fetchCarwarehouseReportData();
     }, [
@@ -402,8 +410,7 @@ const ListCarwarehouseReport = () => {
         filterParams.toDate,
         filterParams.workhouseId,
         filterParams.workId,
-        filterParams.page // Pagination triggers fetch
-        // Add other params here if you un-hide them
+        filterParams.page
     ]);
 
 
@@ -412,28 +419,37 @@ const ListCarwarehouseReport = () => {
         setFilterParams(prev => ({ ...prev, page: value }));
     };
 
+    // --- Sorting Handler ---
+    const handleRequestSort = (property: keyof CarReportRowType | string) => {
+        const isAsc = orderBy === property && order === 'asc';
+        setOrder(isAsc ? 'desc' : 'asc');
+        setOrderBy(property);
+    };
 
-    // ✨ NEW: Client-Side Filtering for Table View
-    const filteredReportData = useMemo(() => {
+    // ✨ Client-Side Filtering & Sorting for Table View
+    const processedData = useMemo(() => {
         if (!reportData?.data) return [];
-        if (!searchTerm) return reportData.data;
+        let data = [...reportData.data];
 
-        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+        // 1. Search
+        if (searchTerm) {
+            const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+            data = data.filter(row => {
+                const columnsToSearch = [
+                    row.plaque, row.brand, row.model, row.workhouse_name,
+                    row.work_title, row.personnel_name, row.personnel_family, row.fuel_type
+                ];
+                return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+            });
+        }
 
-        return reportData.data.filter(row => {
-            const columnsToSearch = [
-                row.plaque,
-                row.brand,
-                row.model,
-                row.workhouse_name,
-                row.work_title,
-                row.personnel_name,
-                row.personnel_family,
-                row.fuel_type
-            ];
-            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
-        });
-    }, [reportData, searchTerm]);
+        // 2. Sort
+        if (orderBy) {
+            data.sort(getComparator(order, orderBy));
+        }
+
+        return data;
+    }, [reportData, searchTerm, order, orderBy]);
 
 
     // --- PDF & EXCEL HELPERS ---
@@ -518,7 +534,7 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // ✨ UPDATE: این تابع اکنون "جستجوی متنی" را هم در دانلود اعمال می‌کند
+    // ✨ FETCH ALL FOR EXPORT WITH SORT & SEARCH
     const fetchAllFilteredData = useCallback(async () => {
         if (!authToken) { navigate("/"); return null; }
 
@@ -528,7 +544,7 @@ const ListCarwarehouseReport = () => {
             fromDate: format(new Date(filterParams.fromDate), 'yyyy-MM-dd') || null,
             toDate: format(new Date(filterParams.toDate), 'yyyy-MM-dd') || null,
             page: 1,
-            pageSize: 10000, // واکشی همه داده‌ها برای دانلود
+            pageSize: 10000,
         };
 
         try {
@@ -540,22 +556,21 @@ const ListCarwarehouseReport = () => {
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 let allData = response.data.data.data as CarReportRowType[];
 
-                // ✨ CRITICAL UPDATE: اعمال فیلتر جستجوی متنی روی داده‌های دانلود شده
+                // 1. Search Filter
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
                         const columnsToSearch = [
-                            row.plaque,
-                            row.brand,
-                            row.model,
-                            row.workhouse_name,
-                            row.work_title,
-                            row.personnel_name,
-                            row.personnel_family,
-                            row.fuel_type
+                            row.plaque, row.brand, row.model, row.workhouse_name,
+                            row.work_title, row.personnel_name, row.personnel_family, row.fuel_type
                         ];
                         return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
                     });
+                }
+
+                // 2. Sort
+                if (orderBy) {
+                    allData.sort(getComparator(order, orderBy));
                 }
 
                 return allData;
@@ -566,13 +581,12 @@ const ListCarwarehouseReport = () => {
             handleApiError(e, 'Tüm rapor verileri alınırken bir sorun oluştu.');
             return null;
         }
-    }, [filterParams, navigate, authToken, showAlert, handleApiError, searchTerm]); // searchTerm به وابستگی‌ها اضافه شد
+    }, [filterParams, navigate, authToken, showAlert, handleApiError, searchTerm, order, orderBy]);
 
 
     const handleExportPdfAll = async () => {
         showAlert('Tüm verilerin PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
-        // داده‌ها با اعمال فیلتر سرچ گرفته می‌شوند
         const allData = await fetchAllFilteredData();
         if (!allData || allData.length === 0) {
             showAlert('Dışa aktarılacak veri bulunamadı.', 'warning');
@@ -624,6 +638,7 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'Toplu PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
+
     const handleExportExcelSingle = async (report: CarReportRowType) => {
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
         showAlert('Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
@@ -671,10 +686,10 @@ const ListCarwarehouseReport = () => {
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
+
     const handleExportExcelAll = async () => {
         showAlert('Tüm verilerin Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
 
-        // داده‌ها با اعمال فیلتر سرچ گرفته می‌شوند
         const allData = await fetchAllFilteredData();
         if (!allData || allData.length === 0) {
             showAlert('Dışa aktarılacak veri bulunamadı.', 'warning');
@@ -727,10 +742,10 @@ const ListCarwarehouseReport = () => {
         { label: 'Marka / Model', key: 'brand_model' },
         { label: 'Şantiye', key: 'workhouse_name' },
         { label: 'Yakıt Tipi', key: 'fuel_type' },
-        { label: 'Miktar (Litre)', key: 'fuel_amount' },
+        { label: 'Miktar', key: 'fuel_amount' },
         { label: 'Birim Fiyat', key: 'fuel_fee' },
-        { label: 'Yakıt Tarihi', key: 'fuel_date' },
-        { label: 'Toplam Maliyet', key: 'total_price' },
+        // { label: 'Yakıt Tarihi', key: 'fuel_date' },
+        { label: 'Toplam', key: 'total_price' },
         { label: '', key: 'actions' },
     ];
 
@@ -747,14 +762,6 @@ const ListCarwarehouseReport = () => {
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
-                    <Grid item xs={12} sm={4} md={3}>
-                        <Autocomplete
-                            id="work-select" options={worksList} getOptionLabel={(o) => `${o.title} (${o.status})`}
-                            value={worksList.find(w => w.id === filterParams.workId) || null}
-                            onChange={(_, newValue) => handleFilterChange('workId', newValue?.id || null)}
-                            renderInput={(params) => (<TextField {...params} label="İş" fullWidth size="small" />)}
-                        />
-                    </Grid>
                     <Grid item xs={12} sm={4} md={3}>
                         <Autocomplete
                             id="workhouse-select" options={workhousesList} getOptionLabel={(o) => `${o.name} (${o.code})`}
@@ -781,7 +788,6 @@ const ListCarwarehouseReport = () => {
                     </Grid>
                 </Grid>
 
-                {/* ✨ NEW: Search Bar & Global Export Buttons */}
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} md={6}>
@@ -794,10 +800,10 @@ const ListCarwarehouseReport = () => {
                         </Grid>
                         <Grid item xs={12} md={6} display="flex" justifyContent="flex-end" gap={1}>
                             <Button variant="outlined" color="success" startIcon={<IconFileSpreadsheet />} onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
-                                Tümünü Excel
+                                Tüm Veriyi Excel İndir
                             </Button>
                             <Button variant="outlined" color="error" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
-                                Tümünü PDF
+                                Tüm Veriyi PDF İndir
                             </Button>
                         </Grid>
                     </Grid>
@@ -811,27 +817,45 @@ const ListCarwarehouseReport = () => {
                     <Table aria-label="car report table">
                         <TableHead style={{ background: "#f0f0f0" }}>
                             <TableRow>
-                                {tableHeaders.map((header) => (<StyledTableCell key={header.key}><Typography variant="h6" fontWeight="bold">{header.label}</Typography></StyledTableCell>))}
+                                {tableHeaders.map((header) => (
+                                    <StyledTableCell key={header.key}>
+                                        <TableSortLabel
+                                            active={orderBy === header.key}
+                                            direction={orderBy === header.key ? order : 'asc'}
+                                            onClick={() => handleRequestSort(header.key)}
+                                        >
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {header.label}
+                                            </Typography>
+                                            {orderBy === header.key ? (
+                                                <Box component="span" sx={visuallyHiddenStyle}>
+                                                    {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                                                </Box>
+                                            ) : null}
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                ))}
+                                {/* <StyledTableCell><Typography variant="h6" fontWeight="bold"></Typography></StyledTableCell> */}
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
-                                <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : filteredReportData.length ? (
-                                filteredReportData.map((row, index) => {
+                                <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
+                            ) : processedData.length ? (
+                                processedData.map((row, index) => {
                                     const totalCostNumber = parseCurrencyToNumber(row.total_price);
                                     const fuelFeeNumber = parseCurrencyToNumber(row.fuel_fee);
 
                                     return (
-                                        <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                        <TableRow key={`${row.plaque}-${row.fuel_date}-${index}`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                             <StyledTableCell>{row.plaque}</StyledTableCell>
                                             <StyledTableCell>{`${row.brand} / ${row.model}`}</StyledTableCell>
                                             <StyledTableCell>{row.workhouse_name || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.fuel_type}</StyledTableCell>
                                             <StyledTableCell>{row.fuel_amount}</StyledTableCell>
                                             <StyledTableCell>{fuelFeeNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</StyledTableCell>
-                                            <StyledTableCell>{format(new Date(row.fuel_date), 'dd/MM/yyyy')}</StyledTableCell>
-                                            <StyledTableCell><Typography color="primary" fontWeight="bold">{totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</Typography></StyledTableCell>
+                                            {/* <StyledTableCell>{format(new Date(row.fuel_date), 'dd/MM/yyyy')}</StyledTableCell> */}
+                                            <StyledTableCell><Typography color="primary">{totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</Typography></StyledTableCell>
 
                                             {/* Actions Column (Menu) */}
                                             <StyledTableCell>
@@ -864,7 +888,7 @@ const ListCarwarehouseReport = () => {
                                     );
                                 })
                             ) : (
-                                <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun yakıt kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
+                                <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun yakıt kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
                             )}
                         </TableBody>
                         <>
@@ -907,7 +931,9 @@ const ListCarwarehouseReport = () => {
 
             <DetailViewModal
                 open={openDetailViewModal} onClose={handleCloseDetailViewModal}
-                report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle}
+                report={selectedReportToDownload}
+                onExportExcel={handleExportExcelSingle}
+                onExportPdf={handleExportPdfSingle}
             />
         </Box>
     );

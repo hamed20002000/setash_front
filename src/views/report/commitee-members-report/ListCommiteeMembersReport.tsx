@@ -36,7 +36,7 @@ const getCommiteMemberPositionText = (position: number): string => {
 
 export enum CommiteAnswer { ONAYLANAN_KABUL_TUTANAKLARI = 0, KABUL_YAPILMAYANLAR = 1, GDZ_DE_BEKLEYENLER = 2, ISLETMEDE_IMZADA_BEKLEYENLER = 3, IMZADA = 4, IMZALANDI = 5 }
 const getCommiteAnswerText = (answer: number): string => {
-    switch (answer) { case 0: return 'Onaylanan Kabul Tutanakları'; case 1: return 'Kabul Yapılmayanlar'; case 2: return 'GDZ\'de Bekleyenler'; case 3: return 'İşletmede İmzanda Bekleyenler'; case 4: return 'İmzanda'; case 5: return 'İmzalandı'; default: return 'Bilinmiyor'; }
+    switch (answer) { case 0: return 'Onaylanan Kabul Tutanakları'; case 1: return 'Kabul Yapılmayanlar'; case 2: return 'GDZ\'de Bekleyenler'; case 3: return 'İşletmede  İmzada Bekleyenler'; case 4: return 'İmzada'; case 5: return 'İmzalandı'; default: return 'Bilinmiyor'; }
 };
 const CommiteAnswerOptions = Object.keys(CommiteAnswer).filter(key => !isNaN(Number(key))).map(key => ({ id: Number(key), title: getCommiteAnswerText(Number(key)) }));
 
@@ -48,6 +48,7 @@ export interface ConfirmationReportType {
     projectCount: number; Gecici_tutanak_teslim_alma_durumu: boolean;
     Kesin_tutanak_teslim_alma_durumu: boolean;
     confirmationReportCommiteMembers?: ConfirmationCommiteeMemberType[];
+    imzalandiCount: number;
 }
 export interface CommiteeMemberDropdownType { id: string; name: string; family: string; position: number; title: string; }
 export interface ConfirmationCommiteeMemberType {
@@ -71,7 +72,13 @@ interface MemberNameMap {
     [memberId: string]: { name: string, family: string, position: number };
 }
 
-export interface DisplayReportType extends ProjectReportType { isConfirmed: boolean; confirmationId: string | null; Gecici_tutanak_durumu: boolean; Kesin_tutanak_durumu: boolean; memberCount: number; answeredMemberCount: number; }
+export interface DisplayReportType extends ProjectReportType {
+    isConfirmed: boolean; confirmationId: string | null;
+    Gecici_tutanak_durumu: boolean; Kesin_tutanak_durumu: boolean;
+    memberCount: number;
+    //    answeredMemberCount: number; 
+    imzalandiCount: number;
+}
 const TesisTypeMap: { [key: number]: string } = { 0: 'Merkez', 1: 'Ana', 2: 'Şube', 3: 'Tasarım', };
 const getTesisTypeText = (type: number): string => { return TesisTypeMap[type] || 'Bilinmiyor'; };
 
@@ -1126,6 +1133,67 @@ const ListCommiteeMembersReport = () => {
     };
 
     // --- 2. Fetch Main Report Data and Combine (Simplified member fetching logic) ---
+    // const fetchLatestProjectReports = useCallback(async () => {
+    //     const authToken = localStorage.getItem('authToken');
+    //     setLoadingData(true);
+    //     if (!authToken) { navigate("/"); setLoadingData(false); return; }
+
+    //     try {
+    //         const result = await axios.request({
+    //             baseURL: server.baseurl + server.report + "get-latest-project-reports",
+    //             method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+    //         });
+
+    //         if (result.data.httpStatusCode === 200 && result.data.data) {
+    //             const mainReports = result.data.data as ProjectReportType[];
+
+    //             const combinedData: DisplayReportType[] = await Promise.all(mainReports.map(async (report) => {
+    //                 const existingConfirmation = confirmationData.find(conf =>
+    //                     // مقایسه‌های قطعی
+    //                     conf.year === report.year &&
+    //                     conf.city === report.city &&
+    //                     conf.tesisType === report.tesistype &&
+
+    //                     // مقایسه‌های انعطاف‌پذیر برای Project Count و فیلدهای اختیاری
+    //                     isFlexibleMatch(conf.projectCount, report.projectcount) &&
+    //                     isFlexibleMatch(conf.town, report.town) &&
+    //                     isFlexibleMatch(conf.region, report.region) &&
+    //                     isFlexibleMatch(conf.trAdi, report.tradi)
+    //                 );
+
+    //                 const confirmationId = existingConfirmation ? existingConfirmation.id : null;
+    //                 let memberCount = 0;
+    //                 let imzalandiCount = 0;
+
+    //                 if (confirmationId) {
+    //                     // Fetch member list/answers to get counts (NOTE: This causes N+1 problem, but is maintained for functional correctness)
+    //                     const memberListResult = await axios.request({
+    //                         baseURL: server.baseurl + server.report + `get-confirmation-report-commite-member/${confirmationId}`,
+    //                         method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
+    //                     });
+
+    //                     const members = (memberListResult.data.data || []) as ConfirmationCommiteeMemberType[];
+    //                     memberCount = members.length;
+    //                     // Assuming the API returns the 'answer' field directly on the member list for count purposes
+    //                     answeredMemberCount = members.filter(m => m.answer !== null && m.answer !== undefined).length;
+    //                 }
+
+    //                 return {
+    //                     ...report, isConfirmed: !!existingConfirmation, confirmationId: confirmationId,
+    //                     Gecici_tutanak_durumu: existingConfirmation ? existingConfirmation.Gecici_tutanak_teslim_alma_durumu : false,
+    //                     Kesin_tutanak_durumu: existingConfirmation ? existingConfirmation.Kesin_tutanak_teslim_alma_durumu : false,
+    //                     memberCount: memberCount,
+    //                     answeredMemberCount: answeredMemberCount,
+    //                 };
+    //             }));
+
+    //             setReportData(combinedData);
+    //             showAlert('Rapor verileri başarıyla yüklendi.', 'success');
+    //         } else { setReportData([]); showAlert(result.data.message || 'Rapor verileri alınırken bir hata oluştu.', 'error'); }
+    //     } catch (e: any) { handleApiError(e); } finally { setLoadingData(false); }
+    // }, [confirmationData, navigate, showAlert, handleApiError]);
+
+    // --- 2. Fetch Main Report Data and Combine ---
     const fetchLatestProjectReports = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
@@ -1140,14 +1208,17 @@ const ListCommiteeMembersReport = () => {
             if (result.data.httpStatusCode === 200 && result.data.data) {
                 const mainReports = result.data.data as ProjectReportType[];
 
-                const combinedData: DisplayReportType[] = await Promise.all(mainReports.map(async (report) => {
+                // 🚀 اینجا تغییر کرد: حذف async/await و درخواست‌های اضافی
+                const combinedData: DisplayReportType[] = mainReports.map((report) => {
                     const existingConfirmation = confirmationData.find(conf =>
-                        // مقایسه‌های قطعی
                         conf.year === report.year &&
                         conf.city === report.city &&
                         conf.tesisType === report.tesistype &&
 
-                        // مقایسه‌های انعطاف‌پذیر برای Project Count و فیلدهای اختیاری
+
+                        isFlexibleMatch(conf.year, report.year) &&
+                        isFlexibleMatch(conf.city, report.city) &&
+                        isFlexibleMatch(conf.tesisType, report.tesistype) &&
                         isFlexibleMatch(conf.projectCount, report.projectcount) &&
                         isFlexibleMatch(conf.town, report.town) &&
                         isFlexibleMatch(conf.region, report.region) &&
@@ -1156,33 +1227,33 @@ const ListCommiteeMembersReport = () => {
 
                     const confirmationId = existingConfirmation ? existingConfirmation.id : null;
                     let memberCount = 0;
-                    let answeredMemberCount = 0;
+                    let imzalandiCount = 0;
 
-                    if (confirmationId) {
-                        // Fetch member list/answers to get counts (NOTE: This causes N+1 problem, but is maintained for functional correctness)
-                        const memberListResult = await axios.request({
-                            baseURL: server.baseurl + server.report + `get-confirmation-report-commite-member/${confirmationId}`,
-                            method: "get", headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
-                        });
-
-                        const members = (memberListResult.data.data || []) as ConfirmationCommiteeMemberType[];
+                    if (existingConfirmation) {
+                        // ✅ داده‌ها الان موجود هستند، نیازی به درخواست API نیست
+                        const members = existingConfirmation.confirmationReportCommiteMembers || [];
                         memberCount = members.length;
-                        // Assuming the API returns the 'answer' field directly on the member list for count purposes
-                        answeredMemberCount = members.filter(m => m.answer !== null && m.answer !== undefined).length;
+                        // ✅ مقدار را مستقیماً از فیلد جدید بک‌اند می‌خوانیم
+                        imzalandiCount = existingConfirmation.imzalandiCount || 0;
                     }
 
                     return {
-                        ...report, isConfirmed: !!existingConfirmation, confirmationId: confirmationId,
+                        ...report,
+                        isConfirmed: !!existingConfirmation,
+                        confirmationId: confirmationId,
                         Gecici_tutanak_durumu: existingConfirmation ? existingConfirmation.Gecici_tutanak_teslim_alma_durumu : false,
                         Kesin_tutanak_durumu: existingConfirmation ? existingConfirmation.Kesin_tutanak_teslim_alma_durumu : false,
                         memberCount: memberCount,
-                        answeredMemberCount: answeredMemberCount,
+                        imzalandiCount: imzalandiCount, // ✅ مقداردهی جدید
                     };
-                }));
+                });
 
                 setReportData(combinedData);
                 showAlert('Rapor verileri başarıyla yüklendi.', 'success');
-            } else { setReportData([]); showAlert(result.data.message || 'Rapor verileri alınırken bir hata oluştu.', 'error'); }
+            } else {
+                setReportData([]);
+                showAlert(result.data.message || 'Rapor verileri alınırken bir hata oluştu.', 'error');
+            }
         } catch (e: any) { handleApiError(e); } finally { setLoadingData(false); }
     }, [confirmationData, navigate, showAlert, handleApiError]);
 
@@ -2465,12 +2536,12 @@ const ListCommiteeMembersReport = () => {
                                                 {row.isConfirmed && row.confirmationId && row.memberCount > 0 ? (
                                                     <Button
                                                         variant="contained"
-                                                        color={row.answeredMemberCount === row.memberCount ? "success" : "secondary"}
+                                                        color={row.imzalandiCount === row.memberCount ? "success" : "secondary"}
                                                         size="small"
                                                         onClick={() => handleOpenAnswerModal(row.confirmationId!)}
                                                         startIcon={<IconFileText size={20} />}
                                                     >
-                                                        {row.answeredMemberCount}/{row.memberCount}
+                                                        {row.imzalandiCount}/{row.memberCount}
                                                     </Button>
                                                 ) : (
                                                     <Tooltip title="Komite üyesi eklenmedi">

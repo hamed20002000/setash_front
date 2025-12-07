@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import {
     Box,
@@ -10,15 +11,29 @@ import {
     Collapse,
     Stack,
     Avatar,
-    Chip
+    Chip,
+    ToggleButton,
+    ToggleButtonGroup,
+    // useTheme
 } from '@mui/material';
 import axios from 'axios';
 import {
-    IconBuildingStore, // آیکون ساختمان/کارگاه
-    IconWallet, // آیکون کیف پول
+    IconBuildingStore,
+    IconWallet,
     IconChevronDown,
-    IconChevronUp
+    IconChevronUp,
+    IconChartPie,   // آیکون برای حالت نمودار دایره‌ای
+    IconLayoutGrid
 } from '@tabler/icons-react';
+// اضافه کردن کامپوننت‌های نمودار
+import {
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
+    Legend,
+    ResponsiveContainer
+} from 'recharts';
 import server from '../../assets/address.json';
 
 // تعریف تایپ داده‌های دریافتی
@@ -29,9 +44,17 @@ interface SalaryStatType {
     total_salary: string;
 }
 
+// رنگ‌های نمودار دایره‌ای
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF19A3'];
+
 const WorkhouseSalaryStats = () => {
+    // const theme = useTheme();
     const [data, setData] = useState<SalaryStatType[]>([]);
     const [loading, setLoading] = useState(true);
+
+    // State حالت نمایش (پیش‌فرض: گرافیکی)
+    const [viewMode, setViewMode] = useState<'chart' | 'cards'>('chart');
+
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +66,6 @@ const WorkhouseSalaryStats = () => {
                     server.baseurl + server.report + 'get-dashboard-workhouse-total-salary',
                     { headers: { "Authorization": `Bearer ${authToken}` } }
                 );
-
 
                 if (response.data.httpStatusCode === 200 && response.data.data) {
                     setData(response.data.data);
@@ -61,19 +83,35 @@ const WorkhouseSalaryStats = () => {
         fetchData();
     }, []);
 
-    // تابع تمیز کردن و فرمت کردن عدد پول
+    // تابع تمیز کردن و فرمت کردن عدد پول (برای نمایش متن)
     const formatCurrency = (val: string) => {
-        // حذف هر چیزی که عدد، نقطه یا منفی نیست (مثل $)
         const cleanVal = val.replace(/[^\d.-]/g, '');
         const numberVal = parseFloat(cleanVal);
+        if (isNaN(numberVal)) return val;
+        return numberVal.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    };
 
-        if (isNaN(numberVal)) return val; // اگر عدد نبود، همان رشته اصلی را برگردان
+    // تابع پارس کردن عدد برای نمودار (خروجی عدد خالص)
+    const parseCurrencyToNumber = (val: string) => {
+        const cleanVal = val.replace(/[^\d.-]/g, '');
+        const numberVal = parseFloat(cleanVal);
+        return isNaN(numberVal) ? 0 : numberVal;
+    };
 
-        // فرمت کردن به صورت پول (مثلا: 1.250,00 TL)
-        return numberVal.toLocaleString('us-US', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2
-        });
+    // آماده‌سازی داده‌ها برای نمودار
+    const chartData = data.map(item => ({
+        name: item.workhouse_name,
+        value: parseCurrencyToNumber(item.total_salary)
+    })).filter(item => item.value > 0); // فقط مقادیر مثبت را در نمودار نشان می‌دهیم
+
+    // هندلر تغییر حالت نمایش
+    const handleViewChange = (
+        _event: React.MouseEvent<HTMLElement>,
+        newView: 'chart' | 'cards' | null,
+    ) => {
+        if (newView !== null) {
+            setViewMode(newView);
+        }
     };
 
     // رندر کردن کارت تکی
@@ -85,15 +123,13 @@ const WorkhouseSalaryStats = () => {
             height: '100%',
             position: 'relative',
             overflow: 'hidden',
-            '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.05)', borderColor: 'success.main' }, // هاور سبز
+            '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.05)', borderColor: 'success.main' },
             transition: 'all 0.3s ease'
         }}>
             <Stack direction="row" spacing={2} alignItems="flex-start">
-                {/* آیکون سمت چپ */}
                 <Avatar variant="rounded" sx={{ bgcolor: 'success.light', color: 'success.main', width: 48, height: 48 }}>
                     <IconBuildingStore size={24} />
                 </Avatar>
-
                 <Box width="100%">
                     <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
                         <Typography variant="subtitle2" color="textSecondary" fontWeight={600} noWrap sx={{ maxWidth: '70%' }}>
@@ -101,9 +137,8 @@ const WorkhouseSalaryStats = () => {
                         </Typography>
                         <Chip label={`Kod: ${item.workhouse_code}`} size="small" sx={{ fontSize: '0.7rem', height: 20 }} />
                     </Stack>
-
                     <Stack direction="row" alignItems="center" spacing={1} mt={1}>
-                        <IconWallet size={20} color="#13DEB9" /> {/* رنگ سبز */}
+                        <IconWallet size={20} color="#13DEB9" />
                         <Typography variant="h5" fontWeight={700} color="success.main">
                             {formatCurrency(item.total_salary)} <Typography component="span" variant="body2" color="textSecondary">TL</Typography>
                         </Typography>
@@ -117,53 +152,118 @@ const WorkhouseSalaryStats = () => {
     if (error) return <Alert severity="error">{error}</Alert>;
     if (data.length === 0) return <Alert severity="info">Maaş verisi bulunamadı</Alert>;
 
-    // لاجیک نمایش بیشتر
     const firstThreeItems = data.slice(0, 3);
     const remainingItems = data.slice(3);
 
     return (
-        <Box mt={4}> {/* فاصله از کامپوننت بالایی */}
-            <Typography variant="h5" mb={3} fontWeight={700}>
-                Şantiye Toplam Maaşlar
-            </Typography>
+        <Box mt={4}>
+            {/* هدر: تایتل و دکمه‌های سوئیچ */}
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+                <Typography variant="h5" fontWeight={700}>
+                    Şantiye Toplam Maaşlar
+                </Typography>
 
-            <Grid container spacing={3}>
-                {/* نمایش ۳ آیتم اول */}
-                {firstThreeItems.map((item, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
-                        {renderCard(item)}
-                    </Grid>
-                ))}
-            </Grid>
+                <ToggleButtonGroup
+                    value={viewMode}
+                    exclusive
+                    onChange={handleViewChange}
+                    aria-label="view mode"
+                    size="small"
+                    sx={{ bgcolor: 'background.paper' }}
+                >
+                    <ToggleButton value="chart" aria-label="chart view">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <IconChartPie size={18} />
+                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Grafik</Typography>
+                        </Stack>
+                    </ToggleButton>
+                    <ToggleButton value="cards" aria-label="cards view">
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <IconLayoutGrid size={18} />
+                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
+                        </Stack>
+                    </ToggleButton>
+                </ToggleButtonGroup>
+            </Stack>
 
-            {/* بخش Collapsible برای بیشتر از ۳ آیتم */}
-            {remainingItems.length > 0 && (
-                <>
-                    <Collapse in={expanded} timeout="auto" unmountOnExit>
-                        <Box mt={3}>
-                            <Grid container spacing={3}>
-                                {remainingItems.map((item, index) => (
-                                    <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
-                                        {renderCard(item)}
-                                    </Grid>
-                                ))}
-                            </Grid>
+            <Box>
+                {viewMode === 'chart' ? (
+                    // --- حالت نموداری (Pie Chart) ---
+                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef' }}>
+                        <Box height="400px" width="100%">
+                            {chartData.length > 0 ? (
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={chartData}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            // label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} // لیبل اختیاری روی نمودار
+                                            outerRadius={150}
+                                            fill="#8884d8"
+                                            dataKey="value"
+                                            nameKey="name"
+                                        >
+                                            {chartData.map((_entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(value: number) => [value.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL', 'Tutar']}
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Legend verticalAlign="bottom" height={36} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                                    <Typography color="textSecondary">Grafik için veri bulunamadı (Tüm değerler 0 olabilir)</Typography>
+                                </Box>
+                            )}
                         </Box>
-                    </Collapse>
+                    </Card>
+                ) : (
+                    // --- حالت کارتی (قدیمی) ---
+                    <>
+                        <Grid container spacing={3}>
+                            {firstThreeItems.map((item, index) => (
+                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
+                                    {renderCard(item)}
+                                </Grid>
+                            ))}
+                        </Grid>
 
-                    <Box display="flex" justifyContent="center" mt={3}>
-                        <Button
-                            variant="outlined"
-                            color="success" // رنگ دکمه سبز برای هماهنگی با موضوع پول
-                            onClick={() => setExpanded(!expanded)}
-                            endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
-                            sx={{ borderRadius: '20px', px: 4 }}
-                        >
-                            {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length} kayıt)`}
-                        </Button>
-                    </Box>
-                </>
-            )}
+                        {remainingItems.length > 0 && (
+                            <>
+                                <Collapse in={expanded} timeout="auto" unmountOnExit>
+                                    <Box mt={3}>
+                                        <Grid container spacing={3}>
+                                            {remainingItems.map((item, index) => (
+                                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
+                                                    {renderCard(item)}
+                                                </Grid>
+                                            ))}
+                                        </Grid>
+                                    </Box>
+                                </Collapse>
+
+                                <Box display="flex" justifyContent="center" mt={3}>
+                                    <Button
+                                        variant="outlined"
+                                        color="success"
+                                        onClick={() => setExpanded(!expanded)}
+                                        endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
+                                        sx={{ borderRadius: '20px', px: 4 }}
+                                    >
+                                        {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length} kayıt)`}
+                                    </Button>
+                                </Box>
+                            </>
+                        )}
+                    </>
+                )}
+            </Box>
         </Box>
     );
 };

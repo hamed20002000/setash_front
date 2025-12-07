@@ -15,7 +15,8 @@ import {
     Autocomplete,
     IconButton,
     MenuItem,
-    InputAdornment, // اضافه شده
+    InputAdornment,
+    TableSortLabel // ✨ Added for sorting
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -37,6 +38,18 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
 import Logo from 'src/assets/images/logos/logo.png';
+
+
+// --- STYLES ---
+const visuallyHiddenStyle = {
+    border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
+    overflow: 'hidden', padding: 0, position: 'absolute',
+    whiteSpace: 'nowrap', width: '1px',
+};
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, color: '#171c23', whiteSpace: 'nowrap',
+}));
 
 
 // --- TYPE DEFINITIONS ---
@@ -79,9 +92,49 @@ interface FilterParams {
     position: string;
 }
 
-const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, color: '#171c23', whiteSpace: 'nowrap',
-}));
+// --- SORTING HELPERS ---
+type Order = 'asc' | 'desc';
+
+const cleanNumber = (value: string | number | null): number => {
+    if (typeof value === 'number') return value;
+    if (!value) return 0;
+    // حذف تمام کاراکترها غیر از اعداد، نقطه و خط تیره
+    return parseFloat(value.toString().replace(/[^0-9.-]+/g, "")) || 0;
+};
+
+function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
+    let aValue: any = a[orderBy];
+    let bValue: any = b[orderBy];
+
+    // مرتب‌سازی بر اساس تاریخ
+    if (orderBy === 'personnel_start_date') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+    }
+    // مرتب‌سازی بر اساس حقوق (عدد)
+    else if (orderBy === 'personnel_salary') {
+        aValue = cleanNumber(aValue);
+        bValue = cleanNumber(bValue);
+    }
+    // مرتب‌سازی رشته‌ها (الفبا)
+    else {
+        aValue = (aValue || '').toString().toLowerCase();
+        bValue = (bValue || '').toString().toLowerCase();
+    }
+
+    if (bValue < aValue) return -1;
+    if (bValue > aValue) return 1;
+    return 0;
+}
+
+function getComparator<Key extends keyof any>(
+    order: Order,
+    orderBy: Key,
+): (a: { [key in Key]: any }, b: { [key in Key]: any }) => number {
+    return order === 'desc'
+        ? (a, b) => descendingComparator(a, b, orderBy)
+        : (a, b) => -descendingComparator(a, b, orderBy);
+}
 
 
 // --- MODAL FOR SINGLE ROW DETAILS ---
@@ -169,8 +222,12 @@ const ListPersonnelWorkhouseReport = () => {
 
     const { fromDate: defaultFromDate, toDate: defaultToDate } = getCurrentYearDates();
 
-    // ✨ NEW: Search Term State
+    // --- State Definitions ---
     const [searchTerm, setSearchTerm] = useState('');
+
+    // ✨ Sort States
+    const [order, setOrder] = useState<Order>('desc');
+    const [orderBy, setOrderBy] = useState<keyof PersonnelReportRowType>('personnel_start_date');
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         fromDate: defaultFromDate,
@@ -223,7 +280,6 @@ const ListPersonnelWorkhouseReport = () => {
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
 
-    // ✨ UPDATE: با تغییر فیلتر، صفحه ریست می‌شود (برای auto-fetch)
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
@@ -316,38 +372,51 @@ const ListPersonnelWorkhouseReport = () => {
     // --- Effects for Data Loading ---
     useEffect(() => {
         getWorkhousesList();
-        // حذف fetch اولیه در اینجا چون در پایین به صورت خودکار با filterParams صدا زده می‌شود
     }, [getWorkhousesList]);
 
-    // ✨ NEW: Auto-Fetch on Filter Change
     useEffect(() => {
         fetchPersonnelWorkhouseReportData();
     }, [
         filterParams.workhouseId,
-        filterParams.page, // Pagination triggers fetch
-        // Other params are currently unused/hidden but if added, put here
+        filterParams.page,
     ]);
 
-    // ✨ NEW: Client-Side Search Logic
+    // --- Handlers for Sorting ---
+    const handleRequestSort = (property: keyof PersonnelReportRowType) => {
+        const isAsc = orderBy === property && order === 'asc';
+        setOrder(isAsc ? 'desc' : 'asc');
+        setOrderBy(property);
+    };
+
+    // ✨ Client-Side Search & Sort Logic
     const filteredReportData = useMemo(() => {
         if (!reportData?.data) return [];
-        if (!searchTerm) return reportData.data;
+        let data = [...reportData.data];
 
-        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+        // 1. Search Filter
+        if (searchTerm) {
+            const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+            data = data.filter(row => {
+                const fullName = `${row.personnel_name} ${row.personnel_family}`;
+                const columnsToSearch = [
+                    fullName,
+                    row.workhouse_name,
+                    row.workhouse_code,
+                    row.personnel_name,
+                    row.personnel_family,
+                    row.personnel_salary
+                ];
+                return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+            });
+        }
 
-        return reportData.data.filter(row => {
-            const fullName = `${row.personnel_name} ${row.personnel_family}`;
-            const columnsToSearch = [
-                fullName,
-                row.workhouse_name,
-                row.workhouse_code,
-                row.personnel_name,
-                row.personnel_family,
-                row.personnel_salary
-            ];
-            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
-        });
-    }, [reportData, searchTerm]);
+        // 2. Sort
+        if (orderBy) {
+            data.sort(getComparator(order, orderBy));
+        }
+
+        return data;
+    }, [reportData, searchTerm, order, orderBy]);
 
 
     // --- Handlers for Pagination & Export ---
@@ -434,7 +503,7 @@ const ListPersonnelWorkhouseReport = () => {
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // ✨ NEW: Function to fetch all data and apply client-side search for export
+    // ✨ NEW: Function to fetch all data and apply client-side search & SORT for export
     const fetchAllFilteredData = useCallback(async () => {
         if (!authToken) { navigate("/"); return null; }
 
@@ -461,7 +530,7 @@ const ListPersonnelWorkhouseReport = () => {
                     return { ...item, personnel_name: name, personnel_family: family }
                 }) as PersonnelReportRowType[];
 
-                // ✨ Apply Search Filter if exists
+                // 1. Apply Search Filter
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
@@ -477,7 +546,13 @@ const ListPersonnelWorkhouseReport = () => {
                         return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
                     });
                 }
-                return { data: allData, totalSalary: response.data.data.totalSalary }; // You might want to recalculate totalSalary based on filter if needed
+
+                // 2. Apply Sort
+                if (orderBy) {
+                    allData.sort(getComparator(order, orderBy));
+                }
+
+                return { data: allData, totalSalary: response.data.data.totalSalary };
             }
             showAlert('Veri bulunamadı.', 'error');
             return null;
@@ -485,7 +560,7 @@ const ListPersonnelWorkhouseReport = () => {
             handleApiError(e, 'Veri alınırken hata oluştu.');
             return null;
         }
-    }, [filterParams, navigate, authToken, searchTerm, showAlert, handleApiError]);
+    }, [filterParams, navigate, authToken, searchTerm, order, orderBy, showAlert, handleApiError]);
 
 
     // 3. Export PDF (Global)
@@ -508,7 +583,6 @@ const ListPersonnelWorkhouseReport = () => {
 
             const tableColumn = ["Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "Başlangıç Tarihi", "Maaş (TL)"];
 
-            // محاسبه جمع کل بر اساس داده‌های فیلتر شده (نه دیتای خام سرور)
             let calculatedTotalSalary = 0;
 
             const tableRows = result.data.map(row => {
@@ -640,13 +714,12 @@ const ListPersonnelWorkhouseReport = () => {
     };
 
 
-    const tableHeaders = [
+    const tableHeaders: { label: string; key: keyof PersonnelReportRowType }[] = [
         { label: 'Şantiye Adı', key: 'workhouse_name' },
         { label: 'Şantiye Kodu', key: 'workhouse_code' },
         { label: 'Adı Soyadı', key: 'personnel_name' },
         { label: 'Maaş (TL)', key: 'personnel_salary' },
         { label: 'İşe Başlangıç', key: 'personnel_start_date' },
-        { label: 'İşlemler', key: 'actions' },
     ];
 
 
@@ -687,10 +760,10 @@ const ListPersonnelWorkhouseReport = () => {
                         </Grid>
                         <Grid item xs={12} md={6} display="flex" justifyContent="flex-end" gap={1}>
                             <Button variant="outlined" color="success" startIcon={<IconFileSpreadsheet />} onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
-                                Genel Excel İndir
+                                Tüm Veriyi Excel İndir
                             </Button>
-                            <Button variant="outlined" color="primary" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
-                                Genel PDF İndir
+                            <Button variant="outlined" color="error" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
+                                Tüm Veriyi PDF İndir
                             </Button>
                         </Grid>
                     </Grid>
@@ -703,12 +776,30 @@ const ListPersonnelWorkhouseReport = () => {
                     <Table aria-label="personnel report table">
                         <TableHead style={{ background: "#f0f0f0" }}>
                             <TableRow>
-                                {tableHeaders.map((header) => (<StyledTableCell key={header.key}><Typography variant="h6" fontWeight="bold">{header.label}</Typography></StyledTableCell>))}
+                                {tableHeaders.map((header) => (
+                                    <StyledTableCell key={header.key}>
+                                        <TableSortLabel
+                                            active={orderBy === header.key}
+                                            direction={orderBy === header.key ? order : 'asc'}
+                                            onClick={() => handleRequestSort(header.key)}
+                                        >
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {header.label}
+                                            </Typography>
+                                            {orderBy === header.key ? (
+                                                <Box component="span" sx={visuallyHiddenStyle}>
+                                                    {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                                                </Box>
+                                            ) : null}
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                ))}
+                                <StyledTableCell><Typography variant="h6" fontWeight="bold">İşlemler</Typography></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
-                                <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
+                                <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : filteredReportData.length ? (
                                 filteredReportData.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -744,7 +835,7 @@ const ListPersonnelWorkhouseReport = () => {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun personel raporu bulunamadı.</Typography></StyledTableCell></TableRow>
+                                <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun personel raporu bulunamadı.</Typography></StyledTableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -766,7 +857,7 @@ const ListPersonnelWorkhouseReport = () => {
                     {reportData && (
                         <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
                             <Typography variant="h6" color="success.main">
-                                Toplam Maaş: {reportData.totalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                                Toplam Maaş: {reportData.totalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}
                             </Typography>
                         </Box>
                     )}

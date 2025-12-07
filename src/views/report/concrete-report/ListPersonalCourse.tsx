@@ -16,7 +16,8 @@ import {
     MenuItem,
     IconButton,
     RadioGroup, FormControlLabel, Radio, FormControl, FormLabel,
-    InputAdornment, // اضافه شده
+    InputAdornment,
+    TableSortLabel // ✨ Added for sorting
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -40,6 +41,18 @@ import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import Logo from 'src/assets/images/logos/logo.png';
+
+
+// --- STYLES ---
+const visuallyHiddenStyle = {
+    border: 0, clip: 'rect(0 0 0 0)', height: '1px', margin: -1,
+    overflow: 'hidden', padding: 0, position: 'absolute',
+    whiteSpace: 'nowrap', width: '1px',
+};
+
+const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
+    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, color: '#171c23', whiteSpace: 'nowrap',
+}));
 
 
 // --- TYPE DEFINITIONS ---
@@ -88,9 +101,41 @@ interface FilterParams {
     personnelId: number | null;
 }
 
-const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, color: '#171c23', whiteSpace: 'nowrap',
-}));
+// --- SORTING HELPERS ---
+type Order = 'asc' | 'desc';
+
+function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
+    let aValue: any = a[orderBy];
+    let bValue: any = b[orderBy];
+
+    // Sort Numbers
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+        // Standard number comparison
+    }
+    // Sort Dates (String ISO format)
+    else if (orderBy === 'course_start_date_time' || orderBy === 'class_start_date_time' || orderBy === 'class_end_date_time') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+    }
+    // Sort Strings
+    else if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+    }
+
+    if (bValue < aValue) return -1;
+    if (bValue > aValue) return 1;
+    return 0;
+}
+
+function getComparator<Key extends keyof any>(
+    order: Order,
+    orderBy: Key,
+): (a: { [key in Key]: any }, b: { [key in Key]: any }) => number {
+    return order === 'desc'
+        ? (a, b) => descendingComparator(a, b, orderBy)
+        : (a, b) => -descendingComparator(a, b, orderBy);
+}
 
 
 // --- UTILITY FUNCTIONS ---
@@ -189,6 +234,10 @@ const ListPersonalCourse = () => {
     // ✨ NEW: Search Term State
     const [searchTerm, setSearchTerm] = useState('');
 
+    // ✨ NEW: Sort States
+    const [order, setOrder] = useState<Order>('desc');
+    const [orderBy, setOrderBy] = useState<keyof CoursePersonnelReportRowType>('class_start_date_time');
+
     const [filterParams, setFilterParams] = useState<FilterParams>({
         workhouseId: null,
         fromDate: defaultFromDateStr,
@@ -241,7 +290,6 @@ const ListPersonalCourse = () => {
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
 
-    // ✨ UPDATE: تغییر فیلتر صفحه را ریست می‌کند (برای Auto-Fetch)
     const handleFilterChange = (name: keyof FilterParams, value: any) => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
@@ -290,16 +338,17 @@ const ListPersonalCourse = () => {
     const fetchCoursePersonnelReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
 
-        let isCenterAPIValue: boolean | null;
-        if (filterParams.isCenter === 'true') { isCenterAPIValue = true; }
-        else if (filterParams.isCenter === 'false') { isCenterAPIValue = false; }
-        else { isCenterAPIValue = null; }
+        // ✨ CHANGE: ارسال مقدار isCenter به صورت رشته یا null
+        // 'true', 'false', یا null برای فیلتر نشدن
+        const isCenterParam = filterParams.isCenter === 'null' ? null : filterParams.isCenter;
+
+        debugger
 
         const requestParams = {
             workhouseId: filterParams.workhouseId || null,
             fromDate: filterParams.fromDate || null,
             toDate: filterParams.toDate || null,
-            isCenter: isCenterAPIValue,
+            center: isCenterParam, // ✅ ارسال به عنوان string یا null
             page: filterParams.page,
             pageSize: filterParams.pageSize,
             teacherId: filterParams.teacherId || null,
@@ -332,7 +381,6 @@ const ListPersonalCourse = () => {
 
     useEffect(() => {
         getWorkhousesList();
-        // حذف فراخوانی مستقیم fetch در اینجا چون در useEffect پایین با تغییر فیلترها فراخوانی می‌شود
     }, [getWorkhousesList]);
 
     useEffect(() => {
@@ -347,7 +395,7 @@ const ListPersonalCourse = () => {
         }
     }, [endDate]);
 
-    // ✨ NEW: Auto-Fetch on any filter change
+    // ✨ Auto-Fetch
     useEffect(() => {
         fetchCoursePersonnelReportData();
     }, [
@@ -355,33 +403,48 @@ const ListPersonalCourse = () => {
         filterParams.fromDate,
         filterParams.toDate,
         filterParams.isCenter,
-        filterParams.page // Pagination triggers fetch
+        filterParams.page
     ]);
 
+    // --- Handlers for Sorting ---
+    const handleRequestSort = (property: keyof CoursePersonnelReportRowType) => {
+        const isAsc = orderBy === property && order === 'asc';
+        setOrder(isAsc ? 'desc' : 'asc');
+        setOrderBy(property);
+    };
 
     // --- Handlers for Pagination ---
     const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
         setFilterParams(prev => ({ ...prev, page: value }));
     };
 
-    // ✨ NEW: Client-Side Search Logic for Table View
+    // ✨ Client-Side Search & Sort Logic
     const filteredReportData = useMemo(() => {
         if (!reportData?.data) return [];
-        if (!searchTerm) return reportData.data;
+        let data = [...reportData.data];
 
-        const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+        // 1. Search Filter
+        if (searchTerm) {
+            const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
+            data = data.filter(row => {
+                const columnsToSearch = [
+                    row.course_title,
+                    row.workhouse_name,
+                    row.teacher_name,
+                    row.personnel_name,
+                    row.workhouse_code
+                ];
+                return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
+            });
+        }
 
-        return reportData.data.filter(row => {
-            const columnsToSearch = [
-                row.course_title,
-                row.workhouse_name,
-                row.teacher_name,
-                row.personnel_name,
-                row.workhouse_code
-            ];
-            return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
-        });
-    }, [reportData, searchTerm]);
+        // 2. Sort Logic
+        if (orderBy) {
+            data.sort(getComparator(order, orderBy));
+        }
+
+        return data;
+    }, [reportData, searchTerm, order, orderBy]);
 
 
     // --- EXPORT HELPERS (PDF/Excel) ---
@@ -505,22 +568,19 @@ const ListPersonalCourse = () => {
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
-    // ✨ NEW: Fetch All Data + Apply Client Search for Export
+    // ✨ NEW: Fetch All + Apply Client Sort/Search for Export
     const fetchAllFilteredData = useCallback(async () => {
         if (!authToken) { navigate("/"); return null; }
 
-        let isCenterAPIValue: boolean | null;
-        if (filterParams.isCenter === 'true') { isCenterAPIValue = true; }
-        else if (filterParams.isCenter === 'false') { isCenterAPIValue = false; }
-        else { isCenterAPIValue = null; }
+        const isCenterParam = filterParams.isCenter === 'null' ? null : filterParams.isCenter;
 
         const requestParams = {
             workhouseId: filterParams.workhouseId || null,
             fromDate: filterParams.fromDate || null,
             toDate: filterParams.toDate || null,
-            isCenter: isCenterAPIValue,
+            isCenter: isCenterParam, // ✅ ارسال string
             page: 1,
-            pageSize: 10000, // Fetch All
+            pageSize: 10000,
             teacherId: filterParams.teacherId || null,
             personnelId: filterParams.personnelId || null,
         };
@@ -534,7 +594,7 @@ const ListPersonalCourse = () => {
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 let allData = response.data.data.data as CoursePersonnelReportRowType[];
 
-                // ✨ Apply Search Term Filter
+                // 1. Search Filter
                 if (searchTerm) {
                     const lowerCaseSearchTerm = searchTerm.toLowerCase().trim();
                     allData = allData.filter(row => {
@@ -548,6 +608,12 @@ const ListPersonalCourse = () => {
                         return columnsToSearch.some(col => col && col.toLowerCase().includes(lowerCaseSearchTerm));
                     });
                 }
+
+                // 2. Sort Logic
+                if (orderBy) {
+                    allData.sort(getComparator(order, orderBy));
+                }
+
                 return allData;
             }
             showAlert('Dışa aktarılacak veri bulunamadı.', 'error');
@@ -556,7 +622,7 @@ const ListPersonalCourse = () => {
             handleApiError(e, 'Veri alınırken hata oluştu.');
             return null;
         }
-    }, [filterParams, navigate, authToken, searchTerm, showAlert, handleApiError]);
+    }, [filterParams, navigate, authToken, searchTerm, order, orderBy, showAlert, handleApiError]);
 
 
     // 3. Export PDF All (Global)
@@ -656,14 +722,13 @@ const ListPersonalCourse = () => {
     };
 
 
-    const tableHeaders = [
+    const tableHeaders: { label: string; key: keyof CoursePersonnelReportRowType }[] = [
         { label: 'Şantiye Adı', key: 'workhouse_name' },
         { label: 'Kurs Adı', key: 'course_title' },
         { label: 'Eğitmen', key: 'teacher_name' },
         { label: 'Eğitim Saati', key: 'course_hours' },
         { label: 'Ders Başlangıç', key: 'class_start_date_time' },
         { label: 'Personel Adı', key: 'personnel_name' },
-        { label: 'İşlemler', key: 'actions' },
     ];
 
 
@@ -754,10 +819,10 @@ const ListPersonalCourse = () => {
                         </Grid>
                         <Grid item xs={12} md={6} display="flex" justifyContent="flex-end" gap={1}>
                             <Button variant="outlined" color="success" startIcon={<IconFileSpreadsheet />} onClick={handleExportExcelAll} disabled={loadingData || !reportData?.data?.length}>
-                                Genel Excel İndir
+                                Tüm Veriyi Excel İndir
                             </Button>
-                            <Button variant="outlined" color="primary" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
-                                Genel PDF İndir
+                            <Button variant="outlined" color="error" startIcon={<IconFileDownload />} onClick={handleExportPdfAll} disabled={loadingData || !reportData?.data?.length}>
+                                Tüm Veriyi PDF İndir
                             </Button>
                         </Grid>
                     </Grid>
@@ -772,12 +837,30 @@ const ListPersonalCourse = () => {
                     <Table aria-label="course personnel report table">
                         <TableHead style={{ background: "#f0f0f0" }}>
                             <TableRow>
-                                {tableHeaders.map((header) => (<StyledTableCell key={header.key}><Typography variant="h6" fontWeight="bold">{header.label}</Typography></StyledTableCell>))}
+                                {tableHeaders.map((header) => (
+                                    <StyledTableCell key={header.key}>
+                                        <TableSortLabel
+                                            active={orderBy === header.key}
+                                            direction={orderBy === header.key ? order : 'asc'}
+                                            onClick={() => handleRequestSort(header.key)}
+                                        >
+                                            <Typography variant="h6" fontWeight="bold">
+                                                {header.label}
+                                            </Typography>
+                                            {orderBy === header.key ? (
+                                                <Box component="span" sx={visuallyHiddenStyle}>
+                                                    {order === 'desc' ? 'sorted descending' : 'sorted ascending'}
+                                                </Box>
+                                            ) : null}
+                                        </TableSortLabel>
+                                    </StyledTableCell>
+                                ))}
+                                <StyledTableCell><Typography variant="h6" fontWeight="bold">İşlemler</Typography></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
-                                <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
+                                <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
                             ) : filteredReportData.length ? (
                                 filteredReportData.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
@@ -822,7 +905,7 @@ const ListPersonalCourse = () => {
                                     </TableRow>
                                 ))
                             ) : (
-                                <TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun personel/kurs raporu bulunamadı.</Typography></StyledTableCell></TableRow>
+                                <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun personel/kurs raporu bulunamadı.</Typography></StyledTableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
