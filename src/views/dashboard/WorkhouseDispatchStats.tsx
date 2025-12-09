@@ -1,5 +1,4 @@
-
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
     Box,
     Grid,
@@ -12,16 +11,21 @@ import {
     Stack,
     Avatar,
     ToggleButton,
-    ToggleButtonGroup
+    ToggleButtonGroup,
+    IconButton,
+    Tooltip
 } from '@mui/material';
 import axios from 'axios';
+// 1. ایمپورت کتابخانه تبدیل html به عکس
+import { toPng } from 'html-to-image';
 import {
     IconTruckDelivery,
     IconReceipt2,
     IconChevronDown,
     IconChevronUp,
-    IconChartLine, // آیکون نمودار خطی
-    IconLayoutGrid
+    IconChartLine,
+    IconLayoutGrid,
+    IconDownload // 2. ایمپورت آیکون دانلود
 } from '@tabler/icons-react';
 import {
     LineChart,
@@ -29,7 +33,7 @@ import {
     XAxis,
     YAxis,
     CartesianGrid,
-    Tooltip,
+    Tooltip as RechartsTooltip,
     ResponsiveContainer
 } from 'recharts';
 import server from '../../assets/address.json';
@@ -42,6 +46,9 @@ interface DispatchStatType {
 }
 
 const WorkhouseDispatchStats = () => {
+    // 3. ایجاد Ref برای نمودار
+    const chartRef = useRef<HTMLDivElement>(null);
+
     const [data, setData] = useState<DispatchStatType[]>([]);
     const [loading, setLoading] = useState(true);
     const [expanded, setExpanded] = useState(false);
@@ -84,6 +91,23 @@ const WorkhouseDispatchStats = () => {
         fetchData();
         return () => controller.abort();
     }, []);
+
+    // 4. تابع دانلود نمودار
+    const handleDownloadChart = useCallback(async () => {
+        if (chartRef.current === null) {
+            return;
+        }
+
+        try {
+            const dataUrl = await toPng(chartRef.current, { cacheBust: true, backgroundColor: '#ffffff' });
+            const link = document.createElement('a');
+            link.download = 'dispatch-price-chart.png';
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Grafik indirilemedi:', err);
+        }
+    }, [chartRef]);
 
     // --- توابع کمکی ---
     const parseCurrencyToNumber = (val: string) => {
@@ -179,34 +203,49 @@ const WorkhouseDispatchStats = () => {
                     Şantiye Sevk Tutarları
                 </Typography>
 
-                <ToggleButtonGroup
-                    value={viewMode}
-                    exclusive
-                    onChange={handleViewChange}
-                    aria-label="view mode"
-                    size="small"
-                    sx={{ bgcolor: 'background.paper' }}
-                >
-                    <ToggleButton value="chart" aria-label="chart view">
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <IconChartLine size={18} />
-                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Grafik</Typography>
-                        </Stack>
-                    </ToggleButton>
-                    <ToggleButton value="cards" aria-label="cards view">
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <IconLayoutGrid size={18} />
-                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
-                        </Stack>
-                    </ToggleButton>
-                </ToggleButtonGroup>
+                <Stack direction="row" spacing={2}>
+                    {viewMode === 'chart' && (
+                        <Tooltip title="Grafiği İndir">
+                            <IconButton
+                                onClick={handleDownloadChart}
+                                color="primary"
+                                sx={{ border: '1px solid #e5eaef' }}
+                            >
+                                <IconDownload size={20} />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+
+                    <ToggleButtonGroup
+                        value={viewMode}
+                        exclusive
+                        onChange={handleViewChange}
+                        aria-label="view mode"
+                        size="small"
+                        sx={{ bgcolor: 'background.paper' }}
+                    >
+                        <ToggleButton value="chart" aria-label="chart view">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <IconChartLine size={18} />
+                                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Grafik</Typography>
+                            </Stack>
+                        </ToggleButton>
+                        <ToggleButton value="cards" aria-label="cards view">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <IconLayoutGrid size={18} />
+                                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
+                            </Stack>
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Stack>
             </Stack>
 
             <Box>
                 {viewMode === 'chart' ? (
                     // --- بخش نمودار خطی ---
                     <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef' }}>
-                        <Box height="400px" width="100%">
+                        {/* 6. اتصال Ref به کانتینر نمودار */}
+                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper' }}>
                             {chartData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <LineChart
@@ -223,7 +262,7 @@ const WorkhouseDispatchStats = () => {
                                             tick={{ fontSize: 12, fill: '#666' }}
                                             tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                                         />
-                                        <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#e0e0e0', strokeWidth: 2 }} />
+                                        <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#e0e0e0', strokeWidth: 2 }} />
                                         <Line
                                             type="monotone"
                                             dataKey="value"

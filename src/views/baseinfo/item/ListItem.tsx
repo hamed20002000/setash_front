@@ -431,8 +431,6 @@ const ListItemComponent = () => {
 
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
-  // type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title'; // This is already defined outside
-  // ✅ Added: State for sorting
   const [orderBy, setOrderBy] = useState<SortableItemKeys>('createAt'); // Use the new type here
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 

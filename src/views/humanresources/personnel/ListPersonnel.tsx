@@ -945,9 +945,11 @@ const ListPersonnel: React.FC = () => {
         const headerSpace = 100;
         const sideMargin = 40;
         const bottomMargin = 70;
-        const imageSize = 100;
-        const imageStartX = sideMargin;
-        const imageStartY = headerSpace + 10;
+        const imageSize = 100; // قطر دایره
+        const radius = imageSize / 2; // شعاع
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const imageX = (pageWidth / 2) - radius; // محاسبه وسط صفحه
+        const imageY = 70;
         const token = authToken || "";
 
         // پیمایش روی ردیف‌ها (پرسنل)
@@ -966,18 +968,17 @@ const ListPersonnel: React.FC = () => {
                     base64Image = await convertUrlToBase64(rawImageUrl, token);
                 }
             }
-            debugger
             if (base64Image) {
                 try {
-                    doc.addImage(base64Image, 'PNG', imageStartX, imageStartY, imageSize, imageSize, undefined, 'FAST');
-                    startY = imageStartY + imageSize + 20;
+                    doc.addImage(base64Image, 'PNG', imageX, imageY, imageSize, imageSize, undefined, 'FAST');
+                    startY = imageY + imageSize + 20;
                 } catch (error) {
                     console.error("PDF Image add error:", error);
-                    startY = imageStartY + 10;
+                    startY = imageY + 10;
                 }
             } else {
                 // اگر تصویری وجود نداشت یا Base64 نشد
-                startY = imageStartY + 10;
+                startY = imageY + 10;
             }
 
             // 3. افزودن جدول جزئیات

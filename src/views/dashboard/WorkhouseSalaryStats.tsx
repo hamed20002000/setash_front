@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     Box,
     Grid,
@@ -14,23 +13,26 @@ import {
     Chip,
     ToggleButton,
     ToggleButtonGroup,
-    // useTheme
+    IconButton,
+    Tooltip
 } from '@mui/material';
 import axios from 'axios';
+// 1. اضافه کردن متد تبدیل به عکس
+import { toPng } from 'html-to-image';
 import {
     IconBuildingStore,
     IconWallet,
     IconChevronDown,
     IconChevronUp,
-    IconChartPie,   // آیکون برای حالت نمودار دایره‌ای
-    IconLayoutGrid
+    IconChartPie,
+    IconLayoutGrid,
+    IconDownload // 2. آیکون دانلود
 } from '@tabler/icons-react';
-// اضافه کردن کامپوننت‌های نمودار
 import {
     PieChart,
     Pie,
     Cell,
-    Tooltip,
+    Tooltip as RechartsTooltip, // تغییر نام برای جلوگیری از تداخل با Tooltip متریال
     Legend,
     ResponsiveContainer
 } from 'recharts';
@@ -48,7 +50,9 @@ interface SalaryStatType {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF19A3'];
 
 const WorkhouseSalaryStats = () => {
-    // const theme = useTheme();
+    // 3. تعریف Ref برای نمودار
+    const chartRef = useRef<HTMLDivElement>(null);
+
     const [data, setData] = useState<SalaryStatType[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -83,6 +87,23 @@ const WorkhouseSalaryStats = () => {
         fetchData();
     }, []);
 
+    // 4. تابع دانلود نمودار
+    const handleDownloadChart = useCallback(async () => {
+        if (chartRef.current === null) {
+            return;
+        }
+
+        try {
+            const dataUrl = await toPng(chartRef.current, { cacheBust: true, backgroundColor: '#ffffff' });
+            const link = document.createElement('a');
+            link.download = 'salary-stats-chart.png';
+            link.href = dataUrl;
+            link.click();
+        } catch (err) {
+            console.error('Grafik indirilemedi:', err);
+        }
+    }, [chartRef]);
+
     // تابع تمیز کردن و فرمت کردن عدد پول (برای نمایش متن)
     const formatCurrency = (val: string) => {
         const cleanVal = val.replace(/[^\d.-]/g, '');
@@ -102,7 +123,7 @@ const WorkhouseSalaryStats = () => {
     const chartData = data.map(item => ({
         name: item.workhouse_name,
         value: parseCurrencyToNumber(item.total_salary)
-    })).filter(item => item.value > 0); // فقط مقادیر مثبت را در نمودار نشان می‌دهیم
+    })).filter(item => item.value > 0);
 
     // هندلر تغییر حالت نمایش
     const handleViewChange = (
@@ -158,39 +179,55 @@ const WorkhouseSalaryStats = () => {
     return (
         <Box mt={4}>
             {/* هدر: تایتل و دکمه‌های سوئیچ */}
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h5" fontWeight={700}>
                     Şantiye Toplam Maaşlar
                 </Typography>
 
-                <ToggleButtonGroup
-                    value={viewMode}
-                    exclusive
-                    onChange={handleViewChange}
-                    aria-label="view mode"
-                    size="small"
-                    sx={{ bgcolor: 'background.paper' }}
-                >
-                    <ToggleButton value="chart" aria-label="chart view">
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <IconChartPie size={18} />
-                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Grafik</Typography>
-                        </Stack>
-                    </ToggleButton>
-                    <ToggleButton value="cards" aria-label="cards view">
-                        <Stack direction="row" spacing={1} alignItems="center">
-                            <IconLayoutGrid size={18} />
-                            <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
-                        </Stack>
-                    </ToggleButton>
-                </ToggleButtonGroup>
+                <Stack direction="row" spacing={2}>
+                    {/* 5. دکمه دانلود (فقط در حالت نمودار) */}
+                    {viewMode === 'chart' && (
+                        <Tooltip title="Grafiği İndir">
+                            <IconButton
+                                onClick={handleDownloadChart}
+                                color="primary"
+                                sx={{ border: '1px solid #e5eaef' }}
+                            >
+                                <IconDownload size={20} />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+
+                    <ToggleButtonGroup
+                        value={viewMode}
+                        exclusive
+                        onChange={handleViewChange}
+                        aria-label="view mode"
+                        size="small"
+                        sx={{ bgcolor: 'background.paper' }}
+                    >
+                        <ToggleButton value="chart" aria-label="chart view">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <IconChartPie size={18} />
+                                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Grafik</Typography>
+                            </Stack>
+                        </ToggleButton>
+                        <ToggleButton value="cards" aria-label="cards view">
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <IconLayoutGrid size={18} />
+                                <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>Liste</Typography>
+                            </Stack>
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Stack>
             </Stack>
 
             <Box>
                 {viewMode === 'chart' ? (
                     // --- حالت نموداری (Pie Chart) ---
                     <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef' }}>
-                        <Box height="400px" width="100%">
+                        {/* 6. اتصال Ref به کانتینر نمودار */}
+                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper' }}>
                             {chartData.length > 0 ? (
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
@@ -199,7 +236,6 @@ const WorkhouseSalaryStats = () => {
                                             cx="50%"
                                             cy="50%"
                                             labelLine={false}
-                                            // label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} // لیبل اختیاری روی نمودار
                                             outerRadius={150}
                                             fill="#8884d8"
                                             dataKey="value"
@@ -209,9 +245,13 @@ const WorkhouseSalaryStats = () => {
                                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip
-                                            formatter={(value: number) => [value.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' TL', 'Tutar']}
+                                        <RechartsTooltip
+                                            formatter={(value: number, name: string) => [
+                                                value.toLocaleString('us-US', { minimumFractionDigits: 2 }) + ' TL',
+                                                name
+                                            ]}
                                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                                            itemStyle={{ color: '#333', fontWeight: 600 }}
                                         />
                                         <Legend verticalAlign="bottom" height={36} />
                                     </PieChart>
@@ -224,7 +264,7 @@ const WorkhouseSalaryStats = () => {
                         </Box>
                     </Card>
                 ) : (
-                    // --- حالت کارتی (قدیمی) ---
+                    // --- حالت کارتی (بدون تغییر) ---
                     <>
                         <Grid container spacing={3}>
                             {firstThreeItems.map((item, index) => (

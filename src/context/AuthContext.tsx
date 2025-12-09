@@ -202,6 +202,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const getRawMenusFromApi = useCallback(async (): Promise<any[]> => {
     const authToken = localStorage.getItem('authToken');
     if (!authToken) return [];
+    debugger
     try {
       const response = await axios.get(`${server.baseurl}${server.baseinfo}get-menus`, {
         headers: { "Authorization": `Bearer ${authToken}` }
@@ -224,7 +225,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthDataLoading(false);
       return { ops: [], rawMenus: [] }; // ✅ بازگرداندن مقادیر خالی
     }
-
     try {
       const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
         `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
@@ -264,6 +264,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
 
   function pickAndPersistActiveRole(roles: UserRole[], savedName?: string | null) {
+    debugger
     // اگر قبلاً چیزی ذخیره شده و هنوز معتبره
     const saved = savedName ? roles.find(r => r.name === savedName) : undefined;
     if (saved) {

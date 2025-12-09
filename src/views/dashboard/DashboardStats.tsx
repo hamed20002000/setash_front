@@ -91,6 +91,7 @@ const DashboardStats = () => {
                         inactiveLabel="Ayrılanlar"
                         icon={IconUsers}
                         color="#5D87FF"
+
                     />
                 </Grid>
 

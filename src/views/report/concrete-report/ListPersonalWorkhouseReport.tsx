@@ -9,14 +9,15 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Grid,
     TextField,
-    Pagination,
     Menu,
     ListItemIcon,
     Autocomplete,
     IconButton,
     MenuItem,
     InputAdornment,
-    TableSortLabel // ✨ Added for sorting
+    TableSortLabel,
+    TablePagination, // ✅ اضافه شده
+    TableFooter // ✅ اضافه شده
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -29,6 +30,9 @@ import server from '../../../assets/address.json';
 import BlankCard from '../../../components/shared/BlankCard';
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField';
 import { format } from 'date-fns';
+// import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+// import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+// import { tr } from 'date-fns/locale';
 
 // --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
@@ -48,7 +52,7 @@ const visuallyHiddenStyle = {
 };
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, color: '#171c23', whiteSpace: 'nowrap',
+    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, whiteSpace: 'nowrap',
 }));
 
 
@@ -225,16 +229,20 @@ const ListPersonnelWorkhouseReport = () => {
     // --- State Definitions ---
     const [searchTerm, setSearchTerm] = useState('');
 
-    // ✨ Sort States
+    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof PersonnelReportRowType>('personnel_start_date');
+
+    // ✅ Client Side Pagination States
+    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         fromDate: defaultFromDate,
         toDate: defaultToDate,
         workhouseId: null,
         page: 1,
-        pageSize: 10,
+        pageSize: 1000, // ✅ دریافت 1000 تایی
         personnelId: null,
         identityNumber: '',
         position: '',
@@ -380,7 +388,7 @@ const ListPersonnelWorkhouseReport = () => {
         fetchPersonnelWorkhouseReportData();
     }, [
         filterParams.workhouseId,
-        filterParams.page,
+        // filterParams.page, // loop dependency removed
     ]);
 
     // --- Handlers for Sorting ---
@@ -420,23 +428,59 @@ const ListPersonnelWorkhouseReport = () => {
         return data;
     }, [reportData, searchTerm, order, orderBy]);
 
-    // محاسبه جمع کل بر اساس ردیف‌های فیلتر شده (سرچ شده)
+    // ✅ Reset page on search
+    useEffect(() => {
+        setPage(0);
+    }, [searchTerm, filterParams, reportData]);
+
+    // ✅ Visible Rows for Client Side Pagination
+    const visibleRows = useMemo(() => {
+        return filteredReportData.slice(
+            page * rowsPerPage,
+            page * rowsPerPage + rowsPerPage,
+        );
+    }, [filteredReportData, page, rowsPerPage]);
+
+
+    // ✅✅✅ Calculated Total Salary (Unique by Name/ID) ✅✅✅
     const calculatedTotalSalary = useMemo(() => {
         if (!filteredReportData) return 0;
 
-        return filteredReportData.reduce((acc, row) => {
-            // تبدیل رشته حقوق به عدد قابل محاسبه
-            // این لاجیک تمام کاراکترهای غیر عددی و غیر نقطه را حذف می‌کند تا عدد خالص بماند
-            const salaryString = String(row.personnel_salary).replace(/[^0-9.-]+/g, "");
-            const salaryNumber = parseFloat(salaryString) || 0;
-            return acc + salaryNumber;
-        }, 0);
+        // استفاده از Map برای ذخیره پرسنل یکتا
+        // کلید Map ترکیبی از نام و نام خانوادگی (یا ID اگر دارید) باشد
+        const uniquePersonnelMap = new Map();
+
+        filteredReportData.forEach(row => {
+            // ساخت یک کلید یکتا برای شناسایی پرسنل (مثلاً ترکیب نام و نام خانوادگی)
+            // اگر personnel_id یکتا دارید بهتر است از آن استفاده کنید: row.personnel_id
+            const uniqueKey = `${row.personnel_name}_${row.personnel_family}`.trim();
+            // اگر personnel_id دارید: const uniqueKey = row.personnel_id;
+
+            if (!uniquePersonnelMap.has(uniqueKey)) {
+                const salaryString = String(row.personnel_salary).replace(/[^0-9.-]+/g, "");
+                const salaryNumber = parseFloat(salaryString) || 0;
+                uniquePersonnelMap.set(uniqueKey, salaryNumber);
+            }
+        });
+
+        // جمع زدن مقادیر یکتا
+        let total = 0;
+        uniquePersonnelMap.forEach((salary) => {
+            total += salary;
+        });
+
+        return total;
     }, [filteredReportData]);
 
 
-    // --- Handlers for Pagination & Export ---
-    const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-        setFilterParams(prev => ({ ...prev, page: value }));
+    // --- Client Side Handlers ---
+    const handlePageChange = (_event: unknown, newPage: number) => {
+        setPage(newPage);
+    };
+
+    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
     };
 
     // PDF Helpers
@@ -514,7 +558,7 @@ const ListPersonnelWorkhouseReport = () => {
             });
 
             doc.save(`Personel_Detay_${report.personnel_identity_number}_${format(new Date(), 'yyyyMMdd')}.pdf`);
-            showAlert('PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+            showAlert('PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -598,12 +642,22 @@ const ListPersonnelWorkhouseReport = () => {
 
             const tableColumn = ["Şantiye Adı", "Şantiye Kodu", "Adı Soyadı", "Başlangıç Tarihi", "Maaş (TL)"];
 
-            let calculatedTotalSalary = 0;
+            // محاسبه حقوق کل برای PDF هم با منطق یکتا
+            const uniquePersonnelMapPdf = new Map();
+            result.data.forEach(row => {
+                const uniqueKey = `${row.personnel_name}_${row.personnel_family}`.trim();
+                if (!uniquePersonnelMapPdf.has(uniqueKey)) {
+                    const salaryString = String(row.personnel_salary).replace(/[^0-9.-]+/g, "");
+                    const salaryNumber = parseFloat(salaryString) || 0;
+                    uniquePersonnelMapPdf.set(uniqueKey, salaryNumber);
+                }
+            });
+            let calculatedTotalSalaryPdf = 0;
+            uniquePersonnelMapPdf.forEach(salary => calculatedTotalSalaryPdf += salary);
+
 
             const tableRows = result.data.map(row => {
                 const numericSalary = Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""));
-                if (!isNaN(numericSalary)) calculatedTotalSalary += numericSalary;
-
                 const displaySalary = isNaN(numericSalary) ? row.personnel_salary : numericSalary.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
                 return [
                     row.workhouse_name,
@@ -618,13 +672,13 @@ const ListPersonnelWorkhouseReport = () => {
                 startY: 70, head: [tableColumn], body: tableRows, theme: 'striped',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 5, },
                 headStyles: { fillColor: [30, 100, 120], textColor: 255 },
-                foot: [['', '', '', 'TOPLAM MAAŞ', calculatedTotalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2 })]],
+                foot: [['', '', '', 'TOPLAM MAAŞ (Unique)', calculatedTotalSalaryPdf.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2 })]],
                 footStyles: { fillColor: [230, 240, 245], textColor: [0, 0, 0], fontStyle: 'normal', fontSize: 9 },
                 didDrawPage: (_data) => { addPdfFooter(doc); }
             });
 
             doc.save(`Personel_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.pdf`);
-            showAlert('Genel PDF raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+            showAlert('Genel PDF raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e) { handleApiError(e, 'Genel PDF raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -642,11 +696,22 @@ const ListPersonnelWorkhouseReport = () => {
             const workbook = new Excel.Workbook();
             const sheet = workbook.addWorksheet('Genel Personel Raporu', { views: [{ rightToLeft: false }] });
 
-            let calculatedTotalSalary = 0;
+            // محاسبه حقوق کل برای Excel هم با منطق یکتا
+            const uniquePersonnelMapExcel = new Map();
+            result.data.forEach(row => {
+                const uniqueKey = `${row.personnel_name}_${row.personnel_family}`.trim();
+                if (!uniquePersonnelMapExcel.has(uniqueKey)) {
+                    const salaryString = String(row.personnel_salary).replace(/[^0-9.-]+/g, "");
+                    const salaryNumber = parseFloat(salaryString) || 0;
+                    uniquePersonnelMapExcel.set(uniqueKey, salaryNumber);
+                }
+            });
+            let calculatedTotalSalaryExcel = 0;
+            uniquePersonnelMapExcel.forEach(salary => calculatedTotalSalaryExcel += salary);
+
+
             const data = result.data.map(row => {
                 const numericSalary = Number(row.personnel_salary.replace(/[^0-9.-]+/g, ""));
-                if (!isNaN(numericSalary)) calculatedTotalSalary += numericSalary;
-
                 return [
                     row.workhouse_name,
                     row.workhouse_code,
@@ -660,7 +725,7 @@ const ListPersonnelWorkhouseReport = () => {
 
             sheet.addRow(["Personel Şantiye Genel Raporu"]);
             sheet.mergeCells('A1:E1'); sheet.getRow(1).font = { bold: true, size: 14 };
-            sheet.addRow(["Toplam Kayıt:", result.data.length, "Toplam Maaş:", calculatedTotalSalary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })]);
+            sheet.addRow(["Toplam Kayıt:", result.data.length, "Toplam Maaş (Unique):", calculatedTotalSalaryExcel.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })]);
             sheet.addRow([]);
 
             const headerRow = sheet.addRow(headerRowData);
@@ -682,7 +747,7 @@ const ListPersonnelWorkhouseReport = () => {
 
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Personel_Genel_Rapor_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`);
-            showAlert('Genel Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+            showAlert('Genel Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'Genel Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -724,7 +789,7 @@ const ListPersonnelWorkhouseReport = () => {
             sheet.columns[0].width = 25; sheet.columns[1].width = 35;
             const buffer = await workbook.xlsx.writeBuffer();
             saveAs(new Blob([buffer]), `Personel_Detay_${report.personnel_identity_number}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-            showAlert('Excel raporu başarıyla oluşturuldu و indiriliyor.', 'success');
+            showAlert('Excel raporu başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
     };
 
@@ -790,7 +855,7 @@ const ListPersonnelWorkhouseReport = () => {
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="personnel report table">
-                        <TableHead style={{ background: "#f0f0f0" }}>
+                        <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 {tableHeaders.map((header) => (
                                     <StyledTableCell key={header.key}>
@@ -816,8 +881,9 @@ const ListPersonnelWorkhouseReport = () => {
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : filteredReportData.length ? (
-                                filteredReportData.map((row, index) => (
+                            ) : visibleRows.length ? (
+                                // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
+                                visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
                                         <StyledTableCell>{row.workhouse_code}</StyledTableCell>
@@ -855,33 +921,45 @@ const ListPersonnelWorkhouseReport = () => {
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun personel raporu bulunamadı.</Typography></StyledTableCell></TableRow>
                             )}
                         </TableBody>
+
+                        {/* ✅ Footer با مقادیر محاسبه شده داینامیک */}
+                        {reportData && (
+                            <TableFooter>
+                                <TableRow>
+                                    <StyledTableCell colSpan={7} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                                            <Typography variant="h6" color="success.main">
+                                                {/* ✅ استفاده از محاسبه‌گر جدید برای جمع حقوق */}
+                                                Toplam Maaş (Unique): {calculatedTotalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}
+                                            </Typography>
+                                        </Box>
+                                    </StyledTableCell>
+                                </TableRow>
+                            </TableFooter>
+                        )}
                     </Table>
                 </TableContainer>
-
-                {/* Pagination and Summary */}
                 <>
-                    {reportData && reportData.totalPages > 1 && (
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <Pagination
-                                count={reportData.totalPages} page={filterParams.page} onChange={handlePageChange}
-                                color="primary" showFirstButton showLastButton
-                            />
-                            <Typography variant="body2" sx={{ ml: 2 }}>
-                                Toplam: {reportData.totalCount} kayıt
-                            </Typography>
-                        </Box>
-                    )}
-                    {reportData && (
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-                            <Typography variant="h6" color="success.main">
-                                {/* Toplam Maaş: {reportData.totalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })} */}
-                                Toplam Maaş: {calculatedTotalSalary.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}
-                            </Typography>
-                        </Box>
+                    {reportData && reportData.data?.length > 0 && (
+                        <TablePagination
+                            rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                            component="div"
+                            count={filteredReportData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            rowsPerPage={rowsPerPage}
+                            page={page}
+                            onPageChange={handlePageChange}
+                            onRowsPerPageChange={handleChangeRowsPerPage}
+                            labelRowsPerPage="Satır sayısı:"
+                            labelDisplayedRows={({ from, to, count }) =>
+                                `${from}–${to} / ${count !== -1 ? count : `> ${to}`}`
+                            }
+                        />
                     )}
                 </>
+
             </BlankCard>
 
+            {/* --- Modal --- */}
             <DetailViewModal
                 open={openDetailViewModal} onClose={handleCloseDetailViewModal}
                 report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle}

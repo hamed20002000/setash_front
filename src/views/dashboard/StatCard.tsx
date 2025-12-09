@@ -1,28 +1,42 @@
 // import React from 'react';
 // import { Card, CardContent, Typography, Box, Stack, Divider, Avatar } from '@mui/material';
 
-
 // interface StatCardProps {
 //     title: string;
 //     total: number;
-//     active?: number; // اختیاری: چون برخی آیتم‌ها مثل ماشین فقط تعداد کل دارند
+//     active?: number;
 //     icon: any;
-//     color: string; // رنگ آیکون و تم کارت
+//     color: string;
+//     // اضافه کردن پراپ‌های جدید برای متن‌های سفارشی
+//     activeLabel?: string;
+//     inactiveLabel?: string;
 // }
 
-// const StatCard: React.FC<StatCardProps> = ({ title, total, active, icon: Icon, color }) => {
+// const StatCard: React.FC<StatCardProps> = ({
+//     title,
+//     total,
+//     active,
+//     icon: Icon,
+//     color,
+//     // مقادیر پیش‌فرض در صورت پاس ندادن
+//     activeLabel = "Aktif",
+//     inactiveLabel = "Pasif"
+// }) => {
 
-
-//     // محاسبه غیرفعال (اگر مقدار فعال وجود داشته باشد)
 //     const inactive = active !== undefined ? total - active : 0;
 //     const hasActiveData = active !== undefined;
 
 //     return (
-//         <Card sx={{ padding: 0, borderBottom: `4px solid ${color}`, position: 'relative', overflow: 'hidden' }}>
+//         <Card sx={{
+//             padding: 0, borderBottom: `4px solid ${color}`,
+//             position: 'relative', overflow: 'hidden', height: '100%',
+
+//             hover: { boxShadow: '0 4px 20px rgba(0,0,0,0.05)', borderColor: `${color}` },
+//         }}>
 //             <CardContent sx={{ p: 3, paddingBottom: '16px !important' }}>
 
 //                 {/* بخش بالایی: آیکون و تعداد کل */}
-//                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+//                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={hasActiveData ? 3 : 0}>
 //                     <Box>
 //                         <Typography variant="subtitle1" color="textSecondary" fontWeight={600} mb={1}>
 //                             {title}
@@ -37,23 +51,23 @@
 //                     </Avatar>
 //                 </Stack>
 
-//                 {/* بخش پایینی: فعال و غیرفعال */}
+//                 {/* بخش پایینی: فعال و غیرفعال سفارشی */}
 //                 {hasActiveData && (
 //                     <>
 //                         <Divider sx={{ mb: 2 }} />
 //                         <Stack direction="row" justifyContent="space-between" alignItems="center">
 
-//                             {/* قسمت فعال */}
+//                             {/* قسمت فعال / مثبت */}
 //                             <Box display="flex" flexDirection="column" alignItems="flex-start">
-//                                 <Typography variant="caption" color="textSecondary">Aktif</Typography>
+//                                 <Typography variant="caption" color="textSecondary">{activeLabel}</Typography>
 //                                 <Typography variant="subtitle1" color="success.main" fontWeight={700}>
 //                                     {active}
 //                                 </Typography>
 //                             </Box>
 
-//                             {/* قسمت غیرفعال */}
+//                             {/* قسمت غیرفعال / منفی */}
 //                             <Box display="flex" flexDirection="column" alignItems="flex-end">
-//                                 <Typography variant="caption" color="textSecondary">Pasif</Typography>
+//                                 <Typography variant="caption" color="textSecondary">{inactiveLabel}</Typography>
 //                                 <Typography variant="subtitle1" color="error.main" fontWeight={700}>
 //                                     {inactive}
 //                                 </Typography>
@@ -64,7 +78,9 @@
 //                 )}
 
 //                 {!hasActiveData && (
-//                     <Typography variant="caption" color="textSecondary">Toplam Kayıt</Typography>
+//                     <Box mt={2}>
+//                         <Typography variant="caption" color="textSecondary">Toplam Kayıt</Typography>
+//                     </Box>
 //                 )}
 
 //             </CardContent>
@@ -73,6 +89,7 @@
 // };
 
 // export default StatCard;
+
 
 import React from 'react';
 import { Card, CardContent, Typography, Box, Stack, Divider, Avatar } from '@mui/material';
@@ -83,7 +100,6 @@ interface StatCardProps {
     active?: number;
     icon: any;
     color: string;
-    // اضافه کردن پراپ‌های جدید برای متن‌های سفارشی
     activeLabel?: string;
     inactiveLabel?: string;
 }
@@ -94,7 +110,6 @@ const StatCard: React.FC<StatCardProps> = ({
     active,
     icon: Icon,
     color,
-    // مقادیر پیش‌فرض در صورت پاس ندادن
     activeLabel = "Aktif",
     inactiveLabel = "Pasif"
 }) => {
@@ -103,47 +118,64 @@ const StatCard: React.FC<StatCardProps> = ({
     const hasActiveData = active !== undefined;
 
     return (
-        <Card sx={{ padding: 0, borderBottom: `4px solid ${color}`, position: 'relative', overflow: 'hidden', height: '100%' }}>
+        <Card sx={{
+            padding: 0,
+            borderBottom: `4px solid ${color}`,
+            position: 'relative',
+            overflow: 'hidden',
+            height: '100%',
+
+            cursor: 'pointer', // تغییر نشانگر موس به حالت کلیک
+
+            boxShadow: '0 2px 10px rgba(0,0,0,0.05)', // سایه پیش‌فرض (اختیاری)
+
+            '&:hover': {
+                boxShadow: `0 10px 25px -5px ${color}40`,
+
+                border: `1px solid ${color}`,
+            },
+            transition: 'all 0.5s ease'
+        }}>
             <CardContent sx={{ p: 3, paddingBottom: '16px !important' }}>
 
-                {/* بخش بالایی: آیکون و تعداد کل */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={hasActiveData ? 3 : 0}>
                     <Box>
                         <Typography variant="subtitle1" color="textSecondary" fontWeight={600} mb={1}>
                             {title}
                         </Typography>
                         <Typography variant="h3" fontWeight={700}>
-                            {total}
+                            {total.toLocaleString('tr-TR')} {/* اعداد سه رقم سه رقم جدا می‌شوند */}
                         </Typography>
                     </Box>
 
-                    <Avatar variant="rounded" sx={{ bgcolor: color, width: 48, height: 48 }}>
+                    {/* آیکون هم در هاور کمی بزرگ شود (اختیاری) */}
+                    <Avatar variant="rounded" sx={{
+                        bgcolor: color,
+                        width: 48,
+                        height: 48,
+                        transition: 'transform 0.3s',
+                        '.MuiCard-root:hover &': { transform: 'scale(1.1)' } // وقتی کارت هاور شد، آیکون بزرگ شود
+                    }}>
                         <Icon size={26} color="white" />
                     </Avatar>
                 </Stack>
 
-                {/* بخش پایینی: فعال و غیرفعال سفارشی */}
                 {hasActiveData && (
                     <>
                         <Divider sx={{ mb: 2 }} />
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
-
-                            {/* قسمت فعال / مثبت */}
                             <Box display="flex" flexDirection="column" alignItems="flex-start">
                                 <Typography variant="caption" color="textSecondary">{activeLabel}</Typography>
                                 <Typography variant="subtitle1" color="success.main" fontWeight={700}>
                                     {active}
                                 </Typography>
                             </Box>
-
-                            {/* قسمت غیرفعال / منفی */}
                             <Box display="flex" flexDirection="column" alignItems="flex-end">
                                 <Typography variant="caption" color="textSecondary">{inactiveLabel}</Typography>
                                 <Typography variant="subtitle1" color="error.main" fontWeight={700}>
                                     {inactive}
                                 </Typography>
                             </Box>
-
                         </Stack>
                     </>
                 )}

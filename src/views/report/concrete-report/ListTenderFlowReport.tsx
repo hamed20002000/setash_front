@@ -9,14 +9,15 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Grid,
     TextField,
-    Pagination,
     Menu,
     ListItemIcon,
     Autocomplete,
     IconButton,
     MenuItem,
     InputAdornment,
-    TableSortLabel
+    TableSortLabel,
+    TablePagination, // ✅ اضافه شده
+    TableFooter // ✅ اضافه شده
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -29,6 +30,7 @@ import server from '../../../assets/address.json';
 import BlankCard from '../../../components/shared/BlankCard';
 import { format } from 'date-fns';
 
+import "./style.css"
 // --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -45,19 +47,10 @@ const visuallyHiddenStyle = {
     whiteSpace: 'nowrap', width: '1px',
 };
 
+
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans',
-    fontSize: '0.75rem',
-    [theme.breakpoints.up('md')]: { fontSize: '0.8rem', },
-    color: '#171c23',
-    width: '50px',
-    minWidth: '50px',
-    maxWidth: '50px',
-    whiteSpace: 'normal',
-    wordBreak: 'break-word',
-    overflowWrap: 'break-word',
-    padding: '4px',
-    textAlign: 'center'
+    fontFamily: 'NotoSans', fontStyle: 'normal', fontSize: '0.8rem',
+    [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, whiteSpace: 'nowrap',
 }));
 
 
@@ -159,7 +152,7 @@ const parseNumberFromString = (value: string | number | null): number => {
 
 const formatPriceDisplay = (priceString: string | number | null): string => {
     const price = parseNumberFromString(priceString);
-    return price.toLocaleString('us-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return price.toLocaleString('us-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 const formatDateDisplay = (dateString: string | null | undefined): string => {
@@ -323,8 +316,12 @@ const ListTenderFlowReport = () => {
     const [order, setOrder] = useState<Order>('asc');
     const [orderBy, setOrderBy] = useState<keyof TenderFlowReportRowType>('ihale_title');
 
+    // ✅ Client Side Pagination States
+    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+
     const [filterParams, setFilterParams] = useState<FilterParams>({
-        tenderId: null, itemId: null, workhouseId: null, page: 1, pageSize: 10,
+        tenderId: null, itemId: null, workhouseId: null, page: 1, pageSize: 1000, // ✅ دریافت 1000 تایی
     });
 
     const [reportData, setReportData] = useState<APIResponseData | null>(null);
@@ -432,7 +429,7 @@ const ListTenderFlowReport = () => {
             itemId: filterParams.itemId || null,
             workhouseId: filterParams.workhouseId || null,
             page: filterParams.page,
-            pageSize: filterParams.pageSize,
+            pageSize: filterParams.pageSize, // 1000
         };
         setLoadingData(true);
         try {
@@ -456,16 +453,26 @@ const ListTenderFlowReport = () => {
 
 
     useEffect(() => { getListTender(); getItemsList(); getWorkhousesList(); }, [getListTender, getItemsList, getWorkhousesList]);
-    useEffect(() => { fetchTenderFlowReportData(); }, [filterParams.tenderId, filterParams.itemId, filterParams.workhouseId, filterParams.page]);
+    useEffect(() => { fetchTenderFlowReportData(); }, [filterParams.tenderId, filterParams.itemId, filterParams.workhouseId]);
 
 
-    const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => { setFilterParams(prev => ({ ...prev, page: value })); };
+    // --- Client Side Handlers ---
+    const handlePageChange = (_event: unknown, newPage: number) => {
+        setPage(newPage);
+    };
+
+    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
+
     const handleRequestSort = (property: keyof TenderFlowReportRowType) => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
     };
 
+    // --- Filter & Sort Logic ---
     const filteredReportData = useMemo(() => {
         if (!reportData?.data) return [];
         let data = [...reportData.data];
@@ -481,6 +488,39 @@ const ListTenderFlowReport = () => {
         }
         return data;
     }, [reportData, searchTerm, order, orderBy]);
+
+    // --- Reset page on search ---
+    useEffect(() => {
+        setPage(0);
+    }, [searchTerm, filterParams, reportData]);
+
+    // --- Visible Rows for Client Side Pagination ---
+    const visibleRows = useMemo(() => {
+        return filteredReportData.slice(
+            page * rowsPerPage,
+            page * rowsPerPage + rowsPerPage,
+        );
+    }, [filteredReportData, page, rowsPerPage]);
+
+
+    // ✅✅✅ Calculate Totals (Dynamic based on Filter) ✅✅✅
+    const calculatedTotals = useMemo(() => {
+        if (!filteredReportData) return { totalDemontaj: 0, totalMontaj: 0, totalDemontajMontaj: 0 };
+
+        return filteredReportData.reduce((acc, row) => {
+            // طبق خواسته شما:
+            // totalDemontaj = جمع DemontajPrice
+            acc.totalDemontaj += parseNumberFromString(row.DemontajPrice);
+
+            // totalMontaj = جمع MontajPrice
+            acc.totalMontaj += parseNumberFromString(row.MontajPrice);
+
+            // totalDemontajMontaj = جمع DemontajMontajPrice
+            acc.totalDemontajMontaj += parseNumberFromString(row.DemontajMontajPrice);
+
+            return acc;
+        }, { totalDemontaj: 0, totalMontaj: 0, totalDemontajMontaj: 0 });
+    }, [filteredReportData]);
 
 
     const addPdfHeader = (doc: jsPDF, title: string) => {
@@ -608,23 +648,17 @@ const ListTenderFlowReport = () => {
     };
 
 
-    // const calculatedTotals = useMemo(() => {
-    //     if (!filteredReportData) return { totalDemontaj: 0, totalDemontajMontaj: 0, totalMontajPrice: 0 };
-
-    //     return filteredReportData.reduce((acc, row) => {
-    //         acc.totalDemontaj += parseNumberFromString(row.Demontaj);
-    //         acc.totalDemontajMontaj += parseNumberFromString(row.DemontajMontaj);
-    //         acc.totalMontajPrice += parseNumberFromString(row.MontajPrice); 
-    //         return acc;
-    //     }, { totalDemontaj: 0, totalDemontajMontaj: 0, totalMontajPrice: 0 });
-    // }, [filteredReportData]);
-
     const tableHeaders: { label: string; key: keyof TenderFlowReportRowType | 'actions' }[] = [
-        { label: 'İhale', key: 'ihale_title' }, { label: 'Şantiye', key: 'workhouse_name' },
-        { label: 'Toplam Miktar', key: 'Quantity' }, { label: 'Demontaj', key: 'Demontaj' },
-        { label: 'DemontajMontaj', key: 'DemontajMontaj' }, { label: 'DemontajMontajPrice', key: 'DemontajMontajPrice' },
-        { label: 'DemontajTutari', key: 'DemontajTutari' }, { label: 'MontajPrice', key: 'MontajPrice' },
-        { label: 'DemontajPrice', key: 'DemontajPrice' }, { label: 'İşlemler', key: 'actions' },
+        { label: 'İhale Başlığı', key: 'ihale_title' },          // عنوان مناقصه
+        { label: 'Şantiye Adı', key: 'workhouse_name' },         // نام کارگاه/سایت
+        { label: 'Top. Miktar', key: 'Quantity' },               // مقدار کل
+        { label: 'Demontaj Miktarı', key: 'Demontaj' },          // مقدار دمونتاژ
+        { label: 'D+M Miktarı', key: 'DemontajMontaj' },         // مقدار دمونتاژ + مونتاژ (مخفف D+M)
+        { label: 'D+M Tutarı', key: 'DemontajMontajPrice' },     // مبلغ دمونتاژ + مونتاژ
+        { label: 'Demontaj Tutarı', key: 'DemontajTutari' },     // مبلغ دمونتاژ
+        { label: 'Montaj Tutarı', key: 'MontajPrice' },          // مبلغ مونتاژ
+        { label: 'Demontaj Fiyatı', key: 'DemontajPrice' },      // قیمت واحد دمونتاژ
+        { label: 'İşlemler', key: 'actions' },                   // عملیات
     ];
 
 
@@ -663,7 +697,7 @@ const ListTenderFlowReport = () => {
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="tender flow report table">
-                        <TableHead style={{ background: "#f0f0f0" }}>
+                        <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 {tableHeaders.map((header) => (
                                     <StyledTableCell key={header.key}>
@@ -678,8 +712,9 @@ const ListTenderFlowReport = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {loadingData ? (<TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>) : filteredReportData.length ? (
-                                filteredReportData.map((row, index) => (
+                            {loadingData ? (<TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>) : visibleRows.length ? (
+                                // ✅ فقط ردیف‌های برش خورده نمایش داده شوند
+                                visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.ihale_title}</StyledTableCell> <StyledTableCell>{row.workhouse_name}</StyledTableCell>
                                         <StyledTableCell>{parseNumberFromString(row.Quantity)}</StyledTableCell> <StyledTableCell>{parseNumberFromString(row.Demontaj)}</StyledTableCell>
@@ -698,54 +733,48 @@ const ListTenderFlowReport = () => {
                                 ))
                             ) : (<TableRow><StyledTableCell colSpan={tableHeaders.length} align="center"><Typography variant="subtitle1" color="textSecondary" sx={{ my: 2 }}>Filtrelenen kritere uygun ihale akış raporu bulunamadı.</Typography></StyledTableCell></TableRow>)}
                         </TableBody>
+
+                        {/* ✅ Footer با مقادیر محاسبه شده داینامیک */}
+                        {reportData && (
+                            <TableFooter>
+                                <TableRow>
+                                    <StyledTableCell colSpan={10} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+                                            <Typography variant="h6" color="secondary">
+                                                Toplam Demontaj (Price): {calculatedTotals.totalDemontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
+                                            </Typography>
+                                            <Typography variant="h6" color="success.main">
+                                                Toplam Montaj (Price): {calculatedTotals.totalMontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
+                                            </Typography>
+                                            <Typography variant="h6" color="warning.main">
+                                                Toplam Dem+Mon (Price): {calculatedTotals.totalDemontajMontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
+                                            </Typography>
+                                        </Box>
+                                    </StyledTableCell>
+                                </TableRow>
+                            </TableFooter>
+                        )}
                     </Table>
                 </TableContainer>
                 <>
-                    {reportData && reportData.totalPages > 1 && (<Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}><Pagination count={reportData.totalPages} page={filterParams.page} onChange={handlePageChange} color="primary" showFirstButton showLastButton /><Typography variant="body2" sx={{ ml: 2 }}>Toplam: {reportData.totalCount} kayıt</Typography></Box>)}
-                    {reportData && (
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 3, flexWrap: 'wrap', borderTop: '1px solid #e0e0e0' }}>
-                            <Typography variant="h6" color="secondary">Toplam Demontaj: {parseNumberFromString(reportData.totalDemontaj ?? 0).toLocaleString()}</Typography>
-                            <Typography variant="h6" color="warning.main">Toplam Dem+Mon: {parseNumberFromString(reportData.totalDemontajMontaj ?? 0).toLocaleString()}</Typography>
-                            <Typography variant="h6" color="success.main">Toplam Montaj: {parseNumberFromString(reportData.totalMontaj ?? 0).toLocaleString()}</Typography>
-                        </Box>
+
+                    {reportData && reportData.data?.length > 0 && (
+                        <TablePagination
+                            rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                            component="div"
+                            count={filteredReportData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            rowsPerPage={rowsPerPage}
+                            page={page}
+                            onPageChange={handlePageChange}
+                            onRowsPerPageChange={handleChangeRowsPerPage}
+                            labelRowsPerPage="Satır sayısı:"
+                            labelDisplayedRows={({ from, to, count }) =>
+                                `${from}–${to} / ${count !== -1 ? count : `> ${to}`}`
+                            }
+                        />
                     )}
-
-                    {/* ... داخل BlankCard و بعد از TableContainer ... */}
-
-                    {/* {reportData && (
-    <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 3, flexWrap: 'wrap', borderTop: '1px solid #e0e0e0', backgroundColor: searchTerm ? '#e3f2fd' : 'transparent' }}>
-        
-        
-
-        <Typography variant="h6" color="secondary">
-            Toplam Demontaj: {
-                (searchTerm 
-                    ? calculatedTotals.totalDemontaj 
-                    : parseNumberFromString(reportData.totalDemontaj ?? 0)
-                ).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-            }
-        </Typography>
-
-        <Typography variant="h6" color="warning.main">
-            Toplam Dem+Mon: {
-                (searchTerm 
-                    ? calculatedTotals.totalDemontajMontaj 
-                    : parseNumberFromString(reportData.totalDemontajMontaj ?? 0)
-                ).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-            }
-        </Typography>
-
-        <Typography variant="h6" color="success.main">
-            Toplam Montaj: {
-                (searchTerm 
-                    ? calculatedTotals.totalMontajPrice 
-                    : parseNumberFromString(reportData.totalMontaj ?? 0)
-                ).toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2 })
-            }
-        </Typography>
-    </Box>
-)} */}
                 </>
+
             </BlankCard>
             <DetailViewModal open={openDetailViewModal} onClose={handleCloseDetailViewModal} report={selectedReportToDownload} onExportExcel={handleExportExcelSingle} onExportPdf={handleExportPdfSingle} />
         </Box>

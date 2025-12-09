@@ -106,6 +106,7 @@ interface ConsignedCarRecord {
     workhouse: WorkhouseType;
 
     carWarhouseDetail: CarDetail;
+    carWarehouseDetail: CarDetail;
     // 💡 فرض می‌کنیم فیلد Personnel در پاسخ اصلی وجود دارد 💡
     personnel: PersonnelType;
     attachments: AttachmentType[];
@@ -913,23 +914,54 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: ConsignedCarRecord) => { setAnchorEl(event.currentTarget); setSelectedRowForMenu(row); };
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
-    const filteredConsignedCars = useMemo(() => {
-        const list = consignedCars.filter(r => {
-            // 1. فیلتر جستجو (پلاک یا نام پرسنل)
-            const matchesSearch = r.carWarhouseDetail.plaque.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                r.personnel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                r.personnel.family.toLowerCase().includes(searchTerm.toLowerCase());
 
-            // 2. فیلتر تاریخ
-            const cDate = new Date(r.date);
-            const inRange = (!startFilter || (cDate && cDate >= startFilter)) &&
-                (!endFilter || (cDate && cDate <= endFilter));
+
+    // const filteredConsignedCars = useMemo(() => {
+    //     const list = consignedCars.filter(r => {
+    //         const matchesSearch = r.carWarhouseDetail.plaque.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //             r.personnel.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    //             r.personnel.family.toLowerCase().includes(searchTerm.toLowerCase());
+    //         const cDate = new Date(r.date);
+    //         const inRange = (!startFilter || (cDate && cDate >= startFilter)) &&
+    //             (!endFilter || (cDate && cDate <= endFilter));
+
+    //         return matchesSearch && inRange;
+    //     });
+    //     return stableSort(list, getComparator(order, orderBy));
+    // }, [consignedCars, searchTerm, startFilter, endFilter, order, orderBy]);
+
+    const filteredConsignedCars = useMemo(() => {
+        if (!consignedCars) return [];
+
+        const list = consignedCars.filter(r => {
+            if (!r) return false;
+
+            // اصلاح نام: carWarehouseDetail
+            // استفاده از ?. برای جلوگیری از خطا اگر workhouse نال بود
+            const plaque = r.carWarehouseDetail?.plaque || "";
+            const pName = r.personnel?.name || "";
+            const pFamily = r.personnel?.family || "";
+
+            const sTerm = searchTerm ? searchTerm.toLowerCase() : "";
+
+            const matchesSearch =
+                plaque.toLowerCase().includes(sTerm) ||
+                pName.toLowerCase().includes(sTerm) ||
+                pFamily.toLowerCase().includes(sTerm);
+
+            let inRange = true;
+            if (r.date) {
+                const cDate = new Date(r.date);
+                inRange = (!startFilter || (cDate && cDate >= startFilter)) &&
+                    (!endFilter || (cDate && cDate <= endFilter));
+            }
 
             return matchesSearch && inRange;
         });
-        // 3. اعمال مرتب سازی و بازگرداندن
+
         return stableSort(list, getComparator(order, orderBy));
     }, [consignedCars, searchTerm, startFilter, endFilter, order, orderBy]);
+
 
     const paginatedRows = useMemo(() => filteredConsignedCars.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage), [filteredConsignedCars, page, rowsPerPage]);
     const isFilterActive = useMemo(() => !!searchTerm.trim() || startFilter !== null || endFilter !== null, [searchTerm, startFilter, endFilter]);
@@ -1346,8 +1378,10 @@ const ListConsignedCarwarehouse: React.FC = () => {
                                     paginatedRows.map((row) => (
                                         <TableRow key={row.id}>
                                             <StyledTableCell>{formatDateDisplay(row.date)}</StyledTableCell>
-                                            <StyledTableCell>{row.carWarhouseDetail.plaque || '-'}</StyledTableCell>
+                                            {/* <StyledTableCell>{row.carWarhouseDetail.plaque || '-'}</StyledTableCell> */}
+                                            <StyledTableCell>{row.carWarehouseDetail?.plaque || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.workhouse?.name || '-'}</StyledTableCell>
+
                                             <StyledTableCell>{`${row.personnel.name} ${row.personnel.family}` || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.kilometer.toLocaleString() || '-'}</StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>

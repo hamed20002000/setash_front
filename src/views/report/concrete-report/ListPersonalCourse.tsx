@@ -9,7 +9,6 @@ import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Grid,
     TextField,
-    Pagination,
     Menu,
     ListItemIcon,
     Autocomplete,
@@ -17,7 +16,8 @@ import {
     IconButton,
     RadioGroup, FormControlLabel, Radio, FormControl, FormLabel,
     InputAdornment,
-    TableSortLabel // ✨ Added for sorting
+    TableSortLabel,
+    TablePagination // ✅ اضافه شده
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -51,7 +51,8 @@ const visuallyHiddenStyle = {
 };
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', }, color: '#171c23', whiteSpace: 'nowrap',
+    fontFamily: 'NotoSans', fontSize: '0.8rem', [theme.breakpoints.up('md')]: { fontSize: '0.9rem', },
+    whiteSpace: 'nowrap',
 }));
 
 
@@ -231,19 +232,23 @@ const ListPersonalCourse = () => {
     const [startDate, setStartDate] = useState<Date | null>(initialStartDate);
     const [endDate, setEndDate] = useState<Date | null>(initialEndDate);
 
-    // ✨ NEW: Search Term State
+    // Search Term State
     const [searchTerm, setSearchTerm] = useState('');
 
-    // ✨ NEW: Sort States
+    // Sort States
     const [order, setOrder] = useState<Order>('desc');
     const [orderBy, setOrderBy] = useState<keyof CoursePersonnelReportRowType>('class_start_date_time');
+
+    // ✅ Client Side Pagination States
+    const [page, setPage] = useState(0); // MUI TablePagination starts at 0
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     const [filterParams, setFilterParams] = useState<FilterParams>({
         workhouseId: null,
         fromDate: defaultFromDateStr,
         toDate: defaultToDateStr,
         page: 1,
-        pageSize: 10,
+        pageSize: 1000, // ✅ دریافت تعداد بالا برای هندل کردن در کلاینت
         isCenter: 'null',
         teacherId: null,
         personnelId: null,
@@ -338,19 +343,15 @@ const ListPersonalCourse = () => {
     const fetchCoursePersonnelReportData = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
 
-        // ✨ CHANGE: ارسال مقدار isCenter به صورت رشته یا null
-        // 'true', 'false', یا null برای فیلتر نشدن
         const isCenterParam = filterParams.isCenter === 'null' ? null : filterParams.isCenter;
-
-        debugger
 
         const requestParams = {
             workhouseId: filterParams.workhouseId || null,
             fromDate: filterParams.fromDate || null,
             toDate: filterParams.toDate || null,
-            center: isCenterParam, // ✅ ارسال به عنوان string یا null
+            center: isCenterParam,
             page: filterParams.page,
-            pageSize: filterParams.pageSize,
+            pageSize: filterParams.pageSize, // ✅ 1000
             teacherId: filterParams.teacherId || null,
             personnelId: filterParams.personnelId || null,
         };
@@ -403,7 +404,7 @@ const ListPersonalCourse = () => {
         filterParams.fromDate,
         filterParams.toDate,
         filterParams.isCenter,
-        filterParams.page
+        // filterParams.page // removed loop dependency
     ]);
 
     // --- Handlers for Sorting ---
@@ -411,11 +412,6 @@ const ListPersonalCourse = () => {
         const isAsc = orderBy === property && order === 'asc';
         setOrder(isAsc ? 'desc' : 'asc');
         setOrderBy(property);
-    };
-
-    // --- Handlers for Pagination ---
-    const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-        setFilterParams(prev => ({ ...prev, page: value }));
     };
 
     // ✨ Client-Side Search & Sort Logic
@@ -445,6 +441,31 @@ const ListPersonalCourse = () => {
 
         return data;
     }, [reportData, searchTerm, order, orderBy]);
+
+    // ✅ Reset page when data/search changes
+    useEffect(() => {
+        setPage(0);
+    }, [searchTerm, filterParams, reportData]);
+
+
+    // ✅ Calculate Visible Rows for Client Side Pagination
+    const visibleRows = useMemo(() => {
+        return filteredReportData.slice(
+            page * rowsPerPage,
+            page * rowsPerPage + rowsPerPage,
+        );
+    }, [filteredReportData, page, rowsPerPage]);
+
+
+    // --- Handlers for Pagination ---
+    const handleChangePage = (_event: unknown, newPage: number) => {
+        setPage(newPage);
+    };
+
+    const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setRowsPerPage(parseInt(event.target.value, 10));
+        setPage(0);
+    };
 
 
     // --- EXPORT HELPERS (PDF/Excel) ---
@@ -835,7 +856,7 @@ const ListPersonalCourse = () => {
             <BlankCard>
                 <TableContainer sx={{ overflowX: 'auto', mt: "3" }}>
                     <Table aria-label="course personnel report table">
-                        <TableHead style={{ background: "#f0f0f0" }}>
+                        <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
                                 {tableHeaders.map((header) => (
                                     <StyledTableCell key={header.key}>
@@ -861,8 +882,9 @@ const ListPersonalCourse = () => {
                         <TableBody>
                             {loadingData ? (
                                 <TableRow><StyledTableCell colSpan={tableHeaders.length + 1} align="center"><CircularProgress size={20} sx={{ my: 3 }} /></StyledTableCell></TableRow>
-                            ) : filteredReportData.length ? (
-                                filteredReportData.map((row, index) => (
+                            ) : visibleRows.length ? (
+                                // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
+                                visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell>{row.workhouse_name}</StyledTableCell>
                                         <StyledTableCell>{row.course_title}</StyledTableCell>
@@ -910,21 +932,24 @@ const ListPersonalCourse = () => {
                         </TableBody>
                     </Table>
                 </TableContainer>
-
-                {/* Pagination */}
                 <>
-                    {reportData && reportData.totalPages > 1 && (
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                            <Pagination
-                                count={reportData.totalPages} page={filterParams.page} onChange={handlePageChange}
-                                color="primary" showFirstButton showLastButton
-                            />
-                            <Typography variant="body2" sx={{ ml: 2 }}>
-                                Toplam: {reportData.totalCount} kayıt
-                            </Typography>
-                        </Box>
+                    {reportData && reportData.data?.length > 0 && (
+                        <TablePagination
+                            rowsPerPageOptions={[5, 10, 25, 50, 100]}
+                            component="div"
+                            count={filteredReportData.length} // تعداد کل دیتای فیلتر/جستجو شده
+                            rowsPerPage={rowsPerPage}
+                            page={page}
+                            onPageChange={handleChangePage}
+                            onRowsPerPageChange={handleChangeRowsPerPage}
+                            labelRowsPerPage="Satır sayısı:"
+                            labelDisplayedRows={({ from, to, count }) =>
+                                `${from}–${to} / ${count !== -1 ? count : `> ${to}`}`
+                            }
+                        />
                     )}
                 </>
+
             </BlankCard>
 
             {/* --- Modal --- */}

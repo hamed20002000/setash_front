@@ -1114,6 +1114,12 @@ const ListCategory = () => {
     }
   };
 
+
+  const isRestrictedItem = (item: CategoryType | null): boolean => {
+    if (!item) return true;
+    return item.id === "1" || item.name === "Beton";
+  };
+
   return (
     <>
       <div style={{
@@ -1465,7 +1471,7 @@ const ListCategory = () => {
                             'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                           }}
                         >
-                          {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                          {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && !isRestrictedItem(selectedRowForMenu) && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi pasif yap" : ""}>
                               <MuiMenuItem onClick={handleSetInactive}>
                                 <ListItemIcon>
@@ -1475,7 +1481,7 @@ const ListCategory = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
+                          {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && !isRestrictedItem(selectedRowForMenu) && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi aktif yap" : ""}>
                               <MuiMenuItem onClick={handleSetActive}>
                                 <ListItemIcon>
@@ -1485,7 +1491,7 @@ const ListCategory = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasEditPermission && (
+                          {hasEditPermission && !isRestrictedItem(selectedRowForMenu) && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi düzenle" : ""}>
                               <MuiMenuItem onClick={handleEditClick}>
                                 <ListItemIcon>
@@ -1495,7 +1501,7 @@ const ListCategory = () => {
                               </MuiMenuItem>
                             </CustomTooltip>
                           )}
-                          {hasDeletePermission && (
+                          {hasDeletePermission && !isRestrictedItem(selectedRowForMenu) && (
                             <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu kategoriyi sil" : ""}>
                               <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                 <ListItemIcon>
