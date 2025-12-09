@@ -136,7 +136,7 @@ const Modern = () => {
                   sx={{ height: 80, mb: 2, objectFit: 'contain' }}
                 />
                 <Typography variant="h5" fontWeight="bold" color="textPrimary" gutterBottom>
-                  SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.
+                  Setaş Sistem Bilişim San.Tic.A.Ş
                 </Typography>
               </Box>
 
