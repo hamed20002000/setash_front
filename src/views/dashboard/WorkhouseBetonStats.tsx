@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
     Box,
@@ -17,7 +18,6 @@ import {
     Tooltip
 } from '@mui/material';
 import axios from 'axios';
-// اضافه کردن متد toPng
 import { toPng } from 'html-to-image';
 import {
     IconBuilding,
@@ -26,7 +26,9 @@ import {
     IconChevronUp,
     IconChartBar,
     IconLayoutGrid,
-    IconDownload // آیکون دانلود
+    IconDownload,
+    IconDatabaseOff, // آیکون برای حالت بدون دیتا
+    // IconExclamationCircle
 } from '@tabler/icons-react';
 import {
     BarChart,
@@ -36,7 +38,8 @@ import {
     CartesianGrid,
     Tooltip as RechartsTooltip,
     ResponsiveContainer,
-    Cell
+    Cell,
+    // Text 
 } from 'recharts';
 import server from '../../assets/address.json';
 
@@ -81,9 +84,61 @@ const StatCard: React.FC<StatCardProps> = ({ item }) => (
     </Card>
 );
 
+// ✅ کامپوننت جدید برای نمایش پیام "بدون دیتا" در حالت لیست
+const NoDataView = () => (
+    <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        p={5}
+        sx={{
+            border: '2px dashed #e5eaef',
+            borderRadius: 4,
+            bgcolor: 'background.paper',
+            textAlign: 'center'
+        }}
+    >
+        <Avatar
+            sx={{
+                width: 80,
+                height: 80,
+                bgcolor: '#f5f7fa',
+                mb: 2
+            }}
+        >
+            <IconDatabaseOff size={40} color="#9ca3af" />
+        </Avatar>
+        <Typography variant="h6" fontWeight={600} color="textPrimary" gutterBottom>
+            Kayıt Bulunamadı
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+            Şu anda görüntülenecek herhangi bir veri mevcut değil.
+        </Typography>
+    </Box>
+);
+
+// ✅ کامپوننت برای نمایش پیام وسط نمودار خالی
+const CustomNoDataOverlay = () => (
+    <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        textAlign: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        zIndex: 10
+    }}>
+        <Typography variant="body1" color="textSecondary" fontWeight={500}>
+            Görüntülenecek veri yok
+        </Typography>
+    </div>
+);
+
 const WorkhouseBetonStats = () => {
     const theme = useTheme();
-    // 1. تعریف Ref برای نمودار
     const chartRef = useRef<HTMLDivElement>(null);
 
     const [data, setData] = useState<BetonStatType[]>([]);
@@ -104,7 +159,11 @@ const WorkhouseBetonStats = () => {
                 if (response.data.httpStatusCode === 200 && response.data.data) {
                     setData(response.data.data);
                 } else {
-                    setError(response.data.message || 'Veri alınamadı');
+                    // اگر دیتا null بود یا مشکلی بود، آرایه خالی ست میکنیم که شرط‌های پایین کار کنن
+                    setData([]);
+                    if (!response.data.success) {
+                        setError(response.data.message || 'Veri alınamadı');
+                    }
                 }
             } catch (err) {
                 console.error(err);
@@ -125,18 +184,13 @@ const WorkhouseBetonStats = () => {
         }
     };
 
-    // 2. تابع دانلود نمودار
     const handleDownloadChart = useCallback(async () => {
         if (chartRef.current === null) {
             return;
         }
 
         try {
-            // تولید عکس از روی Ref
-            // خاصیت backgroundColor مهم است تا در تم‌های مختلف پس‌زمینه شفاف یا سیاه نشود
             const dataUrl = await toPng(chartRef.current, { cacheBust: true, backgroundColor: '#ffffff' });
-
-            // ایجاد لینک موقت برای دانلود
             const link = document.createElement('a');
             link.download = 'beton-miktarlari-grafik.png';
             link.href = dataUrl;
@@ -160,20 +214,25 @@ const WorkhouseBetonStats = () => {
         };
     }, [data]);
 
+    // اگر لودینگ یا ارور بود همچنان کل صفحه رو بلاک میکنیم (میتونید این رو هم ببرید پایین)
     if (loading) return <Box p={3} textAlign="center"><CircularProgress /></Box>;
     if (error) return <Alert severity="error">{error}</Alert>;
-    if (data.length === 0) return <Alert severity="info">Kayıt bulunamadı</Alert>;
+
+    // ❌ خط زیر حذف شد تا هدر همیشه نمایش داده شود
+    // if (data.length === 0) return <Alert severity="info">Kayıt bulunamadı</Alert>;
+
+    const isDataEmpty = data.length === 0;
 
     return (
         <Box>
+            {/* ------------------ HEADER (همیشه قابل مشاهده) ------------------ */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h5" fontWeight={700}>
                     Şantiye Beton Miktarları
                 </Typography>
 
                 <Stack direction="row" spacing={2}>
-                    {/* دکمه دانلود فقط وقتی نمایش داده می‌شود که در حالت نمودار باشیم */}
-                    {viewMode === 'chart' && (
+                    {viewMode === 'chart' && !isDataEmpty && (
                         <Tooltip title="Grafiği İndir">
                             <IconButton
                                 onClick={handleDownloadChart}
@@ -209,14 +268,18 @@ const WorkhouseBetonStats = () => {
                 </Stack>
             </Stack>
 
+            {/* ------------------ CONTENT ------------------ */}
             <Box>
                 {viewMode === 'chart' ? (
-                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef' }}>
-                        {/* 3. اتصال Ref به کانتینری که شامل نمودار است */}
-                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper' }}>
+                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef', position: 'relative' }}>
+                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper', position: 'relative' }}>
+                            {/* اگر دیتا خالی بود، پیام وسط نمودار نمایش داده شود */}
+                            {isDataEmpty && <CustomNoDataOverlay />}
+
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart
-                                    data={chartData}
+                                    // اگر دیتا خالیه، یک دیتای فیک میدیم که نمودار رندر بشه ولی خالی باشه
+                                    data={isDataEmpty ? [{ name: '', quantity: 0 }, { name: '', quantity: 0 }, { name: '', quantity: 0 }, { name: '', quantity: 0 }, { name: '', quantity: 0 }] : chartData}
                                     margin={{ top: 20, right: 30, left: 20, bottom: 50 }}
                                 >
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -234,7 +297,8 @@ const WorkhouseBetonStats = () => {
                                         contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                                     />
                                     <Bar dataKey="quantity" name="Beton Miktarı" radius={[4, 4, 0, 0]}>
-                                        {chartData.map((_entry, index) => (
+                                        {/* فقط اگر دیتا واقعی بود، سلول‌ها رنگی میشن، وگرنه چیزی رندر نمیشه چون مقدار صفره */}
+                                        {!isDataEmpty && chartData.map((_entry, index) => (
                                             <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#5D87FF' : '#49BEFF'} />
                                         ))}
                                     </Bar>
@@ -243,41 +307,49 @@ const WorkhouseBetonStats = () => {
                         </Box>
                     </Card>
                 ) : (
-                    // بخش نمایش کارتی (بدون تغییر)
+                    // ------------------ LIST VIEW ------------------
                     <>
-                        <Grid container spacing={3}>
-                            {firstThreeItems.map((item, index) => (
-                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
-                                    <StatCard item={item} />
-                                </Grid>
-                            ))}
-                        </Grid>
-
-                        {remainingItems.length > 0 && (
+                        {isDataEmpty ? (
+                            // ✅ نمایش کامپوننت "بدون دیتا" شیک
+                            <NoDataView />
+                        ) : (
+                            // نمایش لیست کارت‌ها (کد قبلی)
                             <>
-                                <Collapse in={expanded} timeout="auto" unmountOnExit>
-                                    <Box mt={3}>
-                                        <Grid container spacing={3}>
-                                            {remainingItems.map((item, index) => (
-                                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
-                                                    <StatCard item={item} />
-                                                </Grid>
-                                            ))}
+                                <Grid container spacing={3}>
+                                    {firstThreeItems.map((item, index) => (
+                                        <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
+                                            <StatCard item={item} />
                                         </Grid>
-                                    </Box>
-                                </Collapse>
+                                    ))}
+                                </Grid>
 
-                                <Box display="flex" justifyContent="center" mt={3}>
-                                    <Button
-                                        variant="outlined"
-                                        color="primary"
-                                        onClick={() => setExpanded(!expanded)}
-                                        endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
-                                        sx={{ borderRadius: '20px', px: 4 }}
-                                    >
-                                        {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length} kayıt)`}
-                                    </Button>
-                                </Box>
+                                {remainingItems.length > 0 && (
+                                    <>
+                                        <Collapse in={expanded} timeout="auto" unmountOnExit>
+                                            <Box mt={3}>
+                                                <Grid container spacing={3}>
+                                                    {remainingItems.map((item, index) => (
+                                                        <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
+                                                            <StatCard item={item} />
+                                                        </Grid>
+                                                    ))}
+                                                </Grid>
+                                            </Box>
+                                        </Collapse>
+
+                                        <Box display="flex" justifyContent="center" mt={3}>
+                                            <Button
+                                                variant="outlined"
+                                                color="primary"
+                                                onClick={() => setExpanded(!expanded)}
+                                                endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
+                                                sx={{ borderRadius: '20px', px: 4 }}
+                                            >
+                                                {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length} kayıt)`}
+                                            </Button>
+                                        </Box>
+                                    </>
+                                )}
                             </>
                         )}
                     </>

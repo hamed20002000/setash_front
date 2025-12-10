@@ -2,22 +2,22 @@ import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import {
     Box, Grid, Card, Typography, CircularProgress, Alert, Button,
     Collapse, Stack, Avatar, Chip, Divider, ToggleButton, ToggleButtonGroup,
-    IconButton, Tooltip // اضافه شده
+    IconButton, Tooltip
 } from '@mui/material';
 import axios from 'axios';
-// اضافه کردن متد تبدیل به عکس
 import { toPng } from 'html-to-image';
 import {
     IconGasStation, IconDroplet, IconCoin, IconChevronDown,
     IconChevronUp, IconChartArea, IconLayoutGrid, IconBuildingWarehouse,
-    IconDownload // اضافه شده
+    IconDownload,
+    IconDatabaseOff // ✅ آیکون جدید
 } from '@tabler/icons-react';
 import {
     AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 import server from '../../assets/address.json';
 
-// اینترفیس دیتای نهایی که کامپوننت استفاده می‌کند
+// اینترفیس دیتای نهایی
 interface FuelStatType {
     workhouse_id: string;
     workhouse_code: string;
@@ -31,8 +31,61 @@ interface FuelStatType {
 const PRIMARY_COLOR = '#FA896B';
 const SECONDARY_COLOR = '#49BEFF';
 
+// ✅ 1. کامپوننت پیام "بدون دیتا" برای حالت لیست
+const NoDataView = () => (
+    <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        p={5}
+        sx={{
+            border: '2px dashed #e5eaef',
+            borderRadius: 4,
+            bgcolor: 'background.paper',
+            textAlign: 'center'
+        }}
+    >
+        <Avatar
+            sx={{
+                width: 80,
+                height: 80,
+                bgcolor: '#f5f7fa',
+                mb: 2
+            }}
+        >
+            <IconDatabaseOff size={40} color="#9ca3af" />
+        </Avatar>
+        <Typography variant="h6" fontWeight={600} color="textPrimary" gutterBottom>
+            Kayıt Bulunamadı
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+            Şu anda görüntülenecek herhangi bir yakıt harcaması bulunamadı.
+        </Typography>
+    </Box>
+);
+
+// ✅ 2. کامپوننت پیام روی نمودار خالی
+const CustomNoDataOverlay = () => (
+    <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        textAlign: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        zIndex: 10,
+        border: '1px solid #eee'
+    }}>
+        <Typography variant="body1" color="textSecondary" fontWeight={500}>
+            Grafik için veri yok
+        </Typography>
+    </div>
+);
+
 const WorkhouseFuelStats = () => {
-    // 1. تعریف Ref برای نمودار
     const chartRef = useRef<HTMLDivElement>(null);
 
     const [data, setData] = useState<FuelStatType[]>([]);
@@ -41,7 +94,6 @@ const WorkhouseFuelStats = () => {
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // تابع تمیز کردن اعداد
     const parseNumber = (val: string | number | null): number => {
         if (!val) return 0;
         const strVal = String(val);
@@ -117,7 +169,6 @@ const WorkhouseFuelStats = () => {
         return () => controller.abort();
     }, []);
 
-    // 2. تابع دانلود نمودار
     const handleDownloadChart = useCallback(async () => {
         if (chartRef.current === null) {
             return;
@@ -262,19 +313,26 @@ const WorkhouseFuelStats = () => {
 
     if (loading) return <Box p={3} textAlign="center"><CircularProgress /></Box>;
     if (error) return <Alert severity="error">{error}</Alert>;
-    if (data.length === 0) return <Alert severity="info">Veri bulunamadı</Alert>;
 
+    // ❌ خط زیر حذف شد تا هدر نمایش داده شود
+    // if (data.length === 0) return <Alert severity="info">Veri bulunamadı</Alert>;
+
+    const isDataEmpty = data.length === 0;
     const firstThreeItems = data.slice(0, 3);
     const remainingItems = data.slice(3);
 
+    // دیتای خالی برای رسم محورهای نمودار
+    const emptyChartData = Array(5).fill({ name: '', price: 0 });
+
     return (
         <Box mt={4}>
+            {/* Header + Actions */}
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
                 <Typography variant="h5" fontWeight={700}>Tüm Yakıt Harcamaları</Typography>
 
                 <Stack direction="row" spacing={2}>
-                    {/* 3. دکمه دانلود (فقط در حالت گرافیک) */}
-                    {viewMode === 'chart' && (
+                    {/* دکمه دانلود فقط وقتی دیتا هست نمایش داده شود */}
+                    {viewMode === 'chart' && !isDataEmpty && (
                         <Tooltip title="Grafiği İndir">
                             <IconButton
                                 onClick={handleDownloadChart}
@@ -312,74 +370,92 @@ const WorkhouseFuelStats = () => {
 
             <Box>
                 {viewMode === 'chart' ? (
-                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef' }}>
-                        {/* 4. اتصال Ref به کانتینر نمودار */}
-                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper' }}>
-                            {chartData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor={PRIMARY_COLOR} stopOpacity={0.8} />
-                                                <stop offset="95%" stopColor={PRIMARY_COLOR} stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#666' }} interval="preserveStartEnd" />
-                                        <YAxis
-                                            tick={{ fontSize: 12, fill: '#666' }}
-                                            tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
-                                        />
-                                        <RechartsTooltip content={<CustomTooltip />} />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="price"
-                                            stroke={PRIMARY_COLOR}
-                                            fillOpacity={1}
-                                            fill="url(#colorPrice)"
-                                            strokeWidth={3}
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-                                    <Typography color="textSecondary">Grafik verisi yok.</Typography>
-                                </Box>
-                            )}
+                    // --- CHART VIEW ---
+                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef', position: 'relative' }}>
+                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper', position: 'relative' }}>
+                            {/* اگر دیتا خالی بود، پیام وسط نمودار نمایش داده شود */}
+                            {isDataEmpty && <CustomNoDataOverlay />}
+
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart
+                                    // اگر دیتا خالی است، دیتای فیک بدهیم
+                                    data={isDataEmpty ? emptyChartData : chartData}
+                                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                                >
+                                    <defs>
+                                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor={PRIMARY_COLOR} stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor={PRIMARY_COLOR} stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 12, fill: '#666' }}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        tick={{ fontSize: 12, fill: '#666' }}
+                                        tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
+                                    />
+                                    {/* فقط وقتی دیتا هست، Area و Tooltip را رسم کن */}
+                                    {!isDataEmpty && (
+                                        <>
+                                            <RechartsTooltip content={<CustomTooltip />} />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="price"
+                                                stroke={PRIMARY_COLOR}
+                                                fillOpacity={1}
+                                                fill="url(#colorPrice)"
+                                                strokeWidth={3}
+                                            />
+                                        </>
+                                    )}
+                                </AreaChart>
+                            </ResponsiveContainer>
                         </Box>
                     </Card>
                 ) : (
+                    // --- LIST VIEW ---
                     <>
-                        <Grid container spacing={3}>
-                            {firstThreeItems.map((item, index) => (
-                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
-                                    {renderCard(item)}
-                                </Grid>
-                            ))}
-                        </Grid>
-                        {remainingItems.length > 0 && (
+                        {isDataEmpty ? (
+                            // ✅ نمایش کامپوننت "بدون دیتا"
+                            <NoDataView />
+                        ) : (
                             <>
-                                <Collapse in={expanded} timeout="auto" unmountOnExit>
-                                    <Box mt={3}>
-                                        <Grid container spacing={3}>
-                                            {remainingItems.map((item, index) => (
-                                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
-                                                    {renderCard(item)}
-                                                </Grid>
-                                            ))}
+                                <Grid container spacing={3}>
+                                    {firstThreeItems.map((item, index) => (
+                                        <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
+                                            {renderCard(item)}
                                         </Grid>
-                                    </Box>
-                                </Collapse>
-                                <Box display="flex" justifyContent="center" mt={3}>
-                                    <Button
-                                        variant="outlined"
-                                        sx={{ color: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: '20px', px: 4 }}
-                                        onClick={() => setExpanded(!expanded)}
-                                        endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
-                                    >
-                                        {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length})`}
-                                    </Button>
-                                </Box>
+                                    ))}
+                                </Grid>
+                                {remainingItems.length > 0 && (
+                                    <>
+                                        <Collapse in={expanded} timeout="auto" unmountOnExit>
+                                            <Box mt={3}>
+                                                <Grid container spacing={3}>
+                                                    {remainingItems.map((item, index) => (
+                                                        <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
+                                                            {renderCard(item)}
+                                                        </Grid>
+                                                    ))}
+                                                </Grid>
+                                            </Box>
+                                        </Collapse>
+                                        <Box display="flex" justifyContent="center" mt={3}>
+                                            <Button
+                                                variant="outlined"
+                                                sx={{ color: PRIMARY_COLOR, borderColor: PRIMARY_COLOR, borderRadius: '20px', px: 4 }}
+                                                onClick={() => setExpanded(!expanded)}
+                                                endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
+                                            >
+                                                {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length})`}
+                                            </Button>
+                                        </Box>
+                                    </>
+                                )}
                             </>
                         )}
                     </>

@@ -14,7 +14,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
   List,
   ListItemText,
-  TableSortLabel, // ✅ Added: For sorting icons and functionality
+  TableSortLabel,
 } from '@mui/material';
 
 
@@ -84,22 +84,22 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-  fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-  // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-  fontSize: '0.8rem', // Varsayılan olarak küçük font
+  fontFamily: 'NotoSans',
+  fontSize: '0.8rem',
   [theme.breakpoints.up('md')]: {
-    fontSize: '1rem', // Masaüstünde daha büyük
+    fontSize: '1rem',
   },
 }));
 
 interface ItemType {
   id: string;
   name: string;
+  code: string; // ✅ Added: Code field
   description: string;
   abbreviation: string;
   recordStatus: number;
   createAt: string;
-  weight: number | null; // ✅ اضافه شده: فیلد وزن
+  weight: number | null;
   category: {
     id: string;
     name: string;
@@ -309,33 +309,34 @@ const CategoryTreeSelectMenuItem: React.FC<CategoryTreeSelectMenuItemProps> = ({
   );
 };
 
-type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title' | 'weight';
+// ✅ Updated: Added 'code' to SortableItemKeys
+type SortableItemKeys = keyof ItemType | 'category.name' | 'unit.title' | 'weight' | 'code';
 
 const descendingComparator = <T,>(
   a: T,
   b: T,
-  orderBy: SortableItemKeys, // Use the new SortableItemKeys type
+  orderBy: SortableItemKeys,
 ): number => {
   let valA: any;
   let valB: any;
 
-  // Logic to handle nested property access
   if (orderBy === 'category.name') {
     valA = (a as ItemType).category?.name;
     valB = (b as ItemType).category?.name;
   } else if (orderBy === 'unit.title') {
     valA = (a as ItemType).unit?.title;
     valB = (b as ItemType).unit?.title;
-  } else if (orderBy === 'weight') { // ✅ اضافه شده: مقایسه وزن
+  } else if (orderBy === 'weight') {
     valA = (a as ItemType).weight;
     valB = (b as ItemType).weight;
+  } else if (orderBy === 'code') { // ✅ Added: Code sorting logic
+    valA = (a as ItemType).code;
+    valB = (b as ItemType).code;
   } else {
-    // For top-level properties, use direct access
-    valA = a[orderBy as keyof T]; // Cast orderBy back to keyof T for direct access
+    valA = a[orderBy as keyof T];
     valB = b[orderBy as keyof T];
   }
 
-  // Handle undefined or null values first.
   if (valB === undefined || valB === null) {
     return (valA === undefined || valA === null) ? 0 : -1;
   }
@@ -343,7 +344,6 @@ const descendingComparator = <T,>(
     return 1;
   }
 
-  // Perform comparison based on the actual type of the values.
   if (typeof valB === 'string' && typeof valA === 'string') {
     return valB.localeCompare(valA);
   }
@@ -351,7 +351,6 @@ const descendingComparator = <T,>(
     return valB - valA;
   }
 
-  // Fallback to string comparison for other types or mixed types
   if (String(valB) < String(valA)) {
     return -1;
   }
@@ -361,23 +360,21 @@ const descendingComparator = <T,>(
   return 0;
 };
 
-// getComparator needs to be updated to use the new SortableItemKeys
 const getComparator = (
   order: 'asc' | 'desc',
-  orderBy: SortableItemKeys, // Use SortableItemKeys here
+  orderBy: SortableItemKeys,
 ): (a: ItemType, b: ItemType) => number => {
   return order === 'desc'
     ? (a, b) => descendingComparator(a, b, orderBy)
     : (a, b) => -descendingComparator(a, b, orderBy);
 };
 
-// stableSort remains largely the same, as it's a generic utility
 const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
   const stabilizedThis = array.map((el, index) => [el, index] as [T, number]);
   stabilizedThis.sort((a, b) => {
     const order = comparator(a[0], b[0]);
     if (order !== 0) return order;
-    return a[1] - b[1]; // Maintain stable sort for equal elements
+    return a[1] - b[1];
   });
   return stabilizedThis.map((el) => el[0]);
 };
@@ -388,6 +385,10 @@ const ListItemComponent = () => {
 
   const [name, setName] = useState<string>('');
   const [originalName, setOriginalName] = useState<string>('');
+
+  // ✅ Added: Code State
+  const [code, setCode] = useState<string>('');
+
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isCategorySelectOpen, setIsCategorySelectOpen] = useState(false);
@@ -431,18 +432,22 @@ const ListItemComponent = () => {
 
   const [unitSearchTerm, setUnitSearchTerm] = useState('');
   const [categorySearchTerm, setCategorySearchTerm] = useState('');
-  const [orderBy, setOrderBy] = useState<SortableItemKeys>('createAt'); // Use the new type here
+  const [orderBy, setOrderBy] = useState<SortableItemKeys>('createAt');
   const [order, setOrder] = useState<'asc' | 'desc'>('desc');
 
 
   const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
-  // ✅ Added: Ref for the item name input field
   const itemNameInputRef = useRef<HTMLInputElement>(null);
 
   // **New states for input validation errors**
   const [nameError, setNameError] = useState<boolean>(false);
   const [nameHelperText, setNameHelperText] = useState<string>('');
+
+  // ✅ Added: Code Validation State
+  const [codeError, setCodeError] = useState<boolean>(false);
+  const [codeHelperText, setCodeHelperText] = useState<string>('');
+
   const [unitIdError, setUnitIdError] = useState<boolean>(false);
   const [unitIdHelperText, setUnitIdHelperText] = useState<string>('');
   const [categoryIdError, setCategoryIdError] = useState<boolean>(false);
@@ -557,11 +562,16 @@ const ListItemComponent = () => {
 
   const resetFormAndState = () => {
     setName('');
+    // ✅ Reset Code
+    setCode('');
+    setCodeError(false);
+    setCodeHelperText('');
+
     setSelectedUnitId(null);
     setSelectedCategoryId(null);
     setAbbreviation('');
     setDescription('');
-    setWeight(''); // ✅ اضافه شده: ریست کردن وزن
+    setWeight('');
     setEditingId(null);
     setUnitSearchTerm('');
     setCategorySearchTerm('');
@@ -579,24 +589,31 @@ const ListItemComponent = () => {
     setAbbreviationHelperText('');
     setDescriptionError(false);
     setDescriptionHelperText('');
-    setWeightError(false); // ✅ اضافه شده: ریست کردن خطا
-    setWeightHelperText(''); // ✅ اضافه شده: ریست کردن متن خطا
+    setWeightError(false);
+    setWeightHelperText('');
   };
 
   const handleEditClick = () => {
     if (selectedRowForMenu) {
       setName(selectedRowForMenu.name);
       setOriginalName(selectedRowForMenu.name);
+      // ✅ Load Code for editing
+      setCode(selectedRowForMenu.code || '');
+
       setSelectedUnitId(selectedRowForMenu.unit.id);
       setSelectedCategoryId(selectedRowForMenu.category.id);
       setAbbreviation(selectedRowForMenu.abbreviation);
       setDescription(selectedRowForMenu.description);
-      setWeight(selectedRowForMenu.weight || ''); // ✅ اضافه شده: بارگذاری وزن
+      setWeight(selectedRowForMenu.weight || '');
       setEditingId(selectedRowForMenu.id);
 
       // **Clear all validation error states when editing**
       setNameError(false);
       setNameHelperText('');
+      // ✅ Clear Code Error
+      setCodeError(false);
+      setCodeHelperText('');
+
       setUnitIdError(false);
       setUnitIdHelperText('');
       setCategoryIdError(false);
@@ -605,16 +622,15 @@ const ListItemComponent = () => {
       setAbbreviationHelperText('');
       setDescriptionError(false);
       setDescriptionHelperText('');
-      setWeightError(false); // ✅ اضافه شده: ریست کردن خطا
-      setWeightHelperText(''); // ✅ اضافه شده: ریست کردن متن خطا
+      setWeightError(false);
+      setWeightHelperText('');
 
       setIsFormVisible(true);
 
-      // ✅ Added: Scroll to the item name input and focus
       setTimeout(() => {
         itemNameInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         itemNameInputRef.current?.focus();
-      }, 100); // Small delay to ensure DOM update
+      }, 100);
     }
     handleCloseMenu();
     clearAlert();
@@ -636,6 +652,16 @@ const ListItemComponent = () => {
     } else {
       setNameError(false);
       setNameHelperText('');
+    }
+
+    // ✅ Validate Code (Required)
+    if (!code.trim()) {
+      setCodeError(true);
+      setCodeHelperText('Ürün kodu boş bırakılamaz!');
+      hasError = true;
+    } else {
+      setCodeError(false);
+      setCodeHelperText('');
     }
 
     // Validate Unit
@@ -683,16 +709,17 @@ const ListItemComponent = () => {
       setLoadingButton(false);
       return;
     }
-    debugger
+
     try {
-      const response = await axios.post(server.baseurl + server.baseinfo + "create-item", // API endpoint for creation
+      const response = await axios.post(server.baseurl + server.baseinfo + "create-item",
         {
           name,
+          code, // ✅ Added Code
           description,
           abbreviation: abbreviation === "" ? null : abbreviation,
-          categoryId: Number(selectedCategoryId), // Use selectedCategoryId
-          itemUnitId: Number(selectedUnitId), // Use selectedUnitId, renamed as per API spec
-          weight: weight === '' ? null : Number(weight), // ✅ اضافه شده: ارسال وزن
+          categoryId: Number(selectedCategoryId),
+          itemUnitId: Number(selectedUnitId),
+          weight: weight === '' ? null : Number(weight),
         },
         {
           headers: {
@@ -737,6 +764,16 @@ const ListItemComponent = () => {
       setNameHelperText('');
     }
 
+    // ✅ Validate Code (Required)
+    if (!code.trim()) {
+      setCodeError(true);
+      setCodeHelperText('Ürün kodu boş bırakılamaz!');
+      hasError = true;
+    } else {
+      setCodeError(false);
+      setCodeHelperText('');
+    }
+
     // Validate Unit
     if (selectedUnitId === null) {
       setUnitIdError(true);
@@ -756,14 +793,14 @@ const ListItemComponent = () => {
       setCategoryIdError(false);
       setCategoryIdHelperText('');
     }
-    if (abbreviation.trim() !== '' && abbreviation.trim().length !== 4) {
-      setAbbreviationError(true);
-      setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır.');
-      hasError = true;
-    } else {
-      setAbbreviationError(false);
-      setAbbreviationHelperText('');
-    }
+    // if (abbreviation.trim() !== '' && abbreviation.trim().length !== 4) {
+    //   setAbbreviationError(true);
+    //   setAbbreviationHelperText('Kısaltma 4 karakter olmalıdır.');
+    //   hasError = true;
+    // } else {
+    //   setAbbreviationError(false);
+    //   setAbbreviationHelperText('');
+    // }
     if (hasError) {
       showAlert('Lütfen tüm zorunlu alanları doğru şekilde doldurun!', 'warning');
       return;
@@ -772,7 +809,9 @@ const ListItemComponent = () => {
     if (name === originalName && selectedUnitId === selectedRowForMenu?.unit.id
       && selectedCategoryId === selectedRowForMenu?.category.id
       && abbreviation === selectedRowForMenu?.abbreviation && description === selectedRowForMenu?.description
-      && weight === selectedRowForMenu?.weight) { // ✅ اضافه شده: بررسی تغییرات وزن
+      && weight === selectedRowForMenu?.weight
+      && code === selectedRowForMenu?.code // ✅ Check for code changes
+    ) {
       showAlert('Herhangi bir değişiklik yapmadınız.', 'info');
       resetFormAndState();
       return;
@@ -789,17 +828,18 @@ const ListItemComponent = () => {
       setLoadingButton(false);
       return;
     }
-    debugger
+
     try {
-      const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // API endpoint for creation
+      const response = await axios.put(server.baseurl + server.baseinfo + "update-item",
         {
           id: Number(editingId),
           newName: name,
+          code, // ✅ Added Code
           description,
           abbreviation: abbreviation === "" ? null : abbreviation,
-          categoryId: Number(selectedCategoryId), // Use selectedCategoryId
-          itemUnitId: Number(selectedUnitId), // Use selectedUnitId, renamed as per API spec
-          weight: weight === '' ? null : Number(weight), // ✅ اضافه شده: ارسال وزن
+          categoryId: Number(selectedCategoryId),
+          itemUnitId: Number(selectedUnitId),
+          weight: weight === '' ? null : Number(weight),
         },
         {
           headers: {
@@ -845,7 +885,7 @@ const ListItemComponent = () => {
       showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
       return;
     }
-    debugger
+
     try {
       // Replace with actual API call to update item status
       const response = await axios.put(server.baseurl + server.baseinfo + "update-item", // Assuming update status endpoint
@@ -913,7 +953,7 @@ const ListItemComponent = () => {
       });
       if (response.data && response.data.success) {
         setUnitOptions(response.data.data
-          .filter((unit: any) => unit.recordStatus === 0) // 🟢 اضافه شده: فیلتر کردن واحدهای با recordStatus = 0
+          .filter((unit: any) => unit.recordStatus === 0)
           .map((unit: any) => ({
             id: unit.id,
             title: unit.title
@@ -923,7 +963,7 @@ const ListItemComponent = () => {
         showAlert('Ölçüler yüklenirken hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (axios.isAxiosError(e) && e.response?.status === 401) { // Changed to use axios.isAxiosError for type narrowing
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -953,13 +993,11 @@ const ListItemComponent = () => {
         }
       });
       if (response.data && response.data.success) {
-        // 🟢 اضافه شده: فیلتر کردن دسته‌بندی‌ها در تابع mapApiMenuToModalMenuItem یا قبل از آن
-        // در اینجا فرض می‌کنیم که داده‌ها در `response.data.data` به صورت Nested هستند
-        // و flattenedCategories باید ابتدا فیلتر شود
+
         const filteredNestedCategories = response.data.data
-          .filter((cat: any) => cat.recordStatus === 0) // فیلتر کردن سطح اول
+          .filter((cat: any) => cat.recordStatus === 0)
           .map((cat: any) => {
-            // تابع بازگشتی برای فیلتر کردن زیردسته‌ها
+
             const filterChildren = (children: any[]): CategoryOptionType[] => {
               return children
                 .filter((child: any) => child.recordStatus === 0)
@@ -980,14 +1018,14 @@ const ListItemComponent = () => {
             };
           });
 
-        const flattened = flattenCategories(filteredNestedCategories); // از داده‌های فیلتر شده استفاده کنید
+        const flattened = flattenCategories(filteredNestedCategories);
         setAllCategoriesFlat(flattened);
       } else {
         console.error("Failed to fetch categories:", response.data.message);
         showAlert('Kategoriler yüklenirken hata oluştu.', 'error');
       }
     } catch (e: any) {
-      if (axios.isAxiosError(e) && e.response?.status === 401) { // Changed to use axios.isAxiosError for type narrowing
+      if (axios.isAxiosError(e) && e.response?.status === 401) {
         localStorage.removeItem('authToken');
         navigate("/");
         showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -1020,10 +1058,11 @@ const ListItemComponent = () => {
         const processedData = response.data.data.map((item: any) => ({
           id: item.id,
           name: item.name,
+          code: item.code, // ✅ Added: Map Code from API
           description: item.description,
           abbreviation: item.abbreviation,
-          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0, // Provide a default
-          weight: item.weight !== undefined ? item.weight : null, // ✅ اضافه شده: دریافت وزن از API
+          recordStatus: item.recordStatus !== undefined && item.recordStatus !== null ? item.recordStatus : 0,
+          weight: item.weight !== undefined ? item.weight : null,
           createAt: item.createAt,
           category: {
             id: item.category.id,
@@ -1031,20 +1070,20 @@ const ListItemComponent = () => {
             depth: item.category.depth,
             createAt: item.category.createAt,
             // recordStatus: item.category.recordStatus,
-            recordStatus: item.category.recordStatus !== undefined && item.category.recordStatus !== null ? item.category.recordStatus : 0, // Provide a default
+            recordStatus: item.category.recordStatus !== undefined && item.category.recordStatus !== null ? item.category.recordStatus : 0,
 
           },
           unit: {
             id: item.unit.id,
             title: item.unit.title,
             // recordStatus: item.unit.recordStatus,
-            recordStatus: item.unit.recordStatus !== undefined && item.unit.recordStatus !== null ? item.unit.recordStatus : 0, // Provide a default
+            recordStatus: item.unit.recordStatus !== undefined && item.unit.recordStatus !== null ? item.unit.recordStatus : 0,
 
             createAt: item.unit.createAt,
           },
           status: item.recordStatus === 0 ? 'Aktif' : item.recordStatus === 1 ? 'Pasif' : 'Silindi',
         }));
-        // Removed initial sorting here, as it will be handled by the new sorting logic
+
         setItemsList(processedData as ItemType[]);
       } else {
         console.error("Failed to fetch items:", response.data.message);
@@ -1114,18 +1153,17 @@ const ListItemComponent = () => {
   };
 
   // ✅ Added: Handler for changing sort order
-  const handleRequestSort = (property: keyof ItemType | 'category.name' | 'unit.title' | 'weight') => {
+  const handleRequestSort = (property: keyof ItemType | 'category.name' | 'unit.title' | 'weight' | 'code') => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
     setOrderBy(property);
-    setPage(0); // Reset to first page when sort changes
+    setPage(0);
   };
 
   const filteredItems = itemsList.filter(item => {
-    // 💡 استفاده از عملگر Optional Chaining (?. ) و Nullish Coalescing (??)
-    // تا اگر فیلدی وجود نداشت، به جای خطا، رشته خالی ("") در نظر گرفته شود.
 
     const itemName = item.name ?? "";
+    const itemCode = item.code ?? ""; // ✅ Added Code for filtering
     const itemAbbreviation = item.abbreviation ?? "";
     const unitTitle = item.unit?.title ?? "";
     const categoryName = item.category?.name ?? "";
@@ -1134,6 +1172,7 @@ const ListItemComponent = () => {
 
     const matchesSearch =
       itemName.toLowerCase().includes(searchLower) ||
+      itemCode.toLowerCase().includes(searchLower) || // ✅ Search by code
       itemAbbreviation.toLowerCase().includes(searchLower) ||
       unitTitle.toLowerCase().includes(searchLower) ||
       categoryName.toLowerCase().includes(searchLower) ||
@@ -1162,83 +1201,6 @@ const ListItemComponent = () => {
     setFullDescriptionContent('');
   };
 
-  // const handlePrintAllItems = () => {
-  //   if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
-  //     showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
-  //     return;
-  //   }
-
-  //   const doc = new jsPDF();
-  //   const pageWidth = doc.internal.pageSize.getWidth();
-  //   const pageHeight = doc.internal.pageSize.getHeight();
-
-  //   // اطمینان از تعریف تابع stripHtml
-  //   const stripHtml = (htmlString: string) => { // ✅ نوع پارامتر را به string تغییر دهید
-  //     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-  //     return doc.body.textContent || "";
-  //   };
-
-  //   doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-  //   doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-  //   doc.setFont('NotoSans');
-
-  //   const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
-  //     const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
-  //     return [
-  //       item.name || '-',
-  //       item.unit?.title || '-',
-  //       item.category?.name || '-',
-  //       item.abbreviation || '-',
-  //       item.weight !== null ? String(item.weight) : '-',
-  //       descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
-  //       formatDateDisplay(item.createAt) || '-',
-  //       item.status || '-',
-  //     ];
-  //   });
-
-  //   try {
-  //     autoTable(doc, {
-  //       startY: 50,
-  //       head: [['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
-  //       body: rowsWithoutHtml,
-  //       theme: 'grid',
-  //       styles: {
-  //         font: 'NotoSans',
-  //         fontStyle: 'normal',
-  //         fontSize: 8,
-  //         cellPadding: 2,
-  //         overflow: 'linebreak'
-  //       },
-  //       headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-  //       // این قلاب به صورت خودکار در هر صفحه جدید فراخوانی می‌شود
-  //       didDrawPage: (_data) => {
-  //         // هدر
-  //         doc.addImage(Logo, 'PNG', 10, 10, 50, 25);
-  //         doc.setFontSize(18);
-  //         doc.text('Tüm Ürünler Raporu', pageWidth - 15, 30, { align: 'right' });
-  //         doc.setFontSize(12);
-  //         doc.text(`Tarih: ${formatDateDisplay(new Date().toISOString())}`, pageWidth - 15, 40, { align: 'right' });
-
-  //         // فوتر
-  //         doc.setFontSize(10);
-  //         doc.setTextColor(0);
-  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-  //         const docAny = doc as any;
-  //         const pageCount = docAny.internal.getNumberOfPages();
-  //         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-  //       },
-  //       // تنظیمات اضافی برای تکرار هدر جدول در صفحات جدید
-  //       showHead: 'everyPage',
-  //       margin: { top: 50, bottom: 20 }, // فاصله از بالا برای هدر و از پایین برای فوتر
-  //     });
-  //     doc.save('Tüm_Ürünler_Raporu.pdf');
-  //     showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-  //   } catch (error) {
-  //     console.error('PDF oluşturulurken hata:', error);
-  //     showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
-  //   }
-  // };
 
   const handlePrintAllItems = () => {
     if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
@@ -1256,12 +1218,11 @@ const ListItemComponent = () => {
     };
 
     try {
-      // افزودن فونت‌ها
+
       doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
       doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
 
-      // Add Times New Roman for headers and Arial for the table
-      // فرض می‌کنیم این متغیرها حاوی داده Base64 فونت‌ها هستند
+
       doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
       doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
 
@@ -1272,6 +1233,7 @@ const ListItemComponent = () => {
         const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
         return [
           item.name || '-',
+          item.code || '-', // ✅ Added Code to PDF
           item.unit?.title || '-',
           item.category?.name || '-',
           item.abbreviation || '-',
@@ -1283,8 +1245,9 @@ const ListItemComponent = () => {
       });
 
       autoTable(doc, {
-        startY: 65, // Start table lower to make space for the new header layout
-        head: [['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
+        startY: 65,
+        // ✅ Added "Ürün Kodu" to header
+        head: [['Ürün Adı', 'Ürün Kodu', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
         body: rowsWithoutHtml,
         theme: 'grid',
         styles: {
@@ -1322,7 +1285,7 @@ const ListItemComponent = () => {
 
           // --- بخش جدید فوتر ---
           // 1. اطلاعات شرکت در مرکز و با فونت 8
-          doc.setFont('NotoSans', 'normal'); // فونت NotoSans را برای این متن‌ها تنظیم کنید
+          doc.setFont('NotoSans', 'normal');
           doc.setFontSize(8);
           doc.setTextColor(0);
           const companyInfo = [
@@ -1343,15 +1306,15 @@ const ListItemComponent = () => {
           doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 
           // 3. امضا در سمت راست
-          doc.setFont('NotoSans', 'normal'); // فونت NotoSans را برای کلمه "İmza" تنظیم کنید
+          doc.setFont('NotoSans', 'normal');
           doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15); // اضافه کردن خط امضا
+          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
 
         },
-        margin: { top: 50, bottom: 45 }, // Adjusted margins for new header and footer layout
+        margin: { top: 50, bottom: 45 },
       });
 
-      // ... بخش محاسبه و اضافه کردن جدول جمع وزن‌ها
+
       const totalWeightMap = new Map<string, number>();
       sortedAndFilteredItems.forEach(item => {
         if (item.weight !== null && !isNaN(Number(item.weight))) {
@@ -1400,7 +1363,7 @@ const ListItemComponent = () => {
     }
   };
   const addCompanyInfo = (worksheet: Excel.Worksheet) => {
-    worksheet.addRow([]); // یک سطر خالی برای فاصله
+    worksheet.addRow([]);
     const companyInfo = [
       'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
       'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
@@ -1416,7 +1379,7 @@ const ListItemComponent = () => {
     });
   };
   const handleExportExcel = async () => {
-    setOpenDownloadModal(false); // بستن مودال بعد از انتخاب
+    setOpenDownloadModal(false);
     if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
       showAlert('Dışa aktarılacak ürün bulunamadı.', 'warning');
       return;
@@ -1460,19 +1423,19 @@ const ListItemComponent = () => {
 
       const centerAlignment: Partial<Excel.Alignment> = {
         vertical: 'middle',
-        horizontal: 'center', // این مقدار به صورت یک لیترال تایپ 'center' شناخته می‌شود
+        horizontal: 'center',
         wrapText: true
       };
 
       const leftAlignment: Partial<Excel.Alignment> = {
         vertical: 'middle',
-        horizontal: 'left', // این مقدار به صورت یک لیترال تایپ 'left' شناخته می‌شود
+        horizontal: 'left',
         wrapText: true
       };
 
       const rightAlignment: Partial<Excel.Alignment> = {
         vertical: 'middle',
-        horizontal: 'right', // این مقدار به صورت یک لیترال تایپ 'right' شناخته می‌شود
+        horizontal: 'right',
         wrapText: true
       };
 
@@ -1489,7 +1452,7 @@ const ListItemComponent = () => {
       // تعریف bodyStyle
       const bodyStyle = {
         border: border,
-        alignment: leftAlignment, // از leftAlignment که یک شیء است استفاده کنید
+        alignment: leftAlignment,
         font: font
       } as Partial<Excel.Style>;
       // --------------------------------------------------------
@@ -1507,15 +1470,16 @@ const ListItemComponent = () => {
       // worksheet.lastRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
 
       const dateRow = worksheet.lastRow;
-      if (dateRow) { // ✅ بررسی وجود سطر تاریخ
+      if (dateRow) {
         dateRow.getCell(1).font = { name: 'Times New Roman', size: 10, bold: false };
         dateRow.getCell(1).alignment = { horizontal: 'left' };
       }
 
-      worksheet.addRow([]); // یک سطر خالی برای فاصله
+      worksheet.addRow([]);
 
       // --- هدر جدول اصلی ---
-      const tableHeaders = ['Ürün Adı', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum'];
+      // ✅ Added "Ürün Kodu" to Excel Header
+      const tableHeaders = ['Ürün Adı', 'Ürün Kodu', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum'];
       const headerRow = worksheet.addRow(tableHeaders);
       headerRow.eachCell((cell) => {
         cell.style = fullHeaderStyle;
@@ -1526,6 +1490,7 @@ const ListItemComponent = () => {
         const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
         const row = worksheet.addRow([
           item.name || '-',
+          item.code || '-', // ✅ Added Code to Excel Row
           item.unit?.title || '-',
           item.category?.name || '-',
           item.abbreviation || '-',
@@ -1576,7 +1541,7 @@ const ListItemComponent = () => {
       // --- تنظیم عرض ستون‌ها ---
       worksheet.columns.forEach((column) => {
         let maxLength = 0;
-        if (column.eachCell) { // ✅ Add a check for the existence of the method
+        if (column.eachCell) {
           column.eachCell({ includeEmpty: true }, (cell) => {
             const columnLength = cell.value ? cell.value.toString().length : 10;
             if (columnLength > maxLength) {
@@ -1630,7 +1595,7 @@ const ListItemComponent = () => {
                   color="primary"
                   onClick={() => setIsFormVisible(true)}
                   isBlinking={isBlinking}
-                  fullWidth={false} // در حالت موبایل بهتر است fullWidth نباشد
+                  fullWidth={false}
                 >
                   Yeni Ürün Kaydet
                 </BlinkingButton>
@@ -1657,7 +1622,7 @@ const ListItemComponent = () => {
         {((isFormVisible && hasCreatePermission) || (editingId && hasEditPermission)) && (
           <Grid container spacing={2}>
             {/* Item Name */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="item-name" required>Ürün Adı</CustomFormLabel>
               <CustomTextField
                 id="item-name"
@@ -1666,9 +1631,9 @@ const ListItemComponent = () => {
                 value={name}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                   setName(e.target.value);
-                  if (nameError && e.target.value.trim()) { // If there was a previous error and user starts typing
-                    setNameError(false); // Clear the error
-                    setNameHelperText(''); // Clear the helper text
+                  if (nameError && e.target.value.trim()) {
+                    setNameError(false);
+                    setNameHelperText('');
                   }
                 }}
                 inputRef={itemNameInputRef}
@@ -1676,8 +1641,28 @@ const ListItemComponent = () => {
                 helperText={nameHelperText}
               />
             </Grid>
+            {/* ✅ Added: Item Code Input (Required) */}
+            <Grid item xs={12} md={4}>
+              <CustomFormLabel htmlFor="item-code" required>Ürün Kodu</CustomFormLabel>
+              <CustomTextField
+                id="item-code"
+                placeholder="Ürün Kodu"
+                fullWidth
+                value={code}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  setCode(e.target.value);
+                  if (codeError && e.target.value.trim()) {
+                    setCodeError(false);
+                    setCodeHelperText('');
+                  }
+                }}
+                error={codeError}
+                helperText={codeHelperText}
+              />
+            </Grid>
+
             {/* Unit Selection (with search) */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="select-unit" required>Ölçü</CustomFormLabel>
               {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Ürün birimini seçin" : ""}> */}
               <FormControl fullWidth error={unitIdError}>
@@ -1689,7 +1674,7 @@ const ListItemComponent = () => {
                   label="Ölçü Seçin"
                   onChange={(e) => {
                     setSelectedUnitId(e.target.value as string);
-                    if (unitIdError) { // Clear error when a unit is selected
+                    if (unitIdError) {
                       setUnitIdError(false);
                       setUnitIdHelperText('');
                     }
@@ -1739,7 +1724,7 @@ const ListItemComponent = () => {
               {/* </CustomTooltip> */}
             </Grid>
             {/* Category Selection (single-select tree) */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="select-category" required>Kategori</CustomFormLabel>
               {/* <CustomTooltip title={isTooltipGloballyEnabled ? "Kategorileri seçmek için tıklayın" : ""}> */}
               <FormControl fullWidth error={categoryIdError}> {/* **Added error prop to FormControl** */}
@@ -1811,7 +1796,7 @@ const ListItemComponent = () => {
               {/* </CustomTooltip> */}
             </Grid>
             {/* Abbreviation */}
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="abbreviation">Kısaltma (4 Karakter)</CustomFormLabel>
               <CustomTooltip title={isTooltipGloballyEnabled ? "Ürünün 4 karakterlik kısaltmasını girin" : ""}>
                 <CustomTextField
@@ -1832,8 +1817,8 @@ const ListItemComponent = () => {
                 />
               </CustomTooltip>
             </Grid>
-            {/* ✅ اضافه شده: Weight */}
-            <Grid item xs={12} md={3}>
+            {/* Weight */}
+            <Grid item xs={12} md={4}>
               <CustomFormLabel htmlFor="weight">Ürün Birim Ağırlığı</CustomFormLabel>
               <CustomTextField
                 id="weight"
@@ -1963,7 +1948,7 @@ const ListItemComponent = () => {
                   <Button
                     variant="contained"
                     color="primary"
-                    onClick={() => setOpenDownloadModal(true)} // تغییر اکشن دکمه
+                    onClick={() => setOpenDownloadModal(true)}
                     startIcon={<IconFileDownload />}
                   >
                     Tümünü İndir
@@ -2044,6 +2029,18 @@ const ListItemComponent = () => {
                     <Typography variant="h6">Ürün Adı</Typography>
                   </TableSortLabel>
                 </StyledTableCell>
+                {/* ✅ Added: Code Column Header */}
+                <StyledTableCell>
+                  <TableSortLabel
+                    active={orderBy === 'code'}
+                    direction={orderBy === 'code' ? order : 'asc'}
+                    onClick={() => handleRequestSort('code')}
+                    style={{ color: "#171c23" }}
+                  >
+                    <Typography variant="h6">Ürün Kodu</Typography>
+                  </TableSortLabel>
+                </StyledTableCell>
+
                 <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'unit.title'}
@@ -2064,7 +2061,7 @@ const ListItemComponent = () => {
                     <Typography variant="h6">Kategori</Typography>
                   </TableSortLabel>
                 </StyledTableCell>
-                <StyledTableCell>
+                {/* <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'abbreviation'}
                     direction={orderBy === 'abbreviation' ? order : 'asc'}
@@ -2073,7 +2070,7 @@ const ListItemComponent = () => {
                   >
                     <Typography variant="h6">Kısaltma</Typography>
                   </TableSortLabel>
-                </StyledTableCell>
+                </StyledTableCell> */}
                 <StyledTableCell>
                   <TableSortLabel
                     active={orderBy === 'weight'}
@@ -2113,7 +2110,7 @@ const ListItemComponent = () => {
             <TableBody>
               {loadingItems ? (
                 <TableRow>
-                  <StyledTableCell colSpan={9} align="center">
+                  <StyledTableCell colSpan={10} align="center"> {/* Updated colspan */}
                     <CircularProgress />
                     <Typography variant="subtitle1" color="textSecondary">
                       Ürünler yükleniyor...
@@ -2124,9 +2121,11 @@ const ListItemComponent = () => {
                 paginatedItems.map((row) => (
                   <TableRow key={row.id} sx={{ '&:last-child td': { border: 0 } }}>
                     <StyledTableCell><Typography variant="body1">{row.name}</Typography></StyledTableCell>
+                    {/* ✅ Added: Code Column Body */}
+                    <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                     <StyledTableCell><Typography variant="body1">{row.unit.title}</Typography></StyledTableCell>
                     <StyledTableCell><Typography variant="body1">{row.category.name}</Typography></StyledTableCell>
-                    <StyledTableCell><Typography variant="body1">{row.abbreviation}</Typography></StyledTableCell>
+                    {/* <StyledTableCell><Typography variant="body1">{row.abbreviation}</Typography></StyledTableCell> */}
                     <StyledTableCell><Typography variant="body1">{row.weight || ''}</Typography></StyledTableCell>
                     <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                       <Box sx={{
@@ -2243,7 +2242,7 @@ const ListItemComponent = () => {
                 ))
               ) : (
                 <TableRow>
-                  <StyledTableCell colSpan={9} align="center">
+                  <StyledTableCell colSpan={10} align="center"> {/* Updated colspan */}
                     <Typography variant="subtitle1" color="textSecondary">
                       Hiç ürün bulunamadı.
                     </Typography>
@@ -2305,7 +2304,7 @@ const ListItemComponent = () => {
               variant="contained"
               color="primary"
               startIcon={<IconFileDownload />}
-              onClick={handlePrintAllItems} // تابع دانلود PDF
+              onClick={handlePrintAllItems}
             >
               PDF Olarak İndir
             </Button>
@@ -2313,7 +2312,7 @@ const ListItemComponent = () => {
               variant="contained"
               color="success"
               startIcon={<IconFileDownload />}
-              onClick={handleExportExcel} // تابع دانلود Excel
+              onClick={handleExportExcel}
             >
               Excel Olarak İndir
             </Button>

@@ -741,13 +741,13 @@ const ListTenderFlowReport = () => {
                                     <StyledTableCell colSpan={10} align="right" sx={{ p: 2, background: '#fafafa', borderTop: '1px solid #ddd' }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
                                             <Typography variant="h6" color="secondary">
-                                                Toplam Demontaj (Price): {calculatedTotals.totalDemontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
+                                                Toplam Demontaj : {calculatedTotals.totalDemontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
                                             </Typography>
                                             <Typography variant="h6" color="success.main">
-                                                Toplam Montaj (Price): {calculatedTotals.totalMontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
+                                                Toplam Montaj : {calculatedTotals.totalMontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
                                             </Typography>
                                             <Typography variant="h6" color="warning.main">
-                                                Toplam Dem+Mon (Price): {calculatedTotals.totalDemontajMontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
+                                                Toplam Dem+Mon : {calculatedTotals.totalDemontajMontaj.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}
                                             </Typography>
                                         </Box>
                                     </StyledTableCell>

@@ -16,7 +16,6 @@ import {
     Tooltip
 } from '@mui/material';
 import axios from 'axios';
-// 1. ایمپورت کتابخانه تبدیل html به عکس
 import { toPng } from 'html-to-image';
 import {
     IconTruckDelivery,
@@ -25,7 +24,8 @@ import {
     IconChevronUp,
     IconChartLine,
     IconLayoutGrid,
-    IconDownload // 2. ایمپورت آیکون دانلود
+    IconDownload,
+    IconDatabaseOff // ✅ آیکون جدید برای حالت بدون دیتا
 } from '@tabler/icons-react';
 import {
     LineChart,
@@ -38,15 +38,67 @@ import {
 } from 'recharts';
 import server from '../../assets/address.json';
 
-// تعریف تایپ داده‌های دریافتی
 interface DispatchStatType {
     workhouse_id: string;
     workhousen_name: string;
     total_price: string;
 }
 
+// ✅ 1. کامپوننت جدید برای نمایش پیام "بدون دیتا" در حالت لیست
+const NoDataView = () => (
+    <Box
+        display="flex"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+        p={5}
+        sx={{
+            border: '2px dashed #e5eaef',
+            borderRadius: 4,
+            bgcolor: 'background.paper',
+            textAlign: 'center'
+        }}
+    >
+        <Avatar
+            sx={{
+                width: 80,
+                height: 80,
+                bgcolor: '#f5f7fa',
+                mb: 2
+            }}
+        >
+            <IconDatabaseOff size={40} color="#9ca3af" />
+        </Avatar>
+        <Typography variant="h6" fontWeight={600} color="textPrimary" gutterBottom>
+            Kayıt Bulunamadı
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+            Şu anda görüntülenecek herhangi bir sevk verisi mevcut değil.
+        </Typography>
+    </Box>
+);
+
+// ✅ 2. کامپوننت برای نمایش پیام وسط نمودار خالی
+const CustomNoDataOverlay = () => (
+    <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        textAlign: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        zIndex: 10,
+        border: '1px solid #eee'
+    }}>
+        <Typography variant="body1" color="textSecondary" fontWeight={500}>
+            Grafik için veri yok
+        </Typography>
+    </div>
+);
+
 const WorkhouseDispatchStats = () => {
-    // 3. ایجاد Ref برای نمودار
     const chartRef = useRef<HTMLDivElement>(null);
 
     const [data, setData] = useState<DispatchStatType[]>([]);
@@ -54,10 +106,7 @@ const WorkhouseDispatchStats = () => {
     const [expanded, setExpanded] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // حالت نمایش: 'chart' یا 'cards'
     const [viewMode, setViewMode] = useState<'chart' | 'cards'>('chart');
-
-    // رنگ اصلی تم (آبی آسمانی)
     const PRIMARY_COLOR = '#49BEFF';
 
     useEffect(() => {
@@ -76,7 +125,10 @@ const WorkhouseDispatchStats = () => {
                 if (response.data.httpStatusCode === 200 && response.data.data) {
                     setData(response.data.data);
                 } else {
-                    setError(response.data.message || 'Veri alınamadı');
+                    setData([]); // اگر دیتا نبود، آرایه خالی ست شود
+                    if (!response.data.success) {
+                        setError(response.data.message || 'Veri alınamadı');
+                    }
                 }
             } catch (err: any) {
                 if (!axios.isCancel(err)) {
@@ -92,7 +144,6 @@ const WorkhouseDispatchStats = () => {
         return () => controller.abort();
     }, []);
 
-    // 4. تابع دانلود نمودار
     const handleDownloadChart = useCallback(async () => {
         if (chartRef.current === null) {
             return;
@@ -109,7 +160,6 @@ const WorkhouseDispatchStats = () => {
         }
     }, [chartRef]);
 
-    // --- توابع کمکی ---
     const parseCurrencyToNumber = (val: string) => {
         const cleanVal = val.replace(/[^\d.-]/g, '');
         const numberVal = parseFloat(cleanVal);
@@ -121,7 +171,6 @@ const WorkhouseDispatchStats = () => {
         return num.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     };
 
-    // آماده‌سازی داده‌ها برای نمودار
     const chartData = useMemo(() => {
         return data.map(item => ({
             name: item.workhousen_name,
@@ -137,7 +186,6 @@ const WorkhouseDispatchStats = () => {
         if (newView !== null) setViewMode(newView);
     };
 
-    // تولتیپ سفارشی برای نمودار
     const CustomTooltip = ({ active, payload, label }: any) => {
         if (active && payload && payload.length) {
             return (
@@ -155,7 +203,6 @@ const WorkhouseDispatchStats = () => {
         return null;
     };
 
-    // رندر کارت تکی
     const renderCard = (item: DispatchStatType) => (
         <Card sx={{
             p: 3,
@@ -190,10 +237,16 @@ const WorkhouseDispatchStats = () => {
 
     if (loading) return <Box p={3} textAlign="center"><CircularProgress /></Box>;
     if (error) return <Alert severity="error">{error}</Alert>;
-    if (data.length === 0) return <Alert severity="info">Sevk verisi bulunamadı</Alert>;
 
+    // ❌ خط زیر حذف شد تا هدر همیشه نمایش داده شود
+    // if (data.length === 0) return <Alert severity="info">Sevk verisi bulunamadı</Alert>;
+
+    const isDataEmpty = data.length === 0;
     const firstThreeItems = data.slice(0, 3);
     const remainingItems = data.slice(3);
+
+    // دیتای ساختگی برای نمایش گرید خالی وقتی دیتایی نیست
+    const emptyChartData = Array(5).fill({ name: '', value: 0 });
 
     return (
         <Box mt={4}>
@@ -204,7 +257,8 @@ const WorkhouseDispatchStats = () => {
                 </Typography>
 
                 <Stack direction="row" spacing={2}>
-                    {viewMode === 'chart' && (
+                    {/* دکمه دانلود فقط وقتی نمایش داده شود که دیتا وجود دارد */}
+                    {viewMode === 'chart' && !isDataEmpty && (
                         <Tooltip title="Grafiği İndir">
                             <IconButton
                                 onClick={handleDownloadChart}
@@ -243,85 +297,94 @@ const WorkhouseDispatchStats = () => {
             <Box>
                 {viewMode === 'chart' ? (
                     // --- بخش نمودار خطی ---
-                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef' }}>
-                        {/* 6. اتصال Ref به کانتینر نمودار */}
-                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper' }}>
-                            {chartData.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart
-                                        data={chartData}
-                                        margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                                    >
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
-                                        <XAxis
-                                            dataKey="name"
-                                            tick={{ fontSize: 12, fill: '#666' }}
-                                            interval="preserveStartEnd"
-                                        />
-                                        <YAxis
-                                            tick={{ fontSize: 12, fill: '#666' }}
-                                            tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                                        />
-                                        <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#e0e0e0', strokeWidth: 2 }} />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="value"
-                                            stroke={PRIMARY_COLOR}
-                                            strokeWidth={3}
-                                            dot={{ r: 4, fill: PRIMARY_COLOR, strokeWidth: 2, stroke: '#fff' }}
-                                            activeDot={{ r: 6, strokeWidth: 0 }}
-                                            animationDuration={1500}
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <Box display="flex" alignItems="center" justifyContent="center" height="100%">
-                                    <Typography color="textSecondary">Grafik için uygun veri bulunamadı.</Typography>
-                                </Box>
-                            )}
+                    <Card sx={{ p: 2, boxShadow: 'none', border: '1px solid #e5eaef', position: 'relative' }}>
+                        <Box height="400px" width="100%" ref={chartRef} sx={{ bgcolor: 'background.paper', position: 'relative' }}>
+                            {/* اگر دیتا خالی بود، پیام وسط نمودار نمایش داده شود */}
+                            {isDataEmpty && <CustomNoDataOverlay />}
+
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart
+                                    // اگر دیتا خالیه، دیتای فیک میدیم که محورها رسم بشن
+                                    data={isDataEmpty ? emptyChartData : chartData}
+                                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                                >
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e0e0e0" />
+                                    <XAxis
+                                        dataKey="name"
+                                        tick={{ fontSize: 12, fill: '#666' }}
+                                        interval="preserveStartEnd"
+                                    />
+                                    <YAxis
+                                        tick={{ fontSize: 12, fill: '#666' }}
+                                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                                    />
+                                    {/* تولتیپ و خط فقط وقتی رندر میشن که دیتا باشه */}
+                                    {!isDataEmpty && (
+                                        <>
+                                            <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: '#e0e0e0', strokeWidth: 2 }} />
+                                            <Line
+                                                type="monotone"
+                                                dataKey="value"
+                                                stroke={PRIMARY_COLOR}
+                                                strokeWidth={3}
+                                                dot={{ r: 4, fill: PRIMARY_COLOR, strokeWidth: 2, stroke: '#fff' }}
+                                                activeDot={{ r: 6, strokeWidth: 0 }}
+                                                animationDuration={1500}
+                                            />
+                                        </>
+                                    )}
+                                </LineChart>
+                            </ResponsiveContainer>
                         </Box>
                     </Card>
                 ) : (
                     // --- بخش لیست کارت‌ها ---
                     <>
-                        <Grid container spacing={3}>
-                            {firstThreeItems.map((item, index) => (
-                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
-                                    {renderCard(item)}
-                                </Grid>
-                            ))}
-                        </Grid>
-
-                        {remainingItems.length > 0 && (
+                        {isDataEmpty ? (
+                            // ✅ نمایش کامپوننت "بدون دیتا"
+                            <NoDataView />
+                        ) : (
                             <>
-                                <Collapse in={expanded} timeout="auto" unmountOnExit>
-                                    <Box mt={3}>
-                                        <Grid container spacing={3}>
-                                            {remainingItems.map((item, index) => (
-                                                <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
-                                                    {renderCard(item)}
-                                                </Grid>
-                                            ))}
+                                <Grid container spacing={3}>
+                                    {firstThreeItems.map((item, index) => (
+                                        <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || index}>
+                                            {renderCard(item)}
                                         </Grid>
-                                    </Box>
-                                </Collapse>
+                                    ))}
+                                </Grid>
 
-                                <Box display="flex" justifyContent="center" mt={3}>
-                                    <Button
-                                        variant="outlined"
-                                        sx={{
-                                            color: PRIMARY_COLOR,
-                                            borderColor: PRIMARY_COLOR,
-                                            borderRadius: '20px',
-                                            px: 4,
-                                            '&:hover': { borderColor: PRIMARY_COLOR, bgcolor: '#E8F7FF' }
-                                        }}
-                                        onClick={() => setExpanded(!expanded)}
-                                        endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
-                                    >
-                                        {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length} kayıt)`}
-                                    </Button>
-                                </Box>
+                                {remainingItems.length > 0 && (
+                                    <>
+                                        <Collapse in={expanded} timeout="auto" unmountOnExit>
+                                            <Box mt={3}>
+                                                <Grid container spacing={3}>
+                                                    {remainingItems.map((item, index) => (
+                                                        <Grid item xs={12} sm={6} md={4} key={item.workhouse_id || `more-${index}`}>
+                                                            {renderCard(item)}
+                                                        </Grid>
+                                                    ))}
+                                                </Grid>
+                                            </Box>
+                                        </Collapse>
+
+                                        <Box display="flex" justifyContent="center" mt={3}>
+                                            <Button
+                                                variant="outlined"
+                                                sx={{
+                                                    color: PRIMARY_COLOR,
+                                                    borderColor: PRIMARY_COLOR,
+                                                    borderRadius: '20px',
+                                                    px: 4,
+                                                    '&:hover': { borderColor: PRIMARY_COLOR, bgcolor: '#E8F7FF' }
+                                                }}
+                                                onClick={() => setExpanded(!expanded)}
+                                                endIcon={expanded ? <IconChevronUp /> : <IconChevronDown />}
+                                            >
+                                                {expanded ? 'Daha Az Göster' : `Daha Fazla Göster (${remainingItems.length} kayıt)`}
+                                            </Button>
+                                        </Box>
+                                    </>
+                                )}
                             </>
                         )}
                     </>

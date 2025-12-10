@@ -323,11 +323,11 @@ const ListPosition = () => {
                 }
             );
             if (response.data.httpStatusCode === 201) {
-                showAlert('Yeni سمت başarıyla eklendi!', 'success');
+                showAlert('Yeni pozisyon başarıyla eklendi!', 'success');
                 resetFormAndState();
                 getListPositions();
             } else {
-                showAlert(response.data.message || 'Yeni سمت eklenirken bir hata oluştu.', 'error');
+                showAlert(response.data.message || 'Yeni pozisyon eklenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
