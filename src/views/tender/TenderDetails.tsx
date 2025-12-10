@@ -1058,6 +1058,7 @@ const TenderDetails = () => {
                         showAlert(successMessage, 'success');
                     }
                     setFileUploadedSuccessfully(true);
+                    setHasUnsavedChanges(true);
                 } else {
                     if (duplicateCount > 0) {
                         showAlert(`Hiçbir kayıt eklenemedi. ${duplicateCount} adet yinelenen kayıt atlandı.`, 'info');
@@ -2285,7 +2286,7 @@ const TenderDetails = () => {
                                         variant="contained"
                                         color="error"
                                         onClick={handleSaveAllData}
-                                        disabled={isLoading || isSavingAll || editingRowId !== null || gridData.length === 0 || hasUnregisteredItems}
+                                        disabled={isLoading || isSavingAll || editingRowId !== null || hasUnregisteredItems}
                                         startIcon={isSavingAll ? <CircularProgress size={20} color="inherit" /> : <IconCheck />}
                                     >
                                         {isSavingAll ? 'Kaydediliyor...' : 'Tümünü Kaydet'}
