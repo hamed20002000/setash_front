@@ -96,7 +96,7 @@ const AttachFileModal: React.FC<AttachFileModalProps> = ({ open, onClose, tender
                 };
 
                 // Step 3: Send file URLs to the second API to update the database
-                const updateTenderApiEndpoint = server.baseurl + server.initialoperations + "update-tender";
+                const updateTenderApiEndpoint = server.baseurl + server.initialoperations + "update-tender-header";
                 const updateResponse = await axios.put(updateTenderApiEndpoint, updatePayload, {
                     headers: {
                         'Content-Type': 'application/json',

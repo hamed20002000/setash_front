@@ -776,7 +776,7 @@ const ListTender = () => {
         return;
       }
       const response = await axios.put(
-        server.baseurl + server.initialoperations + "update-tender",
+        server.baseurl + server.initialoperations + "update-tender-header",
         { id: Number(editingId), title: title }, {
         headers: {
           "Accept": "application/json",
@@ -816,7 +816,7 @@ const ListTender = () => {
         navigate("/");
         return;
       }
-      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender",
+      const response = await axios.put(server.baseurl + server.initialoperations + "update-tender-header",
         { id: Number(id), recordStatus: statusValue }, {
         headers: {
           "Accept": "application/json",
