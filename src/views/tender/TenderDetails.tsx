@@ -1276,27 +1276,84 @@ const TenderDetails = () => {
 
 
 
-    const refreshGridData = useCallback(async () => {
-        setLoading(true);
-        await fetchDataAndBuildTree();
-        await loadExistingTenderDetails();
-        setLoading(false);
-    }, [fetchDataAndBuildTree, loadExistingTenderDetails]);
+    // const refreshGridData = useCallback(async () => {
+    //     setLoading(true);
+    //     await fetchDataAndBuildTree();
+    //     await loadExistingTenderDetails();
+    //     setLoading(false);
+    // }, [fetchDataAndBuildTree, loadExistingTenderDetails]);
+
+
+    // const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
+    //     setOpenRegisterItemModal(false);
+    //     setOpenRegisterCategoryModal(false);
+    //     setItemToRegister(null);
+    //     setCategoryToRegister(null);
+
+
+    //     await refreshCombinedTreeData();
+    //     await refreshGridData();
+
+    //     showAlert(`Liste başarıyla güncellendi ve "${registeredData.name}" öğesinin durumu ayarlandı!`, 'success');
+    // }, [showAlert, refreshGridData]);
 
 
     const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
+        // بستن مودال‌ها و ریست کردن استیت‌های موقت
         setOpenRegisterItemModal(false);
         setOpenRegisterCategoryModal(false);
         setItemToRegister(null);
         setCategoryToRegister(null);
 
-
+        // 1. درخت داده‌ها را آپدیت می‌کنیم تا در دراپ‌داون‌ها آیتم جدید دیده شود
         await refreshCombinedTreeData();
-        await refreshGridData();
 
-        showAlert(`Liste başarıyla güncellendi ve "${registeredData.name}" öğesinin durumu ayarlandı!`, 'success');
-    }, [showAlert, refreshGridData]);
+        // 2. نکته مهم: refreshGridData() را حذف کردیم تا دیتای اکسل نپرد.
+        // await refreshGridData(); <--- این خط باعث پاک شدن اکسل می‌شد
 
+        // 3. به جای رفرش از سرور، گرید فعلی را دستی آپدیت می‌کنیم
+        setGridData(prevGridData => {
+            return prevGridData.map(row => {
+                // نرمال‌سازی برای مقایسه دقیق رشته‌ها
+                const rowDesc = normalizeString(row.description);
+                const newName = normalizeString(registeredData.name);
+
+                // اگر نام ردیف با نام آیتم/کتگوری ثبت شده یکی بود
+                if (rowDesc === newName) {
+                    // تشخیص اینکه آیا ردیف و دیتای ثبت شده هر دو از یک نوع هستند (کتگوری یا آیتم)
+                    const isCategoryRegistration = 'categories' in registeredData || (registeredData as any).categories !== undefined;
+                    // نکته: تایپ گارد ساده برای تشخیص کتگوری بودن دیتای بازگشتی
+
+                    // اگر نوع ردیف با نوع دیتای ثبت شده همخوانی دارد
+                    if (row.isCategory === isCategoryRegistration) {
+                        let updatedRow = { ...row };
+
+                        // تنظیم وضعیت به "ثبت شده"
+                        updatedRow.isUnregisteredItem = false;
+
+                        if (!row.isCategory) {
+                            // اگر آیتم است، ID و واحد را ست کن
+                            updatedRow.itemId = (registeredData as ApiItemType).id;
+                            if ((registeredData as ApiItemType).unit) {
+                                updatedRow.olcuBrimi = (registeredData as ApiItemType).unit.title;
+                            }
+                        } else {
+                            // اگر کتگوری است، درصد یا تنظیمات دیگر را اگر در ریسپانس هست ست کن
+                            if ((registeredData as any).percent) {
+                                updatedRow.categoryPercentage = (registeredData as any).percent;
+                            }
+                        }
+
+                        // محاسبه مجدد قیمت‌ها برای این ردیف
+                        return calculateTotals(updatedRow, true);
+                    }
+                }
+                return row;
+            });
+        });
+
+        showAlert(`Liste güncellendi: "${registeredData.name}" başarıyla işlendi.`, 'success');
+    }, [showAlert, refreshCombinedTreeData, calculateTotals]);
 
     const handleCloseRegisterItemModal = useCallback(() => {
         setOpenRegisterItemModal(false);

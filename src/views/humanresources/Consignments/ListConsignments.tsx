@@ -604,9 +604,23 @@ const ListConsignments: React.FC = () => {
     // --- Data Fetching: Reference Lists ---
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(server.baseurl + server.initialoperations + "get-warehouses", { headers: { Authorization: `Bearer ${authToken}` } });
+            const response = await axios.get(server.baseurl + server.initialoperations + "get-warehouses",
+                {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    params: requestParams
+                });
             if (response.data.httpStatusCode === 200) {
                 setWarehousesList(response.data.data.map((item: any) => ({ id: Number(item.id), name: item.name })) as WarehouseType[]);
             } else { showAlert(response.data.message || 'Depolar yüklenirken bir hata oluştu.', 'error'); }
@@ -654,10 +668,24 @@ const ListConsignments: React.FC = () => {
 
     const fetchCarWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             // API: get-car-warehouses
-            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`, { headers: { Authorization: `Bearer ${authToken}` } });
+            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`,
+                {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    params: requestParams
+                });
             if (response.data.httpStatusCode === 200) {
                 const all = response.data.data as any[];
                 const mapped = all

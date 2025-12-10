@@ -411,13 +411,26 @@ const ListCarWarehouse: React.FC = () => {
 
     // --- Data Fetching: Car Warehouses ---
     const fetchCarWarehouses = useCallback(async () => {
-        const authToken = localStorage.getItem('authToken');
         setLoadingData(true);
-        if (!authToken) { navigate('/'); setLoadingData(false); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
 
         try {
             const res = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`,
-                { headers: { Authorization: `Bearer ${authToken}` } });
+                {
+                    headers: { Authorization: `Bearer ${authToken}` },
+                    params: requestParams
+                });
             if (res.data.httpStatusCode === 200) {
                 const rawRows = (res.data.data as CarWarehouseApiData[]).map(mapApiDataToCarWarehouse);
                 setCarWarehouses(rawRows);

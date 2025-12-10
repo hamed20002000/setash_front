@@ -537,9 +537,23 @@ const ListConsignedCarwarehouse: React.FC = () => {
 
     const fetchWarehouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
-            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`, { headers: { "Authorization": `Bearer ${authToken}` } });
+            const response = await axios.get(`${server.baseurl}${server.initialoperations}get-car-warehouses`,
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                });
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 const activeWarehouses = response.data.data.filter((w: CarWarehouseApi) => w.recordStatus === 0);
                 setWarehousesList(activeWarehouses);

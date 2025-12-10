@@ -392,7 +392,11 @@ const ListBetweenStoreReceipt = () => {
                         headers: { "Authorization": `Bearer ${authToken}` },
                         params: requestParams
                     }),
-                axios.get<ApiResponse<BetweenStoreReceiptType[]>>(server.baseurl + server.warehouse + `get-between-store-receipts`, { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<ApiResponse<BetweenStoreReceiptType[]>>(server.baseurl + server.warehouse + `get-between-store-receipts`,
+                    {
+                        headers: { "Authorization": `Bearer ${authToken}` },
+                        params: requestParams
+                    }),
             ]);
             setStores((storesRes.data?.data || []).filter(s => s.recordStatus === 0).map(s => ({ ...s, id: String(s.id) })));
             setReceiptList(receiptsRes.data?.httpStatusCode === 200 ? receiptsRes.data.data : []);

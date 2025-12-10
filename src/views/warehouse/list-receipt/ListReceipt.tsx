@@ -176,10 +176,21 @@ const ListReceipts = () => {
     const fetchWarehouses = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(server.baseurl + server.initialoperations + "get-warehouses", {
-                headers: { "Authorization": `Bearer ${authToken}` }
+                headers: { "Authorization": `Bearer ${authToken}` },
+                params: requestParams
             });
             if (response.data.httpStatusCode === 200 && Array.isArray(response.data.data)) {
                 const allWarehouses = response.data.data as WarehouseType[];
@@ -204,13 +215,23 @@ const ListReceipts = () => {
     const getReceipts = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
             return;
         }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(server.baseurl + server.warehouse + "get-receipt",
-                { headers: { "Authorization": `Bearer ${authToken}` } });
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                });
             if (response.data.httpStatusCode === 200) {
                 setReceiptsList(response.data.data as ReceiptType[]);
             } else {

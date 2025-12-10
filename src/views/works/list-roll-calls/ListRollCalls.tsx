@@ -550,11 +550,22 @@ const ListRollCalls = () => {
     const fetchRollCalls = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate('/'); setLoadingData(false); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
 
         try {
             const res = await axios.get(`${server.baseurl}${server.hr}get-all-RollCalls`, {
-                headers: { Authorization: `Bearer ${authToken}` }
+                headers: { Authorization: `Bearer ${authToken}` },
+                params: requestParams
             });
 
             if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {

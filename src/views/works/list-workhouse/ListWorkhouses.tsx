@@ -524,7 +524,7 @@ const ListWorkhouses = () => {
                 server.baseurl + server.initialoperations + "get-workhouse",
                 {
                     headers: { "Authorization": `Bearer ${authToken}` },
-                    params: requestParams // اضافه کردن پارامترها
+                    params: requestParams
                 }
             );
 

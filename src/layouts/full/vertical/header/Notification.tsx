@@ -345,11 +345,23 @@ const Notifications = () => {
 
   const fetchWarehouses = useCallback(async () => {
     setSelectLoading(true);
+    const authToken = localStorage.getItem('authToken');
+    const role = localStorage.getItem('activeUserRoleName') || '';
+    if (!authToken) {
+      navigate("/");
+      setSelectLoading(false);
+      return;
+    }
+
+    let requestParams = {};
+
+    if (role.toLowerCase() !== 'admin') {
+      requestParams = { rolename: role };
+    }
     try {
-      const authToken = localStorage.getItem('authToken');
-      if (!authToken) return;
       const res = await axios.get(server.baseurl + server.initialoperations + 'get-warehouses', {
         headers: { Authorization: `Bearer ${authToken}` },
+        params: requestParams
       });
       if (res.data?.httpStatusCode === 200) setWarehouses(res.data.data || []);
     } finally { setSelectLoading(false); }

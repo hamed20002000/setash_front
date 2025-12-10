@@ -141,7 +141,7 @@ const DashboardStats = () => {
                         total={stats.all_tender}
                         active={stats.accepted_tender}
                         activeLabel="Aktivler"
-                        inactiveLabel="Reddedilenler"
+                        inactiveLabel="Red+Bekleyen"
                         icon={IconGavel}
                         color="#FA896B"
                     />

@@ -452,12 +452,25 @@ const ListReceiptsSendedFromStore = () => {
 
     // --- API: Receipts list ---
     const fetchWarehouses = useCallback(async () => {
-        const token = localStorage.getItem('authToken');
-        if (!token) { navigate("/"); return []; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const res = await axios.get<ApiResponse<WarehouseType[]>>(
                 server.baseurl + server.initialoperations + "get-warehouses",
-                { headers: { "Authorization": `Bearer ${token}` } }
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {
                 const active = res.data.data
@@ -619,12 +632,26 @@ const ListReceiptsSendedFromStore = () => {
     // --- Initial load ---
     const fetchInitialData = useCallback(async () => {
         setLoadingData(true);
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             await Promise.all([fetchWarehouses(), fetchWorkhouses()]);
             const receiptsRes = await axios.get<ApiResponse<SendedReceiptType[]>>(
                 server.baseurl + server.warehouse + `get-Receipt-sended-from-store-to-warehouse`,
-                { headers: { "Authorization": `Bearer ${authToken}` } }
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             if (receiptsRes.data?.httpStatusCode === 200) {
                 const formatted = receiptsRes.data.data.map(d => ({ ...d, ...getStatus(d.recordStatus) }));
@@ -798,7 +825,18 @@ const ListReceiptsSendedFromStore = () => {
     const insertReceipt = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
-        if (!authToken) { navigate("/"); return; }
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
 
         try {
             const payload: NewReceiptData = {
@@ -825,7 +863,10 @@ const ListReceiptsSendedFromStore = () => {
                 try {
                     const receiptsRes = await axios.get<ApiResponse<SendedReceiptType[]>>(
                         server.baseurl + server.warehouse + `get-Receipt-sended-from-store-to-warehouse`,
-                        { headers: { "Authorization": `Bearer ${authToken}` } }
+                        {
+                            headers: { "Authorization": `Bearer ${authToken}` },
+                            params: requestParams
+                        }
                     );
                     if (receiptsRes.data?.httpStatusCode === 200) {
                         const all = receiptsRes.data.data.map(d => ({ ...d, ...getStatus(d.recordStatus) }));

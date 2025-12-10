@@ -439,16 +439,27 @@ const ListStoreDispatchReturnToCenter = () => {
 
     const fetchDispatches = useCallback(async () => {
         setLoadingData(true);
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
         if (!authToken) {
             navigate("/");
-            setLoadingData(false);
             return;
+        }
+
+        let requestParams = {};
+
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
         }
 
         try {
             const [driversRes, storesRes, dispatchesRes] = await Promise.all([
                 axios.get<any>(server.baseurl + server.warehouse + "get-drivers", { headers: { "Authorization": `Bearer ${authToken}` } }),
-                axios.get<any>(server.baseurl + server.initialoperations + "get-warehouses", { headers: { "Authorization": `Bearer ${authToken}` } }),
+                axios.get<any>(server.baseurl + server.initialoperations + "get-warehouses",
+                    {
+                        headers: { "Authorization": `Bearer ${authToken}` },
+                        params: requestParams
+                    }),
                 axios.get<any>(server.baseurl + server.warehouse + `get-Store-dispatches-return-to-center/${Number(storeId)}`, { headers: { "Authorization": `Bearer ${authToken}` } }),
             ]);
 
