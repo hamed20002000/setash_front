@@ -9,11 +9,14 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
     RadioGroup, FormControlLabel, Radio, Chip,
-    DialogContentText
+    DialogContentText,
+    Slide,
+    AppBar,
+    Toolbar
 } from '@mui/material';
 
 import { styled, keyframes } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconPencil, IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch, IconRefresh } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconPencil, IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch, IconRefresh, IconPlus } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -34,6 +37,9 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
 import { ArialFont } from 'src/assets/fonts/Arial';
+
+import ListDrivers from '../list-driver/ListDrivers';
+import { TransitionProps } from '@mui/material/transitions';
 
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
     fontFamily: 'NotoSans',
@@ -229,6 +235,15 @@ const cleanAndConvertNumber = (value: string | number | undefined | null): numbe
     return isNaN(numericValue) ? 0 : numericValue;
 };
 
+const Transition = React.forwardRef(function Transition(
+    props: TransitionProps & {
+        children: React.ReactElement;
+    },
+    ref: React.Ref<unknown>,
+) {
+    return <Slide direction="up" ref={ref} {...props} />;
+});
+
 const ListInvoices = () => {
     const navigate = useNavigate();
 
@@ -251,6 +266,8 @@ const ListInvoices = () => {
     const [providers, setProviders] = useState<ProviderType[]>([]);
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
+
+    const [openDriverModal, setOpenDriverModal] = useState(false);
 
     const [driver, setDriver] = useState('');
     const [docDate, setDocDate] = useState<Date | null>(new Date());
@@ -795,6 +812,11 @@ const ListInvoices = () => {
             saveAs(new Blob([buffer]), fileName);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
         });
+    };
+
+    const handleCloseDriverModal = () => {
+        setOpenDriverModal(false);
+        fetchDrivers(); // 🔄 لیست راننده‌ها را رفرش می‌کند تا راننده جدید در کمبو دیده شود
     };
 
     const handleOpenStatusHistoryModal = (invoice: InvoiceType) => {
@@ -1472,9 +1494,17 @@ const ListInvoices = () => {
     const sortedAndFilteredInvoices = stableSort(filteredInvoices, getComparator(order, orderBy));
     const paginatedInvoices = sortedAndFilteredInvoices.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
+
     const isFormComplete = useMemo(() => {
-        const isMainFormComplete = driver && docDate && warehouse && selectedVehicle;
-        const hasValidItems = invoiceItems.length > 0 && !invoiceItems.some(item => !item.item || item.quantity <= 0 || item.price <= 0 || isNaN(item.quantity) || isNaN(item.price));
+        const isMainFormComplete = Boolean(driver && docDate && warehouse && selectedVehicle);
+
+        const hasValidItems = invoiceItems.length > 0 && invoiceItems.every(item => {
+            const qty = cleanAndConvertNumber(item.quantity);
+            const prc = cleanAndConvertNumber(item.price);
+
+            return item.item && qty > 0 && prc > 0;
+        });
+
         return isMainFormComplete && hasValidItems;
     }, [driver, docDate, warehouse, invoiceItems, selectedVehicle]);
 
@@ -1520,7 +1550,7 @@ const ListInvoices = () => {
                         <Grid container spacing={2}>
                             <Grid item xs={12} md={4}>
                                 <CustomFormLabel htmlFor="driver-autocomplete" required>Sürücü</CustomFormLabel>
-                                <Stack direction="row" alignItems="center" spacing={2}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
                                     <Autocomplete<DriverType>
                                         id="driver-autocomplete"
                                         options={drivers}
@@ -1537,6 +1567,19 @@ const ListInvoices = () => {
                                         renderInput={(params) => <TextField {...params} label="Sürücü Seçin" variant="outlined" size="small" />}
                                         sx={{ flexGrow: 1 }}
                                     />
+
+                                    {/* 👇 دکمه جدید پلاس برای باز کردن مودال 👇 */}
+                                    <CustomTooltip title="Sürücü Listesi / Ekle">
+                                        <IconButton
+                                            color="primary"
+                                            onClick={() => setOpenDriverModal(true)}
+                                            sx={{ border: '1px solid', borderColor: 'primary.main', borderRadius: 1 }}
+                                        >
+                                            <IconPlus size={20} />
+                                        </IconButton>
+                                    </CustomTooltip>
+
+                                    {/* دکمه ویرایش خودرو که قبلاً وجود داشت */}
                                     {selectedVehicleName && (vehiclesList.length > 1) && (
                                         <IconButton onClick={handleOpenVehicleModal} size="small"><IconPencil size={20} /></IconButton>
                                     )}
@@ -2097,6 +2140,37 @@ const ListInvoices = () => {
                         Kapat
                     </Button>
                 </DialogActions>
+            </Dialog>
+
+            {/* مودال تمام صفحه لیست رانندگان */}
+            <Dialog
+                fullScreen
+                open={openDriverModal}
+                onClose={handleCloseDriverModal}
+                TransitionComponent={Transition}
+            >
+                <AppBar sx={{ position: 'relative' }}>
+                    <Toolbar>
+                        <IconButton
+                            edge="start"
+                            color="inherit"
+                            onClick={handleCloseDriverModal}
+                            aria-label="close"
+                        >
+                            <IconX />
+                        </IconButton>
+                        <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+                            Sürücü Listesi ve Yönetimi
+                        </Typography>
+                        <Button autoFocus color="inherit" onClick={handleCloseDriverModal}>
+                            Kapat
+                        </Button>
+                    </Toolbar>
+                </AppBar>
+                <DialogContent>
+                    {/* نمایش کامپوننت لیست راننده‌ها */}
+                    <ListDrivers />
+                </DialogContent>
             </Dialog>
         </Box>
     );

@@ -46,6 +46,31 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
+
+const pulseRedAnimation = keyframes`
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(211, 47, 47, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
+`;
+
+const FixedActionButton = styled(Button)<{ isBlinking: boolean }>(({ theme, isBlinking }) => ({
+    position: 'fixed',
+    bottom: '20px', // فاصله از پایین
+    right: '100px',  // فاصله از راست
+    zIndex: 1300,   // بالاتر از سایر المان‌ها قرار بگیرد
+    padding: '12px 24px',
+    fontSize: '1rem',
+    fontWeight: 'bold',
+    borderRadius: '50px', // گرد کردن گوشه‌ها
+    boxShadow: theme.shadows[6],
+    // اگر isBlinking درست باشد، انیمیشن اجرا می‌شود
+    animation: isBlinking ? `${pulseRedAnimation} 2s infinite` : 'none',
+    transition: 'all 0.3s ease-in-out',
+    '&:hover': {
+        transform: 'scale(1.05)',
+    }
+}));
+
 interface ApiNetworkItem {
     id: string;
     value: string;
@@ -482,14 +507,14 @@ const NetworkDetails = () => {
     const updateToplamRow = useCallback((currentEntries: WorkDetailRow[]): WorkDetailRow[] => {
         return currentEntries.map(trAdiRow => {
             const actualSubEntries = trAdiRow.subEntries.filter(sub => !sub.isToplamRow);
-            let totalYeni = 0;
-            let totalDmm = 0;
-            let totalMevcut = 0;
-            actualSubEntries.forEach(sub => {
-                totalYeni += parseFloat(sub.yeni || '0');
-                totalDmm += parseFloat(sub.dmm || '0');
-                totalMevcut += parseFloat(sub.mevcut || '0');
-            });
+            // let totalYeni = 0;
+            // let totalDmm = 0;
+            // let totalMevcut = 0;
+            // actualSubEntries.forEach(sub => {
+            //     totalYeni += parseFloat(sub.yeni || '0');
+            //     totalDmm += parseFloat(sub.dmm || '0');
+            //     totalMevcut += parseFloat(sub.mevcut || '0');
+            // });
             const itemTotals: { [itemName: string]: number } = {};
             actualSubEntries.forEach(sub => {
                 sub.itemDetails.forEach(item => {
@@ -507,9 +532,9 @@ const NetworkDetails = () => {
                 id: `${trAdiRow.id}-sub-TOTAL`,
                 trAdiParentId: trAdiRow.id,
                 dn: 'TOPLAM',
-                yeni: totalYeni.toString(),
-                dmm: totalDmm.toString(),
-                mevcut: totalMevcut.toString(),
+                yeni: '',   // ✅ تغییر: مقدار خالی شد
+                dmm: '',    // ✅ تغییر: مقدار خالی شد
+                mevcut: '', // ✅ تغییر: مقدار خالی شد
                 itemDetails: totalItemDetails,
                 isToplamRow: true,
             };
@@ -838,14 +863,14 @@ const NetworkDetails = () => {
             }
             newRegisteredWorkEntries.forEach(trAdiRow => {
                 const subEntriesForThisTrAdi = tempTrAdiSubEntries[trAdiRow.id];
-                let totalYeni = 0;
-                let totalDmm = 0;
-                let totalMevcut = 0;
-                subEntriesForThisTrAdi.forEach(sub => {
-                    totalYeni += parseFloat(sub.yeni || '0');
-                    totalDmm += parseFloat(sub.dmm || '0');
-                    totalMevcut += parseFloat(sub.mevcut || '0');
-                });
+                // let totalYeni = 0;
+                // let totalDmm = 0;
+                // let totalMevcut = 0;
+                // subEntriesForThisTrAdi.forEach(sub => {
+                //     totalYeni += parseFloat(sub.yeni || '0');
+                //     totalDmm += parseFloat(sub.dmm || '0');
+                //     totalMevcut += parseFloat(sub.mevcut || '0');
+                // });
                 const itemTotals: { [itemName: string]: number } = {};
                 subEntriesForThisTrAdi.forEach(sub => {
                     sub.itemDetails.forEach(item => {
@@ -862,9 +887,9 @@ const NetworkDetails = () => {
                     id: `${trAdiRow.id}-sub-TOTAL`,
                     trAdiParentId: trAdiRow.id,
                     dn: 'TOPLAM',
-                    yeni: totalYeni.toString(),
-                    dmm: totalDmm.toString(),
-                    mevcut: totalMevcut.toString(),
+                    yeni: '',   // ✅ تغییر: مقدار خالی شد
+                    dmm: '',    // ✅ تغییر: مقدار خالی شد
+                    mevcut: '', // ✅ تغییر: مقدار خالی شد
                     itemDetails: totalItemDetails,
                     isToplamRow: true,
                 };
@@ -1450,14 +1475,16 @@ const NetworkDetails = () => {
                 let isFirstRowForTrAdi = true;
 
                 trAdiRow.subEntries.forEach(subEntry => {
+                    const isToplam = subEntry.isToplamRow;
                     const rowData = [
                         isFirstRowForTrAdi ? trAdiTitle : '',
                         subEntry.dn,
-                        subEntry.yeni,
-                        subEntry.dmm,
-                        subEntry.mevcut,
+                        isToplam ? '' : subEntry.yeni,   // شرط برای YENİ
+                        isToplam ? '' : subEntry.dmm,    // شرط برای DMM
+                        isToplam ? '' : subEntry.mevcut, // شرط برای MEVCUT
                         ...uniqueItemNames.map(itemName => {
                             const item = subEntry.itemDetails.find(d => d.name === itemName);
+                            // برای آیتم‌های داینامیک، مقدار را همیشه نشان بده (چون جمع اقلام مهم است)
                             return item ? parseFloat(item.value) : '';
                         })
                     ];
@@ -1956,27 +1983,26 @@ const NetworkDetails = () => {
                                         </Button>
                                     )}
                                     {registeredWorkEntries.length > 0 && (
-                                        // ✅ دکمه به همراه تولتیپ و انیمیشن
-
-
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Yapılan tüm değişiklikleri sunucuya kaydetmek için tıklayın." : ""}>
-                                            <Button
+                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm değişiklikleri sunucuya kaydet" : ""}>
+                                            <FixedActionButton
                                                 variant="contained"
-                                                color="success"
+                                                color={hasUnsavedChanges ? "error" : "success"} // اگر تغییرات ذخیره نشده باشد قرمز، وگرنه سبز
+                                                size="large"
                                                 onClick={handleSendAllRegisteredData}
                                                 disabled={loadingRegisterButton}
-                                                sx={{
-                                                    ...(hasUnsavedChanges && {
-                                                        animation: 'pulse-red 2s infinite',
-                                                        backgroundColor: 'red', // یا رنگ دلخواه دیگر
-                                                    })
-                                                }}
+                                                isBlinking={hasUnsavedChanges} // شرط چشمک زدن
+                                                startIcon={<IconUpload />}
                                             >
-                                                Tüm Kayıtları Gönder
-                                            </Button>
-
+                                                {loadingRegisterButton ? (
+                                                    <>
+                                                        <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
+                                                        Gönderiliyor...
+                                                    </>
+                                                ) : (
+                                                    "Tüm Kayıtları Gönder"
+                                                )}
+                                            </FixedActionButton>
                                         </CustomTooltip>
-
                                     )}
                                 </Stack>
                             </Grid>

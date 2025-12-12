@@ -322,6 +322,55 @@ const ListDrivers = () => {
     };
 
 
+    // const insertDriver = async () => {
+    //     if (!validateForm()) return;
+    //     setLoadingButton(true);
+
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) {
+    //         navigate("/");
+    //         return;
+    //     }
+    //     const payload = {
+    //         name: firstName,
+    //         family: lastName,
+    //         birthdate: birthdate ? birthdate.toISOString() : null,
+    //         fatherName,
+    //         identityNo,
+    //         internal: internal == "0" ? false : true
+    //     };
+    //     try {
+    //         const response = await axios.post(
+    //             server.baseurl + server.warehouse + "create-driver",
+    //             payload,
+    //             {
+    //                 headers: {
+    //                     "Accept": "application/json",
+    //                     'Content-Type': 'application/json',
+    //                     "Authorization": `Bearer ${authToken}`
+    //                 }
+    //             }
+    //         );
+    //         if (response.data.httpStatusCode === 201) {
+    //             showAlert(`Sürücü başarıyla eklendi!`, 'success');
+    //             resetFormAndState();
+    //             fetchDrivers();
+    //         } else {
+    //             showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
+    //         }
+    //     } catch (e: any) {
+    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+    //         else if (e.response?.status === 401) {
+    //             localStorage.removeItem('authToken');
+    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+    //         }
+    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingButton(false);
+    //     }
+    // };
+
+
     const insertDriver = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);
@@ -331,15 +380,19 @@ const ListDrivers = () => {
             navigate("/");
             return;
         }
+
+        // داده‌های فرم
         const payload = {
             name: firstName,
             family: lastName,
             birthdate: birthdate ? birthdate.toISOString() : null,
             fatherName,
-            identityNo,
+            identityNo, // از این برای پیدا کردن راننده استفاده می‌کنیم اگر سرور ID نداد
             internal: internal == "0" ? false : true
         };
+
         try {
+            // 1. درخواست ثبت راننده
             const response = await axios.post(
                 server.baseurl + server.warehouse + "create-driver",
                 payload,
@@ -351,24 +404,81 @@ const ListDrivers = () => {
                     }
                 }
             );
+
             if (response.data.httpStatusCode === 201) {
-                showAlert(`Sürücü başarıyla eklendi!`, 'success');
-                resetFormAndState();
-                fetchDrivers();
+                showAlert(`Sürücü başarıyla eklendi! Şimdi araç ekleyebilirsiniz.`, 'success');
+
+                // 👇👇👇 منطق جدید و هوشمند برای باز کردن مودال 👇👇👇
+
+                let newDriverData = response.data.data;
+                let newDriverId = newDriverData?.id;
+
+                // 🚨 اگر سرور ID را نفرستاد، خودمان پیدایش می‌کنیم:
+                if (!newDriverId) {
+                    console.warn("Server ID göndermedi, manuel aranıyor...");
+                    try {
+                        // گرفتن لیست راننده‌ها
+                        const listResponse = await axios.get(
+                            server.baseurl + server.warehouse + "get-drivers",
+                            { headers: { "Authorization": `Bearer ${authToken}` } }
+                        );
+
+                        if (listResponse.data.data && Array.isArray(listResponse.data.data)) {
+                            // پیدا کردن راننده‌ای که همین الان با این کد ملی ثبت کردیم
+                            const foundDriver = listResponse.data.data.find(
+                                (d: any) => d.identityNo === identityNo
+                            );
+                            if (foundDriver) {
+                                newDriverData = foundDriver;
+                                newDriverId = foundDriver.id;
+                            }
+                        }
+                    } catch (err) {
+                        console.error("ID bulma hatası:", err);
+                    }
+                }
+
+                // اگر بلاخره ID پیدا شد، مودال را باز کن
+                if (newDriverId) {
+                    const driverObj: DriverData = {
+                        id: newDriverId,
+                        name: firstName,
+                        family: lastName,
+                        birthdate: birthdate ? birthdate.toISOString() : '',
+                        fatherName: fatherName,
+                        identityNo: identityNo,
+                        internal: internal,
+                        recordStatus: 0,
+                        createAt: new Date().toISOString(),
+                        status: 'Aktif'
+                    };
+
+                    // ست کردن راننده و باز کردن مودال
+                    setSelectedDriver(driverObj);
+                    setOpenCarDetailsModal(true);
+                } else {
+                    showAlert("Sürücü eklendi ancak ID alınamadığı için araç ekranı açılamadı.", "warning");
+                }
+
+                // 👆👆👆 پایان تغییرات 👆👆👆
+
+                resetFormAndState(); // بستن فرم ثبت راننده
+                fetchDrivers(); // آپدیت لیست اصلی
             } else {
                 showAlert(response.data.message || 'İşlem sırasında bir hata oluştu.', 'error');
             }
         } catch (e: any) {
-            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            if (e.response?.status === 500) showAlert('Sunucu hatası (500).', 'error');
             else if (e.response?.status === 401) {
                 localStorage.removeItem('authToken');
-                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+                showAlert('Oturum süreniz doldu.', 'error'); navigate("/");
             }
-            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+            else showAlert(e.response?.data?.message || 'Bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
         }
     };
+
     const editDriver = async () => {
         if (!validateForm()) return;
         setLoadingButton(true);

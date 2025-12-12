@@ -97,7 +97,6 @@ interface ApiCategoryType {
 interface CategoryType {
   id: string;
   name: string;
-  // code: string; // 🔴 حذف شد: فیلد code از اینترفیس CategoryType
   createAt: string;
   recordStatus: number;
   status: string; // Derived from recordStatus

@@ -1146,19 +1146,45 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                                         <TableCell>
                                             {editing ? (
                                                 <Stack direction="column" spacing={1}>
-                                                    <TextField label="İndirim %" type="number" size="small"
-                                                        value={Number(current?.discountPercent).toFixed(1) || 0}
+                                                    {/* اینپوت درصد تخفیف */}
+                                                    <TextField
+                                                        label="İndirim %"
+                                                        type="number"
+                                                        size="small"
+                                                        // ❌ غلط: value={Number(current?.discountPercent).toFixed(2) || 0}
+                                                        // ✅ درست: مقدار خام را نشان بده تا کاربر بتواند تایپ کند
+                                                        value={current?.discountPercent || 0}
+
+                                                        // ✅ این خط باعث می‌شود با کلیک، کل عدد انتخاب شود
+                                                        onFocus={(event) => event.target.select()}
+
                                                         onChange={(e) => handleItemChange(item.id, 'discountPercent', e.target.value)}
                                                     />
-                                                    <TextField label="İndirim Miktar" type="number" size="small"
-                                                        value={Number(current?.discountAmount).toFixed(0) || 0}
+
+                                                    {/* اینپوت مبلغ تخفیف */}
+                                                    <TextField
+                                                        label="İndirim Miktar"
+                                                        type="number"
+                                                        size="small"
+                                                        // ❌ غلط: value={Number(current?.discountAmount).toFixed(2) || 0}
+                                                        // ✅ درست:
+                                                        value={current?.discountAmount || 0}
+
+                                                        // ✅ انتخاب خودکار متن
+                                                        onFocus={(event) => event.target.select()}
+
                                                         onChange={(e) => handleItemChange(item.id, 'discountAmount', e.target.value)}
                                                     />
                                                 </Stack>
                                             ) : (
                                                 <>
-                                                    <Typography variant="subtitle1" noWrap>{Number(item.discountPercent).toFixed(1)}%</Typography>
-                                                    <Typography variant="body2" color="textSecondary">{cleanAndFormatPrice(item.discountAmount)}</Typography>
+                                                    <Typography variant="subtitle1" noWrap>
+                                                        {/* در حالت نمایش (نه ویرایش) می‌توانید از toFixed استفاده کنید */}
+                                                        {Number(item.discountPercent).toFixed(2)}%
+                                                    </Typography>
+                                                    <Typography variant="body2" color="textSecondary">
+                                                        {cleanAndFormatPrice(item.discountAmount)}
+                                                    </Typography>
                                                 </>
                                             )}
                                         </TableCell>

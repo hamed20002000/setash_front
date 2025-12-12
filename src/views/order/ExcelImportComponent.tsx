@@ -159,11 +159,11 @@ const statusToColor = (s: number): 'warning' | 'success' | 'error' | 'primary' |
         default: return "primary";
     }
 };
-const statusToLabel = (s: number): 'warning' | 'success' | 'error' | 'primary' | 'default' => {
+const statusToLabel = (s: number): 'Beklemede' | 'Onaylandı' | 'Reddedildi' | 'primary' | 'default' => {
     switch (s) {
-        case 0: return "warning";
-        case 1: return "success";
-        case 2: return "error";
+        case 0: return "Beklemede";
+        case 1: return "Onaylandı";
+        case 2: return "Reddedildi";
         default: return "primary";
     }
 };
@@ -373,17 +373,22 @@ const ExcelImportComponent = () => {
         if (priceInput === null || priceInput === undefined) {
             return '₺0.00';
         }
-        const cleanedString = String(priceInput).replace(/[$,]/g, '');
+        // حذف هر کاراکتری که عدد، نقطه یا منفی نیست (برای اطمینان بیشتر)
+        const cleanedString = String(priceInput).replace(/[^0-9.-]/g, '');
         const numericValue = parseFloat(cleanedString);
+
         if (isNaN(numericValue)) {
             return '₺0.00';
         }
-        const formattedPrice = numericValue.toLocaleString('tr-TR', {
+
+        // تغییر tr-TR به en-US برای استفاده از نقطه به عنوان اعشار
+        const formattedPrice = numericValue.toLocaleString('en-US', {
             style: 'currency',
             currency: 'TRY',
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+
         return formattedPrice;
     };
     const stripHtml = (htmlString: string): string => {
@@ -413,9 +418,11 @@ const ExcelImportComponent = () => {
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
     };
 
+
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
+
         doc.setFontSize(8);
         doc.setFont('Arial', 'normal');
         const companyInfo = [
@@ -428,6 +435,7 @@ const ExcelImportComponent = () => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
             footerY += 4;
         });
+
         doc.setFontSize(10);
         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
@@ -438,6 +446,7 @@ const ExcelImportComponent = () => {
 
     const exportToPdf = (orderData: OrderType) => {
         const doc = new jsPDF();
+        // بارگذاری فونت‌ها
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -446,6 +455,7 @@ const ExcelImportComponent = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
+        // داده‌های جدول اصلی
         const rows = orderData.orderDetails.map(detail => [
             detail.item.name || '-',
             Number(detail.quantity).toFixed(2) || '-',
@@ -454,6 +464,7 @@ const ExcelImportComponent = () => {
             cleanAndFormatPrice(detail.price),
         ]);
 
+        // رسم جدول اصلی
         autoTable(doc, {
             startY: 90,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
@@ -469,7 +480,6 @@ const ExcelImportComponent = () => {
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 47);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 54);
                     doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 61);
-
                     doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 68);
                     doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 75);
                 }
@@ -480,24 +490,54 @@ const ExcelImportComponent = () => {
         });
 
         const finalY = (doc as any).lastAutoTable.finalY;
-        const totalQuantities = new Map<string, number>();
+
+        // --- محاسبات جدول خلاصه ---
+        const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+        let grandTotalPrice = 0;
+
         orderData.orderDetails.forEach(detail => {
             const unitTitle = detail.item.unit.title;
-            const currentTotal = totalQuantities.get(unitTitle) || 0;
-            totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
+            const qty = Number(detail.quantity);
+
+            // تمیز کردن قیمت
+            const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+            const unitPrice = parseFloat(rawPriceString) || 0;
+
+            const lineTotal = qty * unitPrice; // قیمت کل این ردیف
+
+            const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+            summaryData.set(unitTitle, {
+                totalQty: currentData.totalQty + qty,
+                totalPrice: currentData.totalPrice + lineTotal
+            });
+
+            grandTotalPrice += lineTotal;
         });
 
-        if (totalQuantities.size > 0) {
-            const summaryRows = Array.from(totalQuantities.entries()).map(([unit, total]) => [unit, total.toFixed(2)]);
+        // رسم جدول خلاصه
+        if (summaryData.size > 0) {
+            const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
+                unit,
+                data.totalQty.toFixed(2),
+                cleanAndFormatPrice(data.totalPrice) // جمع قیمت واحد
+            ]);
 
             autoTable(doc, {
                 startY: finalY + 10,
-                head: [['Birim', 'Toplam Miktar']],
+                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']], // ستون سوم اضافه شد
                 body: summaryRows,
                 theme: 'grid',
                 styles: { font: 'Arial', fontSize: 10 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
             });
+
+            // نمایش جمع کل نهایی
+            const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
+            doc.setFontSize(12);
+            doc.setFont('Arial', 'normal');
+            if (grandTotalPrice > 0) {
+                doc.text(`Genel Toplam: ${cleanAndFormatPrice(grandTotalPrice)}`, 15, priceSummaryY);
+            }
         }
 
         doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);
@@ -509,6 +549,7 @@ const ExcelImportComponent = () => {
             showAlert('PDF oluşturulacak sipariş bulunamadı.', 'warning');
             return;
         }
+
         const doc = new jsPDF();
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
@@ -520,6 +561,7 @@ const ExcelImportComponent = () => {
 
         dataToExport.forEach((order, index) => {
             if (index > 0) doc.addPage();
+
             const title = filtered ? 'Filtrelenmiş Sipariş Raporu' : 'Tüm Siparişler Raporu';
             addPdfHeader(doc, title);
             doc.setFontSize(10);
@@ -528,6 +570,7 @@ const ExcelImportComponent = () => {
             doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 61);
             doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 68);
             doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 75);
+
             const rows = order.orderDetails.map(detail => [
                 detail.item.name || '-',
                 Number(detail.quantity).toFixed(2) || '-',
@@ -551,29 +594,57 @@ const ExcelImportComponent = () => {
             });
 
             const finalY = (doc as any).lastAutoTable.finalY;
-            const totalQuantities = new Map<string, number>();
+
+            // --- محاسبات جدول خلاصه ---
+            const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+            let grandTotalPrice = 0;
+
             order.orderDetails.forEach(detail => {
                 const unitTitle = detail.item.unit.title;
-                const currentTotal = totalQuantities.get(unitTitle) || 0;
-                totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
+                const qty = Number(detail.quantity);
+
+                const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+                const unitPrice = parseFloat(rawPriceString) || 0;
+                const lineTotal = qty * unitPrice;
+
+                const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+                summaryData.set(unitTitle, {
+                    totalQty: currentData.totalQty + qty,
+                    totalPrice: currentData.totalPrice + lineTotal
+                });
+
+                grandTotalPrice += lineTotal;
             });
 
-            if (totalQuantities.size > 0) {
-                const summaryRows = Array.from(totalQuantities.entries()).map(([unit, total]) => [unit, total.toFixed(2)]);
+            if (summaryData.size > 0) {
+                const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
+                    unit,
+                    data.totalQty.toFixed(2),
+                    cleanAndFormatPrice(data.totalPrice)
+                ]);
 
                 autoTable(doc, {
                     startY: finalY + 10,
-                    head: [['Birim', 'Toplam Miktar']],
+                    head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']],
                     body: summaryRows,
                     theme: 'grid',
                     styles: { font: 'Arial', fontSize: 10 },
-                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
                 });
+
+                const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
+                doc.setFontSize(12);
+                doc.setFont('Arial', 'normal');
+                if (grandTotalPrice > 0) {
+                    doc.text(`Genel Toplam: ${cleanAndFormatPrice(grandTotalPrice)}`, 15, priceSummaryY);
+                }
             }
         });
+
         const fileName = filtered ? 'Filtrelenmis_Siparisler.pdf' : 'Tum_Siparisler.pdf';
         doc.save(fileName);
         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+
         setOpenDownloadAllModal(false);
         setOpenDownloadFilteredModal(false);
     };
@@ -584,6 +655,7 @@ const ExcelImportComponent = () => {
             'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
             'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
         ];
+
         let rowNum = startRow;
         companyInfo.forEach(line => {
             const row = worksheet.getRow(rowNum);
@@ -598,7 +670,9 @@ const ExcelImportComponent = () => {
     const exportToExcel = (orderData: OrderType) => {
         const workbook = new Excel.Workbook();
         const worksheet = workbook.addWorksheet('Sipariş Detayları');
+
         worksheet.views = [{ rightToLeft: false }];
+
         worksheet.addRow(['Sipariş Detayları']).font = { name: 'Arial', size: 12, bold: true };
         worksheet.mergeCells('A1:E1');
         worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -606,10 +680,10 @@ const ExcelImportComponent = () => {
         worksheet.getCell('A2').font = { name: 'Arial', size: 10, bold: false };
         worksheet.getCell('A2').alignment = { horizontal: 'left' };
         worksheet.addRow([]);
+
         worksheet.addRow(['Sipariş No', orderData.id]);
         worksheet.addRow(['Şebeke', orderData.network ? orderData.network.title : '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(orderData.docDate)]);
-
         worksheet.addRow(['İlişkili Talep No', orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-']);
 
         worksheet.addRow(['Genel Açıklama', orderData.description || '-']);
@@ -625,6 +699,7 @@ const ExcelImportComponent = () => {
                 fgColor: { argb: 'FFD9E1F2' }
             };
         });
+
         orderData.orderDetails.forEach(detail => {
             worksheet.addRow([
                 detail.item.name,
@@ -634,6 +709,8 @@ const ExcelImportComponent = () => {
                 cleanAndFormatPrice(detail.price)
             ]);
         });
+
+        // تنظیم عرض ستون‌ها
         worksheet.columns.forEach((column) => {
             let maxLength = 0;
             if (column && typeof column.eachCell === 'function') {
@@ -647,17 +724,32 @@ const ExcelImportComponent = () => {
             column.width = Math.min(Math.max(maxLength + 2, 15), 50);
         });
 
-        const totalQuantities = new Map<string, number>();
+        // --- محاسبات جدول خلاصه ---
+        const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+        let grandTotalPrice = 0;
+
         orderData.orderDetails.forEach(detail => {
             const unitTitle = detail.item.unit.title;
-            const currentTotal = totalQuantities.get(unitTitle) || 0;
-            totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
+            const qty = Number(detail.quantity);
+
+            const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+            const unitPrice = parseFloat(rawPriceString) || 0;
+            const lineTotal = qty * unitPrice;
+
+            const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+            summaryData.set(unitTitle, {
+                totalQty: currentData.totalQty + qty,
+                totalPrice: currentData.totalPrice + lineTotal
+            });
+
+            grandTotalPrice += lineTotal;
         });
 
-        if (totalQuantities.size > 0) {
+        if (summaryData.size > 0) {
             worksheet.addRow([]);
-            worksheet.addRow(['Toplam Miktarlar']).font = { name: 'Arial', size: 12, bold: true };
-            const summaryHeaders = ['Birim', 'Toplam Miktar'];
+            worksheet.addRow(['Birim Bazlı Toplamlar']).font = { name: 'Arial', size: 12, bold: true };
+
+            const summaryHeaders = ['Birim', 'Toplam Miktar', 'Toplam Tutar'];
             const summaryHeaderRow = worksheet.addRow(summaryHeaders);
             summaryHeaderRow.font = { name: 'Arial', bold: true };
             summaryHeaderRow.eachCell(cell => {
@@ -667,10 +759,22 @@ const ExcelImportComponent = () => {
                     fgColor: { argb: 'FFD9E1F2' }
                 };
             });
-            Array.from(totalQuantities.entries()).forEach(([unit, total]) => {
-                worksheet.addRow([unit, total.toFixed(2)]);
+
+            Array.from(summaryData.entries()).forEach(([unit, data]) => {
+                worksheet.addRow([
+                    unit,
+                    data.totalQty.toFixed(2),
+                    cleanAndFormatPrice(data.totalPrice)
+                ]);
             });
         }
+
+        if (grandTotalPrice > 0) {
+            worksheet.addRow([]);
+            const grandTotalRow = worksheet.addRow(['Genel Toplam', '', cleanAndFormatPrice(grandTotalPrice)]);
+            grandTotalRow.font = { name: 'Arial', bold: true, size: 11 };
+        }
+
         const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
         addExcelCompanyInfo(worksheet, startRow);
 
@@ -692,6 +796,7 @@ const ExcelImportComponent = () => {
             const worksheet = workbook.addWorksheet(`Sipariş_${order.id}`);
             worksheet.views = [{ rightToLeft: false }];
 
+            // هدر گزارش
             worksheet.addRow([`Sipariş Detayları`]).font = { name: 'Arial', size: 12, bold: true };
             worksheet.mergeCells('A1:E1');
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -700,14 +805,15 @@ const ExcelImportComponent = () => {
             worksheet.getCell('A2').alignment = { horizontal: 'left' };
             worksheet.addRow([]);
 
+            // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(order.docDate)]);
             worksheet.addRow(['İlişkili Talep No', order.request ? '#' + order.request.id + order.request.subject : '-']);
-
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
+            // هدرهای جدول
             const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.font = { name: 'Arial', bold: true };
@@ -719,6 +825,7 @@ const ExcelImportComponent = () => {
                 };
             });
 
+            // اقلام سفارش
             order.orderDetails.forEach(detail => {
                 worksheet.addRow([
                     detail.item.name,
@@ -729,34 +836,7 @@ const ExcelImportComponent = () => {
                 ]);
             });
 
-            const totalQuantities = new Map<string, number>();
-            order.orderDetails.forEach(detail => {
-                const unitTitle = detail.item.unit.title;
-                const currentTotal = totalQuantities.get(unitTitle) || 0;
-                totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
-            });
-
-            if (totalQuantities.size > 0) {
-                worksheet.addRow([]);
-                worksheet.addRow(['Toplam Miktarlar']).font = { name: 'Arial', size: 12, bold: true };
-                const summaryHeaders = ['Birim', 'Toplam Miktar'];
-                const summaryHeaderRow = worksheet.addRow(summaryHeaders);
-                summaryHeaderRow.font = { name: 'Arial', bold: true };
-                summaryHeaderRow.eachCell(cell => {
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: { argb: 'FFD9E1F2' }
-                    };
-                });
-                Array.from(totalQuantities.entries()).forEach(([unit, total]) => {
-                    worksheet.addRow([unit, total.toFixed(2)]);
-                });
-            }
-
-            const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
-            addExcelCompanyInfo(worksheet, startRow);
-
+            // تنظیم عرض ستون‌ها
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
@@ -769,12 +849,68 @@ const ExcelImportComponent = () => {
                 }
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
+
+            // --- محاسبات جدول خلاصه ---
+            const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+            let grandTotalPrice = 0;
+
+            order.orderDetails.forEach(detail => {
+                const unitTitle = detail.item.unit.title;
+                const qty = Number(detail.quantity);
+
+                const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+                const unitPrice = parseFloat(rawPriceString) || 0;
+                const lineTotal = qty * unitPrice;
+
+                const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+                summaryData.set(unitTitle, {
+                    totalQty: currentData.totalQty + qty,
+                    totalPrice: currentData.totalPrice + lineTotal
+                });
+
+                grandTotalPrice += lineTotal;
+            });
+
+            if (summaryData.size > 0) {
+                worksheet.addRow([]);
+                worksheet.addRow(['Birim Bazlı Toplamlar']).font = { name: 'Arial', size: 12, bold: true };
+
+                const summaryHeaders = ['Birim', 'Toplam Miktar', 'Toplam Tutar'];
+                const summaryHeaderRow = worksheet.addRow(summaryHeaders);
+                summaryHeaderRow.font = { name: 'Arial', bold: true };
+                summaryHeaderRow.eachCell(cell => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFD9E1F2' }
+                    };
+                });
+
+                Array.from(summaryData.entries()).forEach(([unit, data]) => {
+                    worksheet.addRow([
+                        unit,
+                        data.totalQty.toFixed(2),
+                        cleanAndFormatPrice(data.totalPrice)
+                    ]);
+                });
+            }
+
+            if (grandTotalPrice > 0) {
+                worksheet.addRow([]);
+                const grandTotalRow = worksheet.addRow(['Genel Toplam', '', cleanAndFormatPrice(grandTotalPrice)]);
+                grandTotalRow.font = { name: 'Arial', bold: true, size: 11 };
+            }
+
+            const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
+            addExcelCompanyInfo(worksheet, startRow);
         });
+
         workbook.xlsx.writeBuffer().then(buffer => {
             const fileName = filtered ? 'Filtrelenmis_Siparisler.xlsx' : 'Tum_Siparisler.xlsx';
             saveAs(new Blob([buffer]), fileName);
             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
         });
+
         setOpenDownloadAllModal(false);
         setOpenDownloadFilteredModal(false);
     };
@@ -1129,17 +1265,26 @@ const ExcelImportComponent = () => {
         setGeneralDescription(row.description || '');
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
-            const priceValue = detail.price !== null && !isNaN(Number(detail.price)) ? Number(detail.price) : 0;
+
+            // پاکسازی قیمت
+            let priceValue = 0;
+            if (detail.price !== null && detail.price !== undefined) {
+                // حذف $ و , و تبدیل به عدد
+                const cleanString = String(detail.price).replace(/[$,]/g, '');
+                const parsed = parseFloat(cleanString);
+                // اگر نتیجه NaN نبود، مقدار را استفاده کن
+                priceValue = isNaN(parsed) ? 0 : parsed;
+            }
 
             return {
                 id: detail.id,
                 item: fullItem ? fullItem.id : '',
                 quantity: detail.quantity,
                 description: detail.description,
-                isEditing: false, // ✅ این باید true باشد تا امکان ویرایش فراهم شود
+                isEditing: false,
                 unit: fullItem ? fullItem.unit : undefined,
                 isRegistered: true,
-                price: priceValue
+                price: priceValue // مقدار اصلاح شده
             };
         });
         setOrderItems(itemsToEdit);
@@ -1627,7 +1772,7 @@ const ExcelImportComponent = () => {
                                         direction={orderBy === 'id' ? order : 'asc'}
                                         onClick={() => handleRequestSort('id')}
                                     >
-                                        <Typography variant="h6">Code</Typography>
+                                        <Typography variant="h6">Kod</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
                                 <StyledTableCell>
@@ -1677,7 +1822,7 @@ const ExcelImportComponent = () => {
                                                 <Typography variant="body2" noWrap title={row.description || ''}>
                                                     {row.description || '-'}
                                                 </Typography>
-                                                {row.description != null && row.description.length > 50 && (
+                                                {row.description != null && row.description.length > 20 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);

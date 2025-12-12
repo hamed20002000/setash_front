@@ -386,7 +386,7 @@ const NetworkItemInputForm: React.FC<WorkItemInputFormProps> = ({
                         İptal
                     </Button>
                     <Button onClick={handleConfirmDelete} color="error" autoFocus>
-                        Sil
+                        Silmek
                     </Button>
                 </DialogActions>
             </Dialog>

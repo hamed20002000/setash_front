@@ -78,7 +78,7 @@ const Modern = () => {
       setShowWelcome(true);
       localStorage.setItem(WELCOME_MESSAGE_KEY, 'true');
     }
-
+    debugger
     // گرفتن اطلاعات کاربر از توکن برای نمایش در صفحه عدم دسترسی
     const authToken = localStorage.getItem('authToken');
     if (authToken) {

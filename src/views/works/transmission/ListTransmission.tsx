@@ -103,8 +103,8 @@ const ListTransmission = () => {
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
-    const [orderBy, setOrderBy] = useState<SortableTransmissionKeys>('recordStatus');
-    const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+    const [orderBy, setOrderBy] = useState<SortableTransmissionKeys>('createAt');
+    const [order, setOrder] = useState<'asc' | 'desc'>('asc');
     const fromProductTypeRef = useRef<HTMLInputElement>(null);
     const toProductTypeRef = useRef<HTMLInputElement>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -1425,7 +1425,7 @@ const ListTransmission = () => {
                         <Grid container spacing={2} alignItems="flex-end">
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel htmlFor="from-product-type" required>
-                                    Kaynak Geresi
+                                    Kaynak
                                 </CustomFormLabel>
                                 <Autocomplete
                                     id="from-product-type"

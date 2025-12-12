@@ -100,10 +100,9 @@ const CarDetailsModal: React.FC<CarDetailsModalProps> = ({
             setLoadingData(false);
             return;
         }
-
         try {
             const response = await axios.get(
-                `${server.baseurl}${server.warehouse}get-driver-vehicle-by-driver-id/${driverId}`, {
+                `${server.baseurl}${server.warehouse}get-driver-vehicle-by-driver-id/${Number(driverId)}`, {
                 headers: { Authorization: `Bearer ${authToken}` }
             });
 

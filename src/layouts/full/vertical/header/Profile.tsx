@@ -6,9 +6,10 @@ import {
   Box, Menu, Avatar, Typography, Divider, Button, IconButton, Stack,
   Alert,
 } from '@mui/material';
-import { 
+import {
   // IconMail,
-   IconUserShield } from '@tabler/icons-react';
+  IconUserShield
+} from '@tabler/icons-react';
 
 import ProfileImg from 'src/assets/images/profile/user-d1.svg';
 import { useAuth } from 'src/context/AuthContext';
@@ -45,7 +46,7 @@ const Profile = () => {
     // localStorage.removeItem('lastLoggedInUsername'); 
     localStorage.removeItem('hasSeenWelcomeMessage');
     // window.location.href = '/auth/login';
-     navigate('/auth/login');
+    navigate('/auth/login');
   };
 
   const handleOpenChangeRoleModal = () => {
@@ -63,17 +64,12 @@ const Profile = () => {
     setOpenChangeRoleModal(false);
   };
 
-  // useEffect که قبلا رول ها رو از توکن میخوند، حالا از AuthContext لود میشن.
-  // const [username, setUsername] = useState<string>('Guest');
-  // const [userRoles, setUserRoles] = useState<UserRole[]>([]);
-  // const [activeRoleName, setActiveRoleName] = useState<string>('Yükleniyor...');
-  // useEffect(() => { ... }, []); این useEffect حذف شده است.
 
 
   return (
     <Box>
-      <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı Profili" : ""}> 
-        
+      <CustomTooltip title={isTooltipGloballyEnabled ? "Kullanıcı Profili" : ""}>
+
         <IconButton
           size="large"
           aria-label="show 11 new notifications"
@@ -126,12 +122,12 @@ const Profile = () => {
           </Box>
         </Stack>
         <Divider />
-        
+
         {userRoles.length > 1 && (
           <Box mt={2}>
             <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Aktif rolünüzü değiştirin" : ""}> 
-              
+              title={isTooltipGloballyEnabled ? "Aktif rolünüzü değiştirin" : ""}>
+
               <Button
                 variant="outlined"
                 color="primary"
@@ -147,8 +143,8 @@ const Profile = () => {
 
         <Box mt={2}>
           <CustomTooltip placement="left"
-                            title={isTooltipGloballyEnabled ? "Hesaptan çıkış yapın" : ""}> 
-            
+            title={isTooltipGloballyEnabled ? "Hesaptan çıkış yapın" : ""}>
+
             <Button variant="outlined" color="primary" onClick={handleLogout} fullWidth>
               Çıkış Yap
             </Button>

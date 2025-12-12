@@ -449,3 +449,4 @@ const RegisterUnregisteredCategoryModal: React.FC<RegisterUnregisteredCategoryMo
 };
 
 export default RegisterUnregisteredCategoryModal;
+

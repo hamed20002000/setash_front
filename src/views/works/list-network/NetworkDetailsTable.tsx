@@ -27,6 +27,7 @@ interface SubEntryRowProps {
     onLoadSubEntryForEdit: (subEntry: WorkDetailSubEntry) => void;
 }
 
+
 const SubEntryRow: React.FC<SubEntryRowProps> = ({
     subEntry,
     onDeleteSubEntry,
@@ -38,37 +39,68 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
         <React.Fragment>
             <TableRow sx={{
                 '&:last-child td': { border: 0 },
+                // اختیاری: می‌توانید رنگ پس‌زمینه سطر مجموع را کمی متفاوت کنید
+                backgroundColor: subEntry.isToplamRow ? '#f9f9f9' : 'inherit'
             }}>
                 <TableCell style={{ width: '50px' }}>
+                    {/* دکمه بازشو برای همه سطرها (شامل مجموع) نمایش داده شود */}
                     {subEntry.itemDetails && subEntry.itemDetails.length > 0 && (
                         <IconButton size="small" onClick={() => setIsSubExpanded(!isSubExpanded)}>
                             {isSubExpanded ? <IconChevronDown size={20} /> : <IconChevronRight size={20} />}
                         </IconButton>
                     )}
                 </TableCell>
-                <TableCell><Typography variant="body2">{subEntry.dn}</Typography></TableCell>
-                <TableCell><Typography variant="body2">{subEntry.yeni}</Typography></TableCell>
-                <TableCell><Typography variant="body2">{subEntry.dmm}</Typography></TableCell>
-                <TableCell><Typography variant="body2">{subEntry.mevcut}</Typography></TableCell>
+
+                {/* نام DN (که شامل "TOPLAM" است) نمایش داده شود */}
+                <TableCell>
+                    <Typography variant="body2" fontWeight={subEntry.isToplamRow ? 'bold' : 'normal'}>
+                        {subEntry.dn}
+                    </Typography>
+                </TableCell>
+
+                {/* 🔴 تغییر مهم اینجاست: اگر سطر مجموع بود، خالی نشان بده، وگرنه مقدار را نشان بده */}
+                <TableCell>
+                    <Typography variant="body2">
+                        {subEntry.isToplamRow ? '' : subEntry.yeni}
+                    </Typography>
+                </TableCell>
+                <TableCell>
+                    <Typography variant="body2">
+                        {subEntry.isToplamRow ? '' : subEntry.dmm}
+                    </Typography>
+                </TableCell>
+                <TableCell>
+                    <Typography variant="body2">
+                        {subEntry.isToplamRow ? '' : subEntry.mevcut}
+                    </Typography>
+                </TableCell>
+
                 <TableCell sx={{ width: '100px', textAlign: 'right' }}>
-                    <IconButton
-                        size="small"
-                        color="info"
-                        onClick={() => onLoadSubEntryForEdit(subEntry)}
-                        aria-label="edit sub entry"
-                    >
-                        <IconEdit size={18} />
-                    </IconButton>
-                    <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => onDeleteSubEntry(subEntry.trAdiParentId, subEntry.id)}
-                        aria-label="delete sub entry"
-                    >
-                        <IconTrash size={18} />
-                    </IconButton>
+                    {/* دکمه‌های ویرایش و حذف را برای سطر مجموع مخفی کنید تا اشتباهی پاک نشود */}
+                    {!subEntry.isToplamRow && (
+                        <>
+                            <IconButton
+                                size="small"
+                                color="info"
+                                onClick={() => onLoadSubEntryForEdit(subEntry)}
+                                aria-label="edit sub entry"
+                            >
+                                <IconEdit size={18} />
+                            </IconButton>
+                            <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => onDeleteSubEntry(subEntry.trAdiParentId, subEntry.id)}
+                                aria-label="delete sub entry"
+                            >
+                                <IconTrash size={18} />
+                            </IconButton>
+                        </>
+                    )}
                 </TableCell>
             </TableRow>
+
+            {/* بخش بازشوی Collapse بدون تغییر باقی می‌ماند تا آیتم‌های داخل TOPLAM دیده شوند */}
             <TableRow>
                 <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={6}>
                     <Collapse in={isSubExpanded} timeout="auto" unmountOnExit>
@@ -80,9 +112,10 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                             pb: 1,
                             borderRadius: '4px',
                         }}>
+                            {/* ... (کدهای نمایش آیتم‌ها بدون تغییر) ... */}
                             <Typography variant="caption" gutterBottom component="div"
                                 sx={{ mt: 1, fontWeight: 'bold' }}>
-                                Alt Öğeler:
+                                {subEntry.isToplamRow ? 'Toplam Öğeler:' : 'Alt Öğeler:'}
                             </Typography>
                             {subEntry.itemDetails && subEntry.itemDetails.length > 0 ? (
                                 <Stack direction="row" spacing={0.5} sx={{ pl: 2, pb: 1, flexWrap: 'wrap' }}>
@@ -94,9 +127,8 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                                     ))}
                                 </Stack>
                             ) : (
-                                <Typography variant="body2" color="textSecondary" sx={{ ml: 1, pb: 1 }}>
-                                    Hiç alt öğe eklenmedi.
-                                </Typography>
+                                // ...
+                                null
                             )}
                         </Box>
                     </Collapse>

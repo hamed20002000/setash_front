@@ -11,7 +11,11 @@ import {
     Checkbox,
     ListItemText,
     Backdrop,
-    Chip
+    Chip,
+    DialogContent,
+    Dialog,
+    DialogTitle,
+    DialogActions
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
@@ -445,6 +449,10 @@ const TenderDetails = () => {
         : null;
     const isSelectedNodeAnItem = newRecordSelectedNode?.type === 'item';
 
+    // در ابتدای کامپوننت TenderDetails
+    const [openUnregisteredListModal, setOpenUnregisteredListModal] = useState(false);
+    const [unregisteredRows, setUnregisteredRows] = useState<TenderDetailRow[]>([]);
+
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const hasParentCategoryPercentage = useMemo(() => {
@@ -660,113 +668,209 @@ const TenderDetails = () => {
         } as TenderDetailRow;
     }, []);
 
-    const findParentCategoryForGridRow = (row: TenderDetailRow): TenderDetailRow | undefined => {
-        if (row.itemId === null) return undefined;
-        const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
-        if (itemNode && itemNode.originalData && 'category' in itemNode.originalData) {
-            const parentCatNode = findNodeByIdPure(combinedTreeData, `cat-${(itemNode.originalData as ApiItemType).category.id}`);
+    // const findParentCategoryForGridRow = (row: TenderDetailRow): TenderDetailRow | undefined => {
+    //     if (row.itemId === null) return undefined;
+    //     const itemNode = findNodeByIdPure(combinedTreeData, `item-${row.itemId}`);
+    //     if (itemNode && itemNode.originalData && 'category' in itemNode.originalData) {
+    //         const parentCatNode = findNodeByIdPure(combinedTreeData, `cat-${(itemNode.originalData as ApiItemType).category.id}`);
 
-            if (parentCatNode && parentCatNode.originalData) {
-                return {
-                    id: -1,
-                    siraNo: 0,
-                    eskiPoz: (parentCatNode.originalData as ApiCategoryType).eskiPoz || '',
-                    tedasNo: 0,
-                    anaNo: 0,
-                    altNo: 0,
-                    description: parentCatNode.name,
-                    olcuBrimi: '',
-                    malzeme: 0,
-                    malzemeYuklenici: 0,
-                    montaj: 0,
-                    demontaj: 0,
-                    demontajMontaj: 0,
-                    birimFiyatMalzeme: 0,
-                    birimFiyatMontaj: 0,
-                    birimFiyatDemontaj: 0,
-                    birimFiyatDemontajMontaj: 0,
-                    aciklama: '',
-                    categoryPercentage: (parentCatNode.originalData as ApiCategoryType).percent || null,
-                    isCategory: true,
-                    toplamMalzeme: 0,
-                    toplamMontaj: 0,
-                    toplamDemontaj: 0,
-                    toplamDemontajdanMontaj: 0,
-                    isUnregisteredItem: false,
-                    itemId: null,
-                    isFromExcel: false
-                };
-            }
-        }
+    //         if (parentCatNode && parentCatNode.originalData) {
+    //             return {
+    //                 id: -1,
+    //                 siraNo: 0,
+    //                 eskiPoz: (parentCatNode.originalData as ApiCategoryType).eskiPoz || '',
+    //                 tedasNo: 0,
+    //                 anaNo: 0,
+    //                 altNo: 0,
+    //                 description: parentCatNode.name,
+    //                 olcuBrimi: '',
+    //                 malzeme: 0,
+    //                 malzemeYuklenici: 0,
+    //                 montaj: 0,
+    //                 demontaj: 0,
+    //                 demontajMontaj: 0,
+    //                 birimFiyatMalzeme: 0,
+    //                 birimFiyatMontaj: 0,
+    //                 birimFiyatDemontaj: 0,
+    //                 birimFiyatDemontajMontaj: 0,
+    //                 aciklama: '',
+    //                 categoryPercentage: (parentCatNode.originalData as ApiCategoryType).percent || null,
+    //                 isCategory: true,
+    //                 toplamMalzeme: 0,
+    //                 toplamMontaj: 0,
+    //                 toplamDemontaj: 0,
+    //                 toplamDemontajdanMontaj: 0,
+    //                 isUnregisteredItem: false,
+    //                 itemId: null,
+    //                 isFromExcel: false
+    //             };
+    //         }
+    //     }
 
-        return undefined;
-    };
+    //     return undefined;
+    // };
+
+
+
+
+    // const processedAndFilteredGridData = useMemo(() => {
+    //     let currentData = [...gridData];
+    //     currentData = currentData.map(row => {
+    //         let updatedRow = { ...row };
+    //         const normalizedRowDescription = normalizeString(row.description);
+    //         let foundNode: UnifiedTreeNode | undefined;
+    //         let isUnregistered: boolean;
+    //         let currentItemId: number | null = null;
+    //         if (row.isCategory) {
+    //             foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'category');
+    //             isUnregistered = !foundNode;
+    //             currentItemId = null;
+    //         } else {
+    //             foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'item');
+    //             isUnregistered = !foundNode;
+    //             currentItemId = (foundNode?.originalData as ApiItemType)?.id ?? null;
+    //         }
+    //         updatedRow.isUnregisteredItem = isUnregistered;
+    //         updatedRow.itemId = currentItemId;
+    //         if (!row.isCategory && updatedRow.itemId !== null && combinedTreeData.length > 0) {
+    //             const itemNodeInTree = findNodeByIdPure(combinedTreeData, `item-${updatedRow.itemId}`);
+    //             if (itemNodeInTree && itemNodeInTree.originalData && 'category' in itemNodeInTree.originalData && itemNodeInTree.originalData.category?.id) {
+    //                 const parentCategoryNodeInTree = findNodeByIdPure(combinedTreeData, `cat-${itemNodeInTree.originalData.category.id}`);
+    //                 if (parentCategoryNodeInTree && parentCategoryNodeInTree.type === 'category' && parentCategoryNodeInTree.originalData && 'percent' in parentCategoryNodeInTree.originalData) {
+    //                     const categoryPercent = (parentCategoryNodeInTree.originalData as ApiCategoryType).percent;
+    //                     if (categoryPercent !== undefined && categoryPercent !== null && updatedRow.categoryPercentage !== categoryPercent) {
+    //                         updatedRow.categoryPercentage = categoryPercent;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //         return calculateTotals(updatedRow, true);
+    //     });
+    //     if (displayMode === 'withCategory') {
+    //         const result: TenderDetailRow[] = [];
+    //         const categoryMap = new Map<string, TenderDetailRow>();
+
+    //         currentData.forEach(row => {
+    //             if (row.isCategory) {
+    //                 // اگر ردیف یک کتگوری است
+    //                 categoryMap.set(row.description, row);
+    //                 result.push(row);
+    //             } else {
+    //                 // اگر ردیف یک آیتم است
+    //                 const parentCategory = findParentCategoryForGridRow(row);
+    //                 if (parentCategory) {
+    //                     // آیتم را زیر کتگوری والد قرار دهید
+    //                     if (!categoryMap.has(parentCategory.description)) {
+    //                         categoryMap.set(parentCategory.description, parentCategory);
+    //                         result.push(parentCategory);
+    //                     }
+    //                 }
+    //                 result.push(row);
+    //             }
+    //         });
+    //         currentData = result;
+    //     } else {
+    //         // حالت بدون کتگوری
+    //         currentData = currentData.filter(row => !row.isCategory);
+    //     }
+    //     let currentSiraNo = 1;
+    //     currentData = currentData.map(row => ({
+    //         ...row,
+    //         siraNo: currentSiraNo++
+    //     }));
+    //     if (gridSearchTerm) {
+    //         const lowerCaseSearchTerm = gridSearchTerm.toLowerCase();
+    //         currentData = currentData.filter(row =>
+    //             row.description.toLowerCase().includes(lowerCaseSearchTerm) ||
+    //             row.aciklama.toLowerCase().includes(lowerCaseSearchTerm)
+    //         );
+    //     }
+    //     return currentData;
+    // }, [gridData, displayMode, gridSearchTerm, combinedTreeData, calculateTotals]);
 
     const processedAndFilteredGridData = useMemo(() => {
         let currentData = [...gridData];
+
+        const excelCategoryPercentMap = new Map<string, number>();
+
+        currentData.forEach(row => {
+            if (row.isCategory) {
+                const normName = normalizeString(row.description);
+                if (row.categoryPercentage !== null && row.categoryPercentage !== undefined) {
+                    excelCategoryPercentMap.set(normName, row.categoryPercentage);
+                }
+            }
+        });
+
         currentData = currentData.map(row => {
             let updatedRow = { ...row };
-            const normalizedRowDescription = normalizeString(row.description);
-            let foundNode: UnifiedTreeNode | undefined;
-            let isUnregistered: boolean;
-            let currentItemId: number | null = null;
-            if (row.isCategory) {
-                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'category');
-                isUnregistered = !foundNode;
-                currentItemId = null;
-            } else {
-                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'item');
-                isUnregistered = !foundNode;
-                currentItemId = (foundNode?.originalData as ApiItemType)?.id ?? null;
-            }
-            updatedRow.isUnregisteredItem = isUnregistered;
-            updatedRow.itemId = currentItemId;
-            if (!row.isCategory && updatedRow.itemId !== null && combinedTreeData.length > 0) {
-                const itemNodeInTree = findNodeByIdPure(combinedTreeData, `item-${updatedRow.itemId}`);
-                if (itemNodeInTree && itemNodeInTree.originalData && 'category' in itemNodeInTree.originalData && itemNodeInTree.originalData.category?.id) {
-                    const parentCategoryNodeInTree = findNodeByIdPure(combinedTreeData, `cat-${itemNodeInTree.originalData.category.id}`);
-                    if (parentCategoryNodeInTree && parentCategoryNodeInTree.type === 'category' && parentCategoryNodeInTree.originalData && 'percent' in parentCategoryNodeInTree.originalData) {
-                        const categoryPercent = (parentCategoryNodeInTree.originalData as ApiCategoryType).percent;
-                        if (categoryPercent !== undefined && categoryPercent !== null && updatedRow.categoryPercentage !== categoryPercent) {
-                            updatedRow.categoryPercentage = categoryPercent;
+
+            if (!updatedRow.isCategory && updatedRow.itemId !== null) {
+
+                let appliedPercent = 1;
+                const itemNode = findNodeByIdPure(combinedTreeData, `item-${updatedRow.itemId}`);
+
+                if (itemNode && itemNode.originalData && 'category' in itemNode.originalData) {
+                    const parentCategoryId = (itemNode.originalData as ApiItemType).category.id;
+                    const parentCatNode = findNodeByIdPure(combinedTreeData, `cat-${parentCategoryId}`);
+
+                    if (parentCatNode) {
+                        const parentNameNormalized = normalizeString(parentCatNode.name);
+
+                        const percentInExcel = excelCategoryPercentMap.get(parentNameNormalized);
+
+                        if (percentInExcel !== undefined) {
+                            appliedPercent = percentInExcel;
                         }
                     }
                 }
+
+                updatedRow.categoryPercentage = appliedPercent;
+
+            } else if (updatedRow.isCategory) {
+                if (updatedRow.categoryPercentage === null || updatedRow.categoryPercentage === undefined) {
+                    updatedRow.categoryPercentage = 1;
+                }
             }
+            const normalizedRowDescription = normalizeString(row.description);
+            let foundNode: UnifiedTreeNode | undefined;
+            let isUnregistered: boolean;
+
+            if (updatedRow.isCategory) {
+                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'category');
+                isUnregistered = !foundNode;
+            } else {
+                foundNode = findNodeByNameAndTypePure(combinedTreeData, normalizedRowDescription, 'item');
+                isUnregistered = !foundNode;
+            }
+
+            updatedRow.isUnregisteredItem = isUnregistered;
+
             return calculateTotals(updatedRow, true);
         });
+
         if (displayMode === 'withCategory') {
             const result: TenderDetailRow[] = [];
-            const categoryMap = new Map<string, TenderDetailRow>();
-
             currentData.forEach(row => {
                 if (row.isCategory) {
-                    // اگر ردیف یک کتگوری است
-                    categoryMap.set(row.description, row);
                     result.push(row);
                 } else {
-                    // اگر ردیف یک آیتم است
-                    const parentCategory = findParentCategoryForGridRow(row);
-                    if (parentCategory) {
-                        // آیتم را زیر کتگوری والد قرار دهید
-                        if (!categoryMap.has(parentCategory.description)) {
-                            categoryMap.set(parentCategory.description, parentCategory);
-                            result.push(parentCategory);
-                        }
-                    }
                     result.push(row);
                 }
             });
             currentData = result;
         } else {
-            // حالت بدون کتگوری
             currentData = currentData.filter(row => !row.isCategory);
         }
+
+        // شماره‌گذاری مجدد
         let currentSiraNo = 1;
         currentData = currentData.map(row => ({
             ...row,
             siraNo: currentSiraNo++
         }));
+
+        // فیلتر جستجو
         if (gridSearchTerm) {
             const lowerCaseSearchTerm = gridSearchTerm.toLowerCase();
             currentData = currentData.filter(row =>
@@ -774,8 +878,12 @@ const TenderDetails = () => {
                 row.aciklama.toLowerCase().includes(lowerCaseSearchTerm)
             );
         }
+
         return currentData;
     }, [gridData, displayMode, gridSearchTerm, combinedTreeData, calculateTotals]);
+
+
+
 
     const displayedGridData = useMemo(() => {
         return processedAndFilteredGridData.slice(0, currentDisplayCount);
@@ -1405,7 +1513,7 @@ const TenderDetails = () => {
         reader.onload = (e) => {
             try {
                 const data = new Uint8Array(e.target?.result as ArrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
+                const workbook = XLSX.read(data, { type: 'array', cellNF: true, cellText: true, cellDates: true },);
                 const sheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[sheetName];
 
@@ -1465,19 +1573,17 @@ const TenderDetails = () => {
                     const birimFiyatDemontajMontaj = parseAndCleanFloat(getCellValue(R, 14));
                     const aciklama = String(getCellValue(R, 15) || '').trim();
 
-                    // --- 2. اصلاح منطق درصد (خالی بماند یا عدد شود) ---
                     const rawPercent = getCellValue(R, 16);
-                    let categoryPercentage: number | null = null; // پیش‌فرض null است
 
-                    // فقط اگر سلول دارای مقدار بود (خالی یا undefined نبود)
+                    let categoryPercentage: number | null = null;
                     if (rawPercent !== undefined && rawPercent !== null && String(rawPercent).trim() !== '') {
-                        // سعی میکنیم پارس کنیم. اگر عدد 0 بود، 0 میماند.
                         const parsedPercent = parseFloat(String(rawPercent).replace(',', '.'));
                         if (!isNaN(parsedPercent)) {
                             categoryPercentage = parsedPercent;
                         }
                     }
-                    // نکته: اگر isCurrentRowCategory نباشد (یعنی آیتم باشد)، درصد باید null بماند.
+
+
                     if (!isCurrentRowCategory) {
                         categoryPercentage = null;
                     }
@@ -1780,75 +1886,74 @@ const TenderDetails = () => {
 
 
 
-    // const refreshGridData = useCallback(async () => {
-    //     setLoading(true);
-    //     await fetchDataAndBuildTree();
-    //     await loadExistingTenderDetails();
-    //     setLoading(false);
-    // }, [fetchDataAndBuildTree, loadExistingTenderDetails]);
 
-
-    // const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
+    // const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType, originalRowId?: number) => {
+    //     // 1. بستن مودال‌های ثبت و پاک کردن استیت‌های موقت
     //     setOpenRegisterItemModal(false);
     //     setOpenRegisterCategoryModal(false);
     //     setItemToRegister(null);
     //     setCategoryToRegister(null);
 
-
-    //     await refreshCombinedTreeData();
-    //     await refreshGridData();
-
-    //     showAlert(`Liste başarıyla güncellendi ve "${registeredData.name}" öğesinin durumu ayarlandı!`, 'success');
-    // }, [showAlert, refreshGridData]);
-
-
-    // const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
-    //     // بستن مودال‌ها و ریست کردن استیت‌های موقت
-    //     setOpenRegisterItemModal(false);
-    //     setOpenRegisterCategoryModal(false);
-    //     setItemToRegister(null);
-    //     setCategoryToRegister(null);
-
-    //     // 1. درخت داده‌ها را آپدیت می‌کنیم تا در دراپ‌داون‌ها آیتم جدید دیده شود
+    //     // 2. آپدیت درخت دسته‌بندی‌ها
     //     await refreshCombinedTreeData();
 
-    //     // 2. نکته مهم: refreshGridData() را حذف کردیم تا دیتای اکسل نپرد.
-    //     // await refreshGridData(); <--- این خط باعث پاک شدن اکسل می‌شد
-
-    //     // 3. به جای رفرش از سرور، گرید فعلی را دستی آپدیت می‌کنیم
+    //     // 3. آپدیت گرید اصلی (سبز کردن آیتم و تغییر وضعیت به ثبت شده)
     //     setGridData(prevGridData => {
     //         return prevGridData.map(row => {
-    //             // نرمال‌سازی برای مقایسه دقیق رشته‌ها
-    //             const rowDesc = normalizeString(row.description);
-    //             const newName = normalizeString(registeredData.name);
+    //             // پیدا کردن ردیف هدف
+    //             const isTargetRow = originalRowId
+    //                 ? (row.id === originalRowId)
+    //                 : (normalizeString(row.description) === normalizeString(registeredData.name));
 
-    //             // اگر نام ردیف با نام آیتم/کتگوری ثبت شده یکی بود
-    //             if (rowDesc === newName) {
-    //                 // تشخیص اینکه آیا ردیف و دیتای ثبت شده هر دو از یک نوع هستند (کتگوری یا آیتم)
+    //             if (isTargetRow) {
     //                 const isCategoryRegistration = 'categories' in registeredData || (registeredData as any).categories !== undefined;
-    //                 // نکته: تایپ گارد ساده برای تشخیص کتگوری بودن دیتای بازگشتی
 
-    //                 // اگر نوع ردیف با نوع دیتای ثبت شده همخوانی دارد
+    //                 // فقط اگر نوع (آیتم/کتگوری) مطابقت داشت آپدیت کن
     //                 if (row.isCategory === isCategoryRegistration) {
-    //                     let updatedRow = { ...row };
+    //                     let updatedRow: TenderDetailRow = { ...row };
 
-    //                     // تنظیم وضعیت به "ثبت شده"
+    //                     // *** نکته مهم: تغییر وضعیت به ثبت شده ***
     //                     updatedRow.isUnregisteredItem = false;
 
+    //                     // آپدیت نام طبق سرور
+    //                     updatedRow.description = registeredData.name;
+
     //                     if (!row.isCategory) {
-    //                         // اگر آیتم است، ID و واحد را ست کن
-    //                         updatedRow.itemId = (registeredData as ApiItemType).id;
-    //                         if ((registeredData as ApiItemType).unit) {
-    //                             updatedRow.olcuBrimi = (registeredData as ApiItemType).unit.title;
+    //                         const itemData = registeredData as ApiItemType;
+    //                         updatedRow.itemId = itemData.id;
+    //                         if (itemData.unit && itemData.unit.title) {
+    //                             updatedRow.olcuBrimi = itemData.unit.title;
     //                         }
     //                     } else {
-    //                         // اگر کتگوری است، درصد یا تنظیمات دیگر را اگر در ریسپانس هست ست کن
-    //                         if ((registeredData as any).percent) {
+    //                         if ((registeredData as any).percent !== undefined && (registeredData as any).percent !== null) {
     //                             updatedRow.categoryPercentage = (registeredData as any).percent;
     //                         }
     //                     }
 
-    //                     // محاسبه مجدد قیمت‌ها برای این ردیف
+    //                     // محاسبه مجدد مقادیر (چون ممکن است واحد یا درصد تغییر کرده باشد)
+    //                     const qMalzeme = updatedRow.malzeme || 0;
+    //                     const qYuklenici = updatedRow.malzemeYuklenici || 0;
+    //                     const qDemontaj = updatedRow.demontaj || 0;
+    //                     const qDMM = updatedRow.demontajMontaj || 0;
+
+    //                     const qMontaj = qMalzeme + qYuklenici;
+    //                     updatedRow.montaj = qMontaj;
+
+    //                     const pMalzeme = updatedRow.birimFiyatMalzeme || 0;
+    //                     const pMontaj = updatedRow.birimFiyatMontaj || 0;
+    //                     const pDemontaj = updatedRow.birimFiyatDemontaj || 0;
+    //                     const pDMM = updatedRow.birimFiyatDemontajMontaj || 0;
+
+    //                     let percentFactor = 1;
+    //                     if (updatedRow.categoryPercentage !== null && updatedRow.categoryPercentage !== undefined) {
+    //                         percentFactor = updatedRow.categoryPercentage / 100;
+    //                     }
+
+    //                     updatedRow.toplamMalzeme = qYuklenici * pMalzeme;
+    //                     updatedRow.toplamMontaj = qMontaj * pMontaj;
+    //                     updatedRow.toplamDemontaj = qDemontaj * pDemontaj * percentFactor;
+    //                     updatedRow.toplamDemontajdanMontaj = qDMM * pDMM * percentFactor;
+
     //                     return calculateTotals(updatedRow, true);
     //                 }
     //             }
@@ -1856,31 +1961,174 @@ const TenderDetails = () => {
     //         });
     //     });
 
-    //     showAlert(`Liste güncellendi: "${registeredData.name}" başarıyla işlendi.`, 'success');
-    // }, [showAlert, refreshCombinedTreeData, calculateTotals]);
+    //     // 4. آپدیت لیست خطاها و باز کردن مجدد مودال
+    //     setUnregisteredRows(prevRows => {
+    //         // حذف آیتم ثبت شده از لیست خطاهای فعلی
+    //         const newRows = originalRowId
+    //             ? prevRows.filter(r => r.id !== originalRowId)
+    //             : prevRows.filter(r => normalizeString(r.description) !== normalizeString(registeredData.name));
+
+    //         // *** منطق جدید: اگر لیستی باقی مانده، مودال را باز نگه دار/باز کن ***
+    //         if (newRows.length > 0) {
+    //             // یک تایم‌اوت کوتاه برای اطمینان از اعمال تغییرات UI قبلی
+    //             setTimeout(() => {
+    //                 setOpenUnregisteredListModal(true);
+    //             }, 100);
+    //         } else {
+    //             // اگر لیست خالی شد، مودال را ببند
+    //             setOpenUnregisteredListModal(false);
+    //             showAlert('Tüm eksik kayıtlar tamamlandı. Şimdi kaydedebilirsiniz.', 'success');
+    //             return newRows;
+    //         }
+
+    //         return newRows;
+    //     });
+
+    //     if (unregisteredRows.length > 1) { // اگر بیشتر از 1 بود یعنی هنوز چیزی باقی مانده (چون یکی الان کم شد)
+    //         showAlert(`"${registeredData.name}" eklendi. Listeye devam ediliyor...`, 'success');
+    //     } else {
+    //         // این حالت در شرط بالا هندل شده اما محض اطمینان
+    //         showAlert(`"${registeredData.name}" başarıyla eklendi.`, 'success');
+    //     }
+
+    // }, [showAlert, refreshCombinedTreeData, calculateTotals, unregisteredRows.length]);
+
+
+    // تابع بازگشتی برای تبدیل درخت دسته‌بندی به یک لیست مسطح
+
+
+    const flattenCategories = (categories: ApiCategoryType[]): ApiCategoryType[] => {
+        let flat: ApiCategoryType[] = [];
+        categories.forEach(cat => {
+            flat.push(cat);
+            if (cat.categories && cat.categories.length > 0) {
+                flat = [...flat, ...flattenCategories(cat.categories)];
+            }
+        });
+        return flat;
+    };
+
+
+    const validateRowsWithApi = async (): Promise<TenderDetailRow[]> => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) {
+            showAlert('Oturum süresi doldu.', 'error');
+            return [];
+        }
+
+        try {
+            setLoading(true); // نمایش لودینگ
+
+            // 1. دریافت همزمان آیتم‌ها و دسته‌بندی‌ها از سرور
+            const [itemsResponse, categoriesResponse] = await Promise.all([
+                axios.get(server.baseurl + server.baseinfo + "get-item", {
+                    headers: { "Authorization": `Bearer ${authToken}` }
+                }),
+                axios.get(server.baseurl + server.baseinfo + "get-categories", {
+                    headers: { "Authorization": `Bearer ${authToken}` }
+                })
+            ]);
+
+            let apiItems: any[] = [];
+            let apiCategories: ApiCategoryType[] = [];
+
+            // 2. پردازش آیتم‌ها
+            if (itemsResponse.data && itemsResponse.data.success) {
+                apiItems = itemsResponse.data.data;
+            }
+
+            // 3. پردازش دسته‌بندی‌ها (و فلت کردن آنها)
+            if (categoriesResponse.data && categoriesResponse.data.data) { // بسته به ساختار ریسپانس شما
+                // اگر دیتای اصلی داخل data.data است:
+                apiCategories = flattenCategories(categoriesResponse.data.data || []);
+            }
+
+            // 4. مقایسه GridData فعلی با داده‌های تازه سرور
+            const updatedGridData = gridData.map(row => {
+                const normalizedRowName = normalizeString(row.description);
+                let isFound = false;
+                let foundId: number | null = null;
+                let foundUnit = row.olcuBrimi; // پیش‌فرض همان واحد قبلی
+
+                if (row.isCategory) {
+                    // جستجو در دسته‌بندی‌های سرور
+                    const foundCat = apiCategories.find(c => normalizeString(c.name) === normalizedRowName);
+                    if (foundCat) {
+                        isFound = true;
+                        // اگر نیاز بود درصدی که در سرور هست را هم سینک کنید اینجا انجام دهید
+                    }
+                } else {
+                    // جستجو در آیتم‌های سرور
+                    const foundItem = apiItems.find(i => normalizeString(i.name) === normalizedRowName);
+                    if (foundItem) {
+                        isFound = true;
+                        foundId = foundItem.id;
+                        // آپدیت واحد اندازه گیری اگر در سرور موجود باشد
+                        if (foundItem.unit && foundItem.unit.title) {
+                            foundUnit = foundItem.unit.title;
+                        }
+                    }
+                }
+
+                // بازگرداندن ردیف آپدیت شده
+                // اگر پیدا شد (isFound === true)، پس isUnregisteredItem می‌شود false
+                return calculateTotals({
+                    ...row,
+                    isUnregisteredItem: !isFound,
+                    itemId: foundId, // اگر آیتم بود، آیدی جدید ست می‌شود
+                    olcuBrimi: foundUnit
+                }, true);
+            });
+
+            // 5. آپدیت استیت جدول با داده‌های جدید و دقیق
+            setGridData(updatedGridData);
+
+            // بازگرداندن لیست خطاهای باقی‌مانده برای نمایش در مودال
+            return updatedGridData.filter(row => row.isUnregisteredItem);
+
+        } catch (error) {
+            console.error("Validation Error:", error);
+            showAlert('Veriler doğrulanırken sunucu hatası oluştu.', 'error');
+            return [];
+        } finally {
+            setLoading(false);
+        }
+    };
 
 
 
-    const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType) => {
+    const handleRegistrationSuccess = useCallback(async (registeredData: ApiItemType | ApiCategoryType, originalRowId?: number) => {
+        // 1. بستن مودال‌های ثبت و پاک کردن استیت‌های موقت
         setOpenRegisterItemModal(false);
         setOpenRegisterCategoryModal(false);
         setItemToRegister(null);
         setCategoryToRegister(null);
 
+        // 2. آپدیت درخت دسته‌بندی‌ها (بسیار مهم برای سینک شدن با سرور)
         await refreshCombinedTreeData();
 
+        const normalizedRegisteredName = normalizeString(registeredData.name);
+
+        // 3. آپدیت گرید اصلی (اصلاح شده: همه ردیف‌های همنام را آپدیت می‌کند)
         setGridData(prevGridData => {
             return prevGridData.map(row => {
-                const rowDesc = normalizeString(row.description);
-                const newName = normalizeString(registeredData.name);
+                // شرط اصلاح شده:
+                // اگر آیدی ردیف یکی بود -یا- اگر توضیحات (نام) ردیف با نام ثبت شده یکی بود
+                const isTargetRow = (originalRowId && row.id === originalRowId) ||
+                    (normalizeString(row.description) === normalizedRegisteredName);
 
-                if (rowDesc === newName) {
+                if (isTargetRow) {
                     const isCategoryRegistration = 'categories' in registeredData || (registeredData as any).categories !== undefined;
 
+                    // چک کردن تطابق نوع (آیتم با آیتم، کتگوری با کتگوری)
                     if (row.isCategory === isCategoryRegistration) {
                         let updatedRow: TenderDetailRow = { ...row };
 
+                        // *** تغییر وضعیت به ثبت شده ***
                         updatedRow.isUnregisteredItem = false;
+
+                        // آپدیت نام طبق سرور (جهت یکسان‌سازی حروف بزرگ و کوچک و ...)
+                        updatedRow.description = registeredData.name;
 
                         if (!row.isCategory) {
                             const itemData = registeredData as ApiItemType;
@@ -1889,46 +2137,35 @@ const TenderDetails = () => {
                                 updatedRow.olcuBrimi = itemData.unit.title;
                             }
                         } else {
-                            // اگر درصد جدیدی از سمت سرور آمد آن را ست کن، اگر نه، قبلی بماند
                             if ((registeredData as any).percent !== undefined && (registeredData as any).percent !== null) {
                                 updatedRow.categoryPercentage = (registeredData as any).percent;
                             }
                         }
 
-                        // 1. مقادیر (Quantities)
+                        // محاسبه مجدد مقادیر (چون ممکن است واحد یا درصد تغییر کرده باشد)
                         const qMalzeme = updatedRow.malzeme || 0;
                         const qYuklenici = updatedRow.malzemeYuklenici || 0;
                         const qDemontaj = updatedRow.demontaj || 0;
                         const qDMM = updatedRow.demontajMontaj || 0;
 
-                        // محاسبه و اصلاح مقدار مونتاژ (مهم)
                         const qMontaj = qMalzeme + qYuklenici;
                         updatedRow.montaj = qMontaj;
 
-                        // 2. قیمت‌های واحد (Unit Prices)
                         const pMalzeme = updatedRow.birimFiyatMalzeme || 0;
                         const pMontaj = updatedRow.birimFiyatMontaj || 0;
                         const pDemontaj = updatedRow.birimFiyatDemontaj || 0;
                         const pDMM = updatedRow.birimFiyatDemontajMontaj || 0;
 
-                        // 3. محاسبه ضریب درصد (نکته اصلی سوال شما)
-                        let percentFactor = 1; // <--- پیش‌فرض ۱ است (۱۰۰ درصد) اگر نال باشد
-
+                        let percentFactor = 1;
                         if (updatedRow.categoryPercentage !== null && updatedRow.categoryPercentage !== undefined) {
-                            // اگر عددی (حتی ۰) وجود داشت، آن را بر ۱۰۰ تقسیم کن
                             percentFactor = updatedRow.categoryPercentage / 100;
                         }
-                        // اگر null یا undefined بود، همان ۱ باقی می‌ماند و قیمت صفر نمی‌شود.
 
-                        // 4. محاسبه مبالغ کل (TUTARLAR) با اعمال ضریب درست
                         updatedRow.toplamMalzeme = qYuklenici * pMalzeme;
                         updatedRow.toplamMontaj = qMontaj * pMontaj;
-
-                        // اعمال ضریب درصد فقط روی دمونتاژ و DMM
                         updatedRow.toplamDemontaj = qDemontaj * pDemontaj * percentFactor;
                         updatedRow.toplamDemontajdanMontaj = qDMM * pDMM * percentFactor;
 
-                        // ارسال به calculateTotals برای فرمت‌دهی نهایی
                         return calculateTotals(updatedRow, true);
                     }
                 }
@@ -1936,8 +2173,32 @@ const TenderDetails = () => {
             });
         });
 
-        showAlert(`"${registeredData.name}" güncellendi.`, 'success');
-    }, [showAlert, refreshCombinedTreeData, calculateTotals]);
+        // 4. آپدیت لیست خطاهای داخل مودال (اصلاح شده: حذف همه موارد همنام از لیست خطا)
+        setUnregisteredRows(prevRows => {
+            // حذف تمام ردیف‌هایی که نامشان با آیتم ثبت شده یکی است
+            const newRows = prevRows.filter(r => normalizeString(r.description) !== normalizedRegisteredName);
+
+            // اگر هنوز موردی در لیست مانده، مودال باز بماند، وگرنه بسته شود
+            if (newRows.length > 0) {
+                setTimeout(() => {
+                    setOpenUnregisteredListModal(true);
+                }, 100);
+            } else {
+                setOpenUnregisteredListModal(false);
+                showAlert('Tüm eksik kayıtlar tamamlandı. Şimdi kaydedebilirsiniz.', 'success');
+            }
+
+            return newRows;
+        });
+
+        if (unregisteredRows.length > 1) {
+            showAlert(`"${registeredData.name}" eklendi ve listeden güncellendi.`, 'success');
+        } else {
+            showAlert(`"${registeredData.name}" başarıyla eklendi.`, 'success');
+        }
+
+    }, [showAlert, refreshCombinedTreeData, calculateTotals, unregisteredRows.length]);
+
 
     const handleCloseRegisterItemModal = useCallback(() => {
         setOpenRegisterItemModal(false);
@@ -2328,6 +2589,42 @@ const TenderDetails = () => {
             setIsLoading(false);
             return;
         }
+
+
+        // const unregisteredItems = gridData.filter(row => row.isUnregisteredItem);
+
+        // if (unregisteredItems.length > 0) {
+        //     setUnregisteredRows(unregisteredItems);
+        //     setOpenUnregisteredListModal(true); // باز کردن مودال لیست خطاها
+        //     setIsLoading(false); // لودینگ را خاموش کن
+        //     // showAlert('Lütfen listedeki kayıtlı olmayan öğeleri (kırmızı) sisteme ekleyin.', 'warning'); // نیازی نیست چون مودال باز میشه
+        //     return; // توقف عملیات ذخیره
+        // }
+
+
+        setIsLoading(true);
+
+        // 2. استعلام از سرور برای بررسی آیتم‌ها
+        // (مطمئن شوید تابع validateRowsWithApi که قبلا دادم را در کد دارید)
+        const currentUnregisteredRows = await validateRowsWithApi();
+
+        // 3. اگر آیتم ثبت نشده‌ای پیدا شد
+        if (currentUnregisteredRows.length > 0) {
+            setUnregisteredRows(currentUnregisteredRows);
+            setOpenUnregisteredListModal(true);
+
+            showAlert('Bazı öğeler henüz sisteme kayıtlı değil. Lütfen listeyi kontrol edin.', 'warning');
+
+            // ********** اصلاح نهایی برای حل مشکل لودر **********
+            setIsLoading(false);   // <--- این خط لودر وسط صفحه را خاموش می‌کند
+            setIsSavingAll(false); // اگر دکمه ذخیره هم لودینگ دارد، خاموش می‌شود
+            setLoading(false);     // محض اطمینان سایر لودرها
+            // **************************************************
+
+            return; // توقف عملیات ذخیره‌سازی
+        }
+
+        // 4. اگر همه چیز اوکی بود، ادامه عملیات ذخیره (API Update)
         setIsSavingAll(true);
         setAlertMessage(null);
 
@@ -2382,6 +2679,8 @@ const TenderDetails = () => {
             }
         });
 
+
+        debugger
         // ساختن payload نهایی
         const categoriesPayload = Object.values(groupedData).map(group => {
             return {
@@ -3909,6 +4208,73 @@ const TenderDetails = () => {
             >
                 <CircularProgress color="inherit" />
             </Backdrop>
+
+
+            <Dialog
+                open={openUnregisteredListModal}
+                onClose={() => setOpenUnregisteredListModal(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle sx={{ backgroundColor: (theme) => theme.palette.error.light, color: (theme) => theme.palette.error.contrastText }}>
+                    Kaydedilmemiş Öğeler Bulundu
+                </DialogTitle>
+                <DialogContent dividers>
+                    <Typography variant="body1" sx={{ mb: 2 }}>
+                        Aşağıdaki öğeler veritabanında kayıtlı değildir. İhaleyi kaydetmeden önce bu öğeleri sisteme eklemelisiniz.
+                    </Typography>
+
+                    <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ backgroundColor: (theme) => theme.palette.grey[100] }}>
+                                    <TableCell>Tip</TableCell>
+                                    <TableCell>Açıklama (İsim)</TableCell>
+                                    <TableCell>Birim</TableCell>
+                                    <TableCell align="center">Aksiyon</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {unregisteredRows.map((row) => (
+                                    <TableRow key={row.id}>
+                                        <TableCell>
+                                            {row.isCategory ? (
+                                                <Chip label="Kategori" color="primary" size="small" variant="outlined" />
+                                            ) : (
+                                                <Chip label="Ürün" color="default" size="small" variant="outlined" />
+                                            )}
+                                        </TableCell>
+                                        <TableCell>{row.description}</TableCell>
+                                        <TableCell>{row.olcuBrimi || '-'}</TableCell>
+                                        <TableCell align="center">
+                                            <Button
+                                                variant="contained"
+                                                color="success"
+                                                size="small"
+                                                onClick={() => {
+                                                    // 1. بستن این مودال لیست
+                                                    setOpenUnregisteredListModal(false);
+                                                    // 2. باز کردن مودال ثبت برای این ردیف خاص
+                                                    handleOpenRegisterModalForUnregisteredRow(row);
+                                                }}
+                                                startIcon={<IconPlus size={16} />}
+                                            >
+                                                Ekle
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenUnregisteredListModal(false)} color="secondary" variant="outlined">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
         </Box >
     );
 };

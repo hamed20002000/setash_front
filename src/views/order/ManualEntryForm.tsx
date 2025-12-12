@@ -166,11 +166,11 @@ const statusToColor = (s: number): 'warning' | 'success' | 'error' | 'primary' |
         default: return "primary";
     }
 };
-const statusToLabel = (s: number): 'warning' | 'success' | 'error' | 'primary' | 'default' => {
+const statusToLabel = (s: number): 'Beklemede' | 'Onaylandı' | 'Reddedildi' | 'primary' | 'default' => {
     switch (s) {
-        case 0: return "warning";
-        case 1: return "success";
-        case 2: return "error";
+        case 0: return "Beklemede";
+        case 1: return "Onaylandı";
+        case 2: return "Reddedildi";
         default: return "primary";
     }
 };
@@ -291,17 +291,22 @@ const ManualEntryForm = () => {
         if (priceInput === null || priceInput === undefined) {
             return '₺0.00';
         }
-        const cleanedString = String(priceInput).replace(/[$,]/g, '');
+        // حذف هر کاراکتری که عدد، نقطه یا منفی نیست (برای اطمینان بیشتر)
+        const cleanedString = String(priceInput).replace(/[^0-9.-]/g, '');
         const numericValue = parseFloat(cleanedString);
+
         if (isNaN(numericValue)) {
             return '₺0.00';
         }
-        const formattedPrice = numericValue.toLocaleString('tr-TR', {
+
+        // تغییر tr-TR به en-US برای استفاده از نقطه به عنوان اعشار
+        const formattedPrice = numericValue.toLocaleString('en-US', {
             style: 'currency',
             currency: 'TRY',
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
+
         return formattedPrice;
     };
     const stripHtml = (htmlString: string): string => {
@@ -320,11 +325,11 @@ const ManualEntryForm = () => {
 
         // لوگو را در موقعیت جدید قرار دهید
         doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
-        doc.setFont('Arial', 'bold');
+        doc.setFont('Arial', 'normal');
         doc.setFontSize(14);
         doc.text(title, pageWidth / 2, 15, { align: 'center' });
         doc.setFontSize(10);
-        doc.setFont('Arial', 'bold');
+        doc.setFont('Arial', 'normal');
         doc.text(`Tarih:`, 15, 25);
         doc.setFont('Arial', 'normal');
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
@@ -357,6 +362,7 @@ const ManualEntryForm = () => {
 
     const exportToPdf = (orderData: OrderType) => {
         const doc = new jsPDF();
+        // بارگذاری فونت‌ها
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -365,6 +371,7 @@ const ManualEntryForm = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
+        // داده‌های جدول اصلی
         const rows = orderData.orderDetails.map(detail => [
             detail.item.name || '-',
             Number(detail.quantity).toFixed(2) || '-',
@@ -373,6 +380,7 @@ const ManualEntryForm = () => {
             cleanAndFormatPrice(detail.price),
         ]);
 
+        // رسم جدول اصلی
         autoTable(doc, {
             startY: 90,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
@@ -398,37 +406,59 @@ const ManualEntryForm = () => {
         });
 
         const finalY = (doc as any).lastAutoTable.finalY;
-        const totalQuantities = new Map<string, number>();
 
-        let totalPrice = 0;
+        // --- محاسبات جدول خلاصه ---
+        const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+        let grandTotalPrice = 0;
+
         orderData.orderDetails.forEach(detail => {
             const unitTitle = detail.item.unit.title;
-            const currentTotal = totalQuantities.get(unitTitle) || 0;
-            totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
-            totalPrice += Number(detail.price);
+            const qty = Number(detail.quantity);
+
+            // تمیز کردن قیمت
+            const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+            const unitPrice = parseFloat(rawPriceString) || 0;
+
+            const lineTotal = qty * unitPrice; // قیمت کل این ردیف
+
+            const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+            summaryData.set(unitTitle, {
+                totalQty: currentData.totalQty + qty,
+                totalPrice: currentData.totalPrice + lineTotal
+            });
+
+            grandTotalPrice += lineTotal;
         });
 
-        if (totalQuantities.size > 0) {
-            const summaryRows = Array.from(totalQuantities.entries()).map(([unit, total]) => [unit, total.toFixed(2)]);
+        // رسم جدول خلاصه
+        if (summaryData.size > 0) {
+            const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
+                unit,
+                data.totalQty.toFixed(2),
+                cleanAndFormatPrice(data.totalPrice) // جمع قیمت واحد
+            ]);
 
             autoTable(doc, {
                 startY: finalY + 10,
-                head: [['Birim', 'Toplam Miktar']],
+                head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']], // ستون سوم اضافه شد
                 body: summaryRows,
                 theme: 'grid',
                 styles: { font: 'Arial', fontSize: 10 },
-                headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
             });
-            const priceSummaryY = (doc as any).lastAutoTable.finalY + 5;
-            doc.setFontSize(10);
-            doc.text(`Toplam Fiyat: ${cleanAndFormatPrice(totalPrice)}`, 15, priceSummaryY);
 
+            // نمایش جمع کل نهایی
+            const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
+            doc.setFontSize(12);
+            doc.setFont('Arial', 'normal');
+            if (grandTotalPrice > 0) {
+                doc.text(`Genel Toplam: ${cleanAndFormatPrice(grandTotalPrice)}`, 15, priceSummaryY);
+            }
         }
 
         doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);
     };
 
-    // Export function for a detailed PDF of all orders (or filtered) - one page per order
     const exportDetailedPdf = (filtered: boolean) => {
         const dataToExport = filtered ? sortedAndFilteredOrders : ordersList;
         if (dataToExport.length === 0) {
@@ -480,31 +510,51 @@ const ManualEntryForm = () => {
             });
 
             const finalY = (doc as any).lastAutoTable.finalY;
-            const totalQuantities = new Map<string, number>();
-            let totalPrice = 0;
+
+            // --- محاسبات جدول خلاصه ---
+            const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+            let grandTotalPrice = 0;
+
             order.orderDetails.forEach(detail => {
                 const unitTitle = detail.item.unit.title;
-                const currentTotal = totalQuantities.get(unitTitle) || 0;
-                totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
-                totalPrice += Number(detail.price);
+                const qty = Number(detail.quantity);
+
+                const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+                const unitPrice = parseFloat(rawPriceString) || 0;
+                const lineTotal = qty * unitPrice;
+
+                const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+                summaryData.set(unitTitle, {
+                    totalQty: currentData.totalQty + qty,
+                    totalPrice: currentData.totalPrice + lineTotal
+                });
+
+                grandTotalPrice += lineTotal;
             });
 
-            if (totalQuantities.size > 0) {
-                const summaryRows = Array.from(totalQuantities.entries()).map(([unit, total]) => [unit, total.toFixed(2)]);
+            if (summaryData.size > 0) {
+                const summaryRows = Array.from(summaryData.entries()).map(([unit, data]) => [
+                    unit,
+                    data.totalQty.toFixed(2),
+                    cleanAndFormatPrice(data.totalPrice)
+                ]);
 
                 autoTable(doc, {
                     startY: finalY + 10,
-                    head: [['Birim', 'Toplam Miktar']],
+                    head: [['Birim', 'Toplam Miktar', 'Toplam Tutar']],
                     body: summaryRows,
                     theme: 'grid',
                     styles: { font: 'Arial', fontSize: 10 },
-                    headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+                    headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
                 });
-                const priceSummaryY = (doc as any).lastAutoTable.finalY + 5;
-                doc.setFontSize(10);
-                doc.text(`Toplam Fiyat: ${cleanAndFormatPrice(totalPrice)}`, 15, priceSummaryY);
-            }
 
+                const priceSummaryY = (doc as any).lastAutoTable.finalY + 10;
+                doc.setFontSize(12);
+                doc.setFont('Arial', 'normal');
+                if (grandTotalPrice > 0) {
+                    doc.text(`Genel Toplam: ${cleanAndFormatPrice(grandTotalPrice)}`, 15, priceSummaryY);
+                }
+            }
         });
 
         const fileName = filtered ? 'Filtrelenmis_Siparisler.pdf' : 'Tum_Siparisler.pdf';
@@ -558,7 +608,7 @@ const ManualEntryForm = () => {
         const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
         const headerRow = worksheet.addRow(tableHeaders);
         headerRow.font = { name: 'Arial', bold: true };
-        headerRow.eachCell(cell => { // ✅ Apply background color to header cells
+        headerRow.eachCell(cell => {
             cell.fill = {
                 type: 'pattern',
                 pattern: 'solid',
@@ -576,6 +626,7 @@ const ManualEntryForm = () => {
             ]);
         });
 
+        // تنظیم عرض ستون‌ها
         worksheet.columns.forEach((column) => {
             let maxLength = 0;
             if (column && typeof column.eachCell === 'function') {
@@ -589,35 +640,55 @@ const ManualEntryForm = () => {
             column.width = Math.min(Math.max(maxLength + 2, 15), 50);
         });
 
-        const totalQuantities = new Map<string, number>();
-        let totalPrice = 0;
+        // --- محاسبات جدول خلاصه ---
+        const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+        let grandTotalPrice = 0;
+
         orderData.orderDetails.forEach(detail => {
             const unitTitle = detail.item.unit.title;
-            const currentTotal = totalQuantities.get(unitTitle) || 0;
-            totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
-            totalPrice += Number(detail.price);
+            const qty = Number(detail.quantity);
+
+            const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+            const unitPrice = parseFloat(rawPriceString) || 0;
+            const lineTotal = qty * unitPrice;
+
+            const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+            summaryData.set(unitTitle, {
+                totalQty: currentData.totalQty + qty,
+                totalPrice: currentData.totalPrice + lineTotal
+            });
+
+            grandTotalPrice += lineTotal;
         });
 
-        if (totalQuantities.size > 0) {
+        if (summaryData.size > 0) {
             worksheet.addRow([]);
-            worksheet.addRow(['Toplam Miktarlar']).font = { name: 'Arial', size: 12, bold: true };
-            const summaryHeaders = ['Birim', 'Toplam Miktar'];
-            const summaryHeaderRow = worksheet.addRow(summaryHeaders); // ✅ Get a reference to the header row
+            worksheet.addRow(['Birim Bazlı Toplamlar']).font = { name: 'Arial', size: 12, bold: true };
+
+            const summaryHeaders = ['Birim', 'Toplam Miktar', 'Toplam Tutar'];
+            const summaryHeaderRow = worksheet.addRow(summaryHeaders);
             summaryHeaderRow.font = { name: 'Arial', bold: true };
-            summaryHeaderRow.eachCell(cell => { // ✅ Apply background color to summary header
+            summaryHeaderRow.eachCell(cell => {
                 cell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
                     fgColor: { argb: 'FFD9E1F2' }
                 };
             });
-            Array.from(totalQuantities.entries()).forEach(([unit, total]) => {
-                worksheet.addRow([unit, total.toFixed(2)]);
+
+            Array.from(summaryData.entries()).forEach(([unit, data]) => {
+                worksheet.addRow([
+                    unit,
+                    data.totalQty.toFixed(2),
+                    cleanAndFormatPrice(data.totalPrice)
+                ]);
             });
         }
-        if (totalPrice > 0) {
+
+        if (grandTotalPrice > 0) {
             worksheet.addRow([]);
-            worksheet.addRow(['Toplam Fiyat', cleanAndFormatPrice(totalPrice)]).font = { name: 'Arial', bold: true };
+            const grandTotalRow = worksheet.addRow(['Genel Toplam', '', cleanAndFormatPrice(grandTotalPrice)]);
+            grandTotalRow.font = { name: 'Arial', bold: true, size: 11 };
         }
 
         const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
@@ -628,7 +699,6 @@ const ManualEntryForm = () => {
         });
     };
 
-    // Export function for a summary Excel of all orders (or filtered)
     const exportAllExcel = (filtered: boolean) => {
         const dataToExport = filtered ? sortedAndFilteredOrders : ordersList;
         if (dataToExport.length === 0) {
@@ -642,7 +712,7 @@ const ManualEntryForm = () => {
             const worksheet = workbook.addWorksheet(`Sipariş_${order.id}`);
             worksheet.views = [{ rightToLeft: false }];
 
-            // Add report header for each order
+            // هدر گزارش
             worksheet.addRow([`Sipariş Detayları`]).font = { name: 'Arial', size: 12, bold: true };
             worksheet.mergeCells('A1:E1');
             worksheet.getCell('A1').alignment = { horizontal: 'center' };
@@ -651,20 +721,19 @@ const ManualEntryForm = () => {
             worksheet.getCell('A2').alignment = { horizontal: 'left' };
             worksheet.addRow([]);
 
-            // Add order-specific details
+            // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(order.docDate)]);
             worksheet.addRow(['İlişkili Talep No', order.request ? '#' + order.request.id + order.request.subject : '-']);
-
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
             worksheet.addRow([]);
 
-            // Add table headers
+            // هدرهای جدول
             const tableHeaders = ['Ürün', 'ÖLÇÜ', 'Miktar', 'Açıklama', 'Fiyat'];
             const headerRow = worksheet.addRow(tableHeaders);
             headerRow.font = { name: 'Arial', bold: true };
-            headerRow.eachCell(cell => { // ✅ Apply background color to header cells
+            headerRow.eachCell(cell => {
                 cell.fill = {
                     type: 'pattern',
                     pattern: 'solid',
@@ -672,7 +741,7 @@ const ManualEntryForm = () => {
                 };
             });
 
-            // Add order details
+            // اقلام سفارش
             order.orderDetails.forEach(detail => {
                 worksheet.addRow([
                     detail.item.name,
@@ -683,42 +752,7 @@ const ManualEntryForm = () => {
                 ]);
             });
 
-            // Add summary table at the end
-            const totalQuantities = new Map<string, number>();
-            let totalPrice = 0;
-            order.orderDetails.forEach(detail => {
-                const unitTitle = detail.item.unit.title;
-                const currentTotal = totalQuantities.get(unitTitle) || 0;
-                totalQuantities.set(unitTitle, currentTotal + Number(detail.quantity));
-                totalPrice += Number(detail.price);
-            });
-
-            if (totalQuantities.size > 0) {
-                worksheet.addRow([]);
-                worksheet.addRow(['Toplam Miktarlar']).font = { name: 'Arial', size: 12, bold: true };
-                const summaryHeaders = ['Birim', 'Toplam Miktar'];
-                const summaryHeaderRow = worksheet.addRow(summaryHeaders); // ✅ Get a reference to the header row
-                summaryHeaderRow.font = { name: 'Arial', bold: true };
-                summaryHeaderRow.eachCell(cell => { // ✅ Apply background color to summary header
-                    cell.fill = {
-                        type: 'pattern',
-                        pattern: 'solid',
-                        fgColor: { argb: 'FFD9E1F2' }
-                    };
-                });
-                Array.from(totalQuantities.entries()).forEach(([unit, total]) => {
-                    worksheet.addRow([unit, total.toFixed(2)]);
-                });
-            }
-
-            if (totalPrice > 0) {
-                worksheet.addRow([]);
-                worksheet.addRow(['Toplam Fiyat', cleanAndFormatPrice(totalPrice)]).font = { name: 'Arial', bold: true };
-            }
-            const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
-            addExcelCompanyInfo(worksheet, startRow);
-
-            // Auto-size columns on each sheet
+            // تنظیم عرض ستون‌ها
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
                 if (column && typeof column.eachCell === 'function') {
@@ -731,6 +765,60 @@ const ManualEntryForm = () => {
                 }
                 column.width = Math.min(Math.max(maxLength + 2, 15), 50);
             });
+
+            // --- محاسبات جدول خلاصه ---
+            const summaryData = new Map<string, { totalQty: number, totalPrice: number }>();
+            let grandTotalPrice = 0;
+
+            order.orderDetails.forEach(detail => {
+                const unitTitle = detail.item.unit.title;
+                const qty = Number(detail.quantity);
+
+                const rawPriceString = String(detail.price).replace(/[$,]/g, '');
+                const unitPrice = parseFloat(rawPriceString) || 0;
+                const lineTotal = qty * unitPrice;
+
+                const currentData = summaryData.get(unitTitle) || { totalQty: 0, totalPrice: 0 };
+                summaryData.set(unitTitle, {
+                    totalQty: currentData.totalQty + qty,
+                    totalPrice: currentData.totalPrice + lineTotal
+                });
+
+                grandTotalPrice += lineTotal;
+            });
+
+            if (summaryData.size > 0) {
+                worksheet.addRow([]);
+                worksheet.addRow(['Birim Bazlı Toplamlar']).font = { name: 'Arial', size: 12, bold: true };
+
+                const summaryHeaders = ['Birim', 'Toplam Miktar', 'Toplam Tutar'];
+                const summaryHeaderRow = worksheet.addRow(summaryHeaders);
+                summaryHeaderRow.font = { name: 'Arial', bold: true };
+                summaryHeaderRow.eachCell(cell => {
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFD9E1F2' }
+                    };
+                });
+
+                Array.from(summaryData.entries()).forEach(([unit, data]) => {
+                    worksheet.addRow([
+                        unit,
+                        data.totalQty.toFixed(2),
+                        cleanAndFormatPrice(data.totalPrice)
+                    ]);
+                });
+            }
+
+            if (grandTotalPrice > 0) {
+                worksheet.addRow([]);
+                const grandTotalRow = worksheet.addRow(['Genel Toplam', '', cleanAndFormatPrice(grandTotalPrice)]);
+                grandTotalRow.font = { name: 'Arial', bold: true, size: 11 };
+            }
+
+            const startRow = worksheet.lastRow ? worksheet.lastRow.number + 2 : 1;
+            addExcelCompanyInfo(worksheet, startRow);
         });
 
         workbook.xlsx.writeBuffer().then(buffer => {
@@ -743,7 +831,9 @@ const ManualEntryForm = () => {
         setOpenDownloadFilteredModal(false);
     };
 
-    // ------------------ End of New Export Functions ------------------
+
+
+
     const handleItemChange = (id: number, field: string, value: any) => {
         const itemToUpdate = orderItems.find(item => item.id === id);
         if (!itemToUpdate) return;
@@ -1004,9 +1094,33 @@ const ManualEntryForm = () => {
         setDocDate(new Date(row.docDate));
 
         setGeneralDescription('');
+        // const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
+        //     const fullItem = itemsList.find(item => item.id === detail.item.id);
+        //     const priceValue = detail.price !== null ? Number(detail.price) : 0;
+        //     debugger
+        //     return {
+        //         id: detail.id,
+        //         item: fullItem ? fullItem.id : '',
+        //         quantity: detail.quantity,
+        //         description: detail.description,
+        //         isEditing: false,
+        //         unit: fullItem ? fullItem.unit : undefined,
+        //         isRegistered: true,
+        //         price: priceValue
+        //     };
+        // });
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
-            const priceValue = detail.price !== null && !isNaN(Number(detail.price)) ? Number(detail.price) : 0;
+
+            // پاکسازی قیمت
+            let priceValue = 0;
+            if (detail.price !== null && detail.price !== undefined) {
+                // حذف $ و , و تبدیل به عدد
+                const cleanString = String(detail.price).replace(/[$,]/g, '');
+                const parsed = parseFloat(cleanString);
+                // اگر نتیجه NaN نبود، مقدار را استفاده کن
+                priceValue = isNaN(parsed) ? 0 : parsed;
+            }
 
             return {
                 id: detail.id,
@@ -1016,7 +1130,7 @@ const ManualEntryForm = () => {
                 isEditing: false,
                 unit: fullItem ? fullItem.unit : undefined,
                 isRegistered: true,
-                price: priceValue
+                price: priceValue // مقدار اصلاح شده
             };
         });
         setOrderItems(itemsToEdit);
@@ -1433,7 +1547,7 @@ const ManualEntryForm = () => {
                                         direction={orderBy === 'id' ? order : 'asc'}
                                         onClick={() => handleRequestSort('id')}
                                     >
-                                        <Typography variant="h6">Code</Typography>
+                                        <Typography variant="h6">Kod</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
                                 <StyledTableCell>
@@ -1483,7 +1597,7 @@ const ManualEntryForm = () => {
                                                 <Typography variant="body2" noWrap title={row.description || ''}>
                                                     {row.description || '-'}
                                                 </Typography>
-                                                {row.description != null && row.description.length > 50 && (
+                                                {row.description != null && row.description.length > 20 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);

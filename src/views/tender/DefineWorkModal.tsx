@@ -109,7 +109,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
         const payload = {
             title: title,
             startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-            endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+            endDate: null,
             tenderId: Number(tenderId),
         };
         try {
@@ -172,7 +172,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
     return (
         <>
             <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-                <DialogTitle>Yeni İş Tanımla (İhale ID: {tenderId})</DialogTitle>
+                <DialogTitle>Yeni İş Tanımla</DialogTitle>
                 <DialogContent dividers>
                     <Stack spacing={2} sx={{ pt: 1 }}>
                         <TextField
@@ -215,7 +215,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                     />
                                 )}
                             />
-                            <DatePicker
+                            {/* <DatePicker
                                 label="Bitiş Tarihi"
                                 value={endDate}
                                 onChange={(newValue) => {
@@ -244,7 +244,7 @@ const DefineWorkModal: React.FC<DefineWorkModalProps> = ({
                                         }
                                     />
                                 )}
-                            />
+                            /> */}
                         </LocalizationProvider>
                         {formError && (
                             <Alert severity="error" sx={{ mt: 2 }}>

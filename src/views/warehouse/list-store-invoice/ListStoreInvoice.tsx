@@ -8,14 +8,18 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton, TableSortLabel, Dialog,
     DialogTitle, DialogContent, DialogActions, Button, Paper, CircularProgress, Autocomplete,
     RadioGroup, FormControlLabel, Radio, Chip,
-    DialogContentText
+    DialogContentText,
+    Slide,
+    AppBar,
+    Toolbar
 } from '@mui/material';
 
 import { styled, keyframes } from '@mui/material/styles';
 import {
     IconDots, IconEye, IconEdit, IconTrash, IconCheck, IconX, IconPencil,
     IconInfoCircle, IconFileDownload, IconFile, IconFileSpreadsheet, IconSearch,
-    IconRefresh
+    IconRefresh,
+    IconPlus
 } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -37,6 +41,9 @@ import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
 import { ArialFont } from 'src/assets/fonts/Arial';
+
+import ListDrivers from '../list-driver/ListDrivers';
+import { TransitionProps } from '@mui/material/transitions';
 
 // ---------- styles ----------
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
@@ -196,6 +203,15 @@ const stableSort = <T,>(array: T[], comparator: (a: T, b: T) => number) => {
     return stabilized.map((el) => el[0]);
 };
 
+const Transition = React.forwardRef(function Transition(
+    props: TransitionProps & {
+        children: React.ReactElement;
+    },
+    ref: React.Ref<unknown>,
+) {
+    return <Slide direction="up" ref={ref} {...props} />;
+});
+
 // ---------- component ----------
 const ListStoreInvoice = () => {
     const navigate = useNavigate();
@@ -220,6 +236,8 @@ const ListStoreInvoice = () => {
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
     const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
+
+    const [openDriverModal, setOpenDriverModal] = useState(false);
 
     const [generalDescription, setGeneralDescription] = useState('');
 
@@ -308,6 +326,15 @@ const ListStoreInvoice = () => {
         const hasDate = startDate !== null || endDate !== null;
         setIsFilterActive(hasSearch || hasStatus || hasDate);
     }, [searchTerm, statusFilter, startDate, endDate]);
+
+
+    const handleCloseDriverModal = () => {
+        setOpenDriverModal(false);
+        fetchDrivers(); // 🔄 لیست راننده‌ها را رفرش می‌کند تا راننده جدید در کمبو دیده شود
+    };
+
+
+    const handleOpenVehicleModal = () => setOpenVehicleModal(true);
 
     // fetchers
     const fetchVehicles = useCallback(async (driverId: string) => {
@@ -1312,7 +1339,7 @@ const ListStoreInvoice = () => {
                         <Grid container spacing={2}>
                             <Grid item xs={12} md={4}>
                                 <CustomFormLabel htmlFor="driver-autocomplete" required>Sürücü</CustomFormLabel>
-                                <Stack direction="row" alignItems="center" spacing={2}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
                                     <Autocomplete<DriverType>
                                         id="driver-autocomplete"
                                         options={drivers}
@@ -1329,8 +1356,21 @@ const ListStoreInvoice = () => {
                                         renderInput={(params) => <TextField {...params} label="Sürücü Seçin" variant="outlined" size="small" />}
                                         sx={{ flexGrow: 1 }}
                                     />
+
+                                    {/* 👇 دکمه جدید پلاس برای باز کردن مودال 👇 */}
+                                    <CustomTooltip title="Sürücü Listesi / Ekle">
+                                        <IconButton
+                                            color="primary"
+                                            onClick={() => setOpenDriverModal(true)}
+                                            sx={{ border: '1px solid', borderColor: 'primary.main', borderRadius: 1 }}
+                                        >
+                                            <IconPlus size={20} />
+                                        </IconButton>
+                                    </CustomTooltip>
+
+                                    {/* دکمه ویرایش خودرو که قبلاً وجود داشت */}
                                     {selectedVehicleName && (vehiclesList.length > 1) && (
-                                        <IconButton onClick={() => setOpenVehicleModal(true)} size="small"><IconPencil size={20} /></IconButton>
+                                        <IconButton onClick={handleOpenVehicleModal} size="small"><IconPencil size={20} /></IconButton>
                                     )}
                                 </Stack>
                                 {selectedVehicleName && (<Chip sx={{ mt: 2 }} label={selectedVehicleName} color="primary" variant="outlined" />)}
@@ -1902,6 +1942,37 @@ const ListStoreInvoice = () => {
                         Kapat
                     </Button>
                 </DialogActions>
+            </Dialog>
+
+            {/* مودال تمام صفحه لیست رانندگان */}
+            <Dialog
+                fullScreen
+                open={openDriverModal}
+                onClose={handleCloseDriverModal}
+                TransitionComponent={Transition}
+            >
+                <AppBar sx={{ position: 'relative' }}>
+                    <Toolbar>
+                        <IconButton
+                            edge="start"
+                            color="inherit"
+                            onClick={handleCloseDriverModal}
+                            aria-label="close"
+                        >
+                            <IconX />
+                        </IconButton>
+                        <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+                            Sürücü Listesi ve Yönetimi
+                        </Typography>
+                        <Button autoFocus color="inherit" onClick={handleCloseDriverModal}>
+                            Kapat
+                        </Button>
+                    </Toolbar>
+                </AppBar>
+                <DialogContent>
+                    {/* نمایش کامپوننت لیست راننده‌ها */}
+                    <ListDrivers />
+                </DialogContent>
             </Dialog>
         </Box>
     );
