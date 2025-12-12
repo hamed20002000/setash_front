@@ -673,9 +673,19 @@ const ListNetwork = () => {
             fetchAllNetworksAndWorks();
         }
     };
-    const handleViewNetworkDetails = (networkId: number) => {
-        navigate(`/network/${networkId}/details`);
+    // const handleViewNetworkDetails = (networkId: number) => {
+    //     navigate(`/network/${networkId}/details`);
+    // };
+
+
+    const handleViewNetworkDetails = (workId: number, networkId: string) => {
+        // حالا می‌توانید از هر دو استفاده کنید. مثلا:
+        navigate(`/network/${networkId}/details?workId=${workId}`);
+        // console.log("Work ID:", workId, "Network ID:", networkId); 
+
     };
+
+
     const handleOpenDescriptionModal = (descriptionContent: string) => {
         setFullDescriptionContent(descriptionContent);
         setOpenDescriptionModal(true);
@@ -1403,7 +1413,8 @@ const ListNetwork = () => {
                                                             // onClick={() => handleViewNetworkDetails(row.work.id)}
                                                             onClick={() => {
                                                                 if (row.work?.id) {
-                                                                    handleViewNetworkDetails(row.work.id);
+                                                                    // handleViewNetworkDetails(row.work.id);
+                                                                    handleViewNetworkDetails(row.work.id, row.id);
                                                                 } else {
                                                                     // İsteğe bağlı: Kullanıcıya bir uyarı gösterebilirsiniz.
                                                                     // showAlert("Bu şebeke için tanımlı bir iş bulunamadı.", "warning");

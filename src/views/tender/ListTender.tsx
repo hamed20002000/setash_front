@@ -2,7 +2,8 @@
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
   TableContainer, Table, TableHead, TableRow, TableBody,
   TableCell as MuiTableCell,
@@ -17,7 +18,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from '../../components/shared/BlankCard';
 import CustomFormLabel from '../../components/forms/theme-elements/CustomFormLabel';
 import CustomTextField from '../../components/forms/theme-elements/CustomTextField';
-import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconPaperclip, IconDownload, IconX } from '@tabler/icons-react';
+import { IconDots, IconEdit, IconPlus, IconTrash, IconSearch, IconPaperclip, IconDownload, IconX, IconRefresh } from '@tabler/icons-react';
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import DeleteTender from './DeleteTender';
@@ -191,6 +192,20 @@ const stripHtml = (html: string | null): string => {
 };
 const ListTender = () => {
   const navigate = useNavigate();
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const idsFromState = ((location.state as { notifIds?: string[] } | undefined)?.notifIds) ?? [];
+  const idsFromSingleParam = (searchParams.get('ids') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  const idsFromRepeatedParams = searchParams.getAll('ids').filter(Boolean);
+  const notifIds: number[] = (idsFromState.length ? idsFromState : (idsFromSingleParam.length ? idsFromSingleParam : idsFromRepeatedParams))
+    .map(id => Number(id))
+    .filter(id => Number.isFinite(id));
+  const hasIdsFilter = notifIds.length > 0;
+  const idsSet = new Set<number>(notifIds);
+
+
+
   const [title, setTitle] = useState<string>('');
   const [tendersList, setTendersList] = useState<TenderType[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -1119,7 +1134,8 @@ const ListTender = () => {
       statusFilter === 'all' ||
       (statusFilter === 'active' && tender.recordStatus === 0) ||
       (statusFilter === 'inactive' && tender.recordStatus === 1);
-    return matchesSearch && matchesStatus;
+    const matchesNotifIds = !hasIdsFilter || idsSet.has(Number(tender.id));
+    return matchesSearch && matchesStatus && matchesNotifIds;
   });
 
   const handleClickOpenAttachModal = () => {
@@ -1145,6 +1161,23 @@ const ListTender = () => {
       showAlert('İhale detayları için gerekli bilgiler eksik.', 'warning');
     }
   };
+
+
+
+  const clearNotifFilter = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('ids');
+    setSearchParams(next, { replace: true });
+
+    navigate(location.pathname, {
+      replace: true,
+      state: { ...(location.state as any), notifIds: [] },
+    });
+
+    setPage(0);
+  };
+
+
   return (
     <>
       <div style={{
@@ -1324,6 +1357,31 @@ const ListTender = () => {
             </Grid>
           </Grid>
         </Box>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+          <Typography variant="h5">
+            Proje Listesi
+
+            {notifIds.length > 0 && (
+              <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                <Chip
+                  label={`Bildirim filtresi: ${notifIds.length}`}
+                  color="error"
+                  size="small"
+                />
+                <IconButton
+                  aria-label="Bildirim filtresini temizle"
+                  size="small"
+                  onClick={clearNotifFilter}
+                  sx={{ p: 0.5 }}
+                  title="Filtreyi temizle"
+                >
+                  <IconRefresh size={18} />
+                </IconButton>
+              </Stack>
+            )}
+          </Typography>
+
+        </Stack>
         <TableContainer>
           {loadingData ? (
             <Box display="flex" justifyContent="center" alignItems="center" height="200px">

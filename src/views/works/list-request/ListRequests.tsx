@@ -1828,26 +1828,7 @@ const RequestTabs: React.FC = () => {
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
-                    {/* {currentAttachments.map((attachment, index) => {
-                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-                        let fileName = rawFileName;
-                        try {
-                            fileName = decodeURIComponent(rawFileName);
-                        } catch (e) {
-                        }
-                        fileName = fileName
-                            .replace(/Ä±/g, 'ı')  // ı
-                            .replace(/ÄŸ/g, 'ğ')  // ğ
-                            .replace(/Ã¼/g, 'ü')  // ü
-                            .replace(/Ã¶/g, 'ö')  // ö
-                            .replace(/Ä°/g, 'İ')  // İ
-                            .replace(/ÅŸ/g, 'ş')  // ş
-                            .replace(/Ã‡/g, 'Ç')  // Ç
-                            .replace(/Ä±/g, 'ı'); // ğ
 
-                        return (<Button key={index} fullWidth variant="outlined"
-                            onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
-                    })} */}
 
                     {currentAttachments.map((attachment, index) => {
                         const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;

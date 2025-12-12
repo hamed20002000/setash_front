@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
     useParams,
     // useSearchParams,
-    useNavigate
+    useNavigate,
+    useSearchParams
 } from 'react-router-dom';
 import {
     Typography, Box, Stack, Grid, Button, Alert, CircularProgress, TextField,
@@ -142,6 +143,8 @@ interface ProductTypesTypeFromAPI {
 const NetworkDetails = () => {
     const navigate = useNavigate();
     const { networkId } = useParams();
+    const [searchParams] = useSearchParams();
+    const workId = searchParams.get('workId');
     const { isTooltipGloballyEnabled } = useTooltip();
     const [trAdi, setTrAdi] = useState<string>('');
     const [selectedProduct, setSelectedProduct] = useState<AvailableItemOption | null>(null);
@@ -347,7 +350,7 @@ const NetworkDetails = () => {
 
     const getInitialData = useCallback(async () => {
         debugger
-        if (!networkId) {
+        if (!workId) {
             showAlert('Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
             return;
         }
@@ -361,7 +364,7 @@ const NetworkDetails = () => {
         }
         try {
             const response = await axios.get<{ data: ApiNetworkResponse; httpStatusCode: number; message: string }>(
-                `${server.baseurl}${server.initialoperations}get-network-by-work-id/${networkId}`,
+                `${server.baseurl}${server.initialoperations}get-network-by-work-id/${workId}`,
                 {
                     headers: {
                         "Accept": "application/json",

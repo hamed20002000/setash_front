@@ -7,7 +7,7 @@ import {
 import {
   IconBellRinging, IconTruck, IconTrash, IconArrowsExchange, IconFileInvoice, IconHome,
   IconBuilding, IconAlertTriangle, IconUserPlus, IconCalendarEvent, IconCalendarPlus,
-  IconClipboardList, IconPackages, IconX,
+  IconClipboardList, IconPackages, IconX, IconGavel,
 } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -98,6 +98,12 @@ const TYPE_META: Record<
     icon: <IconClipboardList size={22} />, // یا IconFileText / IconInbox
     to: `/store/list-requests/`, // مسیر کلی به صفحه لیست درخواست‌ها
   },
+  'tender': {
+    label: 'Yeni İhale', // متن نمایش داده شده
+    bg: 'warning.main',  // رنگ پس‌زمینه آیکون
+    icon: <IconGavel size={22} />, // آیکون
+    to: '/tender/list-tender' // <--- مسیری که کاربر هدایت می‌شود
+  },
   'leave-created': { label: 'Yeni İzin Kaydı', bg: 'warning.main', icon: <IconCalendarEvent size={22} />, to: '/hr/leaves/' },
 };
 
@@ -120,6 +126,7 @@ const TYPES_NEED_ID: Record<NotifyType, 'warehouse' | 'store' | 'project' | null
   'project-planning-implementation-created': null,
   'personnel-created': null,
   'leave-created': null,
+  'tender': null,
 };
 
 const DEFAULT_META = {
