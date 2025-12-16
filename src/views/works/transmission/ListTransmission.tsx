@@ -232,15 +232,25 @@ const ListTransmission = () => {
             const productName = productTypeMap.get(String(productTypeId));
 
             if (productName) {
+                // finalOptions.push({
+                //     id: String(row.id),
+                //     productTypeId: String(productTypeId),
+                //     name: productName,
+                //     label: row.label,
+                //     parent: row.parent
+                //         ? { id: String(row.parent.id), label: row.parent.label }
+                //         : null,
+                //     productStatus: row.productStatus as 0 | 1 | 2,
+                // });
                 finalOptions.push({
                     id: String(row.id),
                     productTypeId: String(productTypeId),
                     name: productName,
                     label: row.label,
-                    parent: row.parent
-                        ? { id: String(row.parent.id), label: row.parent.label }
-                        : null,
+                    parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
                     productStatus: row.productStatus as 0 | 1 | 2,
+                    groupId: row.groupId,
+                    type: row.productType?.type
                 });
             }
         }
@@ -261,17 +271,46 @@ const ListTransmission = () => {
     }, [trafoOptions, transmissionList]);
 
 
+    // const toProductTypeOptions = useMemo(() => {
+    //     if (!fromProductType) {
+    //         return [];
+    //     }
+    //     const allOptions = combinedProductTypeOptions;
+    //     const usedNodes = transmissionList.map(row => row.toProductTypeId);
+
+    //     return allOptions.filter(option => {
+    //         if (option.id === fromProductType.id) return false;
+    //         if (option.parent === null) return false;
+    //         if (usedNodes.includes(option.id)) return false;
+    //         return true;
+    //     });
+    // }, [fromProductType, transmissionList, combinedProductTypeOptions]);
+
     const toProductTypeOptions = useMemo(() => {
         if (!fromProductType) {
             return [];
         }
+
+        // گروهِ گرهِ انتخاب شده را پیدا کنید (اگر در نوع SelectOption اضافه کرده باشید)
+        // یا از combinedProductTypeOptions پیدایش کنید
+        const selectedNodeGroup = (fromProductType as any).groupId;
+
         const allOptions = combinedProductTypeOptions;
         const usedNodes = transmissionList.map(row => row.toProductTypeId);
 
         return allOptions.filter(option => {
+            // 1. نباید خودش باشد
             if (option.id === fromProductType.id) return false;
-            if (option.parent === null) return false;
+
+            // 2. نباید قبلاً استفاده شده باشد
             if (usedNodes.includes(option.id)) return false;
+
+            // 3. فیلتر مهم: باید هم‌گروه باشند (مربوط به همان Trafo)
+            // (option as any).groupId چون در تایپ اسکریپت شاید تعریف نکرده باشید
+            if ((option as any).groupId !== selectedNodeGroup) return false;
+
+            if (option.type === 0) return false;
+
             return true;
         });
     }, [fromProductType, transmissionList, combinedProductTypeOptions]);
@@ -425,11 +464,27 @@ const ListTransmission = () => {
             const response = await axios.get(server.baseurl + server.initialoperations + `get-network-by-id/${id}`, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
+            // if (response.data.httpStatusCode === 200) {
+            //     setNetworkTitleForDisplay(response.data.data.title);
+            //     const allChannelRows = response.data.data.networkTrAdis.flatMap((tradi: any) => tradi.channelRows);
+            //     setChannelRowsData(allChannelRows);
+            // } 
+
             if (response.data.httpStatusCode === 200) {
                 setNetworkTitleForDisplay(response.data.data.title);
-                const allChannelRows = response.data.data.networkTrAdis.flatMap((tradi: any) => tradi.channelRows);
+
+                // تغییر مهم اینجاست:
+                const allChannelRows = response.data.data.networkTrAdis.flatMap((tradi: any) => {
+                    // برای هر ردیف، ID گروه (tradi.id) را هم ذخیره می‌کنیم
+                    return tradi.channelRows.map((row: any) => ({
+                        ...row,
+                        groupId: tradi.id // <--- این شناسه گروه است (مثلاً 26 برای TR-1 و 27 برای TR-2)
+                    }));
+                });
+
                 setChannelRowsData(allChannelRows);
-            } else {
+            }
+            else {
                 setNetworkTitleForDisplay('Bilinmeyen Ağ');
                 showAlert(response.data.message || 'Ağ detayları alınamadı.', 'error');
             }
@@ -656,7 +711,7 @@ const ListTransmission = () => {
 
     }, [combinedProductTypeOptions, transmissionList]);
 
-    const fetchDataForModal = useCallback(async (networkId: string) => {
+    const fetchDataForModal = useCallback(async (workId: string) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
             showAlert('Oturumunuzun süresi doldu veya yetkiniz yok. Lütfen tekrar giriş yapın.', 'error');
@@ -666,7 +721,7 @@ const ListTransmission = () => {
         }
         try {
             const response = await axios.get(
-                `${server.baseurl}${server.initialoperations}get-network-by-work-id/${Number(networkId)}`,
+                `${server.baseurl}${server.initialoperations}get-network-by-work-id/${Number(workId)}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             debugger
@@ -1359,11 +1414,12 @@ const ListTransmission = () => {
     }, []);
 
     const handleOpenFinalCalcModal = useCallback(() => {
-        if (networkId) {
-            fetchDataForModal(networkId);
+        debugger
+        if (workId) {
+            fetchDataForModal(workId);
         }
         setIsFinalCalcModalOpen(true);
-    }, [networkId, fetchDataForModal]);
+    }, [workId, fetchDataForModal]);
 
     const handleCloseFinalCalcModal = useCallback(() => {
         setIsFinalCalcModalOpen(false);
@@ -2000,8 +2056,8 @@ const ListTransmission = () => {
                 transmissionSummary={transmissionSummary}
                 networkId={networkId}
                 onDataUpdated={() => {
-                    if (networkId) {
-                        fetchDataForModal(networkId);
+                    if (workId) {
+                        fetchDataForModal(workId);
                     }
                 }}
             />

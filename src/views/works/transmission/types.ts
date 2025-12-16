@@ -13,7 +13,8 @@ export interface MapNode extends d3.SimulationNodeDatum {
     channelRowId?: string;
 
 
-    productTypeCategory?: 1 | 2
+    productTypeCategory?: 1 | 2;
+    groupId?: string;
 }
 export type NodeStatus = 0 | 1 | 2; // اگر نداری اضافه کن (0=YENİ, 1=DMM, 2=MEVCUT)
 
@@ -32,6 +33,8 @@ export interface SelectOption {
     parent?: { id: string; label: string } | null;
     type?: number;
     productStatus?: NodeStatus;
+    groupId?: string;
+
 }
 
 export interface AddedItem {

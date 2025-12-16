@@ -101,6 +101,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     workId,
     networkTitle,
     onSaveMapChanges,
+    allProductTypes,
     itemsList,
     showAlert,
     onRegisterNewTrafo,
@@ -379,60 +380,275 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     }, [activeTool, networkId]);
 
+    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
+    //     const nodesMap = new Map<string, MapNode>();
+    //     const links: D3MapLink[] = [];
+    //     const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
+
+    //     const allFrom = new Set(currentTransmissions.map(t => t.fromProductType));
+    //     const allTo = new Set(currentTransmissions.map(t => t.toProductType));
+    //     const possibleHubs = Array.from(allFrom).filter(nm => !allTo.has(nm));
+    //     let hubNodeName: string | undefined = possibleHubs[0];
+
+    //     currentTransmissions.forEach(t => {
+    //         const fromId = t.fromProductTypeId || '';
+    //         const toId = t.toProductTypeId || '';
+    //         const fromDetails = productTypeDetailsMap.get(String(fromId));
+    //         const toDetails = productTypeDetailsMap.get(String(toId));
+
+    //         if (!nodesMap.has(t.fromProductType)) {
+    //             nodesMap.set(t.fromProductType, {
+    //                 id: String(fromId),
+    //                 name: t.fromProductType,
+    //                 x: t.fromProductTypeX,
+    //                 y: t.fromProductTypeY,
+    //                 fx: t.fromProductTypeX,
+    //                 fy: t.fromProductTypeY,
+    //                 isNew: !fromId,
+    //                 productTypeCategory: fromDetails?.type as 1 | 2 | undefined,
+    //             });
+    //         }
+    //         if (!nodesMap.has(t.toProductType)) {
+    //             nodesMap.set(t.toProductType, {
+    //                 id: String(toId),
+    //                 name: t.toProductType,
+    //                 x: t.toProductTypeX,
+    //                 y: t.toProductTypeY,
+    //                 fx: t.toProductTypeX,
+    //                 fy: t.toProductTypeY,
+    //                 isNew: !toId,
+    //                 productTypeCategory: toDetails?.type as 1 | 2 | undefined,
+    //             });
+    //         }
+    //     });
+
+    //     if (hubNodeName && nodesMap.has(hubNodeName)) {
+    //         const hub = nodesMap.get(hubNodeName)!;
+    //         hub.isHub = true;
+    //         if (hub.x === undefined || hub.y === undefined) {
+    //             hub.fx = initialViewWidth / 2;
+    //             hub.fy = initialViewHeight / 2;
+    //         }
+    //     }
+
+    //     currentTransmissions.forEach(t => {
+    //         const fromNode = nodesMap.get(t.fromProductType);
+    //         const toNode = nodesMap.get(t.toProductType);
+    //         if (fromNode && toNode) {
+    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
+    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
+
+    //             links.push({
+    //                 id: t.id,
+    //                 source: fromNode,
+    //                 target: toNode,
+    //                 distance: t.distance,
+    //                 miktarTipi: newMiktarTipi,
+    //                 formulaTitle: t.formulaTitle,
+    //                 items: t.items
+    //             });
+    //         }
+    //     });
+
+    //     return { nodes: Array.from(nodesMap.values()), links };
+    // }, [initialViewHeight, initialViewWidth, productTypesList]);
+
+    ///////////////////////////////////////////
+
+
+
+    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
+    //     const nodesMap = new Map<string, MapNode>();
+    //     const links: D3MapLink[] = [];
+
+    //     // 1. ایجاد دیکشنری برای دسترسی سریع به جزئیات (شامل type و groupId)
+    //     // allProductTypes همان لیستی است که در کامپوننت والد groupId را به آن اضافه کردیم
+    //     const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
+
+    //     // دیکشنری برای جزئیات فنی محصول (مثل آیکون بتن یا آهن)
+    //     const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
+
+    //     // منطق پیدا کردن هاب (اختیاری: برای اینکه نود ریشه را وسط صفحه بگذاریم)
+    //     const allFrom = new Set(currentTransmissions.map(t => t.fromProductType));
+    //     const allTo = new Set(currentTransmissions.map(t => t.toProductType));
+    //     const possibleHubs = Array.from(allFrom).filter(nm => !allTo.has(nm));
+    //     let hubNodeName: string | undefined = possibleHubs[0];
+
+    //     currentTransmissions.forEach(t => {
+    //         const fromId = t.fromProductTypeId || '';
+    //         const toId = t.toProductTypeId || '';
+
+    //         // دریافت اطلاعات کامل برای استخراج groupId
+    //         const fromDetails = detailsLookup.get(String(fromId));
+    //         const toDetails = detailsLookup.get(String(toId));
+
+    //         // دریافت اطلاعات برای دسته‌بندی (آیکون)
+    //         const fromTechDetails = productTypeDetailsMap.get(String(fromId));
+    //         const toTechDetails = productTypeDetailsMap.get(String(toId));
+
+    //         // --- پردازش نود مبدا ---
+    //         if (!nodesMap.has(t.fromProductType)) {
+    //             nodesMap.set(t.fromProductType, {
+    //                 id: String(fromId),
+    //                 name: t.fromProductType,
+    //                 x: t.fromProductTypeX,
+    //                 y: t.fromProductTypeY,
+    //                 fx: t.fromProductTypeX,
+    //                 fy: t.fromProductTypeY,
+    //                 isNew: !fromId, // اگر ID نباشد یعنی جدید است
+
+    //                 // 👇 اضافه کردن groupId برای تشخیص ترافو
+    //                 groupId: fromDetails?.groupId,
+
+    //                 productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
+    //             });
+    //         }
+
+    //         // --- پردازش نود مقصد ---
+    //         if (!nodesMap.has(t.toProductType)) {
+    //             nodesMap.set(t.toProductType, {
+    //                 id: String(toId),
+    //                 name: t.toProductType,
+    //                 x: t.toProductTypeX,
+    //                 y: t.toProductTypeY,
+    //                 fx: t.toProductTypeX,
+    //                 fy: t.toProductTypeY,
+    //                 isNew: !toId,
+
+    //                 // 👇 اضافه کردن groupId برای تشخیص ترافو
+    //                 groupId: toDetails?.groupId,
+
+    //                 productTypeCategory: toTechDetails?.type as 1 | 2 | undefined,
+    //             });
+    //         }
+    //     });
+
+    //     // تنظیمات مربوط به نود مرکزی (Hub/Trafo)
+    //     if (hubNodeName && nodesMap.has(hubNodeName)) {
+    //         const hub = nodesMap.get(hubNodeName)!;
+    //         hub.isHub = true;
+    //         // اگر مختصات ندارد، وسط صفحه قرار بگیرد
+    //         if (hub.x === undefined || hub.y === undefined) {
+    //             hub.fx = initialViewWidth / 2;
+    //             hub.fy = initialViewHeight / 2;
+    //         }
+    //     }
+
+    //     // ساختن لینک‌ها (یال‌ها)
+    //     currentTransmissions.forEach(t => {
+    //         const fromNode = nodesMap.get(t.fromProductType);
+    //         const toNode = nodesMap.get(t.toProductType);
+
+    //         if (fromNode && toNode) {
+    //             // اگر یکی از طرفین Hub باشد، نوع خط را Connection در نظر می‌گیریم
+    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
+    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
+
+    //             links.push({
+    //                 id: t.id,
+    //                 source: fromNode,
+    //                 target: toNode,
+    //                 distance: t.distance,
+    //                 miktarTipi: newMiktarTipi,
+    //                 formulaTitle: t.formulaTitle,
+    //                 items: t.items
+    //             });
+    //         }
+    //     });
+
+    //     return { nodes: Array.from(nodesMap.values()), links };
+    // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
+
+
     const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
         const nodesMap = new Map<string, MapNode>();
         const links: D3MapLink[] = [];
+
+        const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
         const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
 
-        const allFrom = new Set(currentTransmissions.map(t => t.fromProductType));
-        const allTo = new Set(currentTransmissions.map(t => t.toProductType));
-        const possibleHubs = Array.from(allFrom).filter(nm => !allTo.has(nm));
-        let hubNodeName: string | undefined = possibleHubs[0];
-
         currentTransmissions.forEach(t => {
-            const fromId = t.fromProductTypeId || '';
-            const toId = t.toProductTypeId || '';
-            const fromDetails = productTypeDetailsMap.get(String(fromId));
-            const toDetails = productTypeDetailsMap.get(String(toId));
+            const fromId = String(t.fromProductTypeId || '');
+            const toId = String(t.toProductTypeId || '');
 
-            if (!nodesMap.has(t.fromProductType)) {
-                nodesMap.set(t.fromProductType, {
-                    id: String(fromId),
+            const fromDetails = detailsLookup.get(fromId);
+            const toDetails = detailsLookup.get(toId);
+
+            const fromTechDetails = productTypeDetailsMap.get(fromId);
+            const toTechDetails = productTypeDetailsMap.get(toId);
+
+            // --- کلید یکتا برای شناسایی گره ---
+            // اگر ID داریم از ID استفاده می‌کنیم، اگر نه از ترکیب نام و گروه
+            // این باعث می‌شود "C1" در گروه ۱ با "C1" در گروه ۲ متفاوت باشد
+            const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
+            const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
+
+            // --- پردازش گره مبدا ---
+            if (!nodesMap.has(fromUniqueKey)) {
+                const isTrafo = fromDetails?.type === 0;
+                nodesMap.set(fromUniqueKey, {
+                    id: fromId || fromUniqueKey, // ID واقعی یا موقت
                     name: t.fromProductType,
                     x: t.fromProductTypeX,
                     y: t.fromProductTypeY,
                     fx: t.fromProductTypeX,
                     fy: t.fromProductTypeY,
                     isNew: !fromId,
-                    productTypeCategory: fromDetails?.type as 1 | 2 | undefined,
+                    isHub: isTrafo,
+                    groupId: fromDetails?.groupId,
+                    productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
                 });
             }
-            if (!nodesMap.has(t.toProductType)) {
-                nodesMap.set(t.toProductType, {
-                    id: String(toId),
+
+            // --- پردازش گره مقصد ---
+            if (!nodesMap.has(toUniqueKey)) {
+                const isTrafo = toDetails?.type === 0;
+                nodesMap.set(toUniqueKey, {
+                    id: toId || toUniqueKey, // ID واقعی یا موقت
                     name: t.toProductType,
                     x: t.toProductTypeX,
                     y: t.toProductTypeY,
                     fx: t.toProductTypeX,
                     fy: t.toProductTypeY,
                     isNew: !toId,
-                    productTypeCategory: toDetails?.type as 1 | 2 | undefined,
+                    isHub: isTrafo,
+                    groupId: toDetails?.groupId,
+                    productTypeCategory: toTechDetails?.type as 1 | 2 | undefined,
                 });
             }
         });
 
-        if (hubNodeName && nodesMap.has(hubNodeName)) {
-            const hub = nodesMap.get(hubNodeName)!;
-            hub.isHub = true;
-            if (hub.x === undefined || hub.y === undefined) {
-                hub.fx = initialViewWidth / 2;
-                hub.fy = initialViewHeight / 2;
-            }
-        }
+        // تنظیمات اولیه Hub ها (پخش کردن در صفحه)
+        const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
+        const totalHubs = hubs.length;
 
+        hubs.forEach((hub, index) => {
+            if (hub.x === undefined || hub.y === undefined) {
+                // تقسیم عرض صفحه بین ترافوها
+                const sectionWidth = initialViewWidth / (totalHubs + 1);
+                const xPos = sectionWidth * (index + 1);
+
+                hub.fx = xPos;
+                hub.fy = initialViewHeight / 2;
+                hub.x = xPos;
+                hub.y = initialViewHeight / 2;
+            }
+        });
+
+        // ساخت لینک‌ها
         currentTransmissions.forEach(t => {
-            const fromNode = nodesMap.get(t.fromProductType);
-            const toNode = nodesMap.get(t.toProductType);
+            // بازسازی کلیدهای یکتا برای پیدا کردن نودهای ساخته شده
+            const fromId = String(t.fromProductTypeId || '');
+            const toId = String(t.toProductTypeId || '');
+            const fromDetails = detailsLookup.get(fromId);
+            const toDetails = detailsLookup.get(toId);
+
+            const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
+            const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
+
+            const fromNode = nodesMap.get(fromUniqueKey);
+            const toNode = nodesMap.get(toUniqueKey);
+
             if (fromNode && toNode) {
                 const isConnectionToHub = fromNode.isHub || toNode.isHub;
                 const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
@@ -450,9 +666,87 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         });
 
         return { nodes: Array.from(nodesMap.values()), links };
-    }, [initialViewHeight, initialViewWidth, productTypesList]);
+    }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
+
+
+    // const applyForceLayout = useCallback((nodes: MapNode[], links: D3MapLink[], runSimulation: boolean) => {
+    //     if (!runSimulation) {
+    //         return {
+    //             nodes,
+    //             edges: links.map(link => {
+    //                 const s = link.source as MapNode;
+    //                 const t = link.target as MapNode;
+    //                 return {
+    //                     id: link.id,
+    //                     fromNodeId: s.id, toNodeId: t.id,
+    //                     fromX: s.x || 0, fromY: s.y || 0,
+    //                     toX: t.x || 0, toY: t.y || 0,
+    //                     distance: link.distance,
+    //                     miktarTipi: link.miktarTipi,
+    //                     formulaTitle: link.formulaTitle,
+    //                     items: link.items
+    //                 };
+    //             })
+    //         };
+    //     }
+
+    //     const simulation = d3.forceSimulation(nodes)
+    //         .force('link', d3.forceLink<MapNode, D3MapLink>(links).id(d => d.id).distance(180))
+    //         .force('charge', d3.forceManyBody().strength(-1400))
+    //         .force('collide', d3.forceCollide(MIN_NODE_GAP / 2))
+    //         .force('center', d3.forceCenter(initialViewWidth / 2, initialViewHeight / 2));
+
+    //     simulation.stop();
+    //     const iters = Math.min(300, Math.max(100, nodes.length * 20));
+    //     for (let i = 0; i < iters; ++i) simulation.tick();
+
+    //     const resolveOverlaps = (arr: MapNode[]) => {
+    //         let changed = false;
+    //         for (let i = 0; i < arr.length; i++) {
+    //             for (let j = i + 1; j < arr.length; j++) {
+    //                 const a = arr[i], b = arr[j];
+    //                 const ax = a.x ?? 0, ay = a.y ?? 0, bx = b.x ?? 0, by = b.y ?? 0;
+    //                 let dx = bx - ax, dy = by - ay;
+    //                 let d = Math.hypot(dx, dy);
+    //                 const minD = Math.max(MIN_NODE_GAP, (a.isHub || b.isHub) ? MIN_NODE_GAP + 20 : MIN_NODE_GAP);
+    //                 if (d < minD && d > 0) {
+    //                     const push = (minD - d) / 2;
+    //                     dx /= d; dy /= d;
+    //                     a.x = ax - dx * push; a.y = ay - dy * push;
+    //                     b.x = bx + dx * push; b.y = by + dy * push;
+    //                     changed = true;
+    //                 }
+    //             }
+    //         }
+    //         return changed;
+    //     };
+    //     for (let k = 0; k < 5; k++) { if (!resolveOverlaps(nodes)) break; }
+
+    //     const updatedNodes = nodes.map(n => ({ ...n, x: n.x ?? initialViewWidth / 2, y: n.y ?? initialViewHeight / 2 }));
+
+    //     return {
+    //         nodes: updatedNodes,
+    //         edges: links.map(link => {
+    //             const sId = (link.source as MapNode).id;
+    //             const tId = (link.target as MapNode).id;
+    //             const s = updatedNodes.find(n => n.id === sId) || (link.source as MapNode);
+    //             const t = updatedNodes.find(n => n.id === tId) || (link.target as MapNode);
+    //             return {
+    //                 id: link.id,
+    //                 fromNodeId: s.id, toNodeId: t.id,
+    //                 fromX: s.x || 0, fromY: s.y || 0,
+    //                 toX: t.x || 0, toY: t.y || 0,
+    //                 distance: link.distance,
+    //                 miktarTipi: link.miktarTipi,
+    //                 formulaTitle: link.formulaTitle,
+    //                 items: link.items
+    //             };
+    //         })
+    //     };
+    // }, [initialViewHeight, initialViewWidth]);
 
     const applyForceLayout = useCallback((nodes: MapNode[], links: D3MapLink[], runSimulation: boolean) => {
+        // اگر شبیه‌سازی نیاز نباشد (مختصات از قبل وجود دارد)، فقط داده‌ها را فرمت می‌کنیم و برمی‌گردانیم
         if (!runSimulation) {
             return {
                 nodes,
@@ -461,9 +755,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     const t = link.target as MapNode;
                     return {
                         id: link.id,
-                        fromNodeId: s.id, toNodeId: t.id,
-                        fromX: s.x || 0, fromY: s.y || 0,
-                        toX: t.x || 0, toY: t.y || 0,
+                        fromNodeId: s.id,
+                        toNodeId: t.id,
+                        fromX: s.x || 0,
+                        fromY: s.y || 0,
+                        toX: t.x || 0,
+                        toY: t.y || 0,
                         distance: link.distance,
                         miktarTipi: link.miktarTipi,
                         formulaTitle: link.formulaTitle,
@@ -473,16 +770,49 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             };
         }
 
-        const simulation = d3.forceSimulation(nodes)
-            .force('link', d3.forceLink<MapNode, D3MapLink>(links).id(d => d.id).distance(180))
-            .force('charge', d3.forceManyBody().strength(-1400))
-            .force('collide', d3.forceCollide(MIN_NODE_GAP / 2))
-            .force('center', d3.forceCenter(initialViewWidth / 2, initialViewHeight / 2));
+        // --- شروع منطق تفکیک گروه‌ها ---
 
+        // 1. لیست گروه‌های یکتا (ترافوها) را پیدا می‌کنیم
+        // ما از groupId که در مرحله قبل به نودها دادیم استفاده می‌کنیم
+        const uniqueGroups = Array.from(new Set(nodes.map(n => n.groupId).filter(Boolean)));
+        const groupCount = uniqueGroups.length;
+
+        // 2. تابعی برای تعیین موقعیت X هر نود بر اساس گروهش
+        const getGroupX = (node: MapNode) => {
+            // اگر نود گروه ندارد یا کلاً ۱ گروه داریم، وسط صفحه باشد
+            if (!node.groupId || groupCount <= 1) return initialViewWidth / 2;
+
+            // پیدا کردن ایندکس گروه
+            const index = uniqueGroups.indexOf(node.groupId);
+
+            // تقسیم عرض صفحه به تعداد گروه‌ها و تعیین جایگاه
+            // مثلا اگر 2 گروه باشد، در 1/3 و 2/3 صفحه قرار می‌گیرند
+            return (initialViewWidth / (groupCount + 1)) * (index + 1);
+        };
+
+        // 3. تنظیم نیروهای فیزیکی
+        const simulation = d3.forceSimulation(nodes)
+            // نیروی لینک: نودهای متصل را کنار هم نگه می‌دارد
+            .force('link', d3.forceLink<MapNode, D3MapLink>(links).id(d => d.id).distance(120))
+
+            // نیروی دافعه: نودها را از هم دور می‌کند تا روی هم نیفتند
+            .force('charge', d3.forceManyBody().strength(-1000))
+
+            // نیروی برخورد: یک حریم خصوصی دور هر نود ایجاد می‌کند
+            .force('collide', d3.forceCollide(MIN_NODE_GAP / 1.5))
+
+            // 👇 نیروی مهم برای تفکیک: هر نود را به سمت منطقه X گروه خودش می‌کشد
+            .force('x', d3.forceX().x(d => getGroupX(d as MapNode)).strength(0.8))
+
+            // نیروی Y: همه را در راستای عمودی در وسط نگه می‌دارد (با قدرت کم)
+            .force('y', d3.forceY().y(initialViewHeight / 2).strength(0.1));
+
+        // 4. اجرای شبیه‌سازی به صورت سریع (بدون انیمیشن)
         simulation.stop();
         const iters = Math.min(300, Math.max(100, nodes.length * 20));
         for (let i = 0; i < iters; ++i) simulation.tick();
 
+        // 5. تابع کمکی برای جلوگیری از همپوشانی نهایی (اگر D3 نتوانسته کامل جدا کند)
         const resolveOverlaps = (arr: MapNode[]) => {
             let changed = false;
             for (let i = 0; i < arr.length; i++) {
@@ -491,7 +821,9 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     const ax = a.x ?? 0, ay = a.y ?? 0, bx = b.x ?? 0, by = b.y ?? 0;
                     let dx = bx - ax, dy = by - ay;
                     let d = Math.hypot(dx, dy);
+                    // فاصله حداقل بین نودها
                     const minD = Math.max(MIN_NODE_GAP, (a.isHub || b.isHub) ? MIN_NODE_GAP + 20 : MIN_NODE_GAP);
+
                     if (d < minD && d > 0) {
                         const push = (minD - d) / 2;
                         dx /= d; dy /= d;
@@ -503,22 +835,34 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             }
             return changed;
         };
+
+        // چند بار تلاش برای رفع همپوشانی نهایی
         for (let k = 0; k < 5; k++) { if (!resolveOverlaps(nodes)) break; }
 
-        const updatedNodes = nodes.map(n => ({ ...n, x: n.x ?? initialViewWidth / 2, y: n.y ?? initialViewHeight / 2 }));
+        // اطمینان از اینکه همه نودها مختصات دارند (اگر NaN شد، وسط صفحه بگذار)
+        const updatedNodes = nodes.map(n => ({
+            ...n,
+            x: n.x && !isNaN(n.x) ? n.x : initialViewWidth / 2,
+            y: n.y && !isNaN(n.y) ? n.y : initialViewHeight / 2
+        }));
 
         return {
             nodes: updatedNodes,
             edges: links.map(link => {
                 const sId = (link.source as MapNode).id;
                 const tId = (link.target as MapNode).id;
+                // پیدا کردن مختصات نهایی سورس و تارگت
                 const s = updatedNodes.find(n => n.id === sId) || (link.source as MapNode);
                 const t = updatedNodes.find(n => n.id === tId) || (link.target as MapNode);
+
                 return {
                     id: link.id,
-                    fromNodeId: s.id, toNodeId: t.id,
-                    fromX: s.x || 0, fromY: s.y || 0,
-                    toX: t.x || 0, toY: t.y || 0,
+                    fromNodeId: s.id,
+                    toNodeId: t.id,
+                    fromX: s.x || 0,
+                    fromY: s.y || 0,
+                    toX: t.x || 0,
+                    toY: t.y || 0,
                     distance: link.distance,
                     miktarTipi: link.miktarTipi,
                     formulaTitle: link.formulaTitle,
@@ -526,7 +870,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 };
             })
         };
-    }, [initialViewHeight, initialViewWidth]);
+    }, [initialViewHeight, initialViewWidth, MIN_NODE_GAP]);
+
 
     useEffect(() => {
         if (!open) {
@@ -616,6 +961,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const handleEdgeDistanceBlur = useCallback(() => { if (editingEdgeId) handleEdgeDistanceSave(); }, [editingEdgeId, handleEdgeDistanceSave]);
     const handleEdgeDistanceKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => { e.stopPropagation(); if (e.key === 'Enter') handleEdgeDistanceSave(); if (e.key === 'Escape') { setEditingEdgeId(null); setEditValue(''); } }, [handleEdgeDistanceSave]);
 
+
+
+    ////////////////////////////////////////////////////////////
+
+
     const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
         if ((editingNodeId || editingEdgeId) && inputRef.current && !inputRef.current.contains(e.target as Node)) {
@@ -650,12 +1000,28 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     } else if (drawingEdgeStartNode.id === node.id) {
                         setDrawingEdgeStartNode(null);
                     } else {
-                        if (drawingEdgeStartNode.isHub && node.isHub) { showAlert('Bir TRAFO başka bir TRAFOya bağlanamaz.', 'warning'); setDrawingEdgeStartNode(null); return; }
-                        const exists = mapEdges.some(e => (e.fromNodeId === drawingEdgeStartNode.id && e.toNodeId === node.id) || (e.fromNodeId === node.id && e.toNodeId === drawingEdgeStartNode.id));
-                        if (exists) { showAlert('Bu bağlantı zaten mevcut.', 'warning'); setDrawingEdgeStartNode(null); return; }
+                        // if (drawingEdgeStartNode.isHub && node.isHub) { showAlert('Bir TRAFO başka bir TRAFOya bağlanamaz.', 'warning'); setDrawingEdgeStartNode(null); return; }
+                        // const exists = mapEdges.some(e => (e.fromNodeId === drawingEdgeStartNode.id && e.toNodeId === node.id) || (e.fromNodeId === node.id && e.toNodeId === drawingEdgeStartNode.id));
+                        // if (exists) { showAlert('Bu bağlantı zaten mevcut.', 'warning'); setDrawingEdgeStartNode(null); return; }
                         setTempTransmissionData({ fromNode: drawingEdgeStartNode, toNode: node });
-                        setOpenDetailsModal(true);
-                        setDrawingEdgeStartNode(null);
+                        // setOpenDetailsModal(true);
+                        // setDrawingEdgeStartNode(null);
+
+                        const startGroup = drawingEdgeStartNode.groupId;
+                        const endGroup = node.groupId;
+
+                        // اگر هر دو نود دارای گروه باشند و گروه‌ها متفاوت باشند
+                        if (startGroup && endGroup && startGroup !== endGroup) {
+                            showAlert('Farklı TRAFO bölgeleri birbirine bağlanamaz!', 'warning'); // اخطار: مناطق مختلف ترافو نمی‌توانند به هم وصل شوند
+                            setDrawingEdgeStartNode(null);
+                            return;
+                        }
+
+                        if (drawingEdgeStartNode.isHub && node.isHub) {
+                            showAlert('Bir TRAFO başka bir TRAFOya bağlanamaz.', 'warning');
+                            setDrawingEdgeStartNode(null);
+                            return;
+                        }
                     }
                 }
             }
