@@ -2127,7 +2127,8 @@ const ListItemComponent = () => {
                     <StyledTableCell><Typography variant="body1">{row.category.name}</Typography></StyledTableCell>
                     {/* <StyledTableCell><Typography variant="body1">{row.abbreviation}</Typography></StyledTableCell> */}
                     <StyledTableCell><Typography variant="body1">{row.weight || ''}</Typography></StyledTableCell>
-                    <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+
+                    {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                       <Box sx={{
                         maxHeight: '5em',
                         overflow: 'hidden',
@@ -2147,7 +2148,29 @@ const ListItemComponent = () => {
                           </Button>
                         </CustomTooltip>
                       )}
+                    </StyledTableCell> */}
+
+                    <StyledTableCell sx={{ maxWidth: 150 }}>
+                      {row.description && row.description.trim().length > 0 ? (
+                        // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
+                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                          <Button
+
+                            variant="outlined"
+                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                            onClick={() => handleOpenDescriptionModal(row.description)}
+                          >
+                            Açıklamayı Oku
+                          </Button>
+                        </CustomTooltip>
+                      ) : (
+                        // حالت دوم: اگر توضیحات نال یا خالی بود
+                        <Typography variant="body2" align="center">
+                          -
+                        </Typography>
+                      )}
                     </StyledTableCell>
+
                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography></StyledTableCell>
                     <StyledTableCell>
                       <Chip

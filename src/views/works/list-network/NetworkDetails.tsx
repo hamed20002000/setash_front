@@ -1472,7 +1472,7 @@ const NetworkDetails = () => {
             });
 
             // Add data rows and apply styles
-            const dataColors = ['F3f3f3']; // Lighter colors for data rows
+            const dataColors = ['F3f3f3'];
             registeredWorkEntries.forEach(trAdiRow => {
                 const trAdiTitle = trAdiRow.trAdi;
                 let isFirstRowForTrAdi = true;
@@ -1495,12 +1495,23 @@ const NetworkDetails = () => {
                     const row = worksheet.addRow(rowData);
 
                     row.eachCell((cell, colNumber) => {
+                        // 1. تنظیم رنگ پس‌زمینه (همان منطق قبلی شما)
                         cell.fill = {
                             type: 'pattern',
                             pattern: 'solid',
                             fgColor: { argb: dataColors[(colNumber - 1) % dataColors.length] }
                         };
-                        cell.alignment = { wrapText: true, vertical: 'middle' };
+
+                        // 2. تنظیم چیدمان متن
+                        cell.alignment = { wrapText: true, vertical: 'middle', horizontal: 'center' };
+
+                        // 3. ✅ اضافه کردن خطوط (Border) دور سلول
+                        cell.border = {
+                            top: { style: 'thin' },
+                            left: { style: 'thin' },
+                            bottom: { style: 'thin' },
+                            right: { style: 'thin' }
+                        };
                     });
 
                     isFirstRowForTrAdi = false;
@@ -1533,7 +1544,7 @@ const NetworkDetails = () => {
     const handleSelectTrafo = useCallback((trafo: WorkDetailRow) => {
         setSelectedTrafo(trafo);
         setTrAdi(trafo.trAdi);
-        resetMainFormFields();
+        // resetMainFormFields();
         setOpenTrafoSelectionModal(false);
         showAlert(`'${trafo.trAdi}' adlı trafo başarıyla seçildi. Artık bu trafo için alt öğe ekleyebilirsiniz.`, 'success');
     }, [showAlert, resetMainFormFields]);
@@ -1574,6 +1585,40 @@ const NetworkDetails = () => {
                         flexGrow={1}
                         justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                     >
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => fileInputRef.current?.click()}
+                            startIcon={<IconUpload />}
+                            disabled={loadingFileUpload || loadingExcelTemplate || loadingProductTypes || loadingItemsForWorkItemForm}
+                        >
+                            Excel İçe Aktar
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls, .csv"
+                                onChange={handleFileUpload}
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                            />
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            color="secondary"
+                            onClick={handleDownloadExcelTemplate}
+                            startIcon={<IconDownload />}
+                            disabled={loadingExcelTemplate || loadingFileUpload}
+                        >
+                            Şablonu İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="info"
+                            onClick={handleExportExcel}
+                            startIcon={<IconUpload style={{ transform: 'rotate(180deg)' }} />}
+                            disabled={registeredWorkEntries.length === 0 || loadingExcelTemplate}
+                        >
+                            Excel Dışa Aktar
+                        </Button>
                         {!isFormVisible && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni İş Detayları Belgesi kaydetmek için tıklayınız" : ""}>
                                 <BlinkingButton
@@ -1625,7 +1670,7 @@ const NetworkDetails = () => {
                                         İş Detayları:
                                     </Typography>
                                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                                        {registeredWorkEntries.length > 1 && (
+                                        {registeredWorkEntries.length > 0 && (
                                             <Button
                                                 variant="outlined"
                                                 color="secondary"
@@ -1635,40 +1680,7 @@ const NetworkDetails = () => {
                                                 Trafo Seç
                                             </Button>
                                         )}
-                                        <Button
-                                            variant="contained"
-                                            color="primary"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            startIcon={<IconUpload />}
-                                            disabled={loadingFileUpload || loadingExcelTemplate || loadingProductTypes || loadingItemsForWorkItemForm}
-                                        >
-                                            Excel İçe Aktar
-                                            <input
-                                                type="file"
-                                                accept=".xlsx, .xls, .csv"
-                                                onChange={handleFileUpload}
-                                                ref={fileInputRef}
-                                                style={{ display: 'none' }}
-                                            />
-                                        </Button>
-                                        <Button
-                                            variant="outlined"
-                                            color="secondary"
-                                            onClick={handleDownloadExcelTemplate}
-                                            startIcon={<IconDownload />}
-                                            disabled={loadingExcelTemplate || loadingFileUpload}
-                                        >
-                                            Şablonu İndir
-                                        </Button>
-                                        <Button
-                                            variant="contained"
-                                            color="info"
-                                            onClick={handleExportExcel}
-                                            startIcon={<IconUpload style={{ transform: 'rotate(180deg)' }} />}
-                                            disabled={registeredWorkEntries.length === 0 || loadingExcelTemplate}
-                                        >
-                                            Excel Dışa Aktar
-                                        </Button>
+
                                     </Stack>
                                 </Stack>
                             </Grid>
@@ -1985,32 +1997,33 @@ const NetworkDetails = () => {
                                             İptal
                                         </Button>
                                     )}
-                                    {registeredWorkEntries.length > 0 && (
-                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm değişiklikleri sunucuya kaydet" : ""}>
-                                            <FixedActionButton
-                                                variant="contained"
-                                                color={hasUnsavedChanges ? "error" : "success"} // اگر تغییرات ذخیره نشده باشد قرمز، وگرنه سبز
-                                                size="large"
-                                                onClick={handleSendAllRegisteredData}
-                                                disabled={loadingRegisterButton}
-                                                isBlinking={hasUnsavedChanges} // شرط چشمک زدن
-                                                startIcon={<IconUpload />}
-                                            >
-                                                {loadingRegisterButton ? (
-                                                    <>
-                                                        <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
-                                                        Gönderiliyor...
-                                                    </>
-                                                ) : (
-                                                    "Tüm Kayıtları Gönder"
-                                                )}
-                                            </FixedActionButton>
-                                        </CustomTooltip>
-                                    )}
+
                                 </Stack>
                             </Grid>
                         </Grid>
                     </Paper>
+                )}
+                {registeredWorkEntries.length > 0 && (
+                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm değişiklikleri sunucuya kaydet" : ""}>
+                        <FixedActionButton
+                            variant="contained"
+                            color={hasUnsavedChanges ? "error" : "success"} // اگر تغییرات ذخیره نشده باشد قرمز، وگرنه سبز
+                            size="large"
+                            onClick={handleSendAllRegisteredData}
+                            disabled={loadingRegisterButton}
+                            isBlinking={hasUnsavedChanges} // شرط چشمک زدن
+                            startIcon={<IconUpload />}
+                        >
+                            {loadingRegisterButton ? (
+                                <>
+                                    <CircularProgress size={24} color="inherit" sx={{ mr: 1 }} />
+                                    Gönderiliyor...
+                                </>
+                            ) : (
+                                "Tüm Kayıtları Gönder"
+                            )}
+                        </FixedActionButton>
+                    </CustomTooltip>
                 )}
                 {alertMessage && (
                     <Stack sx={{ width: '100%', mt: 2 }} spacing={2}>

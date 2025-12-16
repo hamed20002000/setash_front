@@ -435,7 +435,12 @@ const OrderItemsTable: React.FC<OrderItemsTableProps> = ({
                             return (
                                 <TableRow key={item.id}>
                                     <TableCell>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <Box sx={{
+                                            display: 'flex',
+                                            flexDirection: { xs: 'column', sm: 'row' }, // موبایل ستونی، دسکتاپ ردیفی
+                                            alignItems: { xs: 'stretch', sm: 'center' }, // موبایل کشیده، دسکتاپ وسط‌چین
+                                            gap: 1
+                                        }}>
                                             <Autocomplete<ItemType>
                                                 options={availableItemsList}
                                                 getOptionLabel={(option) => option.name}

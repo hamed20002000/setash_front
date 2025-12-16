@@ -1164,7 +1164,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                             <StyledTableCell>{row.brand || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.model || '-'}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.manufactureDate || null)}</StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
                                                     maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
                                                 }}>
@@ -1174,6 +1174,25 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Devamını Oku</Button>
                                                     </CustomTooltip>
+                                                )}
+                                            </StyledTableCell> */}
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button
+                                                            variant="text"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>

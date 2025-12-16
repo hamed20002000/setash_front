@@ -132,7 +132,7 @@ const ListReceipts = () => {
     const [openReceiptDetailsDownloadModal, setOpenReceiptDetailsDownloadModal] = useState(false);
     const [isInvoiceComboDisabled, setIsInvoiceComboDisabled] = useState(false);
     const [selectedInvoice, setSelectedInvoice] = useState<InvoiceType | null>(null);
-
+    const [viewedReceipt, setViewedReceipt] = useState<ReceiptType | null>(null);
 
     const [generalDescription, setGeneralDescription] = useState('');
 
@@ -296,6 +296,16 @@ const ListReceipts = () => {
             return false;
         }
         return true;
+    };
+
+    const calculateModalSummaries = (items: ProcessedReceiptItem[]) => {
+        const summary: Record<string, number> = {};
+        items.forEach(item => {
+            const unitTitle = item.unit?.title || "Diğer";
+            const qty = Number(item.quantity) || 0;
+            summary[unitTitle] = (summary[unitTitle] || 0) + qty;
+        });
+        return summary;
     };
 
     const resetForm = () => {
@@ -487,7 +497,13 @@ const ListReceipts = () => {
 
     };
 
-    const handleOpenModal = (details: ReceiptItem[]) => {
+    const handleOpenModal = (row: ReceiptType) => {
+        // ذخیره کل رسید برای استفاده در دکمه‌های دانلود
+        setViewedReceipt(row);
+
+        const details = row.receiptDetails; // استخراج جزئیات برای نمایش در جدول
+
+        // همان منطق قبلی برای پردازش آیتم‌ها
         const processedDetails: ProcessedReceiptItem[] = details.map(detail => ({
             id: Number(detail.id),
             item: detail.item.id,
@@ -1366,21 +1382,31 @@ const ListReceipts = () => {
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                <Typography variant="body2" noWrap title={row.description || ''}>
-                                                    {row.description || '-'}
-                                                </Typography>
-                                                {row.description != null && row.description.length > 50 && (
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Devamını Oku
+                                                        <Button
+
+                                                            variant="outlined"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamayı Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>
-                                                <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.receiptDetails)}>
+                                                <Button
+                                                    variant="outlined"
+                                                    startIcon={<IconEye />}
+                                                    onClick={() => handleOpenModal(row)} // ✅ تغییر: ارسال کل row بجای row.receiptDetails
+                                                >
                                                     Görünüm
                                                 </Button>
                                             </StyledTableCell>
@@ -1449,10 +1475,10 @@ const ListReceipts = () => {
                 />
             </BlankCard>
 
-            {/* Detay modal */}
             <Dialog open={openModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
                 <DialogTitle>Fiş Detayları</DialogTitle>
                 <DialogContent dividers>
+                    {/* جدول لیست آیتم‌ها */}
                     <TableContainer component={Paper}>
                         <Table size="small" aria-label="Ürün detayları tablosu">
                             <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
@@ -1474,7 +1500,7 @@ const ListReceipts = () => {
                                             <StyledTableCell><Typography variant="body1">{detail.providerName || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{detail.firm ? 'Şirket İçi' : 'Şirket Dışı'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{detail.itemName || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.quantity}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{Number(detail.quantity).toLocaleString()}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{detail.unit?.title || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
                                         </TableRow>
@@ -1491,8 +1517,74 @@ const ListReceipts = () => {
                             </TableBody>
                         </Table>
                     </TableContainer>
+
+                    {/* ✅ بخش جدید: جدول خلاصه جمع‌ها بر اساس واحد */}
+                    {modalDetails.length > 0 && (
+                        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                            <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
+                                <Table size="small">
+                                    <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                                        <TableRow>
+                                            <StyledTableCell align="center" colSpan={2}>
+                                                <Typography variant="subtitle2" fontWeight="bold">Birim Bazlı Toplamlar</Typography>
+                                            </StyledTableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {Object.entries(calculateModalSummaries(modalDetails)).map(([unit, total]) => (
+                                            <TableRow key={unit}>
+                                                <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                                                    Toplam {unit}:
+                                                </StyledTableCell>
+                                                <StyledTableCell align="right" sx={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                                                    {total.toLocaleString()}
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+                    )}
+
                 </DialogContent>
-                <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
+                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            variant="contained"
+                            color="error" // قرمز برای PDF
+                            startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                if (viewedReceipt) {
+                                    handleDownloadReceiptDetailsPDF(viewedReceipt);
+                                }
+                            }}
+                            disabled={!viewedReceipt}
+                        >
+                            PDF İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success" // سبز برای اکسل
+                            startIcon={<IconFileDownload />}
+                            onClick={() => {
+                                if (viewedReceipt) {
+                                    handleDownloadReceiptDetailsExcel(viewedReceipt);
+                                }
+                            }}
+                            disabled={!viewedReceipt}
+                        >
+                            Excel İndir
+                        </Button>
+                    </Stack>
+
+                    {/* دکمه بستن سمت راست */}
+                    <Button onClick={handleCloseModal} color="secondary" variant="outlined">
+                        Kapat
+                    </Button>
+
+                </DialogActions>
             </Dialog>
 
             <DeleteReceiptModal

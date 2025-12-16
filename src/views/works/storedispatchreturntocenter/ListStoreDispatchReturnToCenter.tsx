@@ -1578,17 +1578,23 @@ const ListStoreDispatchReturnToCenter = () => {
                                                     {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
                                                     <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                     <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                        <Typography variant="body2" noWrap title={row.description || ''}>
-                                                            {row.description || '-'}
-                                                        </Typography>
-                                                        {row.description != null && row.description.length > 50 && (
+                                                        {row.description && row.description.trim().length > 0 ? (
+                                                            // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                             <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                                <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                                    handleOpenDescriptionModalT(row.description);
-                                                                }}>
-                                                                    Devamını Oku
+                                                                <Button
+
+                                                                    variant="outlined"
+                                                                    style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                                    onClick={() => handleOpenDescriptionModalT(row.description)}
+                                                                >
+                                                                    Açıklamayı Oku
                                                                 </Button>
                                                             </CustomTooltip>
+                                                        ) : (
+                                                            // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                            <Typography variant="body2" align="center">
+                                                                -
+                                                            </Typography>
                                                         )}
                                                     </StyledTableCell>
                                                     <StyledTableCell>

@@ -1820,7 +1820,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                             {/* <StyledTableCell>
                                                 {row.salary != null ? `${row.salary.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0 })}` : '-'}
                                             </StyledTableCell> */}
-                                            <StyledTableCell sx={{ maxWidth: 100 }}>
+                                            {/* <StyledTableCell sx={{ maxWidth: 100 }}>
                                                 <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
 
                                                 {row.description != null && row.description.length > 50 && (
@@ -1831,6 +1831,26 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                             Devamını Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                )}
+                                            </StyledTableCell> */}
+
+                                            <StyledTableCell sx={{ maxWidth: 100 }}>
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button
+                                                            variant="text"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>

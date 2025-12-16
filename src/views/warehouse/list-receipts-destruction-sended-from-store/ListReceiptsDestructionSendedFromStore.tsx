@@ -201,6 +201,19 @@ const addPdfFooter = (doc: jsPDF) => {
     const pageCount = docAny.internal.getNumberOfPages();
     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
+
+// 1. تابع کمکی برای محاسبه جمع‌ها (اضافه شود)
+const getTotalsByUnit = (details: any[]) => {
+    const totals: Record<string, number> = {};
+    details.forEach(d => {
+        const unit = d.item?.unit?.title || 'Bilinmiyor';
+        const qty = Number(d.quantity) || 0;
+        totals[unit] = (totals[unit] || 0) + qty;
+    });
+    return totals;
+};
+
+// 2. آپدیت تابع PDF
 const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?: string) => {
     if (!data?.length) throw new Error('PDF oluşturulacak veri bulunamadı.');
     const doc = new jsPDF();
@@ -221,56 +234,45 @@ const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?
         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
         const body = (receipt.receiptDetails || []).map(d => [
             d.item?.name || '-',
-            d.quantity,
+            Number(d.quantity).toLocaleString('tr-TR'),
             d.item?.unit?.title || '-',
             d.description || '-',
             d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
         ]);
-        const totalQuantity = (receipt.receiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
+
+        // محاسبه و نمایش فوتر
+        const totals = getTotalsByUnit(receipt.receiptDetails || []);
+        const footRows = Object.entries(totals).map(([unit, qty]) => [
+            'Toplam:',
+            qty.toLocaleString('tr-TR'),
+            unit,
+            '',
+            ''
+        ]);
 
         autoTable(docAny, {
-            startY: yPos, head: [head], body, theme: 'grid',
+            startY: yPos,
+            head: [head],
+            body,
+            foot: footRows, // فوتر اضافه شد
+            theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+            footStyles: { font: 'NotoSans', fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
             didDrawPage: () => { addPdfFooter(doc); },
         });
-
-        const finalY = docAny.lastAutoTable.finalY || yPos;
-        doc.setFontSize(10);
-        doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
     });
 
     doc.save(`${title.replace(/ /g, '_')}.pdf`);
 };
-const addExcelHeader = (ws: Excel.Worksheet, title: string, colLen: number) => {
-    ws.views = [{ rightToLeft: true }];
-    const t = ws.addRow([title]); t.font = { name: 'NotoSans', size: 14, bold: true };
-    ws.mergeCells(t.number, 1, t.number, colLen); t.getCell(1).alignment = { horizontal: 'center' };
-    const d = ws.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
-    d.font = { name: 'NotoSans', size: 10 }; ws.mergeCells(d.number, 1, d.number, colLen);
-    ws.addRow([]);
-};
-const addExcelCompanyInfo = (ws: Excel.Worksheet, startRow: number, colLen: number) => {
-    const lines = [
-        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
-    ];
-    let r = startRow;
-    lines.forEach(line => {
-        const row = ws.getRow(r);
-        row.getCell(1).value = line;
-        row.getCell(1).alignment = { horizontal: 'center', readingOrder: 'ltr' };
-        row.getCell(1).font = { name: 'NotoSans', size: 8 };
-        ws.mergeCells(`A${r}:${String.fromCharCode(65 + colLen - 1)}${r}`); r++;
-    });
-};
+
+// 3. آپدیت تابع Excel
 const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) => {
     if (!data?.length) throw new Error('Excel oluşturulacak veri bulunamadı.');
 
     const wb = new Excel.Workbook();
     data.forEach(receipt => {
-        const ws = wb.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_'));
+        const ws = wb.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_').substring(0, 30));
         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
         addExcelHeader(ws, title, head.length);
 
@@ -286,24 +288,150 @@ const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) =
 
         (receipt.receiptDetails || []).forEach(d => {
             ws.addRow([
-                d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-',
+                d.item?.name || '-',
+                Number(d.quantity),
+                d.item?.unit?.title || '-',
+                d.description || '-',
                 d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
             ]);
         });
 
-        const total = (receipt.receiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
-        const tr = ws.addRow(['Toplam Miktar', total, '', '', '']);
-        tr.font = { name: 'NotoSans', bold: true }; tr.getCell(2).numFmt = '0';
+        // اضافه کردن جمع کل به تفکیک واحد
+        ws.addRow([]);
+        const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
+        summaryTitle.font = { name: 'NotoSans', bold: true, underline: true };
+
+        const totals = getTotalsByUnit(receipt.receiptDetails || []);
+        Object.entries(totals).forEach(([unit, total]) => {
+            const tr = ws.addRow(['Toplam:', total, unit]);
+            tr.getCell(1).font = { name: 'NotoSans', bold: true };
+            tr.getCell(1).alignment = { horizontal: 'right' };
+            tr.getCell(2).font = { name: 'NotoSans', bold: true };
+            tr.getCell(2).numFmt = '#,##0.##';
+            tr.getCell(3).font = { name: 'NotoSans', bold: true };
+        });
 
         ws.addRow([]);
         addExcelCompanyInfo(ws, ws.lastRow!.number + 2, head.length);
+
+        ws.getColumn(1).width = 30;
+        ws.getColumn(2).width = 15;
+        ws.getColumn(3).width = 15;
+        ws.getColumn(4).width = 25;
+        ws.getColumn(5).width = 20;
     });
 
     const buffer = await wb.xlsx.writeBuffer();
     saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}.xlsx`);
 };
+// const exportReceiptsToPdf = (data: SendedReceiptType[], title: string, subtitle?: string) => {
+//     if (!data?.length) throw new Error('PDF oluşturulacak veri bulunamadı.');
+//     const doc = new jsPDF();
+//     const docAny = doc as any;
+
+//     data.forEach((receipt, index) => {
+//         let yPos = 55;
+//         if (index > 0) doc.addPage();
+//         addPdfHeader(doc, title, subtitle);
+
+//         doc.setFontSize(10);
+//         doc.text(`Giriş Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos);
+//         doc.text(`Belge Kodu: ${receipt.code || '-'}`, 15, yPos + 5);
+//         doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos + 10);
+//         doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos + 15);
+//         yPos += 20;
+
+//         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
+//         const body = (receipt.receiptDetails || []).map(d => [
+//             d.item?.name || '-',
+//             d.quantity,
+//             d.item?.unit?.title || '-',
+//             d.description || '-',
+//             d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
+//         ]);
+//         const totalQuantity = (receipt.receiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
+
+//         autoTable(docAny, {
+//             startY: yPos, head: [head], body, theme: 'grid',
+//             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+//             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+//             didDrawPage: () => { addPdfFooter(doc); },
+//         });
+
+//         const finalY = docAny.lastAutoTable.finalY || yPos;
+//         doc.setFontSize(10);
+//         doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
+//     });
+
+//     doc.save(`${title.replace(/ /g, '_')}.pdf`);
+// };
+
+const addExcelHeader = (ws: Excel.Worksheet, title: string, colLen: number) => {
+    ws.views = [{ rightToLeft: true }];
+    const t = ws.addRow([title]); t.font = { name: 'NotoSans', size: 14, bold: true };
+    ws.mergeCells(t.number, 1, t.number, colLen); t.getCell(1).alignment = { horizontal: 'center' };
+    const d = ws.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
+    d.font = { name: 'NotoSans', size: 10 }; ws.mergeCells(d.number, 1, d.number, colLen);
+    ws.addRow([]);
+};
+
+const addExcelCompanyInfo = (ws: Excel.Worksheet, startRow: number, colLen: number) => {
+    const lines = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
+    ];
+    let r = startRow;
+    lines.forEach(line => {
+        const row = ws.getRow(r);
+        row.getCell(1).value = line;
+        row.getCell(1).alignment = { horizontal: 'center', readingOrder: 'ltr' };
+        row.getCell(1).font = { name: 'NotoSans', size: 8 };
+        ws.mergeCells(`A${r}:${String.fromCharCode(65 + colLen - 1)}${r}`); r++;
+    });
+};
+
+// const exportReceiptsToExcel = async (data: SendedReceiptType[], title: string) => {
+//     if (!data?.length) throw new Error('Excel oluşturulacak veri bulunamadı.');
+
+//     const wb = new Excel.Workbook();
+//     data.forEach(receipt => {
+//         const ws = wb.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_'));
+//         const head = ['Malzeme', 'Miktar', 'Birim', 'Açıklama', 'Sevk Kodu'];
+//         addExcelHeader(ws, title, head.length);
+
+//         ws.addRow([`Belge Kodu:`, receipt.code]);
+//         ws.addRow([`Giriş Depo:`, receipt.warehouse?.name || '-']);
+//         ws.addRow([`Belge Tarihi:`, formatDateDisplay(receipt.docDate)]);
+//         ws.addRow(['Genel Açıklama', receipt.description || '-']);
+//         ws.addRow([]);
+
+//         const hr = ws.addRow(head);
+//         hr.font = { name: 'NotoSans', bold: true };
+//         hr.eachCell(c => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
+
+//         (receipt.receiptDetails || []).forEach(d => {
+//             ws.addRow([
+//                 d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-',
+//                 d.storeDispatchDetail?.storeDispatchHeaders?.code || '-',
+//             ]);
+//         });
+
+//         const total = (receipt.receiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
+//         const tr = ws.addRow(['Toplam Miktar', total, '', '', '']);
+//         tr.font = { name: 'NotoSans', bold: true }; tr.getCell(2).numFmt = '0';
+
+//         ws.addRow([]);
+//         addExcelCompanyInfo(ws, ws.lastRow!.number + 2, head.length);
+//     });
+
+//     const buffer = await wb.xlsx.writeBuffer();
+//     saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}.xlsx`);
+// };
 
 // --- Component ---
+
+
 const ListReceiptsDestructionSendedFromStore = () => {
     const navigate = useNavigate();
     const authToken = localStorage.getItem('authToken');
@@ -331,6 +459,8 @@ const ListReceiptsDestructionSendedFromStore = () => {
 
     // details
     const [receiptDetails, setReceiptDetails] = useState<FormReceiptDetail[]>([]);
+
+    const [viewedReceipt, setViewedReceipt] = useState<SendedReceiptType | null>(null);
 
     // list/grid
     const [receiptList, setReceiptList] = useState<SendedReceiptType[]>([]);
@@ -1268,17 +1398,23 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                <Typography variant="body2" noWrap title={row.description || ''}>
-                                                    {row.description || '-'}
-                                                </Typography>
-                                                {row.description != null && row.description.length > 50 && (
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Devamını Oku
+                                                        <Button
+
+                                                            variant="outlined"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamayı Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             {/* Durum now based on recordStatus */}
@@ -1293,8 +1429,13 @@ const ListReceiptsDestructionSendedFromStore = () => {
                                             <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
                                                     <Button
-                                                        variant="outlined" startIcon={<IconEye />}
-                                                        onClick={() => { setDetailsToShow(row.receiptDetails || []); setOpenDetailsModal(true); }}
+                                                        variant="outlined"
+                                                        startIcon={<IconEye />}
+                                                        onClick={() => {
+                                                            setDetailsToShow(row.receiptDetails || []);
+                                                            setViewedReceipt(row); // ✅ این خط اضافه شد
+                                                            setOpenDetailsModal(true);
+                                                        }}
                                                     >
                                                         Görünüm
                                                     </Button>
@@ -1400,46 +1541,111 @@ const ListReceiptsDestructionSendedFromStore = () => {
                 />
             </BlankCard>
 
-            {/* Details Modal */}
+            {/* Details Modal - آپدیت شده */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
-                <DialogTitle>Giriş Detayları</DialogTitle>
-                <DialogContent>
+                <DialogTitle>
+                    Giriş Detayları
+                    {viewedReceipt && (
+                        <Typography component="span" variant="subtitle1" color="text.secondary" sx={{ ml: 1 }}>
+                            ({viewedReceipt.code})
+                        </Typography>
+                    )}
+                </DialogTitle>
+                <DialogContent dividers>
                     {detailsToShow.length > 0 ? (
-                        <TableContainer component={Paper}>
-                            <Table aria-label="Ürün detayları tablosu">
-                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
-                                    <TableRow>
-                                        <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {detailsToShow.map((d, i) => (
-                                        <TableRow key={d.id || i}>
-                                            <StyledTableCell><Typography variant="body1">{d.item?.name || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{d.quantity || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{d.item?.unit?.title || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{d.description || '-'}</Typography></StyledTableCell>
+                        <>
+                            <TableContainer component={Paper}>
+                                <Table aria-label="Ürün detayları tablosu" size="small">
+                                    <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                        <TableRow>
+                                            <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         </TableRow>
-                                    ))}
-                                    <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
-                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Toplam Miktar:</StyledTableCell>
-                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>
-                                            {detailsToShow.reduce((s, d) => s + Number(d.quantity), 0)}
-                                        </StyledTableCell>
-                                        <StyledTableCell></StyledTableCell>
-                                        <StyledTableCell></StyledTableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                                    </TableHead>
+                                    <TableBody>
+                                        {detailsToShow.map((d, i) => (
+                                            <TableRow key={d.id || i}>
+                                                <StyledTableCell><Typography variant="body1">{d.item?.name || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{Number(d.quantity).toLocaleString()}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{d.item?.unit?.title || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{d.description || '-'}</Typography></StyledTableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            {/* ✅ جدول خلاصه جمع‌ها */}
+                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                                            <TableRow>
+                                                <StyledTableCell align="center" colSpan={2}>
+                                                    <Typography variant="subtitle2" fontWeight="bold">Birim Bazlı Toplamlar</Typography>
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {/* استفاده از تابع getTotalsByUnit که بیرون کامپوننت تعریف کردیم */}
+                                            {Object.entries(getTotalsByUnit(detailsToShow)).map(([unit, total]) => (
+                                                <TableRow key={unit}>
+                                                    <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                                                        Toplam {unit}:
+                                                    </StyledTableCell>
+                                                    <StyledTableCell align="right" sx={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                                                        {total.toLocaleString()}
+                                                    </StyledTableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        </>
                     ) : (
                         <Typography variant="body1" sx={{ p: 2, textAlign: 'center' }}>Bu giriş belgesi için detay bulunamadı.</Typography>
                     )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button></DialogActions>
+
+                {/* ✅ دکمه‌های دانلود */}
+                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            startIcon={<IconFileText />}
+                            disabled={!viewedReceipt}
+                            onClick={() => {
+                                if (viewedReceipt) {
+                                    showAlert('PDF oluşturuluyor...', 'info');
+                                    exportReceiptsToPdf([viewedReceipt], `Giriş Belgesi Detayları: ${viewedReceipt.code}`);
+                                    showAlert('PDF indiriliyor.', 'success');
+                                }
+                            }}
+                        >
+                            PDF İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileSpreadsheet />}
+                            disabled={!viewedReceipt}
+                            onClick={async () => {
+                                if (viewedReceipt) {
+                                    showAlert('Excel oluşturuluyor...', 'info');
+                                    await exportReceiptsToExcel([viewedReceipt], `Giriş Belgesi Detayları: ${viewedReceipt.code}`);
+                                    showAlert('Excel indiriliyor.', 'success');
+                                }
+                            }}
+                        >
+                            Excel İndir
+                        </Button>
+                    </Stack>
+                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
             {/* Download Modals */}

@@ -2013,7 +2013,7 @@ const ListConsignments: React.FC = () => {
                                             </StyledTableCell>
                                             <StyledTableCell>{row.placeName}</StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.createAt || null)}</StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
                                                     maxHeight: '5em',
                                                     overflow: 'hidden',
@@ -2032,6 +2032,25 @@ const ListConsignments: React.FC = () => {
                                                             Devamını Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                )}
+                                            </StyledTableCell> */}
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button
+                                                            variant="text"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Devamını Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>

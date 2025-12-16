@@ -968,7 +968,7 @@ const WorkhouseDetails = () => {
                                                 {cleanAndFormatPrice(entry.price)}
                                             </Typography>
                                         </StyledTableCell>
-                                        <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+                                        {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                             <Box sx={{
                                                 maxHeight: '5em',
                                                 overflow: 'hidden',
@@ -991,7 +991,29 @@ const WorkhouseDetails = () => {
                                                     </Button>
                                                 </CustomTooltip>
                                             )}
+                                        </StyledTableCell> */}
+
+                                        <StyledTableCell sx={{ maxWidth: 150 }}>
+                                            {entry.description && entry.description.trim().length > 0 ? (
+                                                // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                    <Button
+
+                                                        variant="outlined"
+                                                        style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                        onClick={() => handleOpenDescriptionModal(entry.description)}
+                                                    >
+                                                        Açıklamayı Oku
+                                                    </Button>
+                                                </CustomTooltip>
+                                            ) : (
+                                                // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                <Typography variant="body2" align="center">
+                                                    -
+                                                </Typography>
+                                            )}
                                         </StyledTableCell>
+
                                         <StyledTableCell>
                                             <Typography variant="body1">{formatDateDisplay(entry.rentStartDate)}</Typography>
                                         </StyledTableCell>

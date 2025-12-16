@@ -1884,7 +1884,8 @@ const ListWorkhouses = () => {
                                             <StyledTableCell>
                                                 <Typography variant="body1">{row.code}</Typography>
                                             </StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
+
+                                            {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
                                                     maxHeight: '5em',
                                                     overflow: 'hidden',
@@ -1909,6 +1910,25 @@ const ListWorkhouses = () => {
                                                             Devamını Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                )}
+                                            </StyledTableCell> */}
+
+                                            <StyledTableCell sx={{ maxWidth: 200 }} align="center">
+                                                {row.address && row.address.trim().length > 0 ? (
+                                                    // ✅ حالت اول: آدرس هست -> فقط دکمه نمایش بده
+                                                    <Button
+                                                        variant="outlined" // یا "text" یا "contained" بسته به سلیقه
+                                                        size="small"
+                                                        color="primary"
+                                                        onClick={() => {
+                                                            setSelectedAddress(row.address);
+                                                            setOpenAddressModal(true);
+                                                        }}
+                                                    >
+                                                        Adresi Gör
+                                                    </Button>
+                                                ) : (
+                                                    <Typography variant="body1">-</Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>

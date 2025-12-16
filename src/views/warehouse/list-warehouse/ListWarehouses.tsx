@@ -1793,31 +1793,22 @@ const ListWarehouses = () => {
                                             <StyledTableCell>
                                                 <Typography variant="body1">{row.code}</Typography>
                                             </StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    display: '-webkit-box',
-                                                    WebkitLineClamp: 3,
-                                                    WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <Typography variant="body1">{row.address}</Typography>
-                                                </Box>
-                                                {row.address.length > 50 && (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm adresi gör" : ""}>
-                                                        <Button
-                                                            variant="text"
-                                                            size="small"
-                                                            sx={{ fontSize: "10px", padding: "2px 5px" }}
-                                                            onClick={() => {
-                                                                setSelectedAddress(row.address);
-                                                                setOpenAddressModal(true);
-                                                            }}
-                                                        >
-                                                            Devamını Oku
-                                                        </Button>
-                                                    </CustomTooltip>
+                                            <StyledTableCell sx={{ maxWidth: 200 }} align="center">
+                                                {row.address && row.address.trim().length > 0 ? (
+                                                    // ✅ حالت اول: آدرس هست -> فقط دکمه نمایش بده
+                                                    <Button
+                                                        variant="outlined" // یا "text" یا "contained" بسته به سلیقه
+                                                        size="small"
+                                                        color="primary"
+                                                        onClick={() => {
+                                                            setSelectedAddress(row.address);
+                                                            setOpenAddressModal(true);
+                                                        }}
+                                                    >
+                                                        Adresi Gör
+                                                    </Button>
+                                                ) : (
+                                                    <Typography variant="body1">-</Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>

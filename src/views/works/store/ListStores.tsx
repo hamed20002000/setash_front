@@ -16,6 +16,7 @@ import {
     DialogContent,
     DialogActions
 } from '@mui/material';
+import "./style.css"
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import { keyframes, styled } from '@mui/material/styles';
@@ -628,6 +629,7 @@ const ListStores = () => {
                 params: requestParams
             });
             if (response.data.httpStatusCode === 200) {
+
                 let allStores = response.data.data as StoreType[];
                 if (workhouseId) {
                     allStores = allStores.filter((store) => Number(store.workhouse?.id) === Number(workhouseId));
@@ -1624,22 +1626,26 @@ const ListStores = () => {
                                         <TableRow key={row.id}>
                                             <StyledTableCell><Typography variant="body1">{row.name}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.code}</Typography></StyledTableCell>
-                                            <StyledTableCell>
-                                                <Box sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>
-                                                    <Typography variant="body1">{row.address || '-'}</Typography>
-                                                </Box>
-                                                {row.address.length > 50 && (
+                                            <StyledTableCell sx={{ maxWidth: 200 }} align="center">
+                                                {row.address && row.address.trim().length > 0 ? (
+                                                    // ✅ حالت اول: آدرس هست -> فقط دکمه نمایش بده
                                                     <Button
+                                                        variant="outlined" // یا "text" یا "contained" بسته به سلیقه
                                                         size="small"
+                                                        color="primary"
                                                         onClick={() => {
                                                             setSelectedAddress(row.address);
                                                             setOpenAddressModal(true);
                                                         }}
                                                     >
-                                                        Devamını Oku
+                                                        Adresi Gör
                                                     </Button>
+                                                ) : (
+                                                    <Typography variant="body1">-</Typography>
                                                 )}
                                             </StyledTableCell>
+
+
                                             <StyledTableCell><Typography variant="body1">{regionMap.get(row.region?.id) || 'Bilinmiyor'}</Typography></StyledTableCell>
                                             {!workhouseId && (<StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell>)}
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.createAt)}</Typography></StyledTableCell>

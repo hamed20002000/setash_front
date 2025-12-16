@@ -283,7 +283,10 @@ const ListPersonnelWorkhouseReport = () => {
     const clearAlert = () => { setAlertMessage(null); };
 
     const handleApiError = useCallback((e: any, defaultMessage: string = 'Bir hata oluştu.') => {
-        if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+        if (e.response?.status === 401) {
+            localStorage.removeItem('authToken');
+            showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+        }
         else if (e.response?.status === 500) { showAlert('Sistem hatası oluştu, lütfen deneyin.', 'error'); }
         else { console.error("API Error:", e); showAlert(e.response?.data?.message || defaultMessage, 'error'); }
     }, [navigate, showAlert]);
@@ -347,6 +350,8 @@ const ListPersonnelWorkhouseReport = () => {
             page: filterParams.page,
             pageSize: filterParams.pageSize,
         };
+
+        debugger
 
         setLoadingData(true);
         try {

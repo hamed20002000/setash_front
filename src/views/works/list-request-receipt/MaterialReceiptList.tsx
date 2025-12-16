@@ -152,12 +152,25 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                                 paginatedRequestsList.map((row) => (
                                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                                         <StyledTableCell><Typography variant="body1">{row.subject}</Typography></StyledTableCell>
-                                        <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                            <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
-                                            {row.description && row.description.length > 50 && (
+
+                                        <StyledTableCell sx={{ maxWidth: 150 }}>
+                                            {row.description && row.description.trim().length > 0 ? (
+                                                // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                    <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => props.handleOpenDescriptionModal(row.description)}>Devamını Oku</Button>
+                                                    <Button
+
+                                                        variant="outlined"
+                                                        style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                        onClick={() => props.handleOpenDescriptionModal(row.description)}
+                                                    >
+                                                        Açıklamayı Oku
+                                                    </Button>
                                                 </CustomTooltip>
+                                            ) : (
+                                                // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                <Typography variant="body2" align="center">
+                                                    -
+                                                </Typography>
                                             )}
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.user?.username || 'Bilinmiyor'}</Typography></StyledTableCell>

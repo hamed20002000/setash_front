@@ -105,7 +105,7 @@ interface DispatchEntity {
     docDate: string;
     storeDispatchDetails: DispatchDetail[];
     store: StoreType;
-    isEnd?: boolean | null; // برای فیلتربندی کمبو و مودال
+    isEnd?: boolean | null;
 }
 
 interface FormReceiptDetail {
@@ -138,8 +138,8 @@ interface ApiResponse<T> {
 }
 
 interface InactiveInvoice {
-    id: string;        // id فیش/رسید (برای لیست قبلی — حفظ شده)
-    invoiceNo: string; // code
+    id: string;
+    invoiceNo: string;
     docDate: string;
 }
 
@@ -150,7 +150,18 @@ const formatDateDisplay = (dateString: string | null): string => {
     catch { return "Geçersiz Tarih"; }
 };
 
-/* ---------------- PDF & Excel helpers (دانلودها بدون تغییر رفتاری) ---------------- */
+// تابع جدید برای محاسبه جمع کل بر اساس واحد
+const calculateReceiptSummaries = (details: any[]) => {
+    const summary: Record<string, number> = {};
+    details.forEach(d => {
+        const unitTitle = d.item?.unit?.title || "Diğer";
+        const qty = Number(d.quantity) || 0;
+        summary[unitTitle] = (summary[unitTitle] || 0) + qty;
+    });
+    return summary;
+};
+
+/* ---------------- PDF & Excel helpers ---------------- */
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const docAny = doc as any;
@@ -186,6 +197,7 @@ const addPdfFooter = (doc: jsPDF) => {
     const pageCount = docAny.internal.getNumberOfPages();
     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
+
 const exportReceiptsToPdf = (data: BetweenStoreReceiptType[], title: string, subtitle?: string) => {
     if (!data || data.length === 0) throw new Error('PDF oluşturulacak veri bulunamadı.');
     const doc = new jsPDF(); const docAny = doc as any; let yPos = 55;
@@ -201,27 +213,41 @@ const exportReceiptsToPdf = (data: BetweenStoreReceiptType[], title: string, sub
         yPos += 25;
 
         const detailsRows = (receipt.storeReceiptDetails || []).map(d => [
-            d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-'
+            d.item?.name || '-',
+            Number(d.quantity).toLocaleString('tr-TR'),
+            d.item?.unit?.title || '-',
+            d.description || '-'
         ]);
+
+        // محاسبه جمع برای فوتر
+        const summaries = calculateReceiptSummaries(receipt.storeReceiptDetails || []);
+        const summaryRows = Object.entries(summaries).map(([unit, total]) => [
+            "TOPLAM:",
+            total.toLocaleString('tr-TR'),
+            unit,
+            ""
+        ]);
+
         autoTable(docAny, {
             startY: yPos,
             head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
             body: detailsRows,
+            foot: summaryRows, // اضافه شدن فوتر جمع
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+            footStyles: { font: 'NotoSans', fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
             didDrawPage: (hookData: any) => {
                 if (hookData.pageNumber > 1) addPdfHeader(doc, title, subtitle);
                 addPdfFooter(doc);
             }
         });
         const finalY = docAny.lastAutoTable.finalY || yPos;
-        const totalQuantity = (receipt.storeReceiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
-        doc.setFontSize(10); doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
         yPos = finalY + 10;
     });
     doc.save(`${title.replace(/ /g, '_')}.pdf`);
 };
+
 const addExcelHeader = (ws: Excel.Worksheet, title: string, columnsLength: number) => {
     ws.views = [{ rightToLeft: false }];
     const titleRow = ws.addRow([title]);
@@ -250,12 +276,13 @@ const addExcelCompanyInfo = (ws: Excel.Worksheet, startRow: number, columnsLengt
         rowNum++;
     });
 };
+
 const exportReceiptsToExcel = (data: BetweenStoreReceiptType[], title: string) => {
     if (!data || data.length === 0) throw new Error('Excel oluşturulacak veri bulunamadı.');
     const workbook = new Excel.Workbook();
 
     data.forEach(receipt => {
-        const ws = workbook.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_'));
+        const ws = workbook.addWorksheet(`Giriş_${receipt.code}`.replace(/[\\/*?:[\]]/g, '_').substring(0, 30));
         const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
         addExcelHeader(ws, title, columns.length);
 
@@ -270,16 +297,29 @@ const exportReceiptsToExcel = (data: BetweenStoreReceiptType[], title: string) =
         headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
 
         (receipt.storeReceiptDetails || []).forEach(d => {
-            ws.addRow([d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
+            ws.addRow([d.item?.name || '-', Number(d.quantity), d.item?.unit?.title || '-', d.description || '-']);
         });
 
-        const totalQty = (receipt.storeReceiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
-        const totalRow = ws.addRow([`Toplam Miktar`, totalQty, '', '']);
-        totalRow.font = { name: 'NotoSans', bold: true };
-        totalRow.getCell(2).numFmt = '0';
+        // اضافه کردن بخش جمع در اکسل
+        ws.addRow([]);
+        const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
+        summaryTitle.font = { bold: true, underline: true };
+
+        const summaries = calculateReceiptSummaries(receipt.storeReceiptDetails || []);
+        Object.entries(summaries).forEach(([unit, total]) => {
+            const r = ws.addRow(["TOPLAM:", total, unit]);
+            r.getCell(1).font = { bold: true };
+            r.getCell(1).alignment = { horizontal: 'right' };
+            r.getCell(2).font = { bold: true };
+        });
 
         ws.addRow([]);
         addExcelCompanyInfo(ws, ws.lastRow!.number + 2, columns.length);
+
+        ws.getColumn(1).width = 30;
+        ws.getColumn(2).width = 15;
+        ws.getColumn(3).width = 15;
+        ws.getColumn(4).width = 40;
     });
 
     const fileName = `${title.replace(/ /g, '_')}.xlsx`;
@@ -332,29 +372,28 @@ const ListBetweenStoreReceipt = () => {
     const [receiptIdToDelete, setReceiptIdToDelete] = useState<string | null>(null);
     const [receiptCodeToDelete, setReceiptCodeToDelete] = useState<string>('');
 
+    // ** تغییر مهم: استفاده از کل آبجکت رسید برای مودال **
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
-    const [detailsToShow, setDetailsToShow] = useState<ReceiptDetailType[]>([]);
+    const [viewedReceipt, setViewedReceipt] = useState<BetweenStoreReceiptType | null>(null);
 
     const [isFilterActive, setIsFilterActive] = useState(false);
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
 
     const [generalDescription, setGeneralDescription] = useState('');
-    // Download modals (حفظ شد)
+
+    // Download modals
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedReceiptForDownload, setSelectedReceiptForDownload] = useState<BetweenStoreReceiptType | null>(null);
 
-    // قدیمی‌ها برای نمایش فاکتورهای Sonlandırılmış — حفظ می‌کنیم (اما isEnd را برای Dispatch می‌زنیم)
     const [inactiveInvoices, setInactiveInvoices] = useState<InactiveInvoice[]>([]);
     const [openInactiveModal, setOpenInactiveModal] = useState(false);
-
 
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
-    // NEW: Sevk List Modal + Confirm End Dispatch Modal
     const [openDispatchListModal, setOpenDispatchListModal] = useState(false);
     const [openEndDispatchConfirmModal, setOpenEndDispatchConfirmModal] = useState(false);
     const [lastSelectedDispatch, setLastSelectedDispatch] = useState<{ id: string; code: string } | null>(null);
@@ -447,7 +486,6 @@ const ListBetweenStoreReceipt = () => {
 
     const filteredDispatches = useMemo(() => (dispatches || []).filter(d => d.isEnd !== true), [dispatches]);
 
-    // قدیمی — حفظ شده: لیست فاکتورهای isEnd=true (برای نمایش در مودال EyeOff)
     useEffect(() => {
         if (!selectedStoreId) { setInactiveInvoices([]); return; }
         const list = (receiptList || [])
@@ -628,7 +666,6 @@ const ListBetweenStoreReceipt = () => {
         } finally { setLoadingButton(false); }
     };
 
-    // ↑ بقیه‌ی ایمپورت‌ها و state ها سرجاش
     const editReceipt = async () => {
         if (!editingId) return;
         if (!authToken) { navigate("/"); return; }
@@ -900,7 +937,7 @@ const ListBetweenStoreReceipt = () => {
                                 options={filteredDispatches}
                                 getOptionLabel={(opt) => opt ? `${opt.code} — ${formatDateDisplay(opt.docDate)}` : ''}
                                 value={filteredDispatches.find(d => d.id === selectedDispatchId) || null}
-                                onChange={(_e, newVal) => {
+                                onChange={(_, newVal) => {
                                     setSelectedDispatchId(newVal ? newVal.id : null);
                                     populateDetailsFromDispatch(newVal || null);
                                 }}
@@ -926,8 +963,6 @@ const ListBetweenStoreReceipt = () => {
                             </LocalizationProvider>
                         </Grid>
 
-
-
                         <Grid item xs={12}>
                             <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                             <TextField
@@ -938,8 +973,8 @@ const ListBetweenStoreReceipt = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
@@ -947,8 +982,6 @@ const ListBetweenStoreReceipt = () => {
                     <Box mt={4}>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                             <Typography variant="h6">Giriş Detayları</Typography>
-
-
                         </Stack>
 
                         {loadingData && selectedStoreId ? (
@@ -1061,7 +1094,7 @@ const ListBetweenStoreReceipt = () => {
                 </Stack>
             )}
 
-            {/* لیست + فیلتر + دانلودها (کاملاً حفظ شده) */}
+            {/* لیست + فیلتر + دانلودها */}
             <BlankCard>
                 <Stack direction="row" spacing={2} justifyContent="flex-end" mt={2} mb={2} mr={2}>
                     {isFilterActive && hasDownloadPermission && (
@@ -1141,25 +1174,28 @@ const ListBetweenStoreReceipt = () => {
                                         <TableRow key={row.id}>
                                             <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>  <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                <Typography variant="body2" noWrap title={row.description || ''}>
-                                                    {row.description || '-'}
-                                                </Typography>
-                                                {row.description != null && row.description.length > 50 && (
+                                            <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                {row.description && row.description.trim().length > 0 ? (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Devamını Oku
+                                                        <Button
+
+                                                            variant="outlined"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamayı Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                ) : (
+                                                    <Typography variant="body2" align="center">-</Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
                                                     <Button
                                                         variant="outlined" startIcon={<IconEye />}
-                                                        onClick={() => { setDetailsToShow(row.storeReceiptDetails || []); setOpenDetailsModal(true); }}
+                                                        onClick={() => { setViewedReceipt(row); setOpenDetailsModal(true); }}
                                                     >
                                                         Görünüm
                                                     </Button>
@@ -1243,101 +1279,127 @@ const ListBetweenStoreReceipt = () => {
 
             {/* Details Modal */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
-                <DialogTitle>Giriş Detayları</DialogTitle>
-                <DialogContent>
-                    {detailsToShow.length > 0 ? (
-                        <TableContainer component={Paper}>
-                            <Table aria-label="Ürün detayları tablosu">
-                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
-                                    <TableRow>
-                                        <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {detailsToShow.map((detail, index) => (
-                                        <TableRow key={detail.id || index}>
-                                            <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.quantity || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                <DialogTitle>
+                    Giriş Detayları
+                    {viewedReceipt && <Typography component="span" variant="subtitle1" color="text.secondary" sx={{ ml: 1 }}>({viewedReceipt.code})</Typography>}
+                </DialogTitle>
+                <DialogContent dividers>
+                    {viewedReceipt && viewedReceipt.storeReceiptDetails.length > 0 ? (
+                        <>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table aria-label="Ürün detayları tablosu" size="small">
+                                    <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                        <TableRow>
+                                            <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                         </TableRow>
-                                    ))}
-                                    <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
-                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>Toplam Miktar:</StyledTableCell>
-                                        <StyledTableCell sx={{ fontWeight: 'bold' }}>
-                                            {detailsToShow.reduce((sum, detail) => sum + Number(detail.quantity), 0)}
-                                        </StyledTableCell>
-                                        <StyledTableCell></StyledTableCell>
-                                        <StyledTableCell></StyledTableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                                    </TableHead>
+                                    <TableBody>
+                                        {viewedReceipt.storeReceiptDetails.map((detail, index) => (
+                                            <TableRow key={detail.id || index} hover>
+                                                <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{Number(detail.quantity).toLocaleString()}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            {/* جدول خلاصه جمع‌ها */}
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                                            <TableRow>
+                                                <StyledTableCell align="center" colSpan={2}>
+                                                    <Typography variant="subtitle2" fontWeight="bold">Birim Bazlı Toplamlar</Typography>
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {Object.entries(calculateReceiptSummaries(viewedReceipt.storeReceiptDetails)).map(([unit, total]) => (
+                                                <TableRow key={unit}>
+                                                    <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                                                        Toplam {unit}:
+                                                    </StyledTableCell>
+                                                    <StyledTableCell align="right" sx={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                                                        {total.toLocaleString()}
+                                                    </StyledTableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        </>
                     ) : (
                         <Typography variant="body1" sx={{ p: 2, textAlign: 'center' }}>
                             Bu giriş belgesi için detay bulunamadı.
                         </Typography>
                     )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button></DialogActions>
+                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            startIcon={<IconFileText />}
+                            disabled={!viewedReceipt}
+                            onClick={() => { if (viewedReceipt) exportReceiptsToPdf([viewedReceipt], `Giriş_${viewedReceipt.code}`); }}
+                        >
+                            PDF İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileSpreadsheet />}
+                            disabled={!viewedReceipt}
+                            onClick={() => { if (viewedReceipt) exportReceiptsToExcel([viewedReceipt], `Giriş_${viewedReceipt.code}`); }}
+                        >
+                            Excel İndir
+                        </Button>
+                    </Stack>
+                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
-            {/* Download Modals (حفظ شد) */}
+            {/* Download Modals */}
             <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
-                <DialogTitle>Tüm Giriş Belgelerini İndir</DialogTitle>
+                <DialogTitle>Tüm Girişleri İndir</DialogTitle>
                 <DialogContent>
-                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
-                            onClick={() => { handleDownload('pdf', false); setOpenDownloadAllModal(false); }}>
-                            PDF Olarak İndir
-                        </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
-                            onClick={() => { handleDownload('excel', false); setOpenDownloadAllModal(false); }}>
-                            Excel Olarak İndir
-                        </Button>
+                    <Stack spacing={2} mt={2}>
+                        <Button variant="contained" color="primary" onClick={() => { handleDownload('pdf', false); setOpenDownloadAllModal(false); }}>PDF</Button>
+                        <Button variant="contained" color="success" onClick={() => { handleDownload('excel', false); setOpenDownloadAllModal(false); }}>Excel</Button>
                     </Stack>
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">Kapat</Button></DialogActions>
+                <DialogActions><Button onClick={() => setOpenDownloadAllModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
-
             <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
-                <DialogTitle>Filtrelenmiş Giriş Belgelerini İndir</DialogTitle>
+                <DialogTitle>Filtrelenmişleri İndir</DialogTitle>
                 <DialogContent>
-                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
-                            onClick={() => { handleDownload('pdf', true); setOpenDownloadFilteredModal(false); }}>
-                            PDF Olarak İndir
-                        </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
-                            onClick={() => { handleDownload('excel', true); setOpenDownloadFilteredModal(false); }}>
-                            Excel Olarak İndir
-                        </Button>
+                    <Stack spacing={2} mt={2}>
+                        <Button variant="contained" color="primary" onClick={() => { handleDownload('pdf', true); setOpenDownloadFilteredModal(false); }}>PDF</Button>
+                        <Button variant="contained" color="success" onClick={() => { handleDownload('excel', true); setOpenDownloadFilteredModal(false); }}>Excel</Button>
                     </Stack>
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">Kapat</Button></DialogActions>
+                <DialogActions><Button onClick={() => setOpenDownloadFilteredModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
-
             <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
-                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+                <DialogTitle>Seçileni İndir</DialogTitle>
                 <DialogContent>
-                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
-                            onClick={() => handleDownloadSingleReceipt('pdf')}>
-                            PDF Olarak İndir
-                        </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
-                            onClick={() => handleDownloadSingleReceipt('excel')}>
-                            Excel Olarak İndir
-                        </Button>
+                    <Stack spacing={2} mt={2}>
+                        <Button variant="contained" color="primary" onClick={() => handleDownloadSingleReceipt('pdf')}>PDF</Button>
+                        <Button variant="contained" color="success" onClick={() => handleDownloadSingleReceipt('excel')}>Excel</Button>
                     </Stack>
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button></DialogActions>
+                <DialogActions><Button onClick={() => setOpenRowDownloadModal(false)}>Kapat</Button></DialogActions>
             </Dialog>
 
-            {/* مودال فاکتورهای Sonlandırılmış (حفظ شد) */}
+            {/* مودال فاکتورهای Sonlandırılmış */}
             <Dialog open={openInactiveModal} onClose={() => setOpenInactiveModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Sonlandırılmış Faturalar (Fişi Kesilmiş)</DialogTitle>
                 <DialogContent dividers>
@@ -1360,7 +1422,7 @@ const ListBetweenStoreReceipt = () => {
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Faturayı aktif listeye geri alın" : ""}>
                                                     <span>
                                                         <Button variant="outlined" size="small" color="warning"
-                                                            onClick={() => showAlert('Burada hala receipt isEnd vardı — İstek, dispatch ile gerçekleştirildi. Bu modal sadece gösterim amaçlı tutulmuştur.', 'info')}>
+                                                            onClick={() => showAlert('Bu modal sadece gösterim amaçlı tutulmuştur.', 'info')}>
                                                             Geri Al
                                                         </Button>
                                                     </span>
@@ -1394,7 +1456,7 @@ const ListBetweenStoreReceipt = () => {
                 showAlert={showAlert}
             />
 
-            {/* NEW: Sevk Listesi Modal (Radio Açık/Sonlandırılmış) */}
+            {/* NEW: Sevk Listesi Modal */}
             <Dialog open={openDispatchListModal} onClose={() => setOpenDispatchListModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>Şantiyenin Depo Sevk Listesi</DialogTitle>
                 <DialogContent dividers>
@@ -1467,4 +1529,3 @@ const ListBetweenStoreReceipt = () => {
 };
 
 export default ListBetweenStoreReceipt;
-

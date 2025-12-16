@@ -1,0 +1,12 @@
+/* .MuiContainer-root{
+    padding: 0 !important;
+    max-width: 1080px !important;
+}
+@media (min-width: 1000px) {
+    .css-mh6579-MuiContainer-root {
+        max-width: 950px !important;
+    }
+} */
+.page-wrapper {
+    overflow: auto;
+}

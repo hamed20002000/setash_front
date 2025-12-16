@@ -42,18 +42,14 @@ import Logo from 'src/assets/images/logos/logo.png';
 import DeleteStoreDispatch from "./DeleteStoreDispatch";
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-
-// ✨ NEW imports for Excel
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
 
-
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -190,6 +186,17 @@ const formatDateDisplay = (dateString: string | null): string => {
     }
 };
 
+// --- Helper: محاسبه جمع‌ها بر اساس واحد ---
+const calculateDispatchSummaries = (details: any[]) => {
+    const summary: Record<string, number> = {};
+    details.forEach(d => {
+        const unitTitle = d.item?.unit?.title || "Diğer";
+        const qty = Number(d.quantity) || 0;
+        summary[unitTitle] = (summary[unitTitle] || 0) + qty;
+    });
+    return summary;
+};
+
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
         color: 'white',
@@ -214,6 +221,122 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
 }));
 
 
+// PDF helpers
+const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const docAny = doc as any;
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 35, { align: 'center' });
+
+    doc.setFontSize(10);
+    doc.text(`Rapor Tarihi:`, 15, 45);
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
+    if (subtitle) {
+        doc.text(subtitle, 75, 50);
+    }
+};
+const addPdfFooter = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFontSize(8);
+    doc.setFont('NotoSans', 'normal');
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    ];
+    let footerY = pageHeight - 30;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 4;
+    });
+    doc.setFontSize(10);
+    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    const docAny = doc as any;
+    const pageCount = docAny.internal.getNumberOfPages();
+    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+};
+
+const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: string) => {
+    if (!data || data.length === 0) {
+        console.warn('PDF oluşturulacak sevk belgesi bulunamadı.');
+        return;
+    }
+
+    const doc = new jsPDF();
+    const docAny = doc as any;
+    let yPos = 55;
+
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+
+    data.forEach((dispatch, index) => {
+        if (index > 0) {
+            doc.addPage();
+            yPos = 55;
+        }
+
+        const pageTitle = `${title}`;
+        addPdfHeader(doc, pageTitle, subtitle);
+
+        doc.setFontSize(10);
+        doc.text(`Şantiyenin Depo: ${dispatch.store?.name || '-'}`, 15, yPos);
+        doc.text(`Proje: ${dispatch.project?.title || '-'}`, 15, yPos + 5);
+        doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos + 10);
+        doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`, 15, yPos + 15);
+        doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)})`, 15, yPos + 20);
+
+        doc.text(`Genel Açıklama: ${dispatch.description || '-'}`, 15, yPos + 25);
+        yPos += 30;
+
+        const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
+            d.item?.name || '-',
+            Number(d.quantity).toLocaleString('tr-TR'),
+            d.item?.unit?.title || '-',
+            d.description || '-'
+        ]);
+
+        const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
+
+        // محاسبه جمع‌ها برای فوتر
+        const summaries = calculateDispatchSummaries(dispatch.storeDispatchDetails || []);
+        const summaryRows = Object.entries(summaries).map(([unit, total]) => [
+            "TOPLAM:",
+            total.toLocaleString('tr-TR'),
+            unit,
+            ""
+        ]);
+
+        autoTable(docAny, {
+            startY: yPos,
+            head: [columns],
+            body: detailsRows,
+            foot: summaryRows, // ✅ فوتر جمع‌ها
+            theme: 'grid',
+            styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+            headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+            footStyles: { font: 'NotoSans', fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+            didDrawPage: (hookData: any) => {
+                if (hookData.pageNumber > 1) {
+                    addPdfHeader(doc, pageTitle, subtitle);
+                }
+                addPdfFooter(doc);
+            }
+        });
+
+        const finalY = docAny.lastAutoTable.finalY || yPos;
+        yPos = finalY + 10;
+    });
+
+    doc.save(`${title.replace(/ /g, '_')}.pdf`);
+};
 
 const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
     worksheet.views = [{ rightToLeft: false }];
@@ -244,6 +367,75 @@ const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number, colum
         rowNum++;
     });
 };
+
+const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
+    if (!data || data.length === 0) {
+        console.warn('Excel oluşturulacak sevk belgesi bulunamadı.');
+        return;
+    }
+
+    const workbook = new Excel.Workbook();
+
+    data.forEach(dispatch => {
+        const worksheetTitle = `Sevk_${dispatch.code}`.replace(/[\\/*?:[\]]/g, '_').substring(0, 30);
+        const worksheet = workbook.addWorksheet(worksheetTitle);
+
+        const detailsColumns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
+        const totalColumns = detailsColumns.length;
+
+        addExcelHeader(worksheet, title, totalColumns);
+
+        worksheet.addRow([`Sevk Belgesi Kodu:`, dispatch.code]);
+        worksheet.addRow([`Şantiyenin Depo:`, dispatch.store?.name || '-']);
+        worksheet.addRow([`Proje:`, dispatch.project?.title || '-']);
+        worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
+        worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
+        worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
+
+        worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
+        worksheet.addRow([]);
+
+        const headerRow = worksheet.addRow(detailsColumns);
+        headerRow.font = { name: 'NotoSans', bold: true };
+        headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
+
+        (dispatch.storeDispatchDetails || []).forEach(d => {
+            worksheet.addRow([
+                d.item?.name || '-',
+                Number(d.quantity),
+                d.item?.unit?.title || '-',
+                d.description || '-'
+            ]);
+        });
+
+        // ✅ بخش خلاصه جمع‌ها در اکسل
+        worksheet.addRow([]);
+        const summaryTitle = worksheet.addRow(["Birim Bazlı Toplamlar"]);
+        summaryTitle.font = { bold: true, underline: true };
+
+        const summaries = calculateDispatchSummaries(dispatch.storeDispatchDetails || []);
+        Object.entries(summaries).forEach(([unit, total]) => {
+            const r = worksheet.addRow(["TOPLAM:", total, unit]);
+            r.getCell(1).font = { bold: true };
+            r.getCell(1).alignment = { horizontal: 'right' };
+            r.getCell(2).font = { bold: true };
+        });
+
+        worksheet.addRow([]);
+        addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, totalColumns);
+
+        worksheet.getColumn(1).width = 30;
+        worksheet.getColumn(2).width = 15;
+        worksheet.getColumn(3).width = 15;
+        worksheet.getColumn(4).width = 40;
+    });
+
+    const fileName = `${title.replace(/ /g, '_')}.xlsx`;
+    workbook.xlsx.writeBuffer().then(buffer => {
+        saveAs(new Blob([buffer]), fileName);
+    });
+};
+
 
 // === Main Component ===
 const ListStoreDispatch = () => {
@@ -320,8 +512,9 @@ const ListStoreDispatch = () => {
     const [openVehicleModal, setOpenVehicleModal] = useState(false);
     const [tempSelectedVehicle, setTempSelectedVehicle] = useState<number | null>(null);
 
+    // 🔄 تغییر State مودال به کل آبجکت برای نمایش در مودال جزئیات
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
-    const [detailsToShow, setDetailsToShow] = useState<DispatchDetailType[]>([]);
+    const [viewedDispatch, setViewedDispatch] = useState<DispatchType | null>(null);
 
     const [isFilterActive, setIsFilterActive] = useState(false);
     const [startDate, setStartDate] = useState<Date | null>(null);
@@ -410,7 +603,7 @@ const ListStoreDispatch = () => {
         } finally {
             setLoadingData(false);
         }
-    }, [showAlert, authToken]);
+    }, [showAlert, authToken, navigate]);
 
 
     const fetchStoreItems = useCallback(async () => {
@@ -456,7 +649,6 @@ const ListStoreDispatch = () => {
             setProjects(projectsRes.data?.data?.filter(p => p.recordStatus === 0).map(p => ({ ...p, id: Number(p.id) })) || []);
 
             if (itemsBalanceRes.data?.httpStatusCode === 200) {
-                debugger
                 setItemsWithBalance(itemsBalanceRes.data.data);
             } else {
                 showAlert('Stok bilgileri yüklenirken bir hata oluştu.', 'error');
@@ -695,7 +887,6 @@ const ListStoreDispatch = () => {
                 description: d.description
             }))
         };
-        debugger
         try {
             const response = await axios.put(server.baseurl + server.warehouse + "update-store-dispatch", payload, { headers: { "Authorization": `Bearer ${authToken}`, "Content-Type": "application/json" } });
             if (response.data.httpStatusCode === 200) {
@@ -944,179 +1135,6 @@ const ListStoreDispatch = () => {
         setEndDate(null);
     };
 
-    // ✨ NEW: Consolidated PDF export function
-    const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: string) => {
-        if (!data || data.length === 0) {
-            showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
-            return;
-        }
-
-        showAlert('PDF oluşturuluyor...', 'info');
-
-        const doc = new jsPDF();
-        const docAny = doc as any;
-        let yPos = 55;
-
-        // Header and Footer functions should be defined before use
-        const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const docAny = doc as any;
-            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.setFont('NotoSans');
-
-            // Logo on the right side
-            docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-
-            // Report title in the center
-            doc.setFontSize(14);
-            doc.text(title, pageWidth / 2, 35, { align: 'center' });
-
-            // Report date and filter subtitle on the left
-            doc.setFontSize(10);
-            doc.text(`Rapor Tarihi:`, 15, 45);
-            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
-
-            if (subtitle) {
-                doc.text(subtitle, 70, 52); // Moved subtitle below the report date to avoid overlap
-            }
-        };
-
-        const addPdfFooter = (doc: jsPDF) => {
-            const pageWidth = doc.internal.pageSize.getWidth();
-            const pageHeight = doc.internal.pageSize.getHeight();
-            doc.setFontSize(8);
-            doc.setFont('NotoSans', 'normal');
-            const companyInfo = [
-                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-            ];
-            let footerY = pageHeight - 30;
-            companyInfo.forEach(line => {
-                doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-                footerY += 4;
-            });
-            doc.setFontSize(10);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-            const docAny = doc as any;
-            const pageCount = docAny.internal.getNumberOfPages();
-            doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        };
-
-        data.forEach((dispatch, index) => {
-            if (index > 0) {
-                doc.addPage();
-                yPos = 55;
-            }
-
-            const pageTitle = `${title}`;
-            addPdfHeader(doc, pageTitle, subtitle);
-
-            doc.setFontSize(10);
-            doc.text(`Şantiyenin Depo: ${dispatch.store?.name || '-'}`, 15, yPos);
-            doc.text(`Proje: ${dispatch.project?.title || '-'}`, 15, yPos + 5);
-            doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos + 10);
-            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`, 15, yPos + 15);
-            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)})`, 15, yPos + 20);
-
-            doc.text(`Genel Açıklama: ${dispatch.description || '-'}`, 15, yPos + 25);
-            yPos += 30;
-
-            const detailsRows = (dispatch.storeDispatchDetails || []).map(d => [
-                d.item?.name || '-',
-                d.quantity,
-                d.item?.unit?.title || '-',
-                d.description || '-'
-            ]);
-
-            const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
-            const totalQuantity = (dispatch.storeDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
-
-            autoTable(docAny, {
-                startY: yPos,
-                head: [columns],
-                body: detailsRows,
-                theme: 'grid',
-                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-                headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                didDrawPage: (hookData: any) => {
-                    // Ensure the header is drawn on all pages, but only once per page
-                    if (hookData.pageNumber > 1) {
-                        addPdfHeader(doc, pageTitle, subtitle);
-                    }
-                    addPdfFooter(doc);
-                }
-            });
-
-            const finalY = docAny.lastAutoTable.finalY || yPos;
-            doc.setFontSize(10);
-            doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
-            yPos = finalY + 10;
-        });
-
-        doc.save(`${title.replace(/ /g, '_')}.pdf`);
-        showAlert('PDF başarıyla oluşturuldu.', 'success');
-    };
-    // ✨ NEW: Consolidated Excel export function
-    const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
-        if (!data || data.length === 0) {
-            showAlert('Excel oluşturulacak sevk belgesi bulunamadı.', 'warning');
-            return;
-        }
-        showAlert('Excel oluşturuluyor...', 'info');
-        const workbook = new Excel.Workbook();
-
-        data.forEach(dispatch => {
-            const worksheetTitle = `Sevk_${dispatch.code}`.replace(/[\\/*?:[\]]/g, '_');
-            const worksheet = workbook.addWorksheet(worksheetTitle);
-
-            const detailsColumns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
-            const totalColumns = detailsColumns.length;
-
-            addExcelHeader(worksheet, title, totalColumns);
-
-            worksheet.addRow([`Sevk Belgesi Kodu:`, dispatch.code]);
-            worksheet.addRow([`Şantiyenin Depo:`, dispatch.store?.name || '-']);
-            worksheet.addRow([`Proje:`, dispatch.project?.title || '-']);
-            worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
-            worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
-            worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
-            worksheet.addRow([`Durum:`, dispatch.statusText || '-']);
-            worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
-            worksheet.addRow([]);
-
-            const headerRow = worksheet.addRow(detailsColumns);
-            headerRow.font = { name: 'NotoSans', bold: true };
-            headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
-
-            (dispatch.storeDispatchDetails || []).forEach(d => {
-                worksheet.addRow([
-                    d.item?.name || '-',
-                    d.quantity,
-                    d.item?.unit?.title || '-',
-                    d.description || '-'
-                ]);
-            });
-
-            const totalQuantity = (dispatch.storeDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
-            const totalRow = worksheet.addRow([`Toplam Miktar`, totalQuantity, '', '']);
-            totalRow.font = { name: 'NotoSans', bold: true };
-            totalRow.getCell(2).numFmt = '0';
-
-            worksheet.addRow([]);
-            addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, totalColumns);
-        });
-
-        const fileName = `${title.replace(/ /g, '_')}.xlsx`;
-        workbook.xlsx.writeBuffer().then(buffer => {
-            saveAs(new Blob([buffer]), fileName);
-            showAlert('Excel başarıyla oluşturuldu.', 'success');
-        });
-    };
-
-    // ✨ NEW: Unified download handler for all/filtered data
     const handleDownload = (format: 'pdf' | 'excel', isFiltered: boolean) => {
         const dataToDownload = isFiltered ? displayedDispatches : dispatchList;
         const title = isFiltered ? 'Filtrelenmiş Şantiyenin Depo Sevk Raporu' : 'Tüm Şantiyenin Depo Sevk Raporu';
@@ -1124,22 +1142,23 @@ const ListStoreDispatch = () => {
 
         if (format === 'pdf') {
             exportDispatchesToPdf(dataToDownload, title, subtitle);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
         } else {
             exportDispatchesToExcel(dataToDownload, title);
+            showAlert('Excel başarıyla oluşturuldu.', 'success');
         }
     };
 
-    // ✨ NEW: Handle opening download modals
     const handleOpenRowDownloadModal = (dispatch: DispatchType) => {
         setSelectedDispatchForDownload(dispatch);
         setOpenRowDownloadModal(true);
         handleCloseMenu();
     };
 
-    const handleCloseRowDownloadModal = () => {
-        setSelectedDispatchForDownload(null);
-        setOpenRowDownloadModal(false);
-    };
+    // const handleCloseRowDownloadModal = () => {
+    //     setSelectedDispatchForDownload(null);
+    //     setOpenRowDownloadModal(false);
+    // };
 
     const handleDownloadSingleDispatch = (format: 'pdf' | 'excel') => {
         if (!selectedDispatchForDownload) return;
@@ -1148,10 +1167,12 @@ const ListStoreDispatch = () => {
 
         if (format === 'pdf') {
             exportDispatchesToPdf(data, title);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
         } else {
             exportDispatchesToExcel(data, title);
+            showAlert('Excel başarıyla oluşturuldu.', 'success');
         }
-        handleCloseRowDownloadModal();
+        setOpenRowDownloadModal(false);
     };
 
 
@@ -1327,7 +1348,6 @@ const ListStoreDispatch = () => {
                             </LocalizationProvider>
                         </Grid>
 
-
                         <Grid item xs={12}>
                             <CustomFormLabel htmlFor="invoice-general-description">Açıklama</CustomFormLabel>
                             <TextField
@@ -1338,8 +1358,8 @@ const ListStoreDispatch = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
@@ -1389,44 +1409,70 @@ const ListStoreDispatch = () => {
 
                                 return (
                                     <Grid item xs={12} key={index}>
-                                        <Stack direction={{ xs: 'column', sm: 'row' }}
-                                            spacing={{ xs: 1, sm: 2 }}
-                                            alignItems={{ xs: 'stretch', sm: 'center' }} >
-                                            <Autocomplete
-                                                fullWidth
-                                                size="small"
-                                                options={itemsWithBalance}
-                                                getOptionLabel={(option) => `${option.name}`}
-                                                value={currentSelectedItem || null}
-                                                onChange={(_, newValue) => {
-                                                    const newQuantity = newValue ? Number(newValue.balance) : '';
-                                                    handleDispatchDetailChange(index, 'itemId', newValue ? Number(newValue.itemId) : null);
-                                                    handleDispatchDetailChange(index, 'quantity', newQuantity);
-                                                }}
-                                                isOptionEqualToValue={(option, value) => option.itemId === value.itemId}
-                                                renderInput={(params) => <TextField {...params} label="Malzeme Seçin" />}
-                                            />
-                                            <CustomTextField
-                                                type="number"
-                                                placeholder="Miktar"
-                                                value={detail.quantity}
-                                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                fullWidth
-                                                InputProps={{ endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment> }}
-                                            />
-                                            <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
-                                            <Box sx={{
-                                                display: 'flex',
-                                                justifyContent: { xs: 'flex-start', sm: 'center' }, // در موبایل دکمه سمت چپ باشد
-                                                alignItems: 'center',
-                                                height: { xs: 'auto', sm: 50 }, // ارتفاع برای هم‌ترازی در دسکتاپ
-                                                mt: { xs: 1, sm: 0 } // فاصله عمودی در موبایل
-                                            }}>
-                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}>
+
+                                        <Grid container spacing={{ xs: 1, sm: 2 }} alignItems="center">
+
+                                            <Grid item xs={12} sm={4} md={4}>
+                                                <Autocomplete
+                                                    fullWidth
+                                                    size="small"
+                                                    options={itemsWithBalance}
+                                                    getOptionLabel={(option) => `${option.name}`}
+                                                    value={currentSelectedItem || null}
+                                                    onChange={(_, newValue) => {
+                                                        const newQuantity = newValue ? Number(newValue.balance) : '';
+                                                        handleDispatchDetailChange(index, 'itemId', newValue ? Number(newValue.itemId) : null);
+                                                        handleDispatchDetailChange(index, 'quantity', newQuantity);
+                                                    }}
+                                                    isOptionEqualToValue={(option, value) => option.itemId === value.itemId}
+                                                    renderInput={(params) => <TextField {...params} label="Malzeme Seçin" />}
+                                                />
+                                            </Grid>
+
+                                            <Grid item xs={6} sm={3} md={3}>
+                                                <CustomTextField
+                                                    type="number"
+                                                    label={`Miktar ${displayBalance}`}
+                                                    placeholder="Miktar"
+                                                    value={detail.quantity}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                    fullWidth
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end" >
+                                                                {displayBalance}
+                                                            </InputAdornment>
+                                                        ),
+                                                        inputProps: { min: 0 } // اطمینان از مقدار مثبت
+                                                    }}
+                                                    size="small"
+                                                    error={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0))}
+                                                    helperText={dispatchDetailsError && (Number(detail.quantity) < 0 || Number(detail.quantity) > (detail.balance || 0)) ? `Maks: ${detail.balance || 0}` : ""}
+                                                />
+                                            </Grid>
+
+                                            <Grid item xs={6} sm={4} md={4}>
+                                                <CustomTextField
+                                                    label="Açıklama"
+                                                    placeholder="Açıklama"
+                                                    value={detail.description}
+                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                    fullWidth
+                                                    size="small"
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={1} md={1} sx={{ textAlign: { xs: 'right', sm: 'center' } }}>
+
+                                                <IconButton
+                                                    color="error"
+                                                    onClick={() => handleRemoveDispatchDetail(index)}
+                                                    aria-label="Sil"
+                                                    size="large"
+                                                >
                                                     <IconTrash />
                                                 </IconButton>
-                                            </Box>
-                                        </Stack>
+                                            </Grid>
+                                        </Grid>
                                     </Grid>
                                 )
                             })}
@@ -1485,233 +1531,260 @@ const ListStoreDispatch = () => {
                             </CustomTooltip>
                         )}
                         {hasDownloadPermission && (
-                            <Button
-                                variant="contained"
-                                color="primary"
-                                onClick={() => setOpenDownloadAllModal(true)}
-                                startIcon={<IconFileDownload />}
-                                disabled={loadingData || dispatchList.length === 0}
-                            >
-                                Tümünü İndir
-                            </Button>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm Şantiye Sevkleri indirin" : ""}>
+                                <Button
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setOpenDownloadAllModal(true)}
+                                    startIcon={<IconFileDownload />}
+                                    disabled={loadingData || dispatchList.length === 0}
+                                >
+                                    Tümünü İndir
+                                </Button>
+                            </CustomTooltip>
                         )}
                     </Stack>
-                    <Box sx={{ p: 2 }}>
+                </Grid>
+                <Box sx={{ p: 2 }}>
 
-                        <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-                            <Typography variant="h5">
-                                Şantiyenin Depo Sevk Listesi
+                    <Stack direction="row" justifyContent="start" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
+                        <Typography variant="h5">
+                            Şantiyenin Depo Sevk Listesi
 
-                            </Typography>
-                            {notifIds.length > 0 && (
-                                <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
-                                    <Chip
-                                        label={`Bildirim filtresi: ${notifIds.length}`}
-                                        color="error"
-                                        size="small"
+                        </Typography>
+                        {notifIds.length > 0 && (
+                            <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
+                                <Chip
+                                    label={`Bildirim filtresi: ${notifIds.length}`}
+                                    color="error"
+                                    size="small"
+                                />
+                                <IconButton
+                                    aria-label="Bildirim filtresini temizle"
+                                    size="small"
+                                    onClick={clearNotifFilter}
+                                    sx={{ p: 0.5 }}
+                                    title="Filtreyi temizle"
+                                >
+                                    <IconRefresh size={18} />
+                                </IconButton>
+                            </Stack>
+                        )}
+
+                    </Stack>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={12} sm={6} md={3}>
+                            <TextField
+                                label="Sevk Belgesi Ara"
+                                variant="outlined"
+                                fullWidth
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={6}>
+                            <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <DatePicker
+                                        label="Başlangıç Tarihi"
+                                        value={startDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setStartDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
                                     />
-                                    <IconButton
-                                        aria-label="Bildirim filtresini temizle"
-                                        size="small"
-                                        onClick={clearNotifFilter}
-                                        sx={{ p: 0.5 }}
-                                        title="Filtreyi temizle"
-                                    >
-                                        <IconRefresh size={18} />
+                                    <DatePicker
+                                        label="Bitiş Tarihi"
+                                        value={endDate}
+                                        inputFormat="dd/MM/yyyy"
+                                        onChange={(newValue) => setEndDate(newValue)}
+                                        renderInput={(params) => <TextField {...params} size="small" fullWidth />}
+                                    />
+                                    <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
+                                        <IconX size={20} />
                                     </IconButton>
                                 </Stack>
-                            )}
-
-                        </Stack>
-                        <Grid container spacing={2} alignItems="center">
-                            <Grid item xs={12} sm={6} md={3}>
-                                <TextField
-                                    label="Sevk Belgesi Ara"
-                                    variant="outlined"
-                                    fullWidth
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }}
-                                />
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={6}>
-                                <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <DatePicker
-                                            label="Başlangıç Tarihi"
-                                            value={startDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setStartDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <DatePicker
-                                            label="Bitiş Tarihi"
-                                            value={endDate}
-                                            inputFormat="dd/MM/yyyy"
-                                            onChange={(newValue) => setEndDate(newValue)}
-                                            renderInput={(params) => <TextField {...params} size="small" fullWidth />}
-                                        />
-                                        <IconButton onClick={handleClearDateFilters} aria-label="clear date filters">
-                                            <IconX size={20} />
-                                        </IconButton>
-                                    </Stack>
-                                </LocalizationProvider>
-                            </Grid>
-                            <Grid item xs={12} sm={6} md={3}>
-                                <ToggleButtonGroup
-                                    value={statusFilter}
-                                    exclusive
-                                    onChange={(_, newFilter) => newFilter && setStatusFilter(newFilter)}
-                                    fullWidth
-                                >
-                                    <StyledToggleButton value="all">Tümü</StyledToggleButton>
-                                    <StyledToggleButton value="active">Aktif</StyledToggleButton>
-                                    <StyledToggleButton value="inactive">Pasif</StyledToggleButton>
-                                </ToggleButtonGroup>
-                            </Grid>
+                            </LocalizationProvider>
                         </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <ToggleButtonGroup
+                                value={statusFilter}
+                                exclusive
+                                onChange={(_, newFilter) => newFilter && setStatusFilter(newFilter)}
+                                fullWidth
+                            >
+                                <StyledToggleButton value="all">Tümü</StyledToggleButton>
+                                <StyledToggleButton value="active">Aktif</StyledToggleButton>
+                                <StyledToggleButton value="inactive">Pasif</StyledToggleButton>
+                            </ToggleButtonGroup>
+                        </Grid>
+                    </Grid>
+                </Box>
+                {loadingData ? (
+                    <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+                        <CircularProgress />
+                        <Typography variant="h6" sx={{ ml: 2 }}>Şantiyenin Depo sevk belgeleri yükleniyor...</Typography>
                     </Box>
-                    {loadingData ? (
-                        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
-                            <CircularProgress />
-                            <Typography variant="h6" sx={{ ml: 2 }}>Şantiyenin Depo sevk belgeleri yükleniyor...</Typography>
-                        </Box>
-                    ) : (
-                        <TableContainer component={Paper}>
-                            <Table size="small" aria-label="Sevk belgesi tablosu">
-                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
-                                    <TableRow>
-                                        <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Şantiyenin Depo</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
-                                        {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
-                                        <StyledTableCell><Typography variant="h6">Proje</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
-                                        <StyledTableCell></StyledTableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {displayedDispatches.length > 0 ? (
-                                        displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
-                                            <TableRow key={row.id}>
-                                                <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
-                                                <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
-                                                <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
-                                                {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
-                                                <StyledTableCell><Typography variant="body1">{row.project?.title || '-'}</Typography></StyledTableCell>
-                                                <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
-                                                <StyledTableCell>
-                                                    <Typography variant="body2" noWrap title={row.description || ''}>
-                                                        {row.description || '-'}
+                ) : (
+                    <TableContainer component={Paper}>
+                        <Table size="small" aria-label="Sevk belgesi tablosu">
+                            <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                <TableRow>
+                                    <StyledTableCell><Typography variant="h6">Kod</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Şantiyenin Depo</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
+                                    {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
+                                    <StyledTableCell><Typography variant="h6">Proje</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Sevk Detayları</Typography></StyledTableCell>
+                                    <StyledTableCell></StyledTableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {displayedDispatches.length > 0 ? (
+                                    displayedDispatches.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
+                                        <TableRow key={row.id}>
+                                            <StyledTableCell><Typography variant="body1">{row.code || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{row.store?.name || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
+                                            {/* <StyledTableCell><Typography variant="body1">{``}</Typography></StyledTableCell> */}
+                                            <StyledTableCell><Typography variant="body1">{row.project?.title || '-'}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                        <Button
+
+                                                            variant="outlined"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamayı Oku
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
                                                     </Typography>
-                                                    {row.description != null && row.description.length > 50 && (
-                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                            <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                                handleOpenDescriptionModal(row.description);
-                                                            }}>
-                                                                Devamını Oku
-                                                            </Button>
+                                                )}
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Chip label={row.statusText} color={row.statusColor} />
+                                                    {row.statusDescription && (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Açıklamasını Görüntüle" : ""}>
+                                                            <IconButton onClick={() => handleOpenReadOnlyDescriptionModal(row.statusDescription!)}>
+                                                                <IconInfoCircle size={18} />
+                                                            </IconButton>
                                                         </CustomTooltip>
                                                     )}
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <Chip label={row.statusText} color={row.statusColor} />
-                                                        {row.statusDescription && (
-                                                            <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Açıklamasını Görüntüle" : ""}>
-                                                                <IconButton onClick={() => handleOpenReadOnlyDescriptionModal(row.statusDescription!)}>
-                                                                    <IconInfoCircle size={18} />
-                                                                </IconButton>
-                                                            </CustomTooltip>
-                                                        )}
-                                                    </Stack>
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <Stack direction="row" spacing={1} alignItems="center">
-                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
-                                                            <Button
-                                                                variant="outlined"
-                                                                startIcon={<IconEye />}
-                                                                onClick={() => {
-                                                                    setDetailsToShow(row.storeDispatchDetails || []);
-                                                                    setOpenDetailsModal(true);
-                                                                }}
-                                                            >
-                                                                Görünüm
-                                                            </Button>
-                                                        </CustomTooltip>
-                                                    </Stack>
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <IconButton
-                                                        onClick={(e) => {
-                                                            setSelectedRowForMenu(row);
-                                                            setAnchorEl(e.currentTarget);
-                                                        }}
-                                                    >
-                                                        <IconDots width={18} />
-                                                    </IconButton>
-                                                    <Menu
-                                                        anchorEl={anchorEl}
-                                                        open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
-                                                        onClose={handleCloseMenu}
-                                                    >
-                                                        {hasEditPermission && selectedRowForMenu?.status === 0 && (
-                                                            <>
-                                                                <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(1)}><ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla</MuiMenuItem>
-                                                                <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}><ListItemIcon><IconX width={18} /></ListItemIcon>Reddet</MuiMenuItem>
-                                                            </>
-                                                        )}
-                                                        {hasEditPermission && selectedRowForMenu?.status === 1 && (
-                                                            <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}><ListItemIcon><IconX width={18} /></ListItemIcon>Reddet</MuiMenuItem>
-                                                        )}
-                                                        {hasEditPermission && selectedRowForMenu?.status === 2 && (
+                                                </Stack>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
+                                                        <Button
+                                                            variant="outlined"
+                                                            startIcon={<IconEye />}
+                                                            onClick={() => {
+                                                                setViewedDispatch(row); // 🔄 ذخیره کل آبجکت در state جدید
+                                                                setOpenDetailsModal(true);
+                                                            }}
+                                                        >
+                                                            Görünüm
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                </Stack>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <IconButton
+                                                    onClick={(e) => {
+                                                        setSelectedRowForMenu(row);
+                                                        setAnchorEl(e.currentTarget);
+                                                    }}
+                                                >
+                                                    <IconDots width={18} />
+                                                </IconButton>
+                                                <Menu
+                                                    anchorEl={anchorEl}
+                                                    open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id}
+                                                    onClose={handleCloseMenu}
+                                                >
+                                                    {hasEditPermission && selectedRowForMenu?.status === 0 && (
+                                                        <>
                                                             <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(1)}><ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla</MuiMenuItem>
-                                                        )}
-                                                        {hasEditPermission && selectedRowForMenu?.status === 0 && (
-                                                            <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>
-                                                        )}
-                                                        {hasDeletePermission && (
-                                                            <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
-                                                        )}
-                                                        {hasDownloadPermission && (
-                                                            <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
-                                                                <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
-                                                                Bu satırı indir
-                                                            </MuiMenuItem>
-                                                        )}
-                                                    </Menu>
-                                                </StyledTableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <TableRow>
-                                            <StyledTableCell colSpan={9} align="center">
-                                                <Typography variant="subtitle1" color="textSecondary">
-                                                    Hiç sevk belgesi bulunamadı.
-                                                </Typography>
+                                                            <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}><ListItemIcon><IconX width={18} /></ListItemIcon>Reddet</MuiMenuItem>
+                                                        </>
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.status === 1 && (
+                                                        <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(2)}><ListItemIcon><IconX width={18} /></ListItemIcon>Reddet</MuiMenuItem>
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.status === 2 && (
+                                                        <MuiMenuItem onClick={() => handleOpenStatusUpdateModal(1)}><ListItemIcon><IconCheck width={18} /></ListItemIcon>Onayla</MuiMenuItem>
+                                                    )}
+                                                    {hasEditPermission && selectedRowForMenu?.status === 0 && (
+                                                        <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>
+                                                    )}
+                                                    {hasDeletePermission && (
+                                                        <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
+                                                    )}
+                                                    {hasDownloadPermission && (
+                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadModal(selectedRowForMenu!)}>
+                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                            Bu satırı indir
+                                                        </MuiMenuItem>
+                                                    )}
+                                                </Menu>
                                             </StyledTableCell>
                                         </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                    <TablePagination
-                        rowsPerPageOptions={[5, 10, 25]}
-                        component="div"
-                        count={displayedDispatches.length}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        onPageChange={(_, newPage) => setPage(newPage)}
-                        onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-                        labelRowsPerPage="Satır başına:"
-                    />
-                </Grid>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <StyledTableCell colSpan={9} align="center">
+                                            <Typography variant="subtitle1" color="textSecondary">
+                                                Hiç sevk belgesi bulunamadı.
+                                            </Typography>
+                                        </StyledTableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
+                <TablePagination
+                    rowsPerPageOptions={[5, 10, 25]}
+                    component="div"
+                    count={displayedDispatches.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+                    labelRowsPerPage="Satır başına:"
+                />
             </BlankCard>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)}>
                 <DialogTitle>Araç Seçin</DialogTitle>
@@ -1720,7 +1793,7 @@ const ListStoreDispatch = () => {
                         <RadioGroup
                             aria-label="vehicle"
                             name="vehicle-radio-group"
-                            value={tempSelectedVehicle} // اینجا از tempSelectedVehicle استفاده کنید
+                            value={tempSelectedVehicle}
                             onChange={(event) => setTempSelectedVehicle(Number(event.target.value))}
                         >
                             {vehiclesList.map((vehicle) => (
@@ -1736,7 +1809,7 @@ const ListStoreDispatch = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => {
-                        const selected = vehiclesList.find(v => v.id === tempSelectedVehicle); // اینجا نیز از tempSelectedVehicle استفاده کنید
+                        const selected = vehiclesList.find(v => v.id === tempSelectedVehicle);
                         if (selected) {
                             setSelectedVehicleId(selected.id);
                             setSelectedVehicleName(`${selected.name} (${selected.plaque})`);
@@ -1751,62 +1824,171 @@ const ListStoreDispatch = () => {
                 </DialogActions>
             </Dialog>
 
+            {/* ✅ Details Modal (Updated) */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
-                <DialogTitle>Sevk Detayları</DialogTitle>
-                <DialogContent>
-                    {detailsToShow.length > 0 ? (
-                        <TableContainer component={Paper}>
-                            <Table aria-label="Ürün detayları tablosu">
-                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
-                                    <TableRow>
-                                        <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {detailsToShow.length > 0 ? (
-                                        <>
-                                            {detailsToShow.map((detail, index) => (
-                                                <TableRow key={detail.id || index}>
-                                                    <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{detail.quantity || '-'}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                <DialogTitle>
+                    Sevk Detayları
+                    {viewedDispatch && <Typography component="span" variant="subtitle1" color="text.secondary" sx={{ ml: 1 }}>({viewedDispatch.code})</Typography>}
+                </DialogTitle>
+                <DialogContent dividers>
+                    {viewedDispatch && viewedDispatch.storeDispatchDetails.length > 0 ? (
+                        <>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table aria-label="Ürün detayları tablosu" size="small">
+                                    <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                        <TableRow>
+                                            <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {viewedDispatch.storeDispatchDetails.map((detail, index) => (
+                                            <TableRow key={detail.id || index} hover>
+                                                <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{Number(detail.quantity).toLocaleString() || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
+                                                <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            {/* ✅ جدول خلاصه جمع‌ها */}
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                                            <TableRow>
+                                                <StyledTableCell align="center" colSpan={2}>
+                                                    <Typography variant="subtitle2" fontWeight="bold">Birim Bazlı Toplamlar</Typography>
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {Object.entries(calculateDispatchSummaries(viewedDispatch.storeDispatchDetails)).map(([unit, total]) => (
+                                                <TableRow key={unit}>
+                                                    <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                                                        Toplam {unit}:
+                                                    </StyledTableCell>
+                                                    <StyledTableCell align="right" sx={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                                                        {total.toLocaleString()}
+                                                    </StyledTableCell>
                                                 </TableRow>
                                             ))}
-                                            <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
-                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>Toplam Miktar:</StyledTableCell>
-                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>
-                                                    {detailsToShow.reduce((sum, detail) => sum + Number(detail.quantity), 0)}
-                                                </StyledTableCell>
-                                                <StyledTableCell></StyledTableCell>
-                                                <StyledTableCell></StyledTableCell>
-                                            </TableRow>
-                                        </>
-                                    ) : (
-                                        <TableRow>
-                                            <StyledTableCell colSpan={4} align="center">
-                                                <Typography variant="subtitle1" color="textSecondary">
-                                                    Hiç detay bulunamadı.
-                                                </Typography>
-                                            </StyledTableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        </>
                     ) : (
                         <Typography variant="body1" sx={{ p: 2, textAlign: 'center' }}>
                             Bu sevk belgesi için detay bulunamadı.
                         </Typography>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button>
+                {/* ✅ دکمه‌های دانلود داخل مودال */}
+                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            startIcon={<IconFileText />}
+                            disabled={!viewedDispatch}
+                            onClick={() => { if (viewedDispatch) exportDispatchesToPdf([viewedDispatch], `Sevk_${viewedDispatch.code}`); }}
+                        >
+                            PDF İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileSpreadsheet />}
+                            disabled={!viewedDispatch}
+                            onClick={() => { if (viewedDispatch) exportDispatchesToExcel([viewedDispatch], `Sevk_${viewedDispatch.code}`); }}
+                        >
+                            Excel İndir
+                        </Button>
+                    </Stack>
+                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">
+                        Kapat
+                    </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Download All Modal */}
+            <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
+                <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => { handleDownload('pdf', false); setOpenDownloadAllModal(false); }}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => { handleDownload('excel', false); setOpenDownloadAllModal(false); }}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Download Filtered Modal */}
+            <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
+                <DialogTitle>Filtrelenmiş Sevk Belgelerini İndir</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => { handleDownload('pdf', true); setOpenDownloadFilteredModal(false); }}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => { handleDownload('excel', true); setOpenDownloadFilteredModal(false); }}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Download Single Row Modal */}
+            <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
+                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
+                            onClick={() => handleDownloadSingleDispatch('pdf')}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
+                            onClick={() => handleDownloadSingleDispatch('excel')}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
             <Dialog open={openStatusUpdateModal} onClose={() => setOpenStatusUpdateModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>
                     {updateModalData.status === 1 ? 'Sevk Belgesini Onayla' : 'Sevk Belgesini Reddet'}
@@ -1850,94 +2032,6 @@ const ListStoreDispatch = () => {
                 onDeleteSuccess={() => fetchInitialData()}
                 showAlert={showAlert}
             />
-            {/* Download Modals */}
-            <Dialog open={openDownloadAllModal} onClose={() => setOpenDownloadAllModal(false)} maxWidth="xs">
-                <DialogTitle>Tüm Sevk Belgelerini İndir</DialogTitle>
-                <DialogContent>
-                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
-                            onClick={() => { handleDownload('pdf', false); setOpenDownloadAllModal(false); }}
-                        >
-                            PDF Olarak İndir
-                        </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
-                            onClick={() => { handleDownload('excel', false); setOpenDownloadAllModal(false); }}
-                        >
-                            Excel Olarak İndir
-                        </Button>
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDownloadAllModal(false)} color="secondary">
-                        Kapat
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog open={openDownloadFilteredModal} onClose={() => setOpenDownloadFilteredModal(false)} maxWidth="xs">
-                <DialogTitle>Filtrelenmiş Sevk Belgelerini İndir</DialogTitle>
-                <DialogContent>
-                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
-                            onClick={() => { handleDownload('pdf', true); setOpenDownloadFilteredModal(false); }}
-                        >
-                            PDF Olarak İndir
-                        </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
-                            onClick={() => { handleDownload('excel', true); setOpenDownloadFilteredModal(false); }}
-                        >
-                            Excel Olarak İndir
-                        </Button>
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDownloadFilteredModal(false)} color="secondary">
-                        Kapat
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs">
-                <DialogTitle>Dosya Formatını Seçin</DialogTitle>
-                <DialogContent>
-                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" startIcon={<IconFileText />}
-                            onClick={() => handleDownloadSingleDispatch('pdf')}
-                        >
-                            PDF Olarak İndir
-                        </Button>
-                        <Button variant="contained" color="success" startIcon={<IconFileSpreadsheet />}
-                            onClick={() => handleDownloadSingleDispatch('excel')}
-                        >
-                            Excel Olarak İndir
-                        </Button>
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">
-                        Kapat
-                    </Button>
-                </DialogActions>
-            </Dialog>
-
-            <Dialog
-                open={openDescriptionModal}
-                onClose={handleCloseDescriptionModal}
-                maxWidth="md"
-                fullWidth
-            >
-                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
-                <DialogContent dividers>
-                    <DialogContentText>
-                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseDescriptionModal} color="primary">
-                        Kapat
-                    </Button>
-                </DialogActions>
-            </Dialog>
         </Box>
     );
 };

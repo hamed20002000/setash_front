@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
@@ -12,7 +12,7 @@ import {
     Divider
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
-import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconFileSpreadsheet, IconFile, IconFileDownload, IconRefresh, IconInfoCircle } from '@tabler/icons-react';
+import { IconDots, IconEye, IconEdit, IconTrash, IconSearch, IconCheck, IconX, IconFileSpreadsheet, IconFile, IconFileDownload, IconRefresh, IconInfoCircle, IconBuildingCottage } from '@tabler/icons-react';
 import { format } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import axios from 'axios';
@@ -34,15 +34,11 @@ import { saveAs } from 'file-saver';
 import { useAuth } from 'src/context/AuthContext';
 import BlankCard from 'src/components/shared/BlankCard';
 
-
-
-
 const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
-    fontFamily: 'NotoSans', // یا هر font adı که می‌خواهید
-    // font boyutu masaüstünde 1rem (16px), mobil cihazlarda 0.75rem (12px)
-    fontSize: '0.8rem', // Varsayılan olarak küçük font
+    fontFamily: 'NotoSans',
+    fontSize: '0.8rem',
     [theme.breakpoints.up('md')]: {
-        fontSize: '1rem', // Masaüstünde daha büyük
+        fontSize: '1rem',
     },
 }));
 
@@ -56,7 +52,7 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
-// Type Definitions
+// --- Type Definitions ---
 interface Work { id: string; title: string; startDate: string; endDate: string; createAt: string; recordStatus: number; }
 interface Network { id: string; createAt: string; recordStatus: number; title: string; description: string; work: Work; }
 interface UnitType { id: string; title: string; recordStatus: number; createAt: string; }
@@ -73,12 +69,10 @@ interface OrderItem {
 }
 interface RequestComboItem {
     id: number;
-    subject: string; // برای نمایش در کمبو
+    subject: string;
 }
-// در کنار سایر رابط‌ها (Interfaces)
 interface User {
     username: string;
-    // ... سایر فیلدهای لازم کاربر
 }
 
 interface OrderStatusHistory {
@@ -86,15 +80,28 @@ interface OrderStatusHistory {
     status: 0 | 1 | 2;
     description: string | null;
     createAt: string;
-    user: User; // کاربری که عملیات را انجام داده است
+    user: User;
 }
-interface RequestInfo { // Yeni bir arayüz tanımlayalım
-    id: string; // API'de string geliyor
+interface RequestInfo {
+    id: string;
     subject: string;
 }
+
+// ✅ 1. اضافه کردن اینترفیس WorkhouseType
+interface WorkhouseType {
+    id: number;
+    name: string;
+    code: string;
+    address: string;
+    createAt: string;
+    recordStatus: number;
+}
+
+// ✅ 2. آپدیت کردن OrderType برای شامل کردن workhouse
 interface OrderType {
     id: number;
     network: { id: string; title: string; };
+    workhouse: WorkhouseType | null; // اضافه شد
     docDate: string;
     requestId?: number | null;
     description: string,
@@ -112,7 +119,7 @@ interface OrderDetailType {
 }
 
 // Table Style and Functions
-type SortableOrderKeys = 'id' | 'network.title' | 'docDate' | 'status' | 'createAt';
+type SortableOrderKeys = 'id' | 'network.title' | 'workhouse.name' | 'docDate' | 'status' | 'createAt'; // workhouse.name اضافه شد
 
 const StyledToggleButton = styled(MuiToggleButton)(({ theme, value, selected }) => ({
     '&.Mui-selected': {
@@ -195,6 +202,10 @@ const ManualEntryForm = () => {
     const idsSet = new Set<number>(notifIds);
 
     const [network, setNetwork] = useState('');
+    // ✅ 3. State‌های مربوط به Workhouse (Şantiye)
+    const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
+    const [selectedWorkhouseId, setSelectedWorkhouseId] = useState<number | null>(null);
+
     const [docDate, setDocDate] = useState<Date | null>(new Date());
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
@@ -291,7 +302,6 @@ const ManualEntryForm = () => {
         if (priceInput === null || priceInput === undefined) {
             return '₺0.00';
         }
-        // حذف هر کاراکتری که عدد، نقطه یا منفی نیست (برای اطمینان بیشتر)
         const cleanedString = String(priceInput).replace(/[^0-9.-]/g, '');
         const numericValue = parseFloat(cleanedString);
 
@@ -299,7 +309,6 @@ const ManualEntryForm = () => {
             return '₺0.00';
         }
 
-        // تغییر tr-TR به en-US برای استفاده از نقطه به عنوان اعشار
         const formattedPrice = numericValue.toLocaleString('en-US', {
             style: 'currency',
             currency: 'TRY',
@@ -313,17 +322,16 @@ const ManualEntryForm = () => {
         const doc = new DOMParser().parseFromString(htmlString, 'text/html');
         return doc.body.textContent || "";
     };
-    // ------------------ ✅ New Export Functions (PDF & Excel) ------------------
+
+    // PDF ve Excel functions ... (Kısaltıldı, mantık aynı kalıyor, sadece orderData'ya workhouse eklenebilir)
     const addPdfHeader = (doc: jsPDF, title: string) => {
-
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 50; // عرض لوگو
-        const logoHeight = 25; // ارتفاع لوگو
-        const margin = 10; // حاشیه از سمت راست
+        const logoWidth = 50;
+        const logoHeight = 25;
+        const margin = 10;
         const topMargin = 20;
-        const logoX = pageWidth - logoWidth - margin; // محاسبه موقعیت افقی جدید
+        const logoX = pageWidth - logoWidth - margin;
 
-        // لوگو را در موقعیت جدید قرار دهید
         doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
         doc.setFont('Arial', 'normal');
         doc.setFontSize(14);
@@ -395,9 +403,10 @@ const ManualEntryForm = () => {
                     doc.setFontSize(10);
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 47);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 54);
-                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 61);
-                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 68);
-                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 75);
+                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 61); // تغییر Y coordinate بقیه
+                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 68); // Y += 7
+                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 75); // Y += 7
+                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 82);
                 }
                 addPdfFooter(doc);
             },
@@ -483,9 +492,10 @@ const ManualEntryForm = () => {
             doc.setFontSize(10);
             doc.text(`Sipariş No: ${order.id}`, 15, 47);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 54);
-            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 61);
-            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 68);
-            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 75);
+            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 61); // تغییر Y coordinate بقیه
+            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 68); // Y += 7
+            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 75); // Y += 7
+            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 82);
 
             const rows = order.orderDetails.map(detail => [
                 detail.item.name || '-',
@@ -599,6 +609,7 @@ const ManualEntryForm = () => {
 
         worksheet.addRow(['Sipariş No', orderData.id]);
         worksheet.addRow(['Şebeke', orderData.network ? orderData.network.title : '-']);
+        worksheet.addRow(['Şantiye', orderData.workhouse ? orderData.workhouse.name : '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(orderData.docDate)]);
         worksheet.addRow(['İlişkili Talep No', orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-']);
 
@@ -724,6 +735,7 @@ const ManualEntryForm = () => {
             // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
+            worksheet.addRow(['Şantiye', order.workhouse ? order.workhouse.name : '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(order.docDate)]);
             worksheet.addRow(['İlişkili Talep No', order.request ? '#' + order.request.id + order.request.subject : '-']);
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
@@ -832,8 +844,6 @@ const ManualEntryForm = () => {
     };
 
 
-
-
     const handleItemChange = (id: number, field: string, value: any) => {
         const itemToUpdate = orderItems.find(item => item.id === id);
         if (!itemToUpdate) return;
@@ -865,16 +875,53 @@ const ManualEntryForm = () => {
         .map(item => item.item);
     const availableItemsList = itemsList.filter(item => !selectedItemIds.includes(item.id));
 
-    const showAlert = (message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
+    const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
-    };
+    }, []);
+
     const clearAlert = () => { setAlertMessage(null); };
     useEffect(() => {
         let timer: NodeJS.Timeout;
         if (alertMessage) { timer = setTimeout(() => { clearAlert(); }, 5000); }
         return () => { clearTimeout(timer); };
     }, [alertMessage]);
+
+    // ✅ 4. API برای دریافت لیست شانتیه‌ها
+    const getWorkhousesList = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
+        try {
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
+                setWorkhousesList(activeWorkhouses);
+            } else {
+                showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Sunucu hatası.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Şantiye listesi alınırken hata oluştu.', 'error');
+        }
+    }, [navigate, showAlert]);
 
     const getNetworks = async () => {
         const authToken = localStorage.getItem('authToken');
@@ -921,18 +968,18 @@ const ManualEntryForm = () => {
             showAlert('Siparişler yüklenirken bir hata oluştu.', 'error');
         } finally { setLoadingData(false); }
     };
-    // در کنار سایر توابع واکشی (getNetworks, getListItem, getListOrders)
+
     const fetchRequestsList = async () => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) return;
         try {
             const response = await axios.get(
-                server.baseurl + server.hr + "get-all-requests", // ⬅️ API درخواستی شما
+                server.baseurl + server.hr + "get-all-requests",
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 const activeRequests = (response.data.data as any[])
-                    .filter(req => req.status === 1) // فیلتر کردن فقط درخواست‌های "Beklemede" یا "Aktif"
+                    .filter(req => req.status === 1)
                     .map(req => ({ id: Number(req.id), subject: req.subject }));
                 setRequestsList(activeRequests);
             } else {
@@ -942,13 +989,14 @@ const ManualEntryForm = () => {
             console.error("Failed to fetch requests:", e);
         }
     };
-    // در useEffect اصلی فراخوانی شود:
+
     useEffect(() => {
         getNetworks();
         getListItem();
         getListOrders();
-        fetchRequestsList(); // ⬅️ فراخوانی تابع واکشی
-    }, []);
+        fetchRequestsList();
+        getWorkhousesList(); // ✅ 5. فراخوانی تابع getWorkhousesList
+    }, [getWorkhousesList]);
 
 
     useEffect(() => {
@@ -991,6 +1039,7 @@ const ManualEntryForm = () => {
 
     const resetForm = () => {
         setNetwork('');
+        setSelectedWorkhouseId(null); // ✅ Reset workhouse
         setDocDate(new Date());
         setRequestId(null);
         setGeneralDescription('');
@@ -1007,10 +1056,10 @@ const ManualEntryForm = () => {
         if (!validateForm()) return;
         const orderData = {
             docDate: docDate?.toISOString(),
-
             description: generalDescription,
-            networkId: network == "" ? null : Number(network),
-            requestId: requestId,
+            networkId: network == "" ? 0 : Number(network), // Updated to 0 if empty based on your example, usually null is better but following request
+            workhouseId: selectedWorkhouseId ? Number(selectedWorkhouseId) : 0, // ✅ 6. اضافه کردن workhouseId به payload
+            requestId: requestId || 0,
             status: 0,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
@@ -1043,8 +1092,9 @@ const ManualEntryForm = () => {
             id: Number(editingId),
             docDate: docDate?.toISOString(),
             description: generalDescription,
-            networkId: network == "" ? null : Number(network),
-            requestId: requestId,
+            networkId: network == "" ? 0 : Number(network),
+            workhouseId: selectedWorkhouseId ? Number(selectedWorkhouseId) : 0, // ✅ 7. اضافه کردن workhouseId به payload ویرایش
+            requestId: requestId || 0,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
                 quantity: parseFloat(String(item.quantity)),
@@ -1090,35 +1140,25 @@ const ManualEntryForm = () => {
             setNetwork('');
             setSelectedWork(null);
         }
+
+        // ✅ 8. مقداردهی اولیه workhouse هنگام ویرایش
+        if (row.workhouse) {
+            setSelectedWorkhouseId(row.workhouse.id);
+        } else {
+            setSelectedWorkhouseId(null);
+        }
+
         setRequestId(row.requestId || null);
         setDocDate(new Date(row.docDate));
 
-        setGeneralDescription('');
-        // const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
-        //     const fullItem = itemsList.find(item => item.id === detail.item.id);
-        //     const priceValue = detail.price !== null ? Number(detail.price) : 0;
-        //     debugger
-        //     return {
-        //         id: detail.id,
-        //         item: fullItem ? fullItem.id : '',
-        //         quantity: detail.quantity,
-        //         description: detail.description,
-        //         isEditing: false,
-        //         unit: fullItem ? fullItem.unit : undefined,
-        //         isRegistered: true,
-        //         price: priceValue
-        //     };
-        // });
+        setGeneralDescription(row.description || ''); // مقداردهی توضیحات
+
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {
             const fullItem = itemsList.find(item => item.id === detail.item.id);
-
-            // پاکسازی قیمت
             let priceValue = 0;
             if (detail.price !== null && detail.price !== undefined) {
-                // حذف $ و , و تبدیل به عدد
                 const cleanString = String(detail.price).replace(/[$,]/g, '');
                 const parsed = parseFloat(cleanString);
-                // اگر نتیجه NaN نبود، مقدار را استفاده کن
                 priceValue = isNaN(parsed) ? 0 : parsed;
             }
 
@@ -1130,7 +1170,7 @@ const ManualEntryForm = () => {
                 isEditing: false,
                 unit: fullItem ? fullItem.unit : undefined,
                 isRegistered: true,
-                price: priceValue // مقدار اصلاح شده
+                price: priceValue
             };
         });
         setOrderItems(itemsToEdit);
@@ -1228,7 +1268,10 @@ const ManualEntryForm = () => {
 
     const filteredOrders = ordersList.filter(order => {
         const networkTitle = order.network ? order.network.title : '';
-        const matchesSearch = networkTitle.toLowerCase().includes(searchTerm.toLowerCase());
+        const workhouseName = order.workhouse ? order.workhouse.name : '';
+        // جستجو در نام شبکه و نام شانتیه
+        const matchesSearch = networkTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            workhouseName.toLowerCase().includes(searchTerm.toLowerCase());
 
         const matchesStatus =
             statusFilter === 'all' ||
@@ -1261,9 +1304,7 @@ const ManualEntryForm = () => {
         setPage(0);
     };
 
-    // ⬅️ توابع مدیریت Modal تاریخچه
     const handleOpenHistoryModal = (row: OrderType) => {
-        // بارگذاری داده‌های تاریخچه از ردیف فعلی
         setHistoryData(row.orderHeaderStatusHistories || []);
         setOpenHistoryModal(true);
     };
@@ -1290,6 +1331,30 @@ const ManualEntryForm = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
     };
+
+    const modalSummary = useMemo(() => {
+        const summary: Record<string, number> = {};
+        let grandTotal = 0;
+
+        modalDetails.forEach((detail) => {
+            const unitTitle = detail.item?.unit?.title || "Diğer";
+            const qty = Number(detail.quantity) || 0;
+
+            // راه حل خطا: تبدیل اجباری به رشته و سپس تمیزسازی
+            // این خط هم برای عدد کار می‌کند و هم برای رشته‌های دارای علامت مثل $
+            const rawPrice = String(detail.price);
+            const cleanPrice = rawPrice.replace(/[^0-9.-]/g, '');
+            const priceVal = parseFloat(cleanPrice) || 0;
+
+            const lineTotal = qty * priceVal;
+
+            // اضافه کردن به جمع واحد مربوطه
+            summary[unitTitle] = (summary[unitTitle] || 0) + lineTotal;
+            grandTotal += lineTotal;
+        });
+
+        return { summary, grandTotal };
+    }, [modalDetails]);
 
     return (
         <Box>
@@ -1335,7 +1400,7 @@ const ManualEntryForm = () => {
                 <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
                     <Typography variant="h6" mb={2}>Sipariş Detayları</Typography>
                     <Grid container spacing={2}>
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={3}>
                             <CustomFormLabel htmlFor="network-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>
                                 Şebeke
                             </CustomFormLabel>
@@ -1354,8 +1419,33 @@ const ManualEntryForm = () => {
                                 {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
                             </Box>
                         </Grid>
-                        <Grid item xs={12} md={4}>
-                            <CustomFormLabel htmlFor="request-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>İlişkili Talep (Opsiyonel)</CustomFormLabel>
+                        {/* ✅ 9. اضافه کردن UI برای انتخاب Workhouse (Şantiye) */}
+                        <Grid item xs={12} md={3}>
+                            <CustomFormLabel htmlFor="workhouse-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>
+                                Şantiye
+                            </CustomFormLabel>
+                            <Autocomplete<WorkhouseType>
+                                id="workhouse-autocomplete"
+                                options={workhousesList}
+                                getOptionLabel={(option) => option.name}
+                                value={workhousesList.find(wh => wh.id === selectedWorkhouseId) || null}
+                                onChange={(_event, newValue) => {
+                                    setSelectedWorkhouseId(newValue ? newValue.id : null);
+                                }}
+                                renderInput={(params) => (
+                                    <TextField {...params} label="Şantiye Seçin" variant="outlined" size="small" />
+                                )}
+                                renderOption={(props, option) => (
+                                    <Box component="li" {...props} key={option.id}>
+                                        <IconBuildingCottage size={18} style={{ marginRight: 8 }} />
+                                        {option.name}
+                                    </Box>
+                                )}
+                                sx={{ flexGrow: 1 }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                            <CustomFormLabel htmlFor="request-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>İlişkili Talep</CustomFormLabel>
                             <Autocomplete<RequestComboItem>
                                 id="request-autocomplete"
                                 options={requestsList}
@@ -1368,7 +1458,7 @@ const ManualEntryForm = () => {
                                 sx={{ flexGrow: 1 }}
                             />
                         </Grid>
-                        <Grid item xs={12} md={4}>
+                        <Grid item xs={12} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                 <CustomFormLabel htmlFor="doc-date" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }} required>
                                     Tarihi
@@ -1399,8 +1489,8 @@ const ManualEntryForm = () => {
                                 multiline
                                 rows={3}
                                 variant="outlined"
-                                value={generalDescription} // ⬅️ استفاده از نام جدید
-                                onChange={(e) => setGeneralDescription(e.target.value)} // ⬅️ استفاده از نام جدید
+                                value={generalDescription}
+                                onChange={(e) => setGeneralDescription(e.target.value)}
                             />
                         </Grid>
                     </Grid>
@@ -1442,6 +1532,7 @@ const ManualEntryForm = () => {
             <BlankCard>
                 <Grid item xs={12} mt={2} mr={2}>
                     <Stack direction="row" spacing={2} justifyContent="flex-end">
+                        {/* ... Download buttons ... */}
                         {hasDownloadPermission && isFilterActive && (
                             <CustomTooltip title={isTooltipGloballyEnabled ? "Uygulanan filtrelerle Satın Alma indirin" : ""}>
                                 <BlinkingButton
@@ -1471,12 +1562,13 @@ const ManualEntryForm = () => {
                     </Stack>
                 </Grid>
                 <Box sx={{ p: 2 }}>
+                    {/* ... Filters ... */}
                     <Typography variant="h5" gutterBottom sx={{ mb: 2 }}>
                         Sipariş Listesi
                         {notifIds.length > 0 && (
                             <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
                                 <Chip
-                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    label={`Bildirim filtresi: ${notifIds.length}`}
                                     color="error"
                                     size="small"
                                 />
@@ -1555,6 +1647,12 @@ const ManualEntryForm = () => {
                                         <Typography variant="h6">Şebeke Adı</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+                                {/* ✅ 10. اضافه کردن ستون Workhouse به جدول */}
+                                <StyledTableCell>
+                                    <TableSortLabel active={orderBy === 'workhouse.name'} direction={orderBy === 'workhouse.name' ? order : 'asc'} onClick={() => handleRequestSort('workhouse.name')}>
+                                        <Typography variant="h6">Şantiye</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
                                 <StyledTableCell><Typography variant="h6">İlişkili Talep</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
@@ -1569,13 +1667,13 @@ const ManualEntryForm = () => {
                                     </TableSortLabel>
                                 </StyledTableCell>
                                 <StyledTableCell><Typography variant="h6">Ürün Detayları</Typography></StyledTableCell>
-                                <StyledTableCell align="right"><Typography variant="h6">İşlemler</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography variant="h6"></Typography></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {loadingData ? (
                                 <TableRow>
-                                    <StyledTableCell colSpan={5} align="center">
+                                    <StyledTableCell colSpan={9} align="center">
                                         <CircularProgress />
                                     </StyledTableCell>
                                 </TableRow>
@@ -1587,6 +1685,8 @@ const ManualEntryForm = () => {
                                                 <Typography variant="body1">#{row.id}</Typography>
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
+                                            {/* ✅ 11. نمایش Workhouse در ردیف‌ها */}
+                                            <StyledTableCell><Typography variant="body1">{row.workhouse ? row.workhouse.name : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1">
                                                     {row.request ? `#${row.request.id} - ${row.request.subject}` : '-'}
@@ -1594,24 +1694,31 @@ const ManualEntryForm = () => {
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                <Typography variant="body2" noWrap title={row.description || ''}>
-                                                    {row.description || '-'}
-                                                </Typography>
-                                                {row.description != null && row.description.length > 20 && (
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Devamını Oku
+                                                        <Button
+
+                                                            variant="outlined"
+                                                            style={{ fontSize: "10px", }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamayı Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <Chip
-                                                        label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
-                                                        color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
+                                                        label={statusToLabel(row.status)}
+                                                        color={statusToColor(row.status)}
+                                                        size="small"
                                                         onClick={() => handleOpenHistoryModal(row)}
                                                     />
                                                     {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
@@ -1641,6 +1748,7 @@ const ManualEntryForm = () => {
                                                 >
                                                     <IconDots size={20} />
                                                 </IconButton>
+                                                {/* ... MENU CODE (همان کد قبلی) ... */}
                                                 <Menu
                                                     id="basic-menu"
                                                     anchorEl={anchorEl}
@@ -1697,6 +1805,7 @@ const ManualEntryForm = () => {
                                                                 if (selectedOrderForMenu) {
                                                                     setOpenDownloadSingleModal(true);
                                                                 }
+                                                                handleCloseMenu();
                                                             }}>
                                                                 <ListItemIcon><IconFileDownload size={18} /></ListItemIcon> Rapor İndir
                                                             </MuiMenuItem>
@@ -1708,7 +1817,7 @@ const ManualEntryForm = () => {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <StyledTableCell colSpan={5} align="center">
+                                        <StyledTableCell colSpan={9} align="center">
                                             <Typography variant="subtitle1" color="textSecondary">Hiç sipariş bulunamadı.</Typography>
                                         </StyledTableCell>
                                     </TableRow>
@@ -1724,7 +1833,7 @@ const ManualEntryForm = () => {
 
             </BlankCard>
 
-            {/* ⬅️ HISTORY MODAL (تاریخچه وضعیت) */}
+            {/* ... Other Modals (History, Delete, Download, etc.) ... */}
             <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
                 <DialogTitle>Sipariş Durum Geçmişi</DialogTitle>
                 <DialogContent dividers>
@@ -1795,6 +1904,42 @@ const ManualEntryForm = () => {
                             </TableBody>
                         </Table>
                     </TableContainer>
+                    <>
+                        {modalDetails.length > 0 && (
+                            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                                <Typography variant="h6" gutterBottom color="primary">
+                                    Birim Bazlı Toplamlar
+                                </Typography>
+                                <TableContainer component={Paper} elevation={0}>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>Birim</StyledTableCell>
+                                                <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>Toplam Tutar</StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {Object.entries(modalSummary.summary).map(([unit, total]) => (
+                                                <TableRow key={unit}>
+                                                    <StyledTableCell>{unit}</StyledTableCell>
+                                                    <StyledTableCell align="right">
+                                                        {cleanAndFormatPrice(total)}
+                                                    </StyledTableCell>
+                                                </TableRow>
+                                            ))}
+                                            {/* نمایش جمع کل نهایی (اختیاری) */}
+                                            <TableRow sx={{ bgcolor: '#e3f2fd' }}>
+                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>GENEL TOPLAM</StyledTableCell>
+                                                <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>
+                                                    {cleanAndFormatPrice(modalSummary.grandTotal)}
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        )}
+                    </>
                 </DialogContent>
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
             </Dialog>
@@ -1881,10 +2026,10 @@ const ManualEntryForm = () => {
                 <DialogTitle>Tüm Siparişleri İndir</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" onClick={() => exportDetailedPdf(false)} startIcon={<IconFile />}>
+                        <Button variant="contained" color="primary" onClick={() => { exportDetailedPdf(false); setOpenDownloadAllModal(false); }} startIcon={<IconFile />}>
                             PDF Olarak İndir
                         </Button>
-                        <Button variant="contained" color="success" onClick={() => exportAllExcel(false)} startIcon={<IconFileSpreadsheet />}>
+                        <Button variant="contained" color="success" onClick={() => { exportAllExcel(false); setOpenDownloadAllModal(false); }} startIcon={<IconFileSpreadsheet />}>
                             Excel Olarak İndir
                         </Button>
                     </Stack>
@@ -1898,10 +2043,10 @@ const ManualEntryForm = () => {
                 <DialogTitle>Filtrelenmiş Siparişleri İndir</DialogTitle>
                 <DialogContent>
                     <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
-                        <Button variant="contained" color="primary" onClick={() => exportDetailedPdf(true)} startIcon={<IconFile />}>
+                        <Button variant="contained" color="primary" onClick={() => { exportDetailedPdf(true); setOpenDownloadFilteredModal(false); }} startIcon={<IconFile />}>
                             PDF Olarak İndir
                         </Button>
-                        <Button variant="contained" color="success" onClick={() => exportAllExcel(true)} startIcon={<IconFileSpreadsheet />}>
+                        <Button variant="contained" color="success" onClick={() => { exportAllExcel(true); setOpenDownloadFilteredModal(false); }} startIcon={<IconFileSpreadsheet />}>
                             Excel Olarak İndir
                         </Button>
                     </Stack>

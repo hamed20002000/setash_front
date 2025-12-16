@@ -101,6 +101,14 @@ interface RequestInfo { // Yeni bir arayüz tanımlayalım
     id: string; // API'de string geliyor
     subject: string;
 }
+interface WorkhouseType {
+    id: number;
+    name: string;
+    code: string;
+    address: string;
+    createAt: string;
+    recordStatus: number;
+}
 interface OrderType {
     id: number;
     network: { id: string; title: string; };
@@ -111,6 +119,7 @@ interface OrderType {
     orderDetails: OrderDetailType[];
     orderHeaderStatusHistories?: OrderStatusHistory[];
     request: RequestInfo | null;
+    workhouse: WorkhouseType | null;
 }
 interface OrderDetailType {
     id: number;
@@ -191,6 +200,8 @@ const ExcelImportComponent = () => {
     const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
     const [itemsList, setItemsList] = useState<ItemType[]>([]);
     const [networks, setNetworks] = useState<Network[]>([]);
+    const [workhousesList, setWorkhousesList] = useState<WorkhouseType[]>([]);
+    const [workhouse, setWorkhouse] = useState<string | number>(''); // ذخیره ID شانتیه انتخاب شده
     const [selectedWork, setSelectedWork] = useState<Work | null>(null);
     const [alertMessage, setAlertMessage] = useState<string | null>(null);
     const [alertSeverity, setAlertSeverity] = useState<'success' | 'error' | 'warning' | 'info'>('info');
@@ -479,9 +490,10 @@ const ExcelImportComponent = () => {
                     doc.setFontSize(10);
                     doc.text(`Sipariş No: ${orderData.id}`, 15, 47);
                     doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 54);
-                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 61);
-                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 68);
-                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 75);
+                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 61); // تغییر Y coordinate بقیه
+                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 68); // Y += 7
+                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 75); // Y += 7
+                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 82);
                 }
                 addPdfFooter(doc);
             },
@@ -567,9 +579,10 @@ const ExcelImportComponent = () => {
             doc.setFontSize(10);
             doc.text(`Sipariş No: ${order.id}`, 15, 47);
             doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 54);
-            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 61);
-            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 68);
-            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 75);
+            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 61); // تغییر Y coordinate بقیه
+            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 68); // Y += 7
+            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 75); // Y += 7
+            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 82);
 
             const rows = order.orderDetails.map(detail => [
                 detail.item.name || '-',
@@ -683,6 +696,7 @@ const ExcelImportComponent = () => {
 
         worksheet.addRow(['Sipariş No', orderData.id]);
         worksheet.addRow(['Şebeke', orderData.network ? orderData.network.title : '-']);
+        worksheet.addRow(['Şantiye', orderData.workhouse ? orderData.workhouse.name : '-']);
         worksheet.addRow(['Tarih', formatDateDisplay(orderData.docDate)]);
         worksheet.addRow(['İlişkili Talep No', orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-']);
 
@@ -808,6 +822,7 @@ const ExcelImportComponent = () => {
             // جزئیات سفارش
             worksheet.addRow(['Sipariş No', order.id]);
             worksheet.addRow(['Şebeke', order.network ? order.network.title : '-']);
+            worksheet.addRow(['Şantiye', order.workhouse ? order.workhouse.name : '-']);
             worksheet.addRow(['Tarih', formatDateDisplay(order.docDate)]);
             worksheet.addRow(['İlişkili Talep No', order.request ? '#' + order.request.id + order.request.subject : '-']);
             worksheet.addRow(['Genel Açıklama', order.description || '-']);
@@ -1108,11 +1123,49 @@ const ExcelImportComponent = () => {
         }
     };
 
-    useEffect(() => {
-        getNetworks(); getListItem(); getListOrders(); fetchTenders();
-        fetchRequestsList();
-    }, []);
+    const getWorkhousesList = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
+        try {
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
+                setWorkhousesList(activeWorkhouses);
+            } else {
+                showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde kullanıldığı için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Şantiye listesi alınırken bir hata oluştu.', 'error');
+        }
+    }, [navigate]);
 
+    useEffect(() => {
+        getNetworks();
+        getListItem();
+        getListOrders();
+        fetchTenders();
+        fetchRequestsList();
+        getWorkhousesList(); // <--- اینجا اضافه کنید
+    }, []);
     const validateForm = (): boolean => {
         let isValid = true;
         //  if (!network) {
@@ -1136,6 +1189,7 @@ const ExcelImportComponent = () => {
         setNetwork('');
         setDocDate(new Date());
         setGeneralDescription('');
+        setWorkhouse('');
         setOrderItems([]);
         setRequestId(null);
         setSelectedWork(null);
@@ -1152,6 +1206,7 @@ const ExcelImportComponent = () => {
             docDate: docDate?.toISOString(),
             description: generalDescription,
             networkId: network == "" ? null : Number(network),
+            workhouseId: workhouse ? Number(workhouse) : null,
             requestId: requestId,
             status: 0,
             orderDetails: orderItems.map(item => ({
@@ -1192,6 +1247,7 @@ const ExcelImportComponent = () => {
             docDate: docDate?.toISOString(),
             description: generalDescription,
             networkId: network == "" ? null : Number(network),
+            workhouseId: workhouse ? Number(workhouse) : null,
             requestId: requestId,
             orderDetails: orderItems.map(item => ({
                 itemId: Number(item.item),
@@ -1260,6 +1316,7 @@ const ExcelImportComponent = () => {
             setNetwork('');
             setSelectedWork(null);
         }
+        setWorkhouse(row.workhouse ? row.workhouse.id : '');
         setRequestId(row.requestId || null);
         setDocDate(new Date(row.docDate));
         setGeneralDescription(row.description || '');
@@ -1462,6 +1519,31 @@ const ExcelImportComponent = () => {
     };
 
 
+    // محاسبه جمع کل بر اساس واحد برای مودال جزئیات
+    const modalSummary = useMemo(() => {
+        const summary: Record<string, number> = {};
+        let grandTotal = 0;
+
+        modalDetails.forEach((detail) => {
+            const unitTitle = detail.item?.unit?.title || "Diğer";
+            const qty = Number(detail.quantity) || 0;
+
+            // راه حل خطا: تبدیل اجباری به رشته و سپس تمیزسازی
+            // این خط هم برای عدد کار می‌کند و هم برای رشته‌های دارای علامت مثل $
+            const rawPrice = String(detail.price);
+            const cleanPrice = rawPrice.replace(/[^0-9.-]/g, '');
+            const priceVal = parseFloat(cleanPrice) || 0;
+
+            const lineTotal = qty * priceVal;
+
+            // اضافه کردن به جمع واحد مربوطه
+            summary[unitTitle] = (summary[unitTitle] || 0) + lineTotal;
+            grandTotal += lineTotal;
+        });
+
+        return { summary, grandTotal };
+    }, [modalDetails]);
+
     return (
         <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
@@ -1522,6 +1604,22 @@ const ExcelImportComponent = () => {
                                 />
                                 {selectedWork && (<Chip label={selectedWork.title} color="primary" variant="outlined" />)}
                             </Box>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                            <CustomFormLabel htmlFor="workhouse-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>
+                                Şantiye (Opsiyonel)
+                            </CustomFormLabel>
+                            <Autocomplete<WorkhouseType>
+                                id="workhouse-autocomplete"
+                                options={workhousesList}
+                                getOptionLabel={(option) => option.name}
+                                value={workhousesList.find(wh => wh.id === Number(workhouse)) || null}
+                                onChange={(_event, newValue) => setWorkhouse(newValue ? newValue.id : '')}
+                                renderInput={(params) => (
+                                    <TextField {...params} label="Şantiye Seçin" variant="outlined" size="small" />
+                                )}
+                                sx={{ flexGrow: 1 }}
+                            />
                         </Grid>
                         <Grid item xs={12} md={4}>
                             <CustomFormLabel htmlFor="request-autocomplete" sx={{ mt: 0, mb: { xs: 0, sm: 0 } }}>İlişkili Talep (Opsiyonel)</CustomFormLabel>
@@ -1704,7 +1802,7 @@ const ExcelImportComponent = () => {
                         {notifIds.length > 0 && (
                             <Stack component="span" direction="row" spacing={1} alignItems="center" sx={{ ml: 1 }}>
                                 <Chip
-                                    label={`Bildirim filtresi: ${notifIds.length} id`}
+                                    label={`Bildirim filtresi: ${notifIds.length}`}
                                     color="error"
                                     size="small"
                                 />
@@ -1780,6 +1878,7 @@ const ExcelImportComponent = () => {
                                         <Typography variant="h6">Şebeke Adı</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+                                <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell>
                                 <StyledTableCell><Typography variant="h6">İlişkili Talep</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === 'docDate'} direction={orderBy === 'docDate' ? order : 'asc'} onClick={() => handleRequestSort('docDate')}>
@@ -1794,7 +1893,7 @@ const ExcelImportComponent = () => {
                                     </TableSortLabel>
                                 </StyledTableCell>
                                 <StyledTableCell><Typography variant="h6">Ürün Detayları</Typography></StyledTableCell>
-                                <StyledTableCell align="right"><Typography variant="h6">İşlemler</Typography></StyledTableCell>
+                                <StyledTableCell align="right"><Typography variant="h6"></Typography></StyledTableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1812,6 +1911,8 @@ const ExcelImportComponent = () => {
                                                 <Typography variant="body1">#{row.id}</Typography>
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{row.network ? row.network.title : "-"}</Typography></StyledTableCell>
+
+                                            <StyledTableCell><Typography variant="body1">{row.workhouse ? row.workhouse.name : "-"}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 <Typography variant="body1">
                                                     {row.request ? `#${row.request.id} - ${row.request.subject}` : '-'}
@@ -1819,34 +1920,45 @@ const ExcelImportComponent = () => {
                                             </StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                <Typography variant="body2" noWrap title={row.description || ''}>
-                                                    {row.description || '-'}
-                                                </Typography>
-                                                {row.description != null && row.description.length > 20 && (
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                            handleOpenDescriptionModal(row.description);
-                                                        }}>
-                                                            Devamını Oku
+                                                        <Button
+
+                                                            variant="outlined"
+                                                            style={{ fontSize: "10px", }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamayı Oku
                                                         </Button>
                                                     </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
+
                                             <StyledTableCell>
-                                                <Chip
-                                                    label={row.status === 0 ? "Beklemede" : row.status === 1 ? "Onaylandı" : "Reddedildi"}
-                                                    color={row.status === 0 ? "warning" : row.status === 1 ? "success" : "error"}
-                                                />
-                                                {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
-                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenHistoryModal(row)}
-                                                        >
-                                                            <IconInfoCircle size={18} />
-                                                        </IconButton>
-                                                    </CustomTooltip>
-                                                ) : null}
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Chip
+                                                        label={statusToLabel(row.status)}
+                                                        color={statusToColor(row.status)}
+                                                        size="small"
+                                                        onClick={() => handleOpenHistoryModal(row)}
+                                                    />
+                                                    {(row.orderHeaderStatusHistories && row.orderHeaderStatusHistories.length > 0) ? (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Durum Geçmişini Gör" : ""}>
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleOpenHistoryModal(row)}
+                                                            >
+                                                                <IconInfoCircle size={18} />
+                                                            </IconButton>
+                                                        </CustomTooltip>
+                                                    ) : null}
+                                                </Stack>
                                             </StyledTableCell>
                                             <StyledTableCell>
                                                 <Button variant="outlined" startIcon={<IconEye />} onClick={() => handleOpenModal(row.orderDetails)}>
@@ -2015,6 +2127,43 @@ const ExcelImportComponent = () => {
                             </TableBody>
                         </Table>
                     </TableContainer>
+
+                    <>
+                        {modalDetails.length > 0 && (
+                            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                                <Typography variant="h6" gutterBottom color="primary">
+                                    Birim Bazlı Toplamlar
+                                </Typography>
+                                <TableContainer component={Paper} elevation={0}>
+                                    <Table size="small">
+                                        <TableHead>
+                                            <TableRow>
+                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>Birim</StyledTableCell>
+                                                <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>Toplam Tutar</StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {Object.entries(modalSummary.summary).map(([unit, total]) => (
+                                                <TableRow key={unit}>
+                                                    <StyledTableCell>{unit}</StyledTableCell>
+                                                    <StyledTableCell align="right">
+                                                        {cleanAndFormatPrice(total)}
+                                                    </StyledTableCell>
+                                                </TableRow>
+                                            ))}
+                                            {/* نمایش جمع کل نهایی (اختیاری) */}
+                                            <TableRow sx={{ bgcolor: '#e3f2fd' }}>
+                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>GENEL TOPLAM</StyledTableCell>
+                                                <StyledTableCell align="right" sx={{ fontWeight: 'bold' }}>
+                                                    {cleanAndFormatPrice(modalSummary.grandTotal)}
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        )}
+                    </>
                 </DialogContent>
                 <DialogActions><Button onClick={handleCloseModal}>Kapat</Button></DialogActions>
             </Dialog>

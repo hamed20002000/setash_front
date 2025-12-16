@@ -284,7 +284,7 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const [receiptCodeToDelete, setReceiptCodeToDelete] = useState<string>("");
 
     const [openDetailsModal, setOpenDetailsModal] = useState(false);
-    const [detailsToShow, setDetailsToShow] = useState<ReceiptDetailType[]>([]);
+    // const [detailsToShow, setDetailsToShow] = useState<ReceiptDetailType[]>([]);
 
     const [openDownloadAllModal, setOpenDownloadAllModal] = useState(false);
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
@@ -298,6 +298,9 @@ const ListStoreReceiptInvoice: React.FC = () => {
     // inactive invoices modal (by store receipts)
     const [openInactiveModal, setOpenInactiveModal] = useState(false);
     const [inactiveInvoices, setInactiveInvoices] = useState<InactiveInvoiceRow[]>([]);
+
+
+    const [viewedReceipt, setViewedReceipt] = useState<StoreReceiptType | null>(null);
 
     // 🔹 مودال جدید «Listeyi Göster» برای فاکتورهای کمبو
     const [openInvoiceListModal, setOpenInvoiceListModal] = useState(false);
@@ -788,46 +791,83 @@ const ListStoreReceiptInvoice: React.FC = () => {
         } finally { setLoadingButton(false); }
     };
 
+    // این تابع لیست کالاها را می‌گیرد و بر اساس واحد (Unit) جمع می‌زند
+    const calculateReceiptSummaries = (details: any[]) => {
+        const summary: Record<string, number> = {};
+
+        details.forEach(d => {
+            // نام واحد (اگر نبود "Diğer")
+            const unitTitle = d.item?.unit?.title || "Diğer";
+            // تبدیل مقدار به عدد
+            const qty = Number(d.quantity) || 0;
+
+            // جمع زدن
+            summary[unitTitle] = (summary[unitTitle] || 0) + qty;
+        });
+
+        return summary;
+    };
+
     // ---------- Export ----------
     const exportReceiptsToPdf = (data: StoreReceiptType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) { showAlert("PDF oluşturulacak fiş bulunamadı.", "warning"); return; }
         showAlert("PDF oluşturuluyor...", "info");
+
         const doc = new jsPDF();
         const docAny = doc as any;
         let yPos = 60;
+
+        // بارگذاری فونت‌ها (مشابه کد قبلی شما)
         docAny.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         docAny.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans");
+
         data.forEach((receipt, index) => {
             if (index > 0) { doc.addPage(); yPos = 60; }
             addPdfHeader(doc, title, subtitle);
-            const totalQuantity = (receipt.storeReceiptDetails || []).reduce((s, d) => s + Number(d.quantity), 0);
+
+            // هدرهای اطلاعاتی
             doc.setFontSize(12);
             doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 9;
             doc.text(`Şantiye: ${receipt.store?.name || "-"}`, 15, yPos); yPos += 15;
-            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 21
+            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 15; // فاصله بیشتر برای جدول
 
+            // آماده‌سازی سطرهای جدول
             const rows = (receipt.storeReceiptDetails || []).map((d) => [
                 d.item?.name || "-",
-                Number(d.quantity).toLocaleString(),
+                Number(d.quantity).toLocaleString('tr-TR'),
                 d.item?.unit?.title || "-",
                 d.description || "-",
             ]);
+
+            // --- محاسبه جمع‌ها برای فوتر ---
+            const summaries = calculateReceiptSummaries(receipt.storeReceiptDetails || []);
+            const summaryRows = Object.entries(summaries).map(([unit, total]) => [
+                "TOPLAM:",
+                total.toLocaleString('tr-TR'),
+                unit,
+                ""
+            ]);
+
             autoTable(doc, {
                 startY: yPos,
                 head: [["Malzeme", "Miktar", "Birim", "Açıklama"]],
                 body: rows,
+                // اضافه کردن جمع‌ها به انتهای جدول
+                foot: summaryRows,
                 theme: "grid",
                 styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 2, overflow: "linebreak" },
-                headStyles: { font: "NotoSans", fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                foot: [["", "Toplam Miktar:", totalQuantity.toLocaleString(), ""]],
-                footStyles: { font: "NotoSans", fillColor: [230, 230, 230], textColor: [0, 0, 0], halign: "right", cellPadding: 2 },
+                headStyles: { font: "NotoSans", fillColor: [220, 220, 220], textColor: [0, 0, 0] },
+                // استایل فوتر (جمع کل)
+                footStyles: { font: "NotoSans", fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
                 columnStyles: { 0: { halign: "left" }, 1: { halign: "center" }, 2: { halign: "center" }, 3: { halign: "left" } },
                 didDrawPage: () => addPdfFooter(doc),
             });
+
             yPos = (docAny.lastAutoTable.finalY || yPos) + 10;
         });
+
         doc.save(`${title.replace(/ /g, "_")}.pdf`);
         showAlert("PDF başarıyla oluşturuldu.", "success");
     };
@@ -835,38 +875,64 @@ const ListStoreReceiptInvoice: React.FC = () => {
     const exportReceiptsToExcel = (data: StoreReceiptType[], title: string) => {
         if (!data || data.length === 0) { showAlert("Excel oluşturulacak fiş bulunamadı.", "warning"); return; }
         showAlert("Excel oluşturuluyor...", "info");
+
         const wb = new Excel.Workbook();
+
         data.forEach((r) => {
-            const ws = wb.addWorksheet(`Fiş_${r.code}`.replace(/[\\/*?:[\]]/g, "_"));
+            const ws = wb.addWorksheet(`Fiş_${r.code}`.replace(/[\\/*?:[\]]/g, "_").substring(0, 30));
             const cols = ["Malzeme", "Miktar", "Birim", "Açıklama"];
             ws.views = [{ rightToLeft: false }];
-            const t = ws.addRow([title]); t.font = { name: "NotoSans", size: 14, bold: true }; ws.mergeCells(t.number, 1, t.number, cols.length); t.getCell(1).alignment = { horizontal: "center" };
-            const d = ws.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]); d.font = { name: "NotoSans", size: 10 };
+
+            // Header
+            const t = ws.addRow([title]);
+            t.font = { name: "NotoSans", size: 14, bold: true };
+            ws.mergeCells(t.number, 1, t.number, cols.length);
+
+            const d = ws.addRow([`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`]);
             ws.mergeCells(d.number, 1, d.number, cols.length); ws.addRow([]);
 
-            const totalQty = (r.storeReceiptDetails || []).reduce((s, x) => s + Number(x.quantity), 0);
-            const invNo = r.storeReceiptDetails?.[0]?.invoiceDetail?.invoiceHeader?.invoiceNo || "-";
-
+            // Receipt Info
             ws.addRow(["Fiş Kodu:", r.code]);
             ws.addRow(["Şantiye:", r.store?.name || "-"]);
             ws.addRow(["Belge Tarihi:", formatDateDisplay(r.docDate)]);
+            const invNo = r.storeReceiptDetails?.[0]?.invoiceDetail?.invoiceHeader?.invoiceNo || "-";
             ws.addRow(["Fatura No:", invNo]);
-
             ws.addRow(['Genel Açıklama', r.description || '-']);
             ws.addRow([]);
 
+            // Table Headers
             const h = ws.addRow(cols);
             h.font = { name: "NotoSans", bold: true };
             h.eachCell((cell) => (cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFD9E1F2" } }));
 
+            // Table Data
             (r.storeReceiptDetails || []).forEach((x) => {
-                ws.addRow([x.item?.name || "-", x.quantity, x.item?.unit?.title || "-", x.description || "-"]);
+                ws.addRow([
+                    x.item?.name || "-",
+                    Number(x.quantity),
+                    x.item?.unit?.title || "-",
+                    x.description || "-"
+                ]);
             });
 
-            ws.addRow([]);
-            const ft = ws.addRow(["", "Toplam Miktar:", totalQty.toLocaleString(), ""]);
-            ft.getCell(2).font = { name: "NotoSans", bold: true };
-            ft.getCell(3).font = { name: "NotoSans", bold: true };
+            // --- Summary Section ---
+            ws.addRow([]); // سطر خالی
+            const summaryTitle = ws.addRow(["Birim Bazlı Toplamlar"]);
+            summaryTitle.font = { bold: true, underline: true };
+
+            const summaries = calculateReceiptSummaries(r.storeReceiptDetails || []);
+            Object.entries(summaries).forEach(([unit, total]) => {
+                const row = ws.addRow(["TOPLAM:", total, unit]);
+                row.getCell(1).alignment = { horizontal: 'right' };
+                row.getCell(1).font = { bold: true };
+                row.getCell(2).font = { bold: true };
+            });
+
+            // Auto width (Basic)
+            ws.getColumn(1).width = 30;
+            ws.getColumn(2).width = 15;
+            ws.getColumn(3).width = 15;
+            ws.getColumn(4).width = 40;
         });
 
         wb.xlsx.writeBuffer().then((buffer) => {
@@ -1264,21 +1330,34 @@ const ListStoreReceiptInvoice: React.FC = () => {
                                                 <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                                 <StyledTableCell><Typography variant="body1" fontWeight="bold">{totalQty.toLocaleString()}</Typography></StyledTableCell>
                                                 <StyledTableCell sx={{ maxWidth: 150 }}>
-                                                    <Typography variant="body2" noWrap title={row.description || ''}>
-                                                        {row.description || '-'}
-                                                    </Typography>
-                                                    {row.description != null && row.description.length > 50 && (
+                                                    {row.description && row.description.trim().length > 0 ? (
+                                                        // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                         <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                            <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
-                                                                handleOpenDescriptionModal(row.description);
-                                                            }}>
-                                                                Devamını Oku
+                                                            <Button
+
+                                                                variant="outlined"
+                                                                style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                                onClick={() => handleOpenDescriptionModal(row.description)}
+                                                            >
+                                                                Açıklamayı Oku
                                                             </Button>
                                                         </CustomTooltip>
+                                                    ) : (
+                                                        // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                        <Typography variant="body2" align="center">
+                                                            -
+                                                        </Typography>
                                                     )}
                                                 </StyledTableCell>
                                                 <StyledTableCell>
-                                                    <Button variant="outlined" startIcon={<IconEye />} onClick={() => { setDetailsToShow(row.storeReceiptDetails || []); setOpenDetailsModal(true); }}>
+                                                    <Button variant="outlined" startIcon={<IconEye />}
+                                                        // onClick={() => { setDetailsToShow(row.storeReceiptDetails || []);
+                                                        //  setOpenDetailsModal(true); }}
+                                                        onClick={() => {
+                                                            setViewedReceipt(row); // 👈 ذخیره کل آبجکت فیش
+                                                            setOpenDetailsModal(true);
+                                                        }}
+                                                    >
                                                         Görünüm
                                                     </Button>
                                                 </StyledTableCell>
@@ -1326,47 +1405,115 @@ const ListStoreReceiptInvoice: React.FC = () => {
             </BlankCard>
 
             {/* Details modal */}
-            <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
-                <DialogTitle>Fiş Detayları</DialogTitle>
-                <DialogContent>
-                    {detailsToShow.length > 0 ? (
-                        <TableContainer component={Paper}>
-                            <Table aria-label="Ürün detayları tablosu">
-                                <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
-                                    <TableRow>
-                                        <StyledTableCell><Typography variant="h6">Malzeme</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    <>
-                                        {detailsToShow.map((d, i) => (
-                                            <TableRow key={d.id || i}>
+            <Dialog
+                open={openDetailsModal}
+                onClose={() => setOpenDetailsModal(false)}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>
+                    Fiş Detayları
+                    {viewedReceipt && <Typography component="span" variant="subtitle1" color="text.secondary" sx={{ ml: 1 }}>({viewedReceipt.code})</Typography>}
+                </DialogTitle>
+
+                <DialogContent dividers>
+                    {viewedReceipt && viewedReceipt.storeReceiptDetails && viewedReceipt.storeReceiptDetails.length > 0 ? (
+                        <>
+                            {/* جدول لیست کالاها */}
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table aria-label="Ürün detayları tablosu" size="small">
+                                    <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                        <TableRow>
+                                            <StyledTableCell><Typography variant="subtitle2" fontWeight="bold">Malzeme</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="subtitle2" fontWeight="bold">Miktar</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="subtitle2" fontWeight="bold">Birim</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography variant="subtitle2" fontWeight="bold">Açıklama</Typography></StyledTableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {viewedReceipt.storeReceiptDetails.map((d, i) => (
+                                            <TableRow key={d.id || i} hover>
                                                 <StyledTableCell>{d.item?.name || "-"}</StyledTableCell>
-                                                <StyledTableCell>{d.quantity || "-"}</StyledTableCell>
+                                                <StyledTableCell>{Number(d.quantity).toLocaleString()}</StyledTableCell>
                                                 <StyledTableCell>{d.item?.unit?.title || "-"}</StyledTableCell>
                                                 <StyledTableCell>{d.description || "-"}</StyledTableCell>
                                             </TableRow>
                                         ))}
-                                        <TableRow sx={{ backgroundColor: "rgb(240, 240, 240)" }}>
-                                            <StyledTableCell sx={{ fontWeight: "bold" }}>Toplam Miktar:</StyledTableCell>
-                                            <StyledTableCell sx={{ fontWeight: "bold" }}>
-                                                {detailsToShow.reduce((s, d) => s + Number(d.quantity), 0)}
-                                            </StyledTableCell>
-                                            <StyledTableCell></StyledTableCell>
-                                            <StyledTableCell></StyledTableCell>
-                                        </TableRow>
-                                    </>
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+
+                            {/* جدول خلاصه جمع کل */}
+                            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                                            <TableRow>
+                                                <StyledTableCell align="center" colSpan={2}>
+                                                    <Typography variant="subtitle2" fontWeight="bold">Birim Bazlı Toplamlar</Typography>
+                                                </StyledTableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {Object.entries(calculateReceiptSummaries(viewedReceipt.storeReceiptDetails)).map(([unit, total]) => (
+                                                <TableRow key={unit}>
+                                                    <StyledTableCell sx={{ fontWeight: 'bold', color: 'text.secondary' }}>
+                                                        Toplam {unit}:
+                                                    </StyledTableCell>
+                                                    <StyledTableCell align="right" sx={{ fontWeight: 'bold', fontSize: '1.1em' }}>
+                                                        {total.toLocaleString()}
+                                                    </StyledTableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Box>
+                        </>
                     ) : (
                         <Typography variant="body1" sx={{ p: 2, textAlign: "center" }}>Bu fiş için detay bulunamadı.</Typography>
                     )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button></DialogActions>
+
+                {/* بخش دکمه‌ها */}
+                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+                    {/* سمت چپ: دکمه‌های دانلود */}
+                    <Stack direction="row" spacing={1}>
+                        <Button
+                            variant="contained"
+                            color="error" // قرمز برای PDF
+                            startIcon={<IconFileText />}
+                            onClick={() => {
+                                if (viewedReceipt) {
+                                    const title = `Fiş Detayları: ${viewedReceipt.code}`;
+                                    exportReceiptsToPdf([viewedReceipt], title);
+                                }
+                            }}
+                            disabled={!viewedReceipt}
+                        >
+                            PDF İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success" // سبز برای اکسل
+                            startIcon={<IconFileSpreadsheet />}
+                            onClick={() => {
+                                if (viewedReceipt) {
+                                    const title = `Fiş Detayları: ${viewedReceipt.code}`;
+                                    exportReceiptsToExcel([viewedReceipt], title);
+                                }
+                            }}
+                            disabled={!viewedReceipt}
+                        >
+                            Excel İndir
+                        </Button>
+                    </Stack>
+
+                    {/* سمت راست: دکمه بستن */}
+                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">
+                        Kapat
+                    </Button>
+                </DialogActions>
             </Dialog>
 
             {/* Delete */}

@@ -5,6 +5,8 @@ import ManualEntryForm from './ManualEntryForm';
 import ExcelImportComponent from './ExcelImportComponent';
 import CompareComponent from './CompareComponent';
 
+import "./style.css"
+
 const ListOrders = () => {
     const [method, setMethod] = useState('manual');
 

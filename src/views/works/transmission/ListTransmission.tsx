@@ -450,6 +450,7 @@ const ListTransmission = () => {
             const response = await axios.get(server.baseurl + server.initialoperations + `get-work-by-id/${id}`, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
+            debugger
             if (response.data.httpStatusCode === 200) {
                 setWorkTitleForDisplay(response.data.data.title);
             } else {
@@ -508,7 +509,7 @@ const ListTransmission = () => {
             4: 'MEVCUT'
         };
 
-        // ایجاد Map از ProductTypes برای دسترسی به فیلد 'type'
+
         const productTypeDetailsMap = new Map(allProductTypes.map(p => [String(p.id), p]));
 
         try {
@@ -627,7 +628,7 @@ const ListTransmission = () => {
         } finally {
             setLoadingList(false);
         }
-    }, [navigate, showAlert, combinedProductTypeOptions, allProductTypes]); // allProductTypes باید به وابستگی‌ها اضافه شود
+    }, [navigate, showAlert, combinedProductTypeOptions, allProductTypes]);
 
     const availableTrafoOptionsForMap = useMemo(() => {
         // گزینه‌های ترافو را بر اساس منطق fromProductType فیلتر کنید
@@ -668,7 +669,7 @@ const ListTransmission = () => {
                 `${server.baseurl}${server.initialoperations}get-network-by-work-id/${Number(networkId)}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
-
+            debugger
             if (response.data.httpStatusCode === 200 && response.data.data) {
                 setTransmissionSummary(response.data.data.transmissionSummary || []);
             } else {
@@ -896,7 +897,62 @@ const ListTransmission = () => {
         return fromProductType && toProductType && distance && addedItems.length > 0;
     }, [fromProductType, toProductType, distance, addedItems]);
 
+
+
+    // const handleAddRowToTransmissionList = useCallback(async () => {
+    //     if (!fromProductType || !toProductType || !distance || addedItems.length === 0) {
+    //         showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
+    //         return;
+    //     }
+
+    //     if (isInitialEntry && fromProductType.parent !== null) {
+    //         showAlert('İlk iletim, bir ana düğümden (TRAFO) başlamalıdır.', 'warning');
+    //         return;
+    //     }
+
+    //     setLoadingButton(true);
+    //     const authToken = localStorage.getItem('authToken');
+    //     if (!authToken) {
+    //         navigate("/");
+    //         showAlert('Oturumunuzun süresi doldu.', 'error');
+    //         setLoadingButton(false);
+    //         return;
+    //     }
+
+    //     const miktarTipiToStatus = {
+    //         'Yeni YG': 0, 'Yeni AG': 1, 'DMM YG': 2, 'DMM AG': 3,
+    //     };
+
+    //     const payload = {
+    //         distance: Math.round(parseFloat(distance) * 100),
+    //         formulaTitle: formulaTitle,
+    //         fromProductTypeId: parseInt(fromProductType.id!),
+    //         toProductTypeId: parseInt(toProductType.id!),
+    //         productStatus: miktarTipiToStatus[miktarTipi],
+    //         transmissionRowItmes: addedItems.map(item => ({
+    //             value: item.quantity,
+    //             itemId: parseInt(item.id)
+    //         })) || []
+    //     };
+    //     try {
+    //         await axios.post(server.baseurl + server.initialoperations + "create-TransmissionRow", { networkId: parseInt(networkId!), createTransmissionRows: [payload] }, {
+    //             headers: { "Authorization": `Bearer ${authToken}` }
+    //         });
+    //         showAlert('İletim başarıyla kaydedildi!', 'success');
+    //         if (networkId) {
+    //             await fetchTransmissionList(networkId);
+    //         }
+    //     } catch (e: any) {
+    //         showAlert(e.response?.data?.message || 'Kayıt gönderilirken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingButton(false);
+    //         resetFormFields();
+    //     }
+    // }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, resetFormFields, isInitialEntry]);
+
+
     const handleAddRowToTransmissionList = useCallback(async () => {
+        // اعتبارسنجی‌های اولیه
         if (!fromProductType || !toProductType || !distance || addedItems.length === 0) {
             showAlert('Lütfen tüm gerekli alanları doldurun ve en az bir Şebeke ekleyin.', 'warning');
             return;
@@ -931,21 +987,45 @@ const ListTransmission = () => {
                 itemId: parseInt(item.id)
             })) || []
         };
+
+        // ذخیره مقصد فعلی برای استفاده به عنوان مبدا بعدی
+        const nextSourceNode = toProductType;
+
         try {
-            await axios.post(server.baseurl + server.initialoperations + "create-TransmissionRow", { networkId: parseInt(networkId!), createTransmissionRows: [payload] }, {
+            await axios.post(server.baseurl + server.initialoperations + "create-TransmissionRow",
+                { networkId: parseInt(networkId!), createTransmissionRows: [payload] }, {
                 headers: { "Authorization": `Bearer ${authToken}` }
             });
+
             showAlert('İletim başarıyla kaydedildi!', 'success');
+
             if (networkId) {
                 await fetchTransmissionList(networkId);
             }
+
+            // --- تغییرات اصلی اینجاست ---
+            // به جای پاک کردن همه چیز، زنجیره را ادامه می‌دهیم:
+
+            // 1. گره مقصد قبلی می‌شود گره مبدا جدید
+            setFromProductType(nextSourceNode);
+
+            // 2. سایر فیلدها را خالی می‌کنیم تا برای ورودی بعدی آماده باشند
+            setToProductType(null);
+            setDistance('');
+            setAddedItems([]);
+            setFormulaTitle(''); // اگر می‌خواهید فرمول پاک نشود این خط را حذف کنید
+
+            // 3. دیگر حالت اولیه نیست چون یک رکورد ثبت شده است
+            setIsInitialEntry(false);
+
         } catch (e: any) {
             showAlert(e.response?.data?.message || 'Kayıt gönderilirken bir hata oluştu.', 'error');
         } finally {
             setLoadingButton(false);
-            resetFormFields();
+            // نکته مهم: resetFormFields() را از اینجا حذف کردیم
+            // چون این تابع همه چیز (از جمله مبدا) را پاک می‌کرد.
         }
-    }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, resetFormFields, isInitialEntry]);
+    }, [fromProductType, toProductType, distance, addedItems, miktarTipi, formulaTitle, networkId, showAlert, navigate, fetchTransmissionList, isInitialEntry]);
 
 
     const handleBatchUpdate = useCallback(async (listToUpdate: TransmissionRow[]) => {
@@ -1336,6 +1416,19 @@ const ListTransmission = () => {
                     flexGrow={1}
                     justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                 >
+
+                    {hasCreatePermission && (
+                        <Button
+                            variant="contained"
+                            color="secondary"
+                            onClick={handleOpenMapModal}
+                            disabled={!networkId || loadingList || transmissionList.length === 0}
+                            startIcon={<IconMap />}
+                            fullWidth={isSmallScreen}
+                        >
+                            Haritayı Görüntüle
+                        </Button>
+                    )}
                     {!isFormVisible && (
                         <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni İletken İcmali Belgesi kaydetmek için tıklayınız" : ""}>
                             <BlinkingButton
@@ -1403,18 +1496,6 @@ const ListTransmission = () => {
                             </Button>
                         )}
 
-                        {hasCreatePermission && (
-                            <Button
-                                variant="contained"
-                                color="secondary"
-                                onClick={handleOpenMapModal}
-                                disabled={!networkId || loadingList || transmissionList.length === 0}
-                                startIcon={<IconMap />}
-                                fullWidth={isSmallScreen}
-                            >
-                                Haritayı Görüntüle
-                            </Button>
-                        )}
                     </Stack>
                 )}
             </Grid>
@@ -1425,7 +1506,7 @@ const ListTransmission = () => {
                         <Grid container spacing={2} alignItems="flex-end">
                             <Grid item xs={12} sm={4}>
                                 <CustomFormLabel htmlFor="from-product-type" required>
-                                    Kaynak
+                                    Kaynak Ürün Tipi
                                 </CustomFormLabel>
                                 <Autocomplete
                                     id="from-product-type"
@@ -1979,6 +2060,7 @@ const ListTransmission = () => {
                 onClose={handleCloseMapModal}
                 transmissions={transmissionList}
                 networkId={networkId}
+                workId={workId}
                 networkTitle={networkTitleForDisplay}
                 onSaveMapChanges={handleSaveMapChanges}
                 allProductTypes={combinedProductTypeOptions}
