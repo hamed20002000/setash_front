@@ -15,6 +15,7 @@ import {
     IconLine, IconRotate2, IconPencil, IconMapPin, IconLock, IconLockOpen,
     IconEye
 } from '@tabler/icons-react';
+import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import * as d3 from 'd3-force';
 import { toPng } from 'html-to-image';
 import AddTransmissionDetailsModal from './AddTransmissionDetailsModal';
@@ -144,6 +145,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const [isTrafoModalOpen, setIsTrafoModalOpen] = useState(false);
     const [isProductTypeModalOpen, setIsProductTypeModalOpen] = useState(false);
 
+
+    const { isTooltipGloballyEnabled } = useTooltip();
+
+    const [isLeftDrawerOpen, setIsLeftDrawerOpen] = useState(false);
+    const [isRightDrawerOpen, setIsRightDrawerOpen] = useState(false);
+
     // --- State برای مشاهده آیتم‌ها ---
     const [viewItemsModalOpen, setViewItemsModalOpen] = useState(false);
     const [viewItemsData, setViewItemsData] = useState<any[]>([]);
@@ -153,13 +160,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const svgGroupRef = useRef<SVGGElement>(null);
     const MIN_NODE_GAP = 80;
 
-    // ... (توابع D3: getNodeStatus, getMaterialSymbol, convertTransmissionsToMapData, applyForceLayout, useEffect, getCenterOfViewBox, getAngle, getSvgCoordinates بدون تغییر)
-    // برای خلاصه کردن کد، توابع تکراری را اینجا نمی‌نویسم، فرض بر این است که همانند کد قبلی وجود دارند.
-    // فقط توابعی که تغییر کرده‌اند را در ادامه می‌آورم.
-
-    // --- (کدهای D3 اینجا قرار دارند) ---
-    // ...
-    // ...
     const getCenterOfViewBox = useCallback(() => ({ x: viewBox.x + viewBox.width / 2, y: viewBox.y + viewBox.height / 2 }), [viewBox]);
     const getAngle = useCallback((p1: { x: number; y: number }, p2: { x: number; y: number }) => Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI, []);
     const getSvgCoordinates = useCallback((clientX: number, clientY: number) => {
@@ -174,7 +174,16 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         const p = pt.matrixTransform(inv);
         return { x: p.x, y: p.y };
     }, []);
-    const getMaterialSymbol = (ptcat?: 1 | 2) => (ptcat === 1 ? '🧱' : ptcat === 2 ? '⚙️' : '');
+    // const getMaterialSymbol = (ptcat?: 1 | 2) => (ptcat === 1 ? '🧱' : ptcat === 2 ? '⚙️' : '');
+
+    const getMaterialSymbol = (ptcat?: any) => {
+        debugger
+        const category = Number(ptcat);
+        if (category === 1) return '🧱';
+        if (category === 2) return '⚙️';
+        return '';
+    };
+
     const getNodeStatus = useCallback((nodeId: string, _fallbackMiktarTipi?: MiktarTipi): NodeStatus => {
         if (nodeStatusByChannelRowId && nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] !== undefined) {
             return nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] as NodeStatus;
@@ -186,10 +195,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
         return 0;
     }, [nodeStatusByChannelRowId, mapEdges]);
-    // ------------------------------------
-
     const calculatedTotals = useMemo(() => {
-        // 1. ابتدا جمع‌بندی مقادیر خام
         const groups: Record<string, { totalQuantity: number; totalUnitWeights: number }> = {};
 
         viewItemsData.forEach(item => {
@@ -201,21 +207,15 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 groups[unit] = { totalQuantity: 0, totalUnitWeights: 0 };
             }
 
-            groups[unit].totalQuantity += qty;          // جمع ستون مقدار
-            groups[unit].totalUnitWeights += unitWeight; // جمع ستون وزن واحد (Birim Ağırlık)
+            groups[unit].totalQuantity += qty;
+            groups[unit].totalUnitWeights += unitWeight;
         });
 
-        // 2. انجام ضرب نهایی و محاسبه گرند توتال
         const finalRows: Record<string, { totalQuantity: number; totalUnitWeights: number; rowTotal: number }> = {};
         let grandTotalWeight = 0;
 
         Object.entries(groups).forEach(([unit, data]) => {
-            // فرمول اصلی: جمع مقدار * جمع وزن واحد
             let calculatedRowTotal = data.totalQuantity * data.totalUnitWeights;
-
-            // هندل کردن استثنا برای Kg:
-            // اگر واحد کیلوگرم باشد و وزن واحدها 0 باشد (چون در Kg معمولا وزن واحد معنی ندارد و همان مقدار است)
-            // حاصل ضرب 0 نشود، بلکه خود مقدار جایگزین شود.
             if (unit.toLowerCase() === 'kg' && data.totalUnitWeights === 0) {
                 calculatedRowTotal = data.totalQuantity;
             }
@@ -233,7 +233,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     }, [viewItemsData]);
 
 
-    // --- اصلاح تابع Fetch Node (اضافه کردن weight) ---
     const handleFetchNodeItems = async (nodeId: string, nodeName: string) => {
         if (!workId) {
             showAlert("İş ID'si bulunamadı.", "error");
@@ -269,13 +268,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     }
                 }
 
-                // اینجا weghit را هم مپ می‌کنیم
                 const formattedItems = foundItems.map((item: any) => ({
                     id: item.id,
                     name: item.item?.name,
                     quantity: item.value,
                     unit: item.item?.unit?.title,
-                    weight: item.item?.weghit // <--- اضافه شد
+                    weight: item.item?.weghit
                 }));
 
                 setViewItemsData(formattedItems);
@@ -293,7 +291,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     };
 
-    // --- اصلاح تابع Fetch Edge (اضافه کردن weight) ---
     const handleFetchEdgeItems = async (edgeId: string) => {
         if (!networkId) {
             showAlert("Şebeke ID'si bulunamadı.", "error");
@@ -315,13 +312,12 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 const row = response.data.data.transmissionRows.find((r: any) => String(r.id) === String(edgeId));
 
                 if (row && row.transmissionRowItmes) {
-                    // اینجا weghit را هم مپ می‌کنیم
                     const formattedItems = row.transmissionRowItmes.map((item: any) => ({
                         id: item.id,
                         name: item.item?.name,
                         quantity: item.value,
                         unit: item.item?.unit?.title,
-                        weight: item.item?.weghit // <--- اضافه شد
+                        weight: item.item?.weghit
                     }));
                     setViewItemsData(formattedItems);
                 } else {
@@ -332,7 +328,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             name: item.name,
                             quantity: item.quantity,
                             unit: item.unit?.title || '',
-                            weight: item.weight // آیتم‌های لوکال معمولا weight دارند
+                            weight: item.weight
                         }));
                         setViewItemsData(localFormatted);
                     } else {
@@ -348,8 +344,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     };
 
-    // ... (بقیه توابع هندلر مثل handleNodeClick, handleEdgeClick و غیره همانند قبل)
-    // نکته مهم: در handleNodeClick و handleEdgeClick باید viewItems فراخوانی شود که در کد قبلی اضافه کردیم.
     const handleNodeClick = useCallback((node: MapNode, e: React.MouseEvent<SVGCircleElement>) => {
         e.stopPropagation();
         if (activeTool === 'select') {
@@ -380,189 +374,13 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     }, [activeTool, networkId]);
 
-    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
-    //     const nodesMap = new Map<string, MapNode>();
-    //     const links: D3MapLink[] = [];
-    //     const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
-
-    //     const allFrom = new Set(currentTransmissions.map(t => t.fromProductType));
-    //     const allTo = new Set(currentTransmissions.map(t => t.toProductType));
-    //     const possibleHubs = Array.from(allFrom).filter(nm => !allTo.has(nm));
-    //     let hubNodeName: string | undefined = possibleHubs[0];
-
-    //     currentTransmissions.forEach(t => {
-    //         const fromId = t.fromProductTypeId || '';
-    //         const toId = t.toProductTypeId || '';
-    //         const fromDetails = productTypeDetailsMap.get(String(fromId));
-    //         const toDetails = productTypeDetailsMap.get(String(toId));
-
-    //         if (!nodesMap.has(t.fromProductType)) {
-    //             nodesMap.set(t.fromProductType, {
-    //                 id: String(fromId),
-    //                 name: t.fromProductType,
-    //                 x: t.fromProductTypeX,
-    //                 y: t.fromProductTypeY,
-    //                 fx: t.fromProductTypeX,
-    //                 fy: t.fromProductTypeY,
-    //                 isNew: !fromId,
-    //                 productTypeCategory: fromDetails?.type as 1 | 2 | undefined,
-    //             });
-    //         }
-    //         if (!nodesMap.has(t.toProductType)) {
-    //             nodesMap.set(t.toProductType, {
-    //                 id: String(toId),
-    //                 name: t.toProductType,
-    //                 x: t.toProductTypeX,
-    //                 y: t.toProductTypeY,
-    //                 fx: t.toProductTypeX,
-    //                 fy: t.toProductTypeY,
-    //                 isNew: !toId,
-    //                 productTypeCategory: toDetails?.type as 1 | 2 | undefined,
-    //             });
-    //         }
-    //     });
-
-    //     if (hubNodeName && nodesMap.has(hubNodeName)) {
-    //         const hub = nodesMap.get(hubNodeName)!;
-    //         hub.isHub = true;
-    //         if (hub.x === undefined || hub.y === undefined) {
-    //             hub.fx = initialViewWidth / 2;
-    //             hub.fy = initialViewHeight / 2;
-    //         }
-    //     }
-
-    //     currentTransmissions.forEach(t => {
-    //         const fromNode = nodesMap.get(t.fromProductType);
-    //         const toNode = nodesMap.get(t.toProductType);
-    //         if (fromNode && toNode) {
-    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
-    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
-
-    //             links.push({
-    //                 id: t.id,
-    //                 source: fromNode,
-    //                 target: toNode,
-    //                 distance: t.distance,
-    //                 miktarTipi: newMiktarTipi,
-    //                 formulaTitle: t.formulaTitle,
-    //                 items: t.items
-    //             });
-    //         }
-    //     });
-
-    //     return { nodes: Array.from(nodesMap.values()), links };
-    // }, [initialViewHeight, initialViewWidth, productTypesList]);
-
-    ///////////////////////////////////////////
-
-
-
-    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
-    //     const nodesMap = new Map<string, MapNode>();
-    //     const links: D3MapLink[] = [];
-
-    //     // 1. ایجاد دیکشنری برای دسترسی سریع به جزئیات (شامل type و groupId)
-    //     // allProductTypes همان لیستی است که در کامپوننت والد groupId را به آن اضافه کردیم
-    //     const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
-
-    //     // دیکشنری برای جزئیات فنی محصول (مثل آیکون بتن یا آهن)
-    //     const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
-
-    //     // منطق پیدا کردن هاب (اختیاری: برای اینکه نود ریشه را وسط صفحه بگذاریم)
-    //     const allFrom = new Set(currentTransmissions.map(t => t.fromProductType));
-    //     const allTo = new Set(currentTransmissions.map(t => t.toProductType));
-    //     const possibleHubs = Array.from(allFrom).filter(nm => !allTo.has(nm));
-    //     let hubNodeName: string | undefined = possibleHubs[0];
-
-    //     currentTransmissions.forEach(t => {
-    //         const fromId = t.fromProductTypeId || '';
-    //         const toId = t.toProductTypeId || '';
-
-    //         // دریافت اطلاعات کامل برای استخراج groupId
-    //         const fromDetails = detailsLookup.get(String(fromId));
-    //         const toDetails = detailsLookup.get(String(toId));
-
-    //         // دریافت اطلاعات برای دسته‌بندی (آیکون)
-    //         const fromTechDetails = productTypeDetailsMap.get(String(fromId));
-    //         const toTechDetails = productTypeDetailsMap.get(String(toId));
-
-    //         // --- پردازش نود مبدا ---
-    //         if (!nodesMap.has(t.fromProductType)) {
-    //             nodesMap.set(t.fromProductType, {
-    //                 id: String(fromId),
-    //                 name: t.fromProductType,
-    //                 x: t.fromProductTypeX,
-    //                 y: t.fromProductTypeY,
-    //                 fx: t.fromProductTypeX,
-    //                 fy: t.fromProductTypeY,
-    //                 isNew: !fromId, // اگر ID نباشد یعنی جدید است
-
-    //                 // 👇 اضافه کردن groupId برای تشخیص ترافو
-    //                 groupId: fromDetails?.groupId,
-
-    //                 productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
-    //             });
-    //         }
-
-    //         // --- پردازش نود مقصد ---
-    //         if (!nodesMap.has(t.toProductType)) {
-    //             nodesMap.set(t.toProductType, {
-    //                 id: String(toId),
-    //                 name: t.toProductType,
-    //                 x: t.toProductTypeX,
-    //                 y: t.toProductTypeY,
-    //                 fx: t.toProductTypeX,
-    //                 fy: t.toProductTypeY,
-    //                 isNew: !toId,
-
-    //                 // 👇 اضافه کردن groupId برای تشخیص ترافو
-    //                 groupId: toDetails?.groupId,
-
-    //                 productTypeCategory: toTechDetails?.type as 1 | 2 | undefined,
-    //             });
-    //         }
-    //     });
-
-    //     // تنظیمات مربوط به نود مرکزی (Hub/Trafo)
-    //     if (hubNodeName && nodesMap.has(hubNodeName)) {
-    //         const hub = nodesMap.get(hubNodeName)!;
-    //         hub.isHub = true;
-    //         // اگر مختصات ندارد، وسط صفحه قرار بگیرد
-    //         if (hub.x === undefined || hub.y === undefined) {
-    //             hub.fx = initialViewWidth / 2;
-    //             hub.fy = initialViewHeight / 2;
-    //         }
-    //     }
-
-    //     // ساختن لینک‌ها (یال‌ها)
-    //     currentTransmissions.forEach(t => {
-    //         const fromNode = nodesMap.get(t.fromProductType);
-    //         const toNode = nodesMap.get(t.toProductType);
-
-    //         if (fromNode && toNode) {
-    //             // اگر یکی از طرفین Hub باشد، نوع خط را Connection در نظر می‌گیریم
-    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
-    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
-
-    //             links.push({
-    //                 id: t.id,
-    //                 source: fromNode,
-    //                 target: toNode,
-    //                 distance: t.distance,
-    //                 miktarTipi: newMiktarTipi,
-    //                 formulaTitle: t.formulaTitle,
-    //                 items: t.items
-    //             });
-    //         }
-    //     });
-
-    //     return { nodes: Array.from(nodesMap.values()), links };
-    // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
-
-
     const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
+        debugger
         const nodesMap = new Map<string, MapNode>();
         const links: D3MapLink[] = [];
+
+
+
 
         const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
         const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
@@ -577,17 +395,13 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             const fromTechDetails = productTypeDetailsMap.get(fromId);
             const toTechDetails = productTypeDetailsMap.get(toId);
 
-            // --- کلید یکتا برای شناسایی گره ---
-            // اگر ID داریم از ID استفاده می‌کنیم، اگر نه از ترکیب نام و گروه
-            // این باعث می‌شود "C1" در گروه ۱ با "C1" در گروه ۲ متفاوت باشد
             const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
             const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
 
-            // --- پردازش گره مبدا ---
             if (!nodesMap.has(fromUniqueKey)) {
                 const isTrafo = fromDetails?.type === 0;
                 nodesMap.set(fromUniqueKey, {
-                    id: fromId || fromUniqueKey, // ID واقعی یا موقت
+                    id: fromId || fromUniqueKey,
                     name: t.fromProductType,
                     x: t.fromProductTypeX,
                     y: t.fromProductTypeY,
@@ -599,12 +413,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
                 });
             }
-
-            // --- پردازش گره مقصد ---
             if (!nodesMap.has(toUniqueKey)) {
                 const isTrafo = toDetails?.type === 0;
                 nodesMap.set(toUniqueKey, {
-                    id: toId || toUniqueKey, // ID واقعی یا موقت
+                    id: toId || toUniqueKey,
                     name: t.toProductType,
                     x: t.toProductTypeX,
                     y: t.toProductTypeY,
@@ -618,13 +430,11 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             }
         });
 
-        // تنظیمات اولیه Hub ها (پخش کردن در صفحه)
         const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
         const totalHubs = hubs.length;
 
         hubs.forEach((hub, index) => {
             if (hub.x === undefined || hub.y === undefined) {
-                // تقسیم عرض صفحه بین ترافوها
                 const sectionWidth = initialViewWidth / (totalHubs + 1);
                 const xPos = sectionWidth * (index + 1);
 
@@ -634,10 +444,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 hub.y = initialViewHeight / 2;
             }
         });
-
-        // ساخت لینک‌ها
         currentTransmissions.forEach(t => {
-            // بازسازی کلیدهای یکتا برای پیدا کردن نودهای ساخته شده
             const fromId = String(t.fromProductTypeId || '');
             const toId = String(t.toProductTypeId || '');
             const fromDetails = detailsLookup.get(fromId);
@@ -669,84 +476,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
 
 
-    // const applyForceLayout = useCallback((nodes: MapNode[], links: D3MapLink[], runSimulation: boolean) => {
-    //     if (!runSimulation) {
-    //         return {
-    //             nodes,
-    //             edges: links.map(link => {
-    //                 const s = link.source as MapNode;
-    //                 const t = link.target as MapNode;
-    //                 return {
-    //                     id: link.id,
-    //                     fromNodeId: s.id, toNodeId: t.id,
-    //                     fromX: s.x || 0, fromY: s.y || 0,
-    //                     toX: t.x || 0, toY: t.y || 0,
-    //                     distance: link.distance,
-    //                     miktarTipi: link.miktarTipi,
-    //                     formulaTitle: link.formulaTitle,
-    //                     items: link.items
-    //                 };
-    //             })
-    //         };
-    //     }
-
-    //     const simulation = d3.forceSimulation(nodes)
-    //         .force('link', d3.forceLink<MapNode, D3MapLink>(links).id(d => d.id).distance(180))
-    //         .force('charge', d3.forceManyBody().strength(-1400))
-    //         .force('collide', d3.forceCollide(MIN_NODE_GAP / 2))
-    //         .force('center', d3.forceCenter(initialViewWidth / 2, initialViewHeight / 2));
-
-    //     simulation.stop();
-    //     const iters = Math.min(300, Math.max(100, nodes.length * 20));
-    //     for (let i = 0; i < iters; ++i) simulation.tick();
-
-    //     const resolveOverlaps = (arr: MapNode[]) => {
-    //         let changed = false;
-    //         for (let i = 0; i < arr.length; i++) {
-    //             for (let j = i + 1; j < arr.length; j++) {
-    //                 const a = arr[i], b = arr[j];
-    //                 const ax = a.x ?? 0, ay = a.y ?? 0, bx = b.x ?? 0, by = b.y ?? 0;
-    //                 let dx = bx - ax, dy = by - ay;
-    //                 let d = Math.hypot(dx, dy);
-    //                 const minD = Math.max(MIN_NODE_GAP, (a.isHub || b.isHub) ? MIN_NODE_GAP + 20 : MIN_NODE_GAP);
-    //                 if (d < minD && d > 0) {
-    //                     const push = (minD - d) / 2;
-    //                     dx /= d; dy /= d;
-    //                     a.x = ax - dx * push; a.y = ay - dy * push;
-    //                     b.x = bx + dx * push; b.y = by + dy * push;
-    //                     changed = true;
-    //                 }
-    //             }
-    //         }
-    //         return changed;
-    //     };
-    //     for (let k = 0; k < 5; k++) { if (!resolveOverlaps(nodes)) break; }
-
-    //     const updatedNodes = nodes.map(n => ({ ...n, x: n.x ?? initialViewWidth / 2, y: n.y ?? initialViewHeight / 2 }));
-
-    //     return {
-    //         nodes: updatedNodes,
-    //         edges: links.map(link => {
-    //             const sId = (link.source as MapNode).id;
-    //             const tId = (link.target as MapNode).id;
-    //             const s = updatedNodes.find(n => n.id === sId) || (link.source as MapNode);
-    //             const t = updatedNodes.find(n => n.id === tId) || (link.target as MapNode);
-    //             return {
-    //                 id: link.id,
-    //                 fromNodeId: s.id, toNodeId: t.id,
-    //                 fromX: s.x || 0, fromY: s.y || 0,
-    //                 toX: t.x || 0, toY: t.y || 0,
-    //                 distance: link.distance,
-    //                 miktarTipi: link.miktarTipi,
-    //                 formulaTitle: link.formulaTitle,
-    //                 items: link.items
-    //             };
-    //         })
-    //     };
-    // }, [initialViewHeight, initialViewWidth]);
-
     const applyForceLayout = useCallback((nodes: MapNode[], links: D3MapLink[], runSimulation: boolean) => {
-        // اگر شبیه‌سازی نیاز نباشد (مختصات از قبل وجود دارد)، فقط داده‌ها را فرمت می‌کنیم و برمی‌گردانیم
         if (!runSimulation) {
             return {
                 nodes,
@@ -769,50 +499,31 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 })
             };
         }
-
-        // --- شروع منطق تفکیک گروه‌ها ---
-
-        // 1. لیست گروه‌های یکتا (ترافوها) را پیدا می‌کنیم
-        // ما از groupId که در مرحله قبل به نودها دادیم استفاده می‌کنیم
         const uniqueGroups = Array.from(new Set(nodes.map(n => n.groupId).filter(Boolean)));
         const groupCount = uniqueGroups.length;
 
-        // 2. تابعی برای تعیین موقعیت X هر نود بر اساس گروهش
         const getGroupX = (node: MapNode) => {
-            // اگر نود گروه ندارد یا کلاً ۱ گروه داریم، وسط صفحه باشد
             if (!node.groupId || groupCount <= 1) return initialViewWidth / 2;
 
-            // پیدا کردن ایندکس گروه
             const index = uniqueGroups.indexOf(node.groupId);
 
-            // تقسیم عرض صفحه به تعداد گروه‌ها و تعیین جایگاه
-            // مثلا اگر 2 گروه باشد، در 1/3 و 2/3 صفحه قرار می‌گیرند
             return (initialViewWidth / (groupCount + 1)) * (index + 1);
         };
-
-        // 3. تنظیم نیروهای فیزیکی
         const simulation = d3.forceSimulation(nodes)
-            // نیروی لینک: نودهای متصل را کنار هم نگه می‌دارد
             .force('link', d3.forceLink<MapNode, D3MapLink>(links).id(d => d.id).distance(120))
 
-            // نیروی دافعه: نودها را از هم دور می‌کند تا روی هم نیفتند
             .force('charge', d3.forceManyBody().strength(-1000))
 
-            // نیروی برخورد: یک حریم خصوصی دور هر نود ایجاد می‌کند
             .force('collide', d3.forceCollide(MIN_NODE_GAP / 1.5))
 
-            // 👇 نیروی مهم برای تفکیک: هر نود را به سمت منطقه X گروه خودش می‌کشد
             .force('x', d3.forceX().x(d => getGroupX(d as MapNode)).strength(0.8))
 
-            // نیروی Y: همه را در راستای عمودی در وسط نگه می‌دارد (با قدرت کم)
             .force('y', d3.forceY().y(initialViewHeight / 2).strength(0.1));
 
-        // 4. اجرای شبیه‌سازی به صورت سریع (بدون انیمیشن)
         simulation.stop();
         const iters = Math.min(300, Math.max(100, nodes.length * 20));
         for (let i = 0; i < iters; ++i) simulation.tick();
 
-        // 5. تابع کمکی برای جلوگیری از همپوشانی نهایی (اگر D3 نتوانسته کامل جدا کند)
         const resolveOverlaps = (arr: MapNode[]) => {
             let changed = false;
             for (let i = 0; i < arr.length; i++) {
@@ -821,7 +532,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     const ax = a.x ?? 0, ay = a.y ?? 0, bx = b.x ?? 0, by = b.y ?? 0;
                     let dx = bx - ax, dy = by - ay;
                     let d = Math.hypot(dx, dy);
-                    // فاصله حداقل بین نودها
                     const minD = Math.max(MIN_NODE_GAP, (a.isHub || b.isHub) ? MIN_NODE_GAP + 20 : MIN_NODE_GAP);
 
                     if (d < minD && d > 0) {
@@ -1123,13 +833,16 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
     const handleSelectProductType = useCallback((productType: SelectOption) => {
         const productTypeInApi = productTypesList.find(p => p.id === productType.id);
+
         if (editingNodeId) {
             const editedNode = mapNodes.find(n => n.id === editingNodeId);
             if (!editedNode) return;
             const isDup = mapNodes.some(node => node.id !== editedNode.id && node.name.toLowerCase() === productType.name.toLowerCase());
             if (isDup) { showAlert('Bu isimde bir düğüm zaten var.', 'warning'); return; }
             const updatedNodes = mapNodes.map(node => node.id === editedNode.id ? {
-                ...node, id: productType.id, name: productType.name, isNew: !productTypeInApi || productType.id.startsWith('temp-'), productTypeCategory: productTypeInApi?.type as 1 | 2 | undefined,
+                ...node, id: productType.id, name: productType.name,
+                isNew: !productTypeInApi || productType.id.startsWith('temp-'),
+                productTypeCategory: productTypeInApi?.type as 1 | 2 | undefined,
             } : node);
             const updatedEdges = mapEdges.map(edge => {
                 if (edge.fromNodeId === editedNode.id) return { ...edge, fromNodeId: productType.id };
@@ -1268,7 +981,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             <circle id={h.id} cx={h.x || 0} cy={h.y || 0} r={r} fill="transparent" stroke="transparent" strokeWidth={1 / scale} />
                             <path d={`M ${h.x || 0} ${(h.y || 0) - 20 / scale} L ${(h.x || 0) - 20 / scale} ${(h.y || 0) + 20 / scale} L ${(h.x || 0) + 20 / scale} ${(h.y || 0) + 20 / scale} Z`} fill={theme.palette.primary.main} stroke={selectedNodeIds.has(h.id) ? theme.palette.primary.dark : theme.palette.text.primary} strokeWidth={selectedNodeIds.has(h.id) ? 3 / scale : 1 / scale} style={{ pointerEvents: 'none' }} />
                             <text x={h.x || 0} y={(h.y || 0) + (8 / scale)} fontSize={`${10 / scale}px`} fill="white" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>{h.name}</text>
-                            {symbol && (<text x={(h.x || 0) + (30 / scale)} y={(h.y || 0) + (5 / scale)} fontSize={`${12 / scale}px`} fill={textColor} textAnchor="start" style={{ pointerEvents: 'none' }}>{symbol}</text>)}
+                            {symbol && (<text x={(h.x || 0) + (30 / scale)} y={(h.y || 0) + (5 / scale)}
+                                fontSize={`${12 / scale}px`} fill={textColor} textAnchor="start" style={{ pointerEvents: 'none' }}>{symbol}</text>)}
                         </g>
                     );
                 })}
@@ -1523,7 +1237,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
     return (
         <Dialog open={open} onClose={onClose} fullScreen keepMounted>
-            {/* ... (DialogTitle و دکمه‌های ابزار - بدون تغییر) ... */}
             <DialogTitle>
                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Typography variant="h5">
@@ -1533,32 +1246,120 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 </Stack>
             </DialogTitle>
 
-            <DialogContent dividers sx={{ p: 0, overflow: 'hidden' }}>
+            <DialogContent dividers sx={{ p: 0, overflow: 'hidden', position: 'relative' }}>
                 {transmissions.length === 0 && mapNodes.length === 0 ? (
                     <Box display="flex" justifyContent="center" alignItems="center" sx={{ height: 600 }}>
                         <Typography color="textSecondary">Bu ağ için henüz iletim kaydı bulunamadı. Yeni düğümler ekleyerek başlayabilirsiniz.</Typography>
                     </Box>
                 ) : (
                     <Box sx={{ display: 'flex', height: 700 }}>
-                        <Box sx={{ width: '60px', borderRight: '1px solid #eee', p: 1, display: 'flex', flexDirection: 'column', gap: 1, borderRadius: 0 }}>
-                            <ToggleButtonGroup orientation="vertical" value={activeTool} exclusive onChange={(_e, newTool) => {
-                                if (newTool !== null) {
-                                    setActiveTool(newTool);
-                                    setDrawingEdgeStartNode(null); setEditingNodeId(null); setEditingEdgeId(null); setEditValue(''); setIsRotating(false); setSelectedNodeIds(new Set()); setSelectedEdgeIds(new Set());
-                                }
-                            }}>
-                                <Tooltip placement="right" title="Seç (Sürükle/Seç)"><StyledToolButton value="select" aria-label="select"><IconSelect size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Kaydır"><StyledToolButton value="pan" aria-label="pan"><IconHandGrab size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Malzemeleri Görüntüle"><StyledToolButton value="viewItems" aria-label="view items"><IconEye size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Düzenle"><StyledToolButton value="edit" aria-label="edit"><IconPencil size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Düğüm Ekle"><StyledToolButton value="addNode" aria-label="add node"><IconPlus size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Bağlantı Ekle"><StyledToolButton value="addEdge" aria-label="add edge"><IconLine size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="TRAFO Ekle"><StyledToolButton value="addTrafo" aria-label="add trafo"><IconMapPin size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Sil"><StyledToolButton value="delete" aria-label="delete"><IconTrash size={20} /></StyledToolButton></Tooltip>
-                                <Tooltip placement="right" title="Haritayı Çevir"><StyledToolButton value="rotate-drag" aria-label="rotate"><IconRotate2 size={20} /></StyledToolButton></Tooltip>
-                            </ToggleButtonGroup>
+                        <Box sx={{
+                            width: { xs: isLeftDrawerOpen ? '60px' : '0px', md: '60px' },
+                            position: { xs: 'fixed', md: 'relative' },
+                            left: { xs: '-5px', md: 0 },
+                            top: { xs: '20%', md: 0 }, // در موبایل کمی پایین‌تر بیاید
+                            zIndex: 1200,
+                            height: { xs: 'auto', md: '100%' },
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.3s ease',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            borderRight: '1px solid #eee',
+                            boxShadow: { xs: 3, md: 0 },
+                            borderRadius: { xs: '0 8px 8px 0', md: 0 }
+                        }}>
+                            {/* دکمه کشویی لبه کادر */}
+                            <IconButton
+                                onClick={() => setIsLeftDrawerOpen(!isLeftDrawerOpen)}
+                                sx={{
+                                    display: { xs: 'flex', md: 'none' },
+                                    position: 'absolute',
+                                    right: '-30px', // آیکون بیرون از کادر قرار می‌گیرد
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    zIndex: "5",
+                                    bgcolor: 'primary.main',
+                                    color: 'white',
+                                    width: '30px',
+                                    height: '40px',
+                                    borderRadius: '0 8px 8px 0',
+                                    '&:hover': { bgcolor: 'primary.dark' }
+                                }}
+                            >
+                                {isLeftDrawerOpen ? <IconMinus size={18} /> : <IconPlus size={18} />}
+                            </IconButton>
 
-                            <Tooltip placement="right" title={isDistanceLocked ? "Mesafe Kilidini Aç" : "Mesafeyi Kilitle"}><Button variant={isDistanceLocked ? "contained" : "outlined"} color={isDistanceLocked ? "error" : "primary"} onClick={() => setIsDistanceLocked(!isDistanceLocked)} sx={{ mt: 1, minWidth: 0, p: '8px', borderRadius: 0 }}>{isDistanceLocked ? <IconLock size={20} /> : <IconLockOpen size={20} />}</Button></Tooltip>
+                            {/* محتوای ابزارها فقط وقتی باز است یا در دسکتاپ نمایش داده شود */}
+                            {(isLeftDrawerOpen || theme.breakpoints.up('md')) && (
+                                <ToggleButtonGroup orientation="vertical" value={activeTool} exclusive onChange={(_e, newTool) => {
+                                    if (newTool !== null) {
+                                        setActiveTool(newTool);
+                                        setDrawingEdgeStartNode(null); setEditingNodeId(null); setEditingEdgeId(null); setEditValue(''); setIsRotating(false); setSelectedNodeIds(new Set()); setSelectedEdgeIds(new Set());
+                                    }
+                                }}>
+                                    {/* <Tooltip placement="right" 
+                                title="Seç (Sürükle/Seç)"> */}
+
+                                    <StyledToolButton value="select" aria-label="select">
+
+                                        <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Şantiyenin Depo indir" : ""}>
+                                            <IconSelect size={20} />
+
+                                        </CustomTooltip>
+                                    </StyledToolButton>
+
+                                    {/* </Tooltip> */}
+                                    <StyledToolButton value="pan" aria-label="pan">
+                                        <Tooltip placement="right" title="Kaydır">
+                                            <IconHandGrab size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="viewItems" aria-label="view items">
+                                        <Tooltip placement="right" title="Malzemeleri Görüntüle">
+                                            <IconEye size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="edit" aria-label="edit">
+                                        <Tooltip placement="right" title="Düzenle">
+                                            <IconPencil size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="addNode" aria-label="add node">
+                                        <Tooltip placement="right" title="Düğüm Ekle">
+                                            <IconPlus size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="addEdge" aria-label="add edge">
+                                        <Tooltip placement="right" title="Bağlantı Ekle">
+                                            <IconLine size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="addTrafo" aria-label="add trafo">
+                                        <Tooltip placement="right" title="TRAFO Ekle">
+                                            <IconMapPin size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="delete" aria-label="delete">
+                                        <Tooltip placement="right" title="Sil">
+                                            <IconTrash size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                    <StyledToolButton value="rotate-drag" aria-label="rotate">
+                                        <Tooltip placement="right" title="Haritayı Çevir">
+                                            <IconRotate2 size={20} />
+                                        </Tooltip>
+                                    </StyledToolButton>
+                                </ToggleButtonGroup>
+                            )}
+
+                            <Tooltip placement="right" title={isDistanceLocked ? "Mesafe Kilidini Aç" : "Mesafeyi Kilitle"}>
+                                <Button variant={isDistanceLocked ? "contained" : "outlined"}
+                                    color={isDistanceLocked ? "error" : "primary"}
+                                    onClick={() => setIsDistanceLocked(!isDistanceLocked)}
+                                    sx={{ mt: 1, minWidth: 0, p: '8px', borderRadius: 0 }}>
+                                    {isDistanceLocked ? <IconLock size={20} /> : <IconLockOpen size={20} />}
+                                </Button>
+                            </Tooltip>
                             <Tooltip placement="right" title="Yakınlaştır"><Button variant="outlined" onClick={() => handleZoom(1.2)} sx={{ mt: 1, minWidth: 0, p: '8px', borderRadius: 0 }}><IconPlus size={20} /></Button></Tooltip>
                             <Tooltip placement="right" title="Uzaklaştır"><Button variant="outlined" onClick={() => handleZoom(1 / 1.2)} sx={{ minWidth: 0, p: '8px', borderRadius: 0 }}><IconMinus size={20} /></Button></Tooltip>
                         </Box>
@@ -1584,7 +1385,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                         </g>
                                     ))}
                                     {renderHubNode()}
-                                    {mapNodes.filter(n => !n.isHub).map(node => {
+                                    {/* {mapNodes.filter(n => !n.isHub).map(node => {
                                         const status = getNodeStatus(node.id);
                                         const symbol = getMaterialSymbol(node.productTypeCategory);
                                         const baseStroke = theme.palette.primary.main;
@@ -1593,8 +1394,98 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                             <g key={node.id}>
                                                 <circle id={node.id} cx={node.x || 0} cy={node.y || 0} r={r} fill={status === 0 ? baseStroke : 'transparent'} stroke={baseStroke} strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale} className={node.isNew ? 'blink-node' : ''} style={{ cursor: ['select', 'edit', 'delete', 'addEdge', 'viewItems'].includes(activeTool) ? 'pointer' : 'auto' }} onClick={(e) => handleNodeClick(node, e as any)} />
                                                 {status === 1 && (<circle cx={node.x || 0} cy={node.y || 0} r={4 / scale} fill={baseStroke} style={{ pointerEvents: 'none' }} />)}
-                                                {symbol && (<text x={(node.x || 0) + (13 / scale)} y={(node.y || 0) - (8 / scale)} fontSize={`${10 / scale}px`} fill={textColor} textAnchor="start" style={{ pointerEvents: 'none' }}>{symbol}</text>)}
+
+
+                                                {symbol && (
+                                                    <text
+                                                        x={node.x || 0}
+                                                        y={(node.y || 0) + (4 / scale)} // انتقال به مرکز دایره
+                                                        fontSize={`${10 / scale}px`}
+                                                        textAnchor="middle"
+                                                        dominantBaseline="middle" // تراز عمودی دقیق
+                                                        style={{
+                                                            pointerEvents: 'none',
+                                                            userSelect: 'none',
+                                                            zIndex: 10 // اطمینان از قرارگیری روی دایره
+                                                        }}
+                                                    >
+                                                        {symbol}
+                                                    </text>
+                                                )}
+
                                                 <text x={node.x || 0} y={(node.y || 0) - (15 / scale)} fontSize={`${10 / scale}px`} fill={textColor} textAnchor="middle" style={{ textShadow: `1px 1px 2px ${theme.palette.background.default}`, pointerEvents: 'auto', cursor: activeTool === 'edit' ? 'text' : 'auto' }} onClick={(e) => handleTextClick(node.id, 'node', node.name, e as any)}><tspan>{node.name}</tspan>{symbol && (<tspan dx={4 / scale}>{symbol}</tspan>)}</text>
+                                            </g>
+                                        );
+                                    })} */}
+
+                                    {mapNodes.filter(n => !n.isHub).map(node => {
+                                        const status = getNodeStatus(node.id);
+                                        const symbol = getMaterialSymbol(node.productTypeCategory);
+                                        const baseStroke = theme.palette.primary.main;
+                                        const r = selectedNodeIds.has(node.id) ? 10 / scale : 8 / scale;
+
+                                        return (
+                                            <g key={node.id}>
+                                                {/* ۱. لایه زیرین: دایره اصلی نود */}
+                                                <circle
+                                                    id={node.id}
+                                                    cx={node.x || 0}
+                                                    cy={node.y || 0}
+                                                    r={r}
+                                                    fill={status === 0 ? baseStroke : 'white'} // اگر DMM بود داخلش سفید باشد
+                                                    stroke={baseStroke}
+                                                    strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale}
+                                                    className={node.isNew ? 'blink-node' : ''}
+                                                    style={{ cursor: 'pointer' }}
+                                                    onClick={(e) => handleNodeClick(node, e as any)}
+                                                />
+
+                                                {/* ۲. لایه میانی: نقطه داخلی برای وضعیت DMM (اگر نیاز است) */}
+                                                {status === 1 && (
+                                                    <circle
+                                                        cx={node.x || 0}
+                                                        cy={node.y || 0}
+                                                        r={3 / scale}
+                                                        fill={baseStroke}
+                                                        style={{ pointerEvents: 'none' }}
+                                                    />
+                                                )}
+
+                                                {/* ۳. لایه رویی: اموجی نماد (دقیقاً مرکز نود) */}
+                                                {symbol && (
+                                                    <text
+                                                        x={node.x || 0}
+                                                        y={node.y || 0}
+                                                        fontSize={`${9 / scale}px`}
+                                                        textAnchor="middle"
+                                                        dominantBaseline="central" // مرکزیت عمودی دقیق در SVG
+                                                        style={{
+                                                            pointerEvents: 'none',
+                                                            userSelect: 'none',
+                                                            fill: status === 0 ? 'white' : 'black' // تضاد رنگی با پس‌زمینه دایره
+                                                        }}
+                                                    >
+                                                        {symbol}
+                                                    </text>
+                                                )}
+
+                                                {/* ۴. متن نام نود (بالای نود) */}
+                                                <text
+                                                    x={node.x || 0}
+                                                    y={(node.y || 0) - (r + 5 / scale)}
+                                                    fontSize={`${10 / scale}px`}
+                                                    fill={textColor}
+                                                    textAnchor="middle"
+                                                    style={{
+                                                        fontWeight: 'bold',
+                                                        paintOrder: 'stroke',
+                                                        stroke: theme.palette.background.default,
+                                                        strokeWidth: 2 / scale,
+                                                        pointerEvents: 'none'
+                                                    }}
+                                                >
+                                                    {node.name}
+                                                </text>
                                             </g>
                                         );
                                     })}
@@ -1603,34 +1494,69 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             </svg>
                         </Box>
 
-                        <Box sx={{ width: '260px', borderLeft: '1px solid #eee', p: 2, display: 'flex', flexDirection: 'column', gap: 2, borderRadius: 0, overflow: 'auto' }}>
-                            <Typography variant="h6" sx={{ mb: 1 }}>Harita Kılavuzu</Typography>
-                            <Stack spacing={1}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ width: 16, height: 16, bgcolor: theme.palette.primary.main, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
-                                    <Typography variant="body2">Merkez Düğüm (TRAFO)</Typography>
+                        <Box sx={{
+                            width: { xs: isRightDrawerOpen ? '240px' : '0px', md: '260px' },
+                            position: { xs: 'fixed', md: 'relative' },
+                            right: '0',
+                            top: { xs: '20%', md: 0 },
+                            zIndex: 1200,
+                            height: { xs: '80%', md: '100%' }, // در موبایل تمام صفحه نباشد
+                            bgcolor: 'background.paper',
+                            transition: 'all 0.3s ease',
+                            borderLeft: '1px solid #eee',
+                            boxShadow: { xs: 3, md: 0 },
+                            borderRadius: { xs: '8px 0 0 8px', md: 0 }
+                        }}>
+                            <IconButton
+                                onClick={() => setIsRightDrawerOpen(!isRightDrawerOpen)}
+                                sx={{
+                                    display: { xs: 'flex', md: 'none' },
+                                    position: 'absolute',
+                                    left: '-30px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    bgcolor: 'secondary.main',
+                                    color: 'white',
+                                    width: '30px',
+                                    height: '40px',
+                                    borderRadius: '8px 0 0 8px',
+                                    '&:hover': { bgcolor: 'secondary.dark' }
+                                }}
+                            >
+                                {isRightDrawerOpen ? <IconPlus size={18} style={{ transform: 'rotate(45deg)' }} /> : <IconMapPin size={18} />}
+                            </IconButton>
+                            {(isRightDrawerOpen || theme.breakpoints.up('md')) && (
+                                <Box paddingLeft={2}>
+
+                                    <Typography variant="h6" mb={2}>Harita Kılavuzu</Typography>
+                                    <Stack spacing={1}>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 16, height: 16, bgcolor: theme.palette.primary.main, clipPath: 'polygon(50% 0%, 0% 100%, 100% 100%)' }} />
+                                            <Typography variant="body2">Merkez Düğüm (TRAFO)</Typography>
+                                        </Box>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Düğüm Tipi</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: theme.palette.primary.main }} />
+                                            <Typography variant="body2">YENİ (Dolu)</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${theme.palette.primary.main}`, bgcolor: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: theme.palette.primary.main }} />
+                                            </Box>
+                                            <Typography variant="body2">DMM (Yarı Dolu)</Typography>
+                                        </Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${theme.palette.primary.main}`, bgcolor: 'transparent' }} />
+                                            <Typography variant="body2">MEVCUT (Boş)</Typography>
+                                        </Box>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>Malzeme</Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Typography variant="body2" component="span">🧱</Typography><Typography variant="body2">Beton Direk</Typography></Box>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Typography variant="body2" component="span">⚙️</Typography><Typography variant="body2">Demir Direk</Typography></Box>
+                                        <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>Bağlantı Tipi</Typography>
+                                        {Object.keys(linkColors).map(type => (<Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Box sx={{ width: 24, height: 2, bgcolor: linkColors[type as keyof typeof linkColors] }} /><Typography variant="body2">{type}</Typography></Box>))}
+                                    </Stack>
                                 </Box>
-                                <Typography variant="body1" sx={{ fontWeight: 'bold' }}>Düğüm Tipi</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: theme.palette.primary.main }} />
-                                    <Typography variant="body2">YENİ (Dolu)</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${theme.palette.primary.main}`, bgcolor: 'transparent', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: theme.palette.primary.main }} />
-                                    </Box>
-                                    <Typography variant="body2">DMM (Yarı Dolu)</Typography>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${theme.palette.primary.main}`, bgcolor: 'transparent' }} />
-                                    <Typography variant="body2">MEVCUT (Boş)</Typography>
-                                </Box>
-                                <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>Malzeme</Typography>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Typography variant="body2" component="span">🧱</Typography><Typography variant="body2">Beton Direk</Typography></Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Typography variant="body2" component="span">⚙️</Typography><Typography variant="body2">Demir Direk</Typography></Box>
-                                <Typography variant="body1" sx={{ fontWeight: 'bold', mt: 1 }}>Bağlantı Tipi</Typography>
-                                {Object.keys(linkColors).map(type => (<Box key={type} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><Box sx={{ width: 24, height: 2, bgcolor: linkColors[type as keyof typeof linkColors] }} /><Typography variant="body2">{type}</Typography></Box>))}
-                            </Stack>
+                            )}
                         </Box>
                     </Box>
                 )}
@@ -1806,6 +1732,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             </Dialog>
 
         </Dialog>
+
     );
 };
 

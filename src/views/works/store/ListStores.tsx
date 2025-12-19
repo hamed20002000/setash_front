@@ -1223,7 +1223,7 @@ const ListStores = () => {
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
-                {workhouseId && workhouseInfo && (
+                {/* {workhouseId && workhouseInfo && (
                     <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1} mb={4}>
                         <Stack direction="row" spacing={1} flexWrap="wrap">
                             <Chip label={`Şantiye: ${workhouseInfo.name}`} color="primary" variant="filled" size="small" />
@@ -1269,6 +1269,84 @@ const ListStores = () => {
                                 </Button>
                             </CustomTooltip>
 
+                        </Stack>
+                    </Stack>
+                )} */}
+
+                {workhouseId && workhouseInfo && (
+                    <Stack
+                        // در موبایل (xs) ستونی و در دسکتاپ (sm به بالا) ردیفی
+                        direction={{ xs: 'column', sm: 'row' }}
+                        justifyContent="space-between"
+                        alignItems={{ xs: 'flex-start', sm: 'center' }} // در موبایل چپ‌چین و در دسکتاپ وسط
+                        spacing={2}
+                        mb={4}
+                    >
+                        {/* بخش Chipها */}
+                        <Stack
+                            // در موبایل زیر هم و در دسکتاپ کنار هم
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            flexWrap="wrap"
+                            sx={{ width: { xs: '100%', sm: 'auto' } }} // در موبایل تمام عرض برای فاصله گرفتن راحت‌تر
+                        >
+                            <Chip
+                                label={`Şantiye: ${workhouseInfo.name}`}
+                                color="primary"
+                                variant="filled"
+                                size="small"
+                                sx={{ width: { xs: 'fit-content', sm: 'auto' } }} // اندازه متناسب با متن
+                            />
+                            <Chip
+                                label={`Kod: ${workhouseInfo.code}`}
+                                color="success"
+                                variant="filled"
+                                size="small"
+                                sx={{ width: { xs: 'fit-content', sm: 'auto' } }}
+                            />
+                        </Stack>
+
+                        {/* بخش دکمه‌ها */}
+                        <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems="stretch"
+                            flexGrow={1}
+                            justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
+                            sx={{ width: { xs: '100%', sm: 'auto' } }}
+                        >
+                            {!isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Şantiyenin Depo Belgesi kaydetmek için tıklayınız" : ""}>
+                                    <BlinkingButton
+                                        variant="contained"
+                                        color="primary"
+                                        onClick={() => setIsFormVisible(true)}
+                                        fullWidth={false}
+                                        isBlinking={isBlinking}
+                                    >
+                                        Yeni Şantiyenin Depo Kaydet
+                                    </BlinkingButton>
+                                </CustomTooltip>
+                            )}
+                            {isFormVisible && (
+                                <CustomTooltip title={isTooltipGloballyEnabled ? "Kayıت formunu gizlemek için tıklayınız." : ""}>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        onClick={resetFormAndState}
+                                        fullWidth={false}
+                                        startIcon={<IconX size={20} />}
+                                    >
+                                        Gizle
+                                    </Button>
+                                </CustomTooltip>
+                            )}
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Geri dön" : ""}>
+                                <Button variant="outlined" color="error" onClick={() => navigate(-1)}
+                                    endIcon={<IconArrowRight size={20} />}>
+                                    Geri Dön
+                                </Button>
+                            </CustomTooltip>
                         </Stack>
                     </Stack>
                 )}
