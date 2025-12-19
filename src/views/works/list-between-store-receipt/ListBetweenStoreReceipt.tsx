@@ -1343,10 +1343,16 @@ const ListBetweenStoreReceipt = () => {
                     )}
                 </DialogContent>
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                    <Stack direction="row" spacing={1}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
+                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
+                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                    >
                         <Button
                             variant="contained"
                             color="error"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             disabled={!viewedReceipt}
                             onClick={() => { if (viewedReceipt) exportReceiptsToPdf([viewedReceipt], `Giriş_${viewedReceipt.code}`); }}
@@ -1356,14 +1362,19 @@ const ListBetweenStoreReceipt = () => {
                         <Button
                             variant="contained"
                             color="success"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedReceipt}
                             onClick={() => { if (viewedReceipt) exportReceiptsToExcel([viewedReceipt], `Giriş_${viewedReceipt.code}`); }}
                         >
                             Excel İndir
                         </Button>
+                        <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }} >Kapat</Button>
+
                     </Stack>
-                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

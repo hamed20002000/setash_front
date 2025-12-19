@@ -1346,7 +1346,7 @@ const ListStores = () => {
                             )}
 
                             <Grid item xs={12} sm={workhouseId ? 4 : 6}>
-                                <CustomFormLabel htmlFor="store-name" required>İsim</CustomFormLabel>
+                                <CustomFormLabel htmlFor="store-name" required>Şantiye Adı</CustomFormLabel>
                                 <CustomTextField
                                     id="store-name"
                                     placeholder="Şantiye Adı"
@@ -1363,7 +1363,7 @@ const ListStores = () => {
                                 />
                             </Grid>
                             <Grid item xs={12} sm={workhouseId ? 4 : 6}>
-                                <CustomFormLabel htmlFor="store-code" required>Kod</CustomFormLabel>
+                                <CustomFormLabel htmlFor="store-code" required>Şantiye Kodu</CustomFormLabel>
                                 <CustomTextField
                                     id="store-code"
                                     placeholder="Şantiye Kodu"
@@ -1440,7 +1440,7 @@ const ListStores = () => {
                                 </FormControl>
                             </Grid>
                             <Grid item xs={12} sm={12}>
-                                <CustomFormLabel htmlFor="store-address" required>Adres</CustomFormLabel>
+                                <CustomFormLabel htmlFor="store-address" required>Şantiye Adresi</CustomFormLabel>
                                 <CustomTextField
                                     id="store-address"
                                     placeholder="Şantiye Adresi"

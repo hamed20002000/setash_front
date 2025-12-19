@@ -344,6 +344,37 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
         }
     };
 
+    const toggleOrderEndStatus = async (orderId: string, shouldEnd: boolean) => {
+        const token = localStorage.getItem('authToken');
+        if (!token) return;
+
+        try {
+            const payload = { id: Number(orderId), isEnd: shouldEnd };
+            const res = await axios.put(
+                server.baseurl + server.initialoperations + "update-order-is-end",
+                payload,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (res.data?.httpStatusCode === 200) {
+                showAlert(shouldEnd ? 'Sipariş sonlandırıldı ' : 'Sipariş aktifleştirildi.', 'success');
+
+                // اگر مخفی شد، انتخاب فعلی را پاک کن تا از کمبو برود
+                if (shouldEnd) {
+                    setSelectedOrder(null);
+                    onOrderSelect?.(null);
+                    items.forEach(i => onRemoveItem(i.id)); // پاک کردن ردیف‌های جدول
+                }
+
+                if (workhouseId) {
+                    await fetchOrdersByWorkhouse(workhouseId);
+                }
+            }
+        } catch (error) {
+            showAlert('Durum değiştirilirken hata oluştu.', 'error');
+        }
+    };
+
     const isItemsEmpty = items.length === 0;
 
     return (
@@ -388,6 +419,16 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                         {selectedOrder && (
                             <Stack direction="row" alignItems="center" spacing={1}>
                                 <Button variant="outlined" onClick={() => setOpenOrderDetailsModal(true)}>Detayları Gör</Button>
+
+                                <CustomTooltip title="Bu siparişi listeye göre gizle (Sonlandır)">
+                                    <IconButton
+                                        color="error"
+                                        onClick={() => toggleOrderEndStatus(selectedOrder.id, true)}
+                                        sx={{ border: '1px solid', borderColor: 'error.main' }}
+                                    >
+                                        <IconEyeOff size={20} />
+                                    </IconButton>
+                                </CustomTooltip>
                                 <CustomTooltip title="Kaynak Siparişi Sıfırla">
                                     <IconButton color="primary" onClick={() => handleOrderChange(null, null)}>
                                         <IconRotate2 size={20} />
@@ -429,12 +470,24 @@ const StoreInvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
                 <Table stickyHeader aria-label="invoice items table">
                     <TableHead>
                         <TableRow>
-                            <TableCell sx={{ width: '25%' }}>Ürün & Birim</TableCell>
-                            <TableCell sx={{ width: '15%' }}>Miktar & Fiyat</TableCell>
-                            <TableCell sx={{ width: '20%' }}>Tedarikçi & Firm</TableCell>
-                            <TableCell sx={{ width: '15%' }}>İndirimler</TableCell>
-                            <TableCell sx={{ width: '20%' }}>Açıklama</TableCell>
-                            <TableCell sx={{ width: '5%' }} align="right">İşlemler</TableCell>
+                            <TableCell sx={{ width: { xs: '150px', md: '25%' }, minWidth: '150px' }}>
+                                Ürün & Birim
+                            </TableCell>
+                            <TableCell sx={{ width: { xs: '120px', md: '15%' }, minWidth: '120px' }}>
+                                Miktar & Fiyat
+                            </TableCell>
+                            <TableCell sx={{ width: { xs: '180px', md: '20%' }, minWidth: '180px' }}>
+                                Tedarikçi & Firm
+                            </TableCell>
+                            <TableCell sx={{ width: { xs: '100px', md: '15%' }, minWidth: '100px' }}>
+                                İndirimler
+                            </TableCell>
+                            <TableCell sx={{ width: { xs: '150px', md: '20%' }, minWidth: '150px' }}>
+                                Açıklama
+                            </TableCell>
+                            <TableCell sx={{ width: '80px' }} align="right">
+                                İşlemler
+                            </TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>

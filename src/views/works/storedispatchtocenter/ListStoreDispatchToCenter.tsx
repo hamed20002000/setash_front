@@ -1861,8 +1861,56 @@ const ListStoreDispatchToCenter = () => {
                         </Box>
                     )}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary">Kapat</Button>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }} // ستونی در موبایل، ردیفی در دسکتاپ
+                        spacing={2}
+                        sx={{ width: '100%' }}
+                    >
+                        <Stack direction="row" spacing={2} sx={{ flexGrow: 1 }}>
+                            <Button
+                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                sx={{ flex: 1 }}
+                                variant="contained"
+                                color="error"
+                                startIcon={<IconFileText />}
+                                // استفاده از تابع موجود در کد شما برای خروجی PDF
+                                onClick={() => {
+                                    if (selectedRowForMenu) {
+                                        exportDispatchesToPdf([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
+                                    }
+                                }}
+                            >
+                                PDF İndir
+                            </Button>
+
+                            <Button
+                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                sx={{ flex: 1 }}
+                                variant="contained"
+                                color="success"
+                                startIcon={<IconFileSpreadsheet />}
+                                // استفاده از تابع موجود در کد شما برای خروجی Excel
+                                onClick={() => {
+                                    if (selectedRowForMenu) {
+                                        exportDispatchesToExcel([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
+                                    }
+                                }}
+                            >
+                                Excel İndir
+                            </Button>
+                        </Stack>
+
+                        <Button
+                            onClick={() => setOpenDetailsModal(false)}
+                            color="secondary"
+                            variant="outlined"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
+                        >
+                            Kapat
+                        </Button>
+                    </Stack>
                 </DialogActions>
             </Dialog>
 

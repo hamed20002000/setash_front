@@ -1660,10 +1660,16 @@ const ListReceiptsSendedFromStore = () => {
 
                 {/* ✅ فوتر مودال شامل دکمه‌های دانلود */}
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                    <Stack direction="row" spacing={1}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
+                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
+                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                    >
                         <Button
                             variant="contained"
                             color="error"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileText />} // آیکون PDF
                             disabled={!viewedReceipt}
                             onClick={() => {
@@ -1680,6 +1686,8 @@ const ListReceiptsSendedFromStore = () => {
                         <Button
                             variant="contained"
                             color="success"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />} // آیکون Excel
                             disabled={!viewedReceipt}
                             onClick={async () => {
@@ -1693,8 +1701,11 @@ const ListReceiptsSendedFromStore = () => {
                         >
                             Excel İndir
                         </Button>
+                        <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }} >Kapat</Button>
+
                     </Stack>
-                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

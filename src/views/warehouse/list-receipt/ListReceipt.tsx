@@ -1550,10 +1550,16 @@ const ListReceipts = () => {
                 </DialogContent>
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
 
-                    <Stack direction="row" spacing={1}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
+                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
+                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                    >
                         <Button
                             variant="contained"
                             color="error" // قرمز برای PDF
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileDownload />}
                             onClick={() => {
                                 if (viewedReceipt) {
@@ -1567,6 +1573,8 @@ const ListReceipts = () => {
                         <Button
                             variant="contained"
                             color="success" // سبز برای اکسل
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileDownload />}
                             onClick={() => {
                                 if (viewedReceipt) {
@@ -1577,12 +1585,14 @@ const ListReceipts = () => {
                         >
                             Excel İndir
                         </Button>
-                    </Stack>
+                        {/* دکمه بستن سمت راست */}
+                        <Button onClick={handleCloseModal} color="secondary" variant="outlined"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }} >
+                            Kapat
+                        </Button>
 
-                    {/* دکمه بستن سمت راست */}
-                    <Button onClick={handleCloseModal} color="secondary" variant="outlined">
-                        Kapat
-                    </Button>
+                    </Stack>
 
                 </DialogActions>
             </Dialog>

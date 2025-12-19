@@ -1758,6 +1758,7 @@ const ListInvoices = () => {
                                 // اگر تاریخ هم لازم داری، یک state هم برای تاریخ بساز:
                                 // setSelectedOrderDateFromChild(order ? order.docDate : null);
                             }}
+
                         />
 
 
@@ -2098,11 +2099,10 @@ const ListInvoices = () => {
                     </TableContainer>
                     <>
                         {modalDetails.length > 0 && (
-                            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                                <Typography variant="h6" gutterBottom color="primary" sx={{ fontSize: '1rem', fontWeight: 'bold' }}>
-                                    Birim Bazlı Toplam Tutarlar ((Miktar x Fiyat) - İndirim)
-                                </Typography>
-                                <TableContainer component={Paper} elevation={0} sx={{ bgcolor: 'transparent' }}>
+
+                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>
@@ -2143,10 +2143,16 @@ const ListInvoices = () => {
                 </DialogContent>
                 <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
                     {/* سمت چپ: دکمه‌های دانلود */}
-                    <Stack direction="row" spacing={1}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
+                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
+                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                    >
                         <Button
                             variant="contained"
                             color="error" // رنگ قرمز برای PDF
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFile />}
                             onClick={() => viewedInvoice && exportToPdf(viewedInvoice)}
                             disabled={!viewedInvoice}
@@ -2156,22 +2162,22 @@ const ListInvoices = () => {
                         <Button
                             variant="contained"
                             color="success" // رنگ سبز برای Excel
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileSpreadsheet />}
                             onClick={() => viewedInvoice && exportToExcel(viewedInvoice)}
                             disabled={!viewedInvoice}
                         >
                             Excel İndir
                         </Button>
+                        <Button onClick={handleCloseModal} color="secondary" variant="outlined" fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }} >
+                            Kapat
+                        </Button>
                     </Stack>
-
-                    {/* سمت راست: دکمه بستن */}
-                    <Button onClick={handleCloseModal} color="secondary" variant="outlined">
-                        Kapat
-                    </Button>
                 </DialogActions>
             </Dialog>
 
-            {/* Vehicle selection */}
             <Dialog open={openVehicleModal} onClose={() => setOpenVehicleModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Araç Seçimi</DialogTitle>
                 <DialogContent>

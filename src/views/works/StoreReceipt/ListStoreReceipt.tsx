@@ -1184,7 +1184,6 @@ const ListStoreReceipts = () => {
                 </DialogActions>
             </Dialog>
 
-            {/* Details Modal (Updated with Summary Table & Downloads) */}
             <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
                 <DialogTitle>
                     Fiş Detayları
@@ -1216,7 +1215,6 @@ const ListStoreReceipts = () => {
                                 </Table>
                             </TableContainer>
 
-                            {/* ✅ جدول خلاصه جمع‌ها */}
                             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                                 <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
@@ -1249,28 +1247,50 @@ const ListStoreReceipts = () => {
                         </Typography>
                     )}
                 </DialogContent>
-                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                    <Stack direction="row" spacing={1}>
+                <DialogActions sx={{ px: 3, pb: 2 }}>
+                    <Stack
+                        direction={{ xs: 'column', sm: 'row' }} // در موبایل ستونی، در دسکتاپ ردیفی
+                        spacing={2} // فاصله یکسان بین تمام دکمه‌ها
+                        sx={{ width: '100%' }} // اشغال تمام عرض کادر
+                    >
+                        {/* دکمه PDF */}
                         <Button
                             variant="contained"
                             color="error"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }}
                             startIcon={<IconFileText />}
                             disabled={!viewedReceipt}
                             onClick={() => { if (viewedReceipt) exportReceiptsToPdf([viewedReceipt], `Fiş_${viewedReceipt.code}`); }}
+                        // در حالت دسکتاپ فضای مساوی می‌گیرند
                         >
                             PDF İndir
                         </Button>
+
+                        {/* دکمه Excel */}
                         <Button
                             variant="contained"
                             color="success"
+                            fullWidth
                             startIcon={<IconFileSpreadsheet />}
                             disabled={!viewedReceipt}
                             onClick={() => { if (viewedReceipt) exportReceiptsToExcel([viewedReceipt], `Fiş_${viewedReceipt.code}`); }}
+                            sx={{ flex: 1 }}
                         >
                             Excel İndir
                         </Button>
+
+                        {/* دکمه kapat */}
+                        <Button
+                            onClick={() => setOpenDetailsModal(false)}
+                            color="secondary"
+                            variant="outlined"
+                            fullWidth
+                            sx={{ flex: 1 }}
+                        >
+                            Kapat
+                        </Button>
                     </Stack>
-                    <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
 
