@@ -34,7 +34,12 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
     onLoadSubEntryForEdit
 }) => {
     const [isSubExpanded, setIsSubExpanded] = useState(false);
-
+    const displayDnName = (dnValue: string) => {
+        if (dnValue.includes('###')) {
+            return dnValue.split('###')[0]; // فقط نام را برمی‌گرداند: c1
+        }
+        return dnValue; // اگر داده قدیمی باشد، خودش را نشان می‌دهد
+    };
     return (
         <React.Fragment>
             <TableRow sx={{
@@ -54,7 +59,8 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                 {/* نام DN (که شامل "TOPLAM" است) نمایش داده شود */}
                 <TableCell>
                     <Typography variant="body2" fontWeight={subEntry.isToplamRow ? 'bold' : 'normal'}>
-                        {subEntry.dn}
+                        {/* 🔴 اینجا اصلاح شد: استفاده از تابع برای حذف آیدی از ظاهر جدول */}
+                        {displayDnName(subEntry.dn)}
                     </Typography>
                 </TableCell>
 
@@ -112,7 +118,6 @@ const SubEntryRow: React.FC<SubEntryRowProps> = ({
                             pb: 1,
                             borderRadius: '4px',
                         }}>
-                            {/* ... (کدهای نمایش آیتم‌ها بدون تغییر) ... */}
                             <Typography variant="caption" gutterBottom component="div"
                                 sx={{ mt: 1, fontWeight: 'bold' }}>
                                 {subEntry.isToplamRow ? 'Toplam Öğeler:' : 'Alt Öğeler:'}

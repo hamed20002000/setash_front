@@ -219,38 +219,65 @@ const ListTransmission = () => {
         setIsFormVisible(false);
     }, [itemsList, addedItems, transmissionList]);
 
+    // const combinedProductTypeOptions = useMemo(() => {
+    //     if (!allProductTypes.length || !channelRowsData.length) {
+    //         return [];
+    //     }
+
+    //     const productTypeMap = new Map(allProductTypes.map(product => [String(product.id), product.name]));
+
+    //     const finalOptions: SelectOption[] = [];
+    //     for (const row of channelRowsData) {
+    //         const productTypeId = row?.productType?.id;
+    //         const productName = productTypeMap.get(String(productTypeId));
+
+    //         if (productName) {
+    //             finalOptions.push({
+    //                 id: String(row.id),
+    //                 productTypeId: String(productTypeId),
+    //                 name: productName,
+    //                 label: row.label,
+    //                 parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
+    //                 productStatus: row.productStatus as 0 | 1 | 2,
+    //                 groupId: row.groupId,
+    //                 type: row.productType?.type
+    //             });
+    //         }
+    //     }
+
+    //     return finalOptions;
+    // }, [allProductTypes, channelRowsData]);
+
     const combinedProductTypeOptions = useMemo(() => {
         if (!allProductTypes.length || !channelRowsData.length) {
             return [];
         }
 
-        const productTypeMap = new Map(allProductTypes.map(product => [String(product.id), product.name]));
+        const catalogMap = new Map(allProductTypes.map(p => [String(p.id), p]));
 
         const finalOptions: SelectOption[] = [];
-        for (const row of channelRowsData) {
-            const productTypeId = row?.productType?.id;
-            const productName = productTypeMap.get(String(productTypeId));
 
-            if (productName) {
-                // finalOptions.push({
-                //     id: String(row.id),
-                //     productTypeId: String(productTypeId),
-                //     name: productName,
-                //     label: row.label,
-                //     parent: row.parent
-                //         ? { id: String(row.parent.id), label: row.parent.label }
-                //         : null,
-                //     productStatus: row.productStatus as 0 | 1 | 2,
-                // });
+        debugger
+
+        for (const row of channelRowsData) {
+            // ID محصول در کاتالوگ (مثلاً ۲۵ برای C1 بتنی)
+            const catalogId = String(row?.productType?.id || '');
+            const productDetail = catalogMap.get(catalogId);
+
+            if (productDetail) {
                 finalOptions.push({
+                    // این ID نمونه است (مثلاً ۷۵) - این فیلد نباید تکراری باشد
                     id: String(row.id),
-                    productTypeId: String(productTypeId),
-                    name: productName,
+                    // این ID کاتالوگ است (مثلاً ۲۵)
+                    productTypeId: catalogId,
+                    name: productDetail.name, // نام می‌تواند تکراری باشد (مثل C1)
                     label: row.label,
                     parent: row.parent ? { id: String(row.parent.id), label: row.parent.label } : null,
-                    productStatus: row.productStatus as 0 | 1 | 2,
+                    // productStatus: row.productStatus as 0 | 1 | 2,
+                    productStatus: row.productStatus,
                     groupId: row.groupId,
-                    type: row.productType?.type
+                    // --- مهم‌ترین بخش: گرفتن TYPE واقعی از کاتالوگ ---
+                    type: Number(productDetail.type)
                 });
             }
         }
@@ -464,21 +491,15 @@ const ListTransmission = () => {
             const response = await axios.get(server.baseurl + server.initialoperations + `get-network-by-id/${id}`, {
                 headers: { "Accept": "application/json", "Authorization": `Bearer ${authToken}` }
             });
-            // if (response.data.httpStatusCode === 200) {
-            //     setNetworkTitleForDisplay(response.data.data.title);
-            //     const allChannelRows = response.data.data.networkTrAdis.flatMap((tradi: any) => tradi.channelRows);
-            //     setChannelRowsData(allChannelRows);
-            // } 
-
+            debugger
             if (response.data.httpStatusCode === 200) {
                 setNetworkTitleForDisplay(response.data.data.title);
 
                 // تغییر مهم اینجاست:
                 const allChannelRows = response.data.data.networkTrAdis.flatMap((tradi: any) => {
-                    // برای هر ردیف، ID گروه (tradi.id) را هم ذخیره می‌کنیم
                     return tradi.channelRows.map((row: any) => ({
                         ...row,
-                        groupId: tradi.id // <--- این شناسه گروه است (مثلاً 26 برای TR-1 و 27 برای TR-2)
+                        groupId: tradi.id
                     }));
                 });
 

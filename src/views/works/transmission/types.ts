@@ -15,6 +15,7 @@ export interface MapNode extends d3.SimulationNodeDatum {
 
     productTypeCategory?: 1 | 2;
     groupId?: string;
+    status?: number;
 }
 export type NodeStatus = 0 | 1 | 2; // اگر نداری اضافه کن (0=YENİ, 1=DMM, 2=MEVCUT)
 

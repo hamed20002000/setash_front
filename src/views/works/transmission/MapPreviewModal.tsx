@@ -109,7 +109,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     productTypesList,
     availableTrafoOptionsForMap,
     availableProductTypeOptionsForMap,
-    nodeStatusByChannelRowId,
+    // nodeStatusByChannelRowId,
 }) => {
     const theme = useTheme();
     const textColor = getContrastingTextColor(theme);
@@ -176,25 +176,46 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     }, []);
     // const getMaterialSymbol = (ptcat?: 1 | 2) => (ptcat === 1 ? '🧱' : ptcat === 2 ? '⚙️' : '');
 
+    // const getMaterialSymbol = (ptcat?: any) => {
+    //     debugger
+    //     const category = Number(ptcat);
+    //     if (category === 1) return '🧱';
+    //     if (category === 2) return '⚙️';
+    //     return '';
+    // };
+
     const getMaterialSymbol = (ptcat?: any) => {
-        debugger
-        const category = Number(ptcat);
-        if (category === 1) return '🧱';
-        if (category === 2) return '⚙️';
+        if (!ptcat) return '';
+        if (Number(ptcat) === 1) return '🧱';
+        if (Number(ptcat) === 2) return '⚙️';
         return '';
     };
 
-    const getNodeStatus = useCallback((nodeId: string, _fallbackMiktarTipi?: MiktarTipi): NodeStatus => {
-        if (nodeStatusByChannelRowId && nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] !== undefined) {
-            return nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] as NodeStatus;
+    // const getNodeStatus = useCallback((nodeId: string, _fallbackMiktarTipi?: MiktarTipi): NodeStatus => {
+    //     if (nodeStatusByChannelRowId && nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] !== undefined) {
+    //         return nodeStatusByChannelRowId[nodeId as keyof typeof nodeStatusByChannelRowId] as NodeStatus;
+    //     }
+    //     const incoming = mapEdges.find(e => e.toNodeId === nodeId && e.miktarTipi !== 'TR-Connection');
+    //     if (incoming) {
+    //         if (String(incoming.miktarTipi).toLowerCase().includes('dmm')) return 1;
+    //         return 0;
+    //     }
+    //     return 0;
+    // }, [nodeStatusByChannelRowId, mapEdges]);
+
+
+    const getNodeStatus = useCallback((nodeId: string): NodeStatus => {
+        // ۱. ابتدا در میان گره‌های مپ شده فعلی جستجو کن
+        const node = mapNodes.find(n => n.id === nodeId);
+        if (node && node.status !== undefined) {
+            return node.status as NodeStatus;
         }
-        const incoming = mapEdges.find(e => e.toNodeId === nodeId && e.miktarTipi !== 'TR-Connection');
-        if (incoming) {
-            if (String(incoming.miktarTipi).toLowerCase().includes('dmm')) return 1;
-            return 0;
-        }
-        return 0;
-    }, [nodeStatusByChannelRowId, mapEdges]);
+
+        // ۲. اگر پیدا نشد (مثلاً گره جدید است)، از لیست آپشن‌ها کمک بگیر
+        const opt = allProductTypes.find(o => String(o.id) === nodeId);
+        return (opt?.productStatus ?? 0) as NodeStatus;
+    }, [mapNodes, allProductTypes]);
+
     const calculatedTotals = useMemo(() => {
         const groups: Record<string, { totalQuantity: number; totalUnitWeights: number }> = {};
 
@@ -374,107 +395,283 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         }
     }, [activeTool, networkId]);
 
+    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
+    //     debugger
+    //     const nodesMap = new Map<string, MapNode>();
+    //     const links: D3MapLink[] = [];
+
+    //     const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
+    //     const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
+
+    //     currentTransmissions.forEach(t => {
+    //         const fromId = String(t.fromProductTypeId || '');
+    //         const toId = String(t.toProductTypeId || '');
+
+    //         const fromDetails = detailsLookup.get(fromId);
+    //         const toDetails = detailsLookup.get(toId);
+
+    //         const fromTechDetails = productTypeDetailsMap.get(fromId);
+    //         const toTechDetails = productTypeDetailsMap.get(toId);
+
+    //         const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
+    //         const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
+
+    //         if (!nodesMap.has(fromUniqueKey)) {
+    //             const isTrafo = fromDetails?.type === 0;
+    //             nodesMap.set(fromUniqueKey, {
+    //                 id: fromId || fromUniqueKey,
+    //                 name: t.fromProductType,
+    //                 x: t.fromProductTypeX,
+    //                 y: t.fromProductTypeY,
+    //                 fx: t.fromProductTypeX,
+    //                 fy: t.fromProductTypeY,
+    //                 isNew: !fromId,
+    //                 isHub: isTrafo,
+    //                 groupId: fromDetails?.groupId,
+    //                 productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
+    //             });
+    //         }
+    //         if (!nodesMap.has(toUniqueKey)) {
+    //             const isTrafo = toDetails?.type === 0;
+    //             nodesMap.set(toUniqueKey, {
+    //                 id: toId || toUniqueKey,
+    //                 name: t.toProductType,
+    //                 x: t.toProductTypeX,
+    //                 y: t.toProductTypeY,
+    //                 fx: t.toProductTypeX,
+    //                 fy: t.toProductTypeY,
+    //                 isNew: !toId,
+    //                 isHub: isTrafo,
+    //                 groupId: toDetails?.groupId,
+    //                 productTypeCategory: toTechDetails?.type as 1 | 2 | undefined,
+    //             });
+    //         }
+    //     });
+
+    //     const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
+    //     const totalHubs = hubs.length;
+
+    //     hubs.forEach((hub, index) => {
+    //         if (hub.x === undefined || hub.y === undefined) {
+    //             const sectionWidth = initialViewWidth / (totalHubs + 1);
+    //             const xPos = sectionWidth * (index + 1);
+
+    //             hub.fx = xPos;
+    //             hub.fy = initialViewHeight / 2;
+    //             hub.x = xPos;
+    //             hub.y = initialViewHeight / 2;
+    //         }
+    //     });
+    //     currentTransmissions.forEach(t => {
+    //         const fromId = String(t.fromProductTypeId || '');
+    //         const toId = String(t.toProductTypeId || '');
+    //         const fromDetails = detailsLookup.get(fromId);
+    //         const toDetails = detailsLookup.get(toId);
+
+    //         const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
+    //         const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
+
+    //         const fromNode = nodesMap.get(fromUniqueKey);
+    //         const toNode = nodesMap.get(toUniqueKey);
+
+    //         if (fromNode && toNode) {
+    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
+    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
+
+    //             links.push({
+    //                 id: t.id,
+    //                 source: fromNode,
+    //                 target: toNode,
+    //                 distance: t.distance,
+    //                 miktarTipi: newMiktarTipi,
+    //                 formulaTitle: t.formulaTitle,
+    //                 items: t.items
+    //             });
+    //         }
+    //     });
+
+    //     return { nodes: Array.from(nodesMap.values()), links };
+    // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
+
+    // const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
+    //     const nodesMap = new Map<string, MapNode>();
+    //     const links: D3MapLink[] = [];
+
+    //     // ۱. ایجاد دیتابیس کوچک از محصولات برای پیدا کردن Type (1 یا 2)
+    //     // استفاده از کدهای اورجینال خودتان برای lookup
+    //     const detailsLookup = new Map(allProductTypes.map(opt => [String(opt.id), opt]));
+    //     const productTypeDetailsMap = new Map((productTypesList || []).map(p => [String(p.id), p]));
+
+    //     debugger
+
+    //     currentTransmissions.forEach(t => {
+    //         // شناسه ها را به رشته تبدیل می‌کنیم
+    //         const fromId = String(t.fromProductTypeId || '');
+    //         const toId = String(t.toProductTypeId || '');
+
+    //         // پیدا کردن اطلاعات تکمیلی از هر دو منبع موجود در کد شما
+    //         const fromDetails = detailsLookup.get(fromId);
+    //         const toDetails = detailsLookup.get(toId);
+    //         const fromTechDetails = productTypeDetailsMap.get(fromId);
+    //         const toTechDetails = productTypeDetailsMap.get(toId);
+
+    //         // --- پردازش گره مبدا (From Node) ---
+    //         if (!nodesMap.has(fromId)) {
+    //             // تشخیص ترافو: یا از روی type API یا از روی منطق قبلی خودتان (details.type === 0)
+    //             const isTrafo = fromTechDetails?.type === 0 || fromDetails?.type === 0;
+
+    //             nodesMap.set(fromId, {
+    //                 id: fromId,
+    //                 name: t.fromProductType,
+    //                 x: t.fromProductTypeX,
+    //                 y: t.fromProductTypeY,
+    //                 fx: t.fromProductTypeX,
+    //                 fy: t.fromProductTypeY,
+    //                 isNew: !fromId || fromId.startsWith('temp-'),
+    //                 isHub: isTrafo, // این خط باعث برگرداندن مثلث می‌شود
+    //                 groupId: fromDetails?.groupId || fromTechDetails?.parentProductType?.id,
+    //                 // استخراج نوع بتن (1) یا آهن (2)
+    //                 productTypeCategory: (fromTechDetails?.type || fromDetails?.type) as 1 | 2 | undefined,
+    //             });
+    //         }
+
+    //         // --- پردازش گره مقصد (To Node) ---
+    //         if (!nodesMap.has(toId)) {
+    //             const isTrafo = toTechDetails?.type === 0 || toDetails?.type === 0;
+
+    //             nodesMap.set(toId, {
+    //                 id: toId,
+    //                 name: t.toProductType,
+    //                 x: t.toProductTypeX,
+    //                 y: t.toProductTypeY,
+    //                 fx: t.toProductTypeX,
+    //                 fy: t.toProductTypeY,
+    //                 isNew: !toId || toId.startsWith('temp-'),
+    //                 isHub: isTrafo, // این خط باعث برگرداندن مثلث می‌شود
+    //                 groupId: toDetails?.groupId || toTechDetails?.parentProductType?.id,
+    //                 // استخراج نوع بتن (1) یا آهن (2)
+    //                 productTypeCategory: (toTechDetails?.type || toDetails?.type) as 1 | 2 | undefined,
+    //             });
+    //         }
+
+    //         // --- ایجاد یال‌ها (Links) ---
+    //         const fromNode = nodesMap.get(fromId);
+    //         const toNode = nodesMap.get(toId);
+
+    //         if (fromNode && toNode) {
+    //             const isConnectionToHub = fromNode.isHub || toNode.isHub;
+    //             const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
+
+    //             links.push({
+    //                 id: t.id,
+    //                 source: fromNode,
+    //                 target: toNode,
+    //                 distance: t.distance,
+    //                 miktarTipi: newMiktarTipi,
+    //                 formulaTitle: t.formulaTitle,
+    //                 items: t.items
+    //             });
+    //         }
+    //     });
+
+    //     // --- چیدمان ترافوها (مثلث‌ها) طبق کد اصلی خودتان ---
+    //     const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
+    //     const totalHubs = hubs.length;
+
+    //     hubs.forEach((hub, index) => {
+    //         if (hub.x === undefined || hub.y === undefined) {
+    //             const sectionWidth = initialViewWidth / (totalHubs + 1);
+    //             const xPos = sectionWidth * (index + 1);
+    //             hub.fx = xPos;
+    //             hub.fy = initialViewHeight / 2;
+    //             hub.x = xPos;
+    //             hub.y = initialViewHeight / 2;
+    //         }
+    //     });
+
+    //     return { nodes: Array.from(nodesMap.values()), links };
+    // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
+
+
     const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
-        debugger
         const nodesMap = new Map<string, MapNode>();
         const links: D3MapLink[] = [];
 
-
-
-
-        const detailsLookup = new Map(allProductTypes.map(opt => [opt.id, opt]));
-        const productTypeDetailsMap = new Map(productTypesList.map(p => [String(p.id), p]));
-
-        currentTransmissions.forEach(t => {
-            const fromId = String(t.fromProductTypeId || '');
-            const toId = String(t.toProductTypeId || '');
-
-            const fromDetails = detailsLookup.get(fromId);
-            const toDetails = detailsLookup.get(toId);
-
-            const fromTechDetails = productTypeDetailsMap.get(fromId);
-            const toTechDetails = productTypeDetailsMap.get(toId);
-
-            const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
-            const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
-
-            if (!nodesMap.has(fromUniqueKey)) {
-                const isTrafo = fromDetails?.type === 0;
-                nodesMap.set(fromUniqueKey, {
-                    id: fromId || fromUniqueKey,
-                    name: t.fromProductType,
-                    x: t.fromProductTypeX,
-                    y: t.fromProductTypeY,
-                    fx: t.fromProductTypeX,
-                    fy: t.fromProductTypeY,
-                    isNew: !fromId,
-                    isHub: isTrafo,
-                    groupId: fromDetails?.groupId,
-                    productTypeCategory: fromTechDetails?.type as 1 | 2 | undefined,
-                });
-            }
-            if (!nodesMap.has(toUniqueKey)) {
-                const isTrafo = toDetails?.type === 0;
-                nodesMap.set(toUniqueKey, {
-                    id: toId || toUniqueKey,
-                    name: t.toProductType,
-                    x: t.toProductTypeX,
-                    y: t.toProductTypeY,
-                    fx: t.toProductTypeX,
-                    fy: t.toProductTypeY,
-                    isNew: !toId,
-                    isHub: isTrafo,
-                    groupId: toDetails?.groupId,
-                    productTypeCategory: toTechDetails?.type as 1 | 2 | undefined,
-                });
-            }
+        // ۱. ایجاد کاتالوگ فنی بر اساس ID (کلید یکتا)
+        // این کار باعث می‌شود اگر دو رکورد با نام یکسان اما ID متفاوت داریم، هر دو حفظ شوند.
+        const technicalCatalog = new Map();
+        (productTypesList || []).forEach(p => {
+            technicalCatalog.set(String(p.id), p);
         });
 
-        const hubs = Array.from(nodesMap.values()).filter(n => n.isHub);
-        const totalHubs = hubs.length;
-
-        hubs.forEach((hub, index) => {
-            if (hub.x === undefined || hub.y === undefined) {
-                const sectionWidth = initialViewWidth / (totalHubs + 1);
-                const xPos = sectionWidth * (index + 1);
-
-                hub.fx = xPos;
-                hub.fy = initialViewHeight / 2;
-                hub.x = xPos;
-                hub.y = initialViewHeight / 2;
-            }
+        // ۲. ایجاد نقشه آپشن‌ها بر اساس Instance ID
+        const optionsLookup = new Map();
+        (allProductTypes || []).forEach(opt => {
+            optionsLookup.set(String(opt.id), opt);
         });
+
+        debugger
         currentTransmissions.forEach(t => {
-            const fromId = String(t.fromProductTypeId || '');
-            const toId = String(t.toProductTypeId || '');
-            const fromDetails = detailsLookup.get(fromId);
-            const toDetails = detailsLookup.get(toId);
+            // استفاده از ID به جای نام برای شناسایی گره‌ها
+            const pair = [
+                { id: String(t.fromProductTypeId), name: t.fromProductType, x: t.fromProductTypeX, y: t.fromProductTypeY },
+                { id: String(t.toProductTypeId), name: t.toProductType, x: t.toProductTypeX, y: t.toProductTypeY }
+            ];
 
-            const fromUniqueKey = fromId || `${t.fromProductType}_${fromDetails?.groupId || 'nogroup'}`;
-            const toUniqueKey = toId || `${t.toProductType}_${toDetails?.groupId || 'nogroup'}`;
+            pair.forEach(item => {
+                if (item.id && item.id !== 'undefined' && !nodesMap.has(item.id)) {
 
-            const fromNode = nodesMap.get(fromUniqueKey);
-            const toNode = nodesMap.get(toUniqueKey);
+                    const optRecord = optionsLookup.get(item.id);
+                    // // پیدا کردن لینک به کاتالوگ فنی (بسیار مهم: از فیلد productTypeId استفاده کنید)
+                    const linkedTechId = optRecord ? String(optRecord.productTypeId) : item.id;
+                    // const techDetail = technicalCatalog.get(linkedTechId);
 
+                    // // تعیین دقیق نوع (۰: ترافو، ۱: بتن، ۲: آهن)
+                    // let finalType = techDetail ? Number(techDetail.type) : undefined;
+
+                    // داخل MapPreviewModal
+                    // const optRecord = optionsLookup.get(item.id); 
+                    const finalType = optRecord ? Number(optRecord.type) : undefined; // مستقیم از رکورد بخوان
+
+                    // لاگ برای بررسی اینکه چرا نوع اشتباه تشخیص داده می‌شود
+                    console.log(`Node: ${item.name} | InstanceID: ${item.id} | TechID: ${linkedTechId} | Detected Type: ${finalType}`);
+
+                    nodesMap.set(item.id, {
+                        id: item.id,
+                        name: item.name, // نام تکراری اینجا مشکلی ایجاد نمی‌کند چون کلید Map مقدار ID است
+                        x: item.x,
+                        y: item.y,
+                        fx: item.x,
+                        fy: item.y,
+                        isNew: false,
+                        isHub: finalType === 0,
+                        status: optRecord?.productStatus,
+                        groupId: optRecord?.groupId,
+                        // اختصاص آیکون بر اساس نوع واقعی از کاتالوگ فنی
+                        productTypeCategory: (finalType === 1 || finalType === 2) ? (finalType as 1 | 2) : undefined,
+                    });
+                }
+            });
+
+            // ۳. ایجاد لینک‌ها
+            const fromNode = nodesMap.get(String(t.fromProductTypeId));
+            const toNode = nodesMap.get(String(t.toProductTypeId));
             if (fromNode && toNode) {
-                const isConnectionToHub = fromNode.isHub || toNode.isHub;
-                const newMiktarTipi: MiktarTipi = isConnectionToHub ? 'TR-Connection' : (t.miktarTipi as MiktarTipi);
-
                 links.push({
                     id: t.id,
                     source: fromNode,
                     target: toNode,
                     distance: t.distance,
-                    miktarTipi: newMiktarTipi,
+                    miktarTipi: (fromNode.isHub || toNode.isHub) ? (t.miktarTipi as MiktarTipi) : (t.miktarTipi as MiktarTipi),
                     formulaTitle: t.formulaTitle,
                     items: t.items
                 });
             }
         });
 
+        // ... باقی منطق رندر ترافو
         return { nodes: Array.from(nodesMap.values()), links };
     }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
-
 
     const applyForceLayout = useCallback((nodes: MapNode[], links: D3MapLink[], runSimulation: boolean) => {
         if (!runSimulation) {
@@ -700,29 +897,27 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 setSelectedNodeIds(new Set());
                 setSelectedEdgeIds(new Set());
             }
-        } else if (activeTool === 'addEdge') {
+        }
+        // ... داخل handleMouseDown
+        else if (activeTool === 'addEdge') {
             if (e.target instanceof Element && (e.target.tagName === 'circle' || e.target.tagName === 'path')) {
                 const nodeId = (e.target.tagName === 'circle' ? e.target.getAttribute('id') : e.target.closest('g')?.querySelector('circle')?.getAttribute('id')) || '';
                 const node = mapNodes.find(n => n.id === nodeId);
+
                 if (node) {
                     if (!drawingEdgeStartNode) {
+                        // انتخاب گره اول
                         setDrawingEdgeStartNode(node);
                     } else if (drawingEdgeStartNode.id === node.id) {
+                        // لغو انتخاب اگر دوباره روی همان گره کلیک شد
                         setDrawingEdgeStartNode(null);
                     } else {
-                        // if (drawingEdgeStartNode.isHub && node.isHub) { showAlert('Bir TRAFO başka bir TRAFOya bağlanamaz.', 'warning'); setDrawingEdgeStartNode(null); return; }
-                        // const exists = mapEdges.some(e => (e.fromNodeId === drawingEdgeStartNode.id && e.toNodeId === node.id) || (e.fromNodeId === node.id && e.toNodeId === drawingEdgeStartNode.id));
-                        // if (exists) { showAlert('Bu bağlantı zaten mevcut.', 'warning'); setDrawingEdgeStartNode(null); return; }
-                        setTempTransmissionData({ fromNode: drawingEdgeStartNode, toNode: node });
-                        // setOpenDetailsModal(true);
-                        // setDrawingEdgeStartNode(null);
-
+                        // انتخاب گره دوم - بررسی محدودیت‌ها
                         const startGroup = drawingEdgeStartNode.groupId;
                         const endGroup = node.groupId;
 
-                        // اگر هر دو نود دارای گروه باشند و گروه‌ها متفاوت باشند
                         if (startGroup && endGroup && startGroup !== endGroup) {
-                            showAlert('Farklı TRAFO bölgeleri birbirine bağlanamaz!', 'warning'); // اخطار: مناطق مختلف ترافو نمی‌توانند به هم وصل شوند
+                            showAlert('Farklı TRAFO bölgeleri birbirine bağlanamaz!', 'warning');
                             setDrawingEdgeStartNode(null);
                             return;
                         }
@@ -732,10 +927,16 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             setDrawingEdgeStartNode(null);
                             return;
                         }
+
+                        // اینجا بخش کلیدی است:
+                        setTempTransmissionData({ fromNode: drawingEdgeStartNode, toNode: node });
+                        setOpenDetailsModal(true); // این خط باید حتما اجرا شود تا مودال باز شود
+                        setDrawingEdgeStartNode(null); // ریست کردن برای ترسیم بعدی
                     }
                 }
             }
-        } else if (activeTool === 'rotate-drag') {
+        }
+        else if (activeTool === 'rotate-drag') {
             setIsRotating(true);
             setRotateStartMousePos({ x: e.clientX, y: e.clientY });
             setRotateStartAngle(rotationAngle);
@@ -749,6 +950,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
             }
         }
     }, [activeTool, mapNodes, drawingEdgeStartNode, editingNodeId, editingEdgeId, handleEdgeDistanceSave, rotationAngle, mapEdges, showAlert]);
+
 
     const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         if (isPanning) {
@@ -1385,18 +1587,25 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                         </g>
                                     ))}
                                     {renderHubNode()}
-                                    {/* {mapNodes.filter(n => !n.isHub).map(node => {
+                                    {mapNodes.filter(n => !n.isHub).map(node => {
                                         const status = getNodeStatus(node.id);
                                         const symbol = getMaterialSymbol(node.productTypeCategory);
                                         const baseStroke = theme.palette.primary.main;
                                         const r = selectedNodeIds.has(node.id) ? 10 / scale : 8 / scale;
                                         return (
                                             <g key={node.id}>
-                                                <circle id={node.id} cx={node.x || 0} cy={node.y || 0} r={r} fill={status === 0 ? baseStroke : 'transparent'} stroke={baseStroke} strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale} className={node.isNew ? 'blink-node' : ''} style={{ cursor: ['select', 'edit', 'delete', 'addEdge', 'viewItems'].includes(activeTool) ? 'pointer' : 'auto' }} onClick={(e) => handleNodeClick(node, e as any)} />
-                                                {status === 1 && (<circle cx={node.x || 0} cy={node.y || 0} r={4 / scale} fill={baseStroke} style={{ pointerEvents: 'none' }} />)}
+                                                <circle id={node.id}
+                                                    cx={node.x || 0}
+                                                    cy={node.y || 0} r={r}
+                                                    fill={status === 0 ? baseStroke : 'transparent'}
+                                                    stroke={baseStroke} strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale} className={node.isNew ? 'blink-node' : ''} style={{ cursor: ['select', 'edit', 'delete', 'addEdge', 'viewItems'].includes(activeTool) ? 'pointer' : 'auto' }} onClick={(e) => handleNodeClick(node, e as any)} />
+                                                {status === 1 &&
+                                                    (<circle cx={node.x || 0}
+                                                        cy={node.y || 0} r={4 / scale} fill={baseStroke}
+                                                        style={{ pointerEvents: 'none' }} />)}
 
 
-                                                {symbol && (
+                                                {/* {symbol && (
                                                     <text
                                                         x={node.x || 0}
                                                         y={(node.y || 0) + (4 / scale)} // انتقال به مرکز دایره
@@ -1411,84 +1620,20 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                     >
                                                         {symbol}
                                                     </text>
-                                                )}
+                                                )} */}
 
-                                                <text x={node.x || 0} y={(node.y || 0) - (15 / scale)} fontSize={`${10 / scale}px`} fill={textColor} textAnchor="middle" style={{ textShadow: `1px 1px 2px ${theme.palette.background.default}`, pointerEvents: 'auto', cursor: activeTool === 'edit' ? 'text' : 'auto' }} onClick={(e) => handleTextClick(node.id, 'node', node.name, e as any)}><tspan>{node.name}</tspan>{symbol && (<tspan dx={4 / scale}>{symbol}</tspan>)}</text>
-                                            </g>
-                                        );
-                                    })} */}
-
-                                    {mapNodes.filter(n => !n.isHub).map(node => {
-                                        const status = getNodeStatus(node.id);
-                                        const symbol = getMaterialSymbol(node.productTypeCategory);
-                                        const baseStroke = theme.palette.primary.main;
-                                        const r = selectedNodeIds.has(node.id) ? 10 / scale : 8 / scale;
-
-                                        return (
-                                            <g key={node.id}>
-                                                {/* ۱. لایه زیرین: دایره اصلی نود */}
-                                                <circle
-                                                    id={node.id}
-                                                    cx={node.x || 0}
-                                                    cy={node.y || 0}
-                                                    r={r}
-                                                    fill={status === 0 ? baseStroke : 'white'} // اگر DMM بود داخلش سفید باشد
-                                                    stroke={baseStroke}
-                                                    strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale}
-                                                    className={node.isNew ? 'blink-node' : ''}
-                                                    style={{ cursor: 'pointer' }}
-                                                    onClick={(e) => handleNodeClick(node, e as any)}
-                                                />
-
-                                                {/* ۲. لایه میانی: نقطه داخلی برای وضعیت DMM (اگر نیاز است) */}
-                                                {status === 1 && (
-                                                    <circle
-                                                        cx={node.x || 0}
-                                                        cy={node.y || 0}
-                                                        r={3 / scale}
-                                                        fill={baseStroke}
-                                                        style={{ pointerEvents: 'none' }}
-                                                    />
-                                                )}
-
-                                                {/* ۳. لایه رویی: اموجی نماد (دقیقاً مرکز نود) */}
-                                                {symbol && (
-                                                    <text
-                                                        x={node.x || 0}
-                                                        y={node.y || 0}
-                                                        fontSize={`${9 / scale}px`}
-                                                        textAnchor="middle"
-                                                        dominantBaseline="central" // مرکزیت عمودی دقیق در SVG
-                                                        style={{
-                                                            pointerEvents: 'none',
-                                                            userSelect: 'none',
-                                                            fill: status === 0 ? 'white' : 'black' // تضاد رنگی با پس‌زمینه دایره
-                                                        }}
-                                                    >
-                                                        {symbol}
-                                                    </text>
-                                                )}
-
-                                                {/* ۴. متن نام نود (بالای نود) */}
-                                                <text
-                                                    x={node.x || 0}
-                                                    y={(node.y || 0) - (r + 5 / scale)}
-                                                    fontSize={`${10 / scale}px`}
-                                                    fill={textColor}
-                                                    textAnchor="middle"
+                                                <text x={node.x || 0} y={(node.y || 0) - (15 / scale)}
+                                                    fontSize={`${10 / scale}px`} fill={textColor} textAnchor="middle"
                                                     style={{
-                                                        fontWeight: 'bold',
-                                                        paintOrder: 'stroke',
-                                                        stroke: theme.palette.background.default,
-                                                        strokeWidth: 2 / scale,
-                                                        pointerEvents: 'none'
+                                                        textShadow: `1px 1px 2px ${theme.palette.background.default}`,
+                                                        pointerEvents: 'auto', cursor: activeTool === 'edit' ? 'text' : 'auto'
                                                     }}
-                                                >
-                                                    {node.name}
-                                                </text>
+                                                    onClick={(e) => handleTextClick(node.id, 'node', node.name, e as any)}>
+                                                    <tspan>{node.name}</tspan>{symbol && (<tspan dx={4 / scale}>{symbol}</tspan>)}</text>
                                             </g>
                                         );
                                     })}
+
                                     {drawingEdgeStartNode && activeTool === 'addEdge' && panStartMousePos && (<line x1={drawingEdgeStartNode.x || 0} y1={drawingEdgeStartNode.y || 0} x2={getSvgCoordinates(panStartMousePos.x, panStartMousePos.y).x} y2={getSvgCoordinates(panStartMousePos.x, panStartMousePos.y).y} stroke="gray" strokeWidth="1" strokeDasharray="5,5" />)}
                                 </g>
                             </svg>

@@ -123,6 +123,7 @@ export interface WorkDetailSubEntry {
     mevcut: string;
     itemDetails: WorkItemDetail[];
     isToplamRow?: boolean;
+
 }
 
 export interface WorkDetailRow {
@@ -290,6 +291,7 @@ const NetworkDetails = () => {
                         name: item.name,
                         type: item.type,
                     }));
+                debugger
                 setAllProductTypesFromAPI(formattedData);
             } else {
                 showAlert(result.data.message || 'Ürün türleri listesi alınamadı.', 'error');
@@ -619,11 +621,12 @@ const NetworkDetails = () => {
         }
 
         setLoadingRegisterButton(true);
-        const dnValueForDisplay = selectedProduct ? selectedProduct.name : 'Bilinmeyen';
+        // const dnValueForDisplay = selectedProduct ? selectedProduct.name : 'Bilinmeyen';
         const newSubEntry: WorkDetailSubEntry = {
             id: String(Date.now()),
             trAdiParentId: selectedTrafo ? selectedTrafo.id : '',
-            dn: dnValueForDisplay,
+            // dn: dnValueForDisplay,
+            dn: selectedProduct ? `${selectedProduct.name}###${selectedProduct.id}` : '',
             yeni: selectedRadioOption === 'yeni' ? selectedValue : '',
             dmm: selectedRadioOption === 'dmm' ? selectedValue : '',
             mevcut: selectedRadioOption === 'mevcut' ? selectedValue : '',
@@ -1211,13 +1214,53 @@ const NetworkDetails = () => {
         }
     }, [setTrAdi, registeredWorkEntries]);
 
+    // const filteredProductTypes = useMemo(() => {
+    //     const requiredType = selectedTrafo ? 1 : 0;
+    //     const filteredByType = allProductTypesFromAPI.filter(
+    //         productType => productType.type === requiredType
+    //     );
+    //     const registeredDnNames = new Set<string>();
+    //     const currentTrafo = selectedTrafo || registeredWorkEntries.find(row => row.trAdi === trAdi);
+    //     if (currentTrafo) {
+    //         currentTrafo.subEntries.forEach(sub => {
+    //             if (!sub.isToplamRow) {
+    //                 registeredDnNames.add(sub.dn);
+    //             }
+    //         });
+    //     }
+    //     return filteredByType.filter(productType => {
+    //         const isRegistered = registeredDnNames.has(productType.name);
+    //         const isEditingThisOne = isEditingSubEntry && editingSubEntry?.dn === productType.name;
+    //         if (isEditingThisOne) {
+    //             return true;
+    //         }
+    //         return !isRegistered;
+    //     });
+    // }, [
+    //     allProductTypesFromAPI,
+    //     registeredWorkEntries,
+    //     isEditingSubEntry,
+    //     editingSubEntry,
+    //     selectedTrafo,
+    //     trAdi,
+    // ]);
+
+
     const filteredProductTypes = useMemo(() => {
-        const requiredType = selectedTrafo ? 1 : 0;
-        const filteredByType = allProductTypesFromAPI.filter(
-            productType => productType.type === requiredType
-        );
+        // ۱. ابتدا مشخص می‌کنیم چه تایپ‌هایی مجاز هستند
+        // اگر می‌خواهید همیشه همه تایپ‌ها (۰، ۱، ۲) در دسترس باشند، فیلتر تایپ را حذف کنید
+        // اما اگر منطق بیزنس شما می‌گوید بعد از انتخاب ترافو، نباید ترافوهای دیگر را دید:
+        const filteredByType = allProductTypesFromAPI.filter(productType => {
+            if (!selectedTrafo) {
+                return productType.type === 0; // در ابتدا فقط لیست ترافوها
+            }
+            // وقتی ترافو انتخاب شد، تایپ‌های ۱ و ۲ (بتن و آهن) را نشان بده
+            return productType.type === 1 || productType.type === 2;
+        });
+
         const registeredDnNames = new Set<string>();
         const currentTrafo = selectedTrafo || registeredWorkEntries.find(row => row.trAdi === trAdi);
+
         if (currentTrafo) {
             currentTrafo.subEntries.forEach(sub => {
                 if (!sub.isToplamRow) {
@@ -1225,22 +1268,143 @@ const NetworkDetails = () => {
                 }
             });
         }
+
         return filteredByType.filter(productType => {
             const isRegistered = registeredDnNames.has(productType.name);
             const isEditingThisOne = isEditingSubEntry && editingSubEntry?.dn === productType.name;
-            if (isEditingThisOne) {
-                return true;
+
+            if (isEditingThisOne) return true;
+
+            // اگر هم‌نام هستند ولی تایپ‌های متفاوتی دارند، اجازه نمایش بده
+            // (مثلاً بتن "X" و آهن "X" هر دو نمایش داده شوند)
+            const hasSameNameDifferentType = allProductTypesFromAPI.some(
+                p => p.name === productType.name && p.type !== productType.type
+            );
+
+            if (hasSameNameDifferentType) {
+                return !isRegistered || (isRegistered && productType.type !== currentTrafo?.subEntries.find(s => s.dn === productType.name)?.itemDetails[0]?.id);
+                // نکته: منطق دقیق چک کردن تکراری بودن در اینجا بستگی دارد که آیا ID محصول را هم چک می‌کنید یا فقط نام
             }
+
             return !isRegistered;
         });
-    }, [
-        allProductTypesFromAPI,
-        registeredWorkEntries,
-        isEditingSubEntry,
-        editingSubEntry,
-        selectedTrafo,
-        trAdi,
-    ]);
+    }, [allProductTypesFromAPI, registeredWorkEntries, isEditingSubEntry, editingSubEntry, selectedTrafo, trAdi]);
+
+    // const transformToApiFormat = useCallback(() => {
+    //     const idToUse = networkId;
+    //     if (!idToUse) {
+    //         showAlert('Work/Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
+    //         return null;
+    //     }
+    //     debugger
+    //     const apiPayload: {
+    //         id: number;
+    //         networkTrAdis: {
+    //             title: string;
+    //             channelRows: {
+    //                 productStatus: number;
+    //                 title: string;
+    //                 label: string;
+    //                 productTypeId: number;
+    //                 channelRowItems: {
+    //                     value: number;
+    //                     itemId: number;
+    //                 }[];
+    //                 childChannelRows?: {
+    //                     productStatus: number;
+    //                     title: string;
+    //                     label: string;
+    //                     productTypeId: number;
+    //                     channelRowItems: {
+    //                         value: number;
+    //                         itemId: number;
+    //                     }[];
+    //                     childChannelRows: []
+    //                 }[];
+    //             }[];
+    //         }[];
+    //     } = {
+    //         id: parseInt(idToUse, 10),
+    //         networkTrAdis: []
+    //     };
+
+    //     registeredWorkEntries.forEach(trAdiRow => {
+    //         const actualSubEntries = trAdiRow.subEntries.filter(sub => !sub.isToplamRow);
+    //         if (actualSubEntries.length === 0) {
+    //             return;
+    //         }
+    //         const networkTrAdiEntry: typeof apiPayload.networkTrAdis[0] = {
+    //             title: trAdiRow.trAdi,
+    //             channelRows: []
+    //         };
+    //         const firstSubEntry = actualSubEntries[0];
+    //         let mainProductStatus: number;
+    //         let mainLabel: string;
+    //         if (firstSubEntry.yeni) {
+    //             mainProductStatus = 0;
+    //             mainLabel = firstSubEntry.yeni;
+    //         } else if (firstSubEntry.dmm) {
+    //             mainProductStatus = 1;
+    //             mainLabel = firstSubEntry.dmm;
+    //         } else if (firstSubEntry.mevcut) {
+    //             mainProductStatus = 2;
+    //             mainLabel = firstSubEntry.mevcut;
+    //         } else {
+    //             mainProductStatus = 0;
+    //             mainLabel = '';
+    //         }
+    //         const mainProductType = allProductTypesFromAPI.find(p => p.name === firstSubEntry.dn);
+    //         const mainProductTypeId = mainProductType ? parseInt(mainProductType.id, 10) : 0;
+    //         const mainChannelRow: typeof networkTrAdiEntry.channelRows[0] = {
+    //             productStatus: mainProductStatus,
+    //             title: "",
+    //             label: mainLabel,
+    //             productTypeId: mainProductTypeId,
+    //             channelRowItems: firstSubEntry.itemDetails.map(item => ({
+    //                 value: parseFloat(item.value),
+    //                 itemId: parseInt(item.id, 10)
+    //             })),
+    //             childChannelRows: []
+    //         };
+    //         networkTrAdiEntry.channelRows.push(mainChannelRow);
+    //         for (let i = 1; i < actualSubEntries.length; i++) {
+    //             const childSubEntry = actualSubEntries[i];
+    //             let childProductStatus: number;
+    //             let childLabel: string;
+    //             if (childSubEntry.yeni) {
+    //                 childProductStatus = 0;
+    //                 childLabel = childSubEntry.yeni;
+    //             } else if (childSubEntry.dmm) {
+    //                 childProductStatus = 1;
+    //                 childLabel = childSubEntry.dmm;
+    //             } else if (childSubEntry.mevcut) {
+    //                 childProductStatus = 2;
+    //                 childLabel = childSubEntry.mevcut;
+    //             } else {
+    //                 childProductStatus = 0;
+    //                 childLabel = '';
+    //             }
+    //             const childProductType = allProductTypesFromAPI.find(p => p.name === childSubEntry.dn);
+    //             const childProductTypeId = childProductType ? parseInt(childProductType.id, 10) : 0;
+    //             const childChannelRow: NonNullable<typeof mainChannelRow.childChannelRows>[0] = {
+    //                 productStatus: childProductStatus,
+    //                 title: "",
+    //                 label: childLabel,
+    //                 productTypeId: childProductTypeId,
+    //                 channelRowItems: childSubEntry.itemDetails.map(item => ({
+    //                     value: parseFloat(item.value),
+    //                     itemId: parseInt(item.id, 10)
+    //                 })),
+    //                 childChannelRows: []
+    //             };
+    //             mainChannelRow.childChannelRows!.push(childChannelRow);
+    //         }
+
+    //         apiPayload.networkTrAdis.push(networkTrAdiEntry);
+    //     });
+    //     return apiPayload;
+    // }, [networkId, registeredWorkEntries, allProductTypesFromAPI, showAlert]);
+
 
     const transformToApiFormat = useCallback(() => {
         const idToUse = networkId;
@@ -1248,111 +1412,83 @@ const NetworkDetails = () => {
             showAlert('Work/Network ID bulunamadı. Lütfen URL\'yi kontrol edin.', 'error');
             return null;
         }
-        const apiPayload: {
-            id: number;
-            networkTrAdis: {
-                title: string;
-                channelRows: {
-                    productStatus: number;
-                    title: string;
-                    label: string;
-                    productTypeId: number;
-                    channelRowItems: {
-                        value: number;
-                        itemId: number;
-                    }[];
-                    childChannelRows?: {
-                        productStatus: number;
-                        title: string;
-                        label: string;
-                        productTypeId: number;
-                        channelRowItems: {
-                            value: number;
-                            itemId: number;
-                        }[];
-                        childChannelRows: []
-                    }[];
-                }[];
-            }[];
-        } = {
+
+        const apiPayload: any = {
             id: parseInt(idToUse, 10),
             networkTrAdis: []
         };
 
         registeredWorkEntries.forEach(trAdiRow => {
             const actualSubEntries = trAdiRow.subEntries.filter(sub => !sub.isToplamRow);
-            if (actualSubEntries.length === 0) {
-                return;
-            }
-            const networkTrAdiEntry: typeof apiPayload.networkTrAdis[0] = {
+            if (actualSubEntries.length === 0) return;
+
+            const networkTrAdiEntry: any = {
                 title: trAdiRow.trAdi,
                 channelRows: []
             };
+
+            // تابع کمکی برای جدا کردن نام و آیدی از رشته dn
+            const parseDnField = (dnValue: string) => {
+                if (dnValue.includes('###')) {
+                    const [name, id] = dnValue.split('###');
+                    return { name, id: parseInt(id, 10) };
+                }
+                // Fallback برای داده‌های قدیمی که فقط نام داشتند
+                const legacyProduct = allProductTypesFromAPI.find(p => p.name === dnValue);
+                return { name: dnValue, id: legacyProduct ? parseInt(legacyProduct.id, 10) : 0 };
+            };
+
+            // پردازش سطر اول به عنوان سطر اصلی (Main Channel Row)
             const firstSubEntry = actualSubEntries[0];
-            let mainProductStatus: number;
-            let mainLabel: string;
-            if (firstSubEntry.yeni) {
-                mainProductStatus = 0;
-                mainLabel = firstSubEntry.yeni;
-            } else if (firstSubEntry.dmm) {
-                mainProductStatus = 1;
-                mainLabel = firstSubEntry.dmm;
-            } else if (firstSubEntry.mevcut) {
-                mainProductStatus = 2;
-                mainLabel = firstSubEntry.mevcut;
-            } else {
-                mainProductStatus = 0;
-                mainLabel = '';
-            }
-            const mainProductType = allProductTypesFromAPI.find(p => p.name === firstSubEntry.dn);
-            const mainProductTypeId = mainProductType ? parseInt(mainProductType.id, 10) : 0;
-            const mainChannelRow: typeof networkTrAdiEntry.channelRows[0] = {
+            const parsedFirst = parseDnField(firstSubEntry.dn);
+
+            let mainProductStatus = 0;
+            let mainLabel = '';
+            if (firstSubEntry.yeni) { mainProductStatus = 0; mainLabel = firstSubEntry.yeni; }
+            else if (firstSubEntry.dmm) { mainProductStatus = 1; mainLabel = firstSubEntry.dmm; }
+            else if (firstSubEntry.mevcut) { mainProductStatus = 2; mainLabel = firstSubEntry.mevcut; }
+
+            const mainChannelRow: any = {
                 productStatus: mainProductStatus,
                 title: "",
                 label: mainLabel,
-                productTypeId: mainProductTypeId,
+                productTypeId: parsedFirst.id, // استفاده از آیدی استخراج شده
                 channelRowItems: firstSubEntry.itemDetails.map(item => ({
                     value: parseFloat(item.value),
                     itemId: parseInt(item.id, 10)
                 })),
                 childChannelRows: []
             };
-            networkTrAdiEntry.channelRows.push(mainChannelRow);
+
+            // پردازش بقیه سطرها به عنوان فرزند (از ایندکس 1 به بعد)
             for (let i = 1; i < actualSubEntries.length; i++) {
                 const childSubEntry = actualSubEntries[i];
-                let childProductStatus: number;
-                let childLabel: string;
-                if (childSubEntry.yeni) {
-                    childProductStatus = 0;
-                    childLabel = childSubEntry.yeni;
-                } else if (childSubEntry.dmm) {
-                    childProductStatus = 1;
-                    childLabel = childSubEntry.dmm;
-                } else if (childSubEntry.mevcut) {
-                    childProductStatus = 2;
-                    childLabel = childSubEntry.mevcut;
-                } else {
-                    childProductStatus = 0;
-                    childLabel = '';
-                }
-                const childProductType = allProductTypesFromAPI.find(p => p.name === childSubEntry.dn);
-                const childProductTypeId = childProductType ? parseInt(childProductType.id, 10) : 0;
-                const childChannelRow: NonNullable<typeof mainChannelRow.childChannelRows>[0] = {
+                const parsedChild = parseDnField(childSubEntry.dn);
+
+                let childProductStatus = 0;
+                let childLabel = '';
+                if (childSubEntry.yeni) { childProductStatus = 0; childLabel = childSubEntry.yeni; }
+                else if (childSubEntry.dmm) { childProductStatus = 1; childLabel = childSubEntry.dmm; }
+                else if (childSubEntry.mevcut) { childProductStatus = 2; childLabel = childSubEntry.mevcut; }
+
+                const childChannelRow: any = {
                     productStatus: childProductStatus,
                     title: "",
                     label: childLabel,
-                    productTypeId: childProductTypeId,
+                    productTypeId: parsedChild.id, // استفاده از آیدی استخراج شده
                     channelRowItems: childSubEntry.itemDetails.map(item => ({
                         value: parseFloat(item.value),
                         itemId: parseInt(item.id, 10)
                     })),
                     childChannelRows: []
                 };
-                mainChannelRow.childChannelRows!.push(childChannelRow);
+                mainChannelRow.childChannelRows.push(childChannelRow);
             }
 
+            networkTrAdiEntry.channelRows.push(mainChannelRow);
             apiPayload.networkTrAdis.push(networkTrAdiEntry);
         });
+
         return apiPayload;
     }, [networkId, registeredWorkEntries, allProductTypesFromAPI, showAlert]);
 
@@ -1366,6 +1502,7 @@ const NetworkDetails = () => {
         if (!payload) {
             return;
         }
+        debugger
         setLoadingRegisterButton(true);
         const authToken = localStorage.getItem('authToken');
         if (!authToken) {
@@ -1727,7 +1864,10 @@ const NetworkDetails = () => {
                                 <Autocomplete
                                     id="product-type-autocomplete"
                                     options={filteredProductTypes}
-                                    getOptionLabel={(option) => option.name}
+                                    getOptionLabel={(option) => {
+                                        const typeLabel = option.type === 1 ? 'BETON' : option.type === 2 ? 'DEMİR' : 'TRAFO';
+                                        return `${option.name} (${typeLabel})`;
+                                    }}
                                     isOptionEqualToValue={(option, value) => option.id === value.id}
                                     value={selectedProduct}
                                     onChange={(_event, newValue) => {
