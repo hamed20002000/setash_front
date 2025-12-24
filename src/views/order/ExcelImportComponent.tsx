@@ -1487,10 +1487,15 @@ const ExcelImportComponent = () => {
         setPage(0);
     };
 
-    // ⬅️ توابع مدیریت Modal تاریخچه
     const handleOpenHistoryModal = (row: OrderType) => {
-        // بارگذاری داده‌های تاریخچه از ردیف فعلی
-        setHistoryData(row.orderHeaderStatusHistories || []);
+        // گرفتن کپی از آرایه و مرتب‌سازی آن بر اساس تاریخ (نزولی)
+        const sortedHistory = row.orderHeaderStatusHistories
+            ? [...row.orderHeaderStatusHistories].sort((a, b) =>
+                new Date(b.createAt).getTime() - new Date(a.createAt).getTime()
+            )
+            : [];
+
+        setHistoryData(sortedHistory);
         setOpenHistoryModal(true);
     };
 
@@ -2130,11 +2135,9 @@ const ExcelImportComponent = () => {
 
                     <>
                         {modalDetails.length > 0 && (
-                            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                                <Typography variant="h6" gutterBottom color="primary">
-                                    Birim Bazlı Toplamlar
-                                </Typography>
-                                <TableContainer component={Paper} elevation={0}>
+                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
+
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>

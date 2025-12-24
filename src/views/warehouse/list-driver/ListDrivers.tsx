@@ -970,12 +970,12 @@ const ListDrivers = () => {
             doc.setFont('Arial');
 
             const header = () => {
-                doc.setFont('Arial', 'bold');
+                doc.setFont('Arial', 'normal');
                 doc.setFontSize(14);
                 const title = isFiltered ? 'Filtrelenmiş Araçlı Şoförler Raporu' : 'Araçlı Şoförler Raporu';
                 doc.text(title, pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
-                doc.setFont('Times', 'bold');
+                doc.setFont('Times', 'normal');
                 doc.text(`Rapor Tarih:`, 15, 25);
                 doc.setFont('Times', 'normal');
                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
@@ -1027,7 +1027,7 @@ const ListDrivers = () => {
                         content: `Sürücü: ${driver.name} ${driver.family} (${driver.identityNo})`,
                         colSpan: 4,
                         styles: {
-                            fontStyle: 'bold',
+                            fontStyle: 'normal',
                             fillColor: [230, 230, 230],
                             halign: 'center'
                         }
@@ -1277,11 +1277,11 @@ const ListDrivers = () => {
             doc.setFont('Arial');
 
             const header = () => {
-                doc.setFont('Arial', 'bold');
+                doc.setFont('Arial', 'normal');
                 doc.setFontSize(14);
                 doc.text('Sürücü Detay Raporu', pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
-                doc.setFont('Times', 'bold');
+                doc.setFont('Times', 'normal');
                 doc.text(`Rapor Tarih:`, 15, 25);
                 doc.setFont('Times', 'normal');
                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
@@ -1314,7 +1314,7 @@ const ListDrivers = () => {
 
             let currentY = 50;
 
-            doc.setFont('NotoSans', 'bold');
+            doc.setFont('NotoSans', 'normal');
             doc.setFontSize(12);
             doc.text('Sürücü Bilgileri:', 15, currentY);
             currentY += 8;
@@ -1332,7 +1332,7 @@ const ListDrivers = () => {
             currentY += 10;
 
             if (vehicles.length > 0) {
-                doc.setFont('NotoSans', 'bold');
+                doc.setFont('NotoSans', 'normal');
                 doc.setFontSize(12);
                 doc.text('Araç Bilgileri:', 15, currentY);
                 currentY += 5;

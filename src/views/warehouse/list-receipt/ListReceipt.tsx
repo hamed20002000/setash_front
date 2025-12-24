@@ -359,7 +359,7 @@ const ListReceipts = () => {
 
         const finalReceiptItems = [
             ...receiptItems,
-            ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))
+            // ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))
         ];
 
         const receiptData = {
@@ -408,7 +408,7 @@ const ListReceipts = () => {
         if (!validateForm() || !editingReceiptId) return;
         const finalReceiptItems = [
             ...receiptItems,
-            ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))
+            // ...deletedItems.map(item => ({ ...item, recordStatus: 1 }))
         ];
         const receiptData = {
             id: Number(editingReceiptId),
@@ -597,7 +597,7 @@ const ListReceipts = () => {
         doc.setFontSize(14);
         doc.text(title, pageWidth / 2, startY, { align: 'center' });
         doc.setFontSize(10);
-        doc.setFont('Times', 'bold' as any);
+        doc.setFont('Times', 'normal' as any);
         doc.text(`Rapor Tarih:`, 15, startY + 10);
         doc.setFont('Times', 'normal' as any);
         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, startY + 10);
@@ -669,7 +669,7 @@ const ListReceipts = () => {
                 doc.setFontSize(14);
                 doc.text('Fiş Detay Raporu', pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
-                doc.setFont('Times', 'bold' as any);
+                doc.setFont('Times', 'normal' as any);
                 doc.text(`Rapor Tarih:`, 15, 25);
                 doc.setFont('Times', 'normal' as any);
                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
@@ -729,7 +729,7 @@ const ListReceipts = () => {
                 ]);
                 const totals = calculateTotalQuantity(receipt.receiptDetails);
                 const totalRows = Object.entries(totals).map(([unit, total]) => [
-                    { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+                    { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'normal', halign: 'right' } },
                     total,
                     unit,
                     ''
@@ -807,7 +807,7 @@ const ListReceipts = () => {
                 ]);
                 const totals = calculateTotalQuantity(receipt.receiptDetails);
                 const totalRows = Object.entries(totals).map(([unit, total]) => [
-                    { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+                    { content: 'Toplam:', colSpan: 4, styles: { fontStyle: 'normal', halign: 'right' } },
                     total,
                     unit,
                     ''

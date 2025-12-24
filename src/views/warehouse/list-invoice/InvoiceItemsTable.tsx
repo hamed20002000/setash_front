@@ -32,6 +32,7 @@ export interface OrderSourceType {
     status: number;   // 0,1,2
     isEnd?: boolean;
     orderDetails: OrderDetailType[];
+    workhouse: any | null;
 }
 
 interface InvoiceItem {
@@ -130,11 +131,20 @@ const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = ({
             const res = await axios.get(server.baseurl + server.initialoperations + "get-orders", {
                 headers: { Authorization: `Bearer ${token}` },
             });
+            debugger
             if (res.data?.httpStatusCode === 200) {
                 const all = (res.data.data as OrderSourceType[]) || [];
-                const approved = all.filter(o => o.status === 1);
-                setActiveOrders(approved.filter(o => o.isEnd !== true));
-                setEndedOrders(approved.filter(o => o.isEnd === true));
+
+                // اضافه کردن فیلتر workhouse === null به شروط قبلی
+                const filteredData = all.filter(o =>
+                    o.status === 1 &&           // فقط تایید شده‌ها
+                    o.workhouse === null        // 👈 فیلتر درخواستی شما
+                );
+
+                // جداسازی سفارش‌های فعال و پایان‌یافته از لیست فیلتر شده
+                setActiveOrders(filteredData.filter(o => o.isEnd !== true));
+                setEndedOrders(filteredData.filter(o => o.isEnd === true));
+
             } else {
                 showAlert(res.data?.message || 'Siparişler yüklenirken bir hata oluştu.', 'error');
             }

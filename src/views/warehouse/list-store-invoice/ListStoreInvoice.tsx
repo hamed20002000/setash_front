@@ -854,8 +854,8 @@ const ListStoreInvoice = () => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const logoWidth = 50, logoHeight = 25, margin = 10, topMargin = 20, logoX = pageWidth - logoWidth - margin;
         doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
-        doc.setFont('Arial', 'bold'); doc.setFontSize(14); doc.text(title, pageWidth / 2, 15, { align: 'center' });
-        doc.setFontSize(10); doc.setFont('Arial', 'bold'); doc.text(`Rapor Tarihi:`, 15, 25);
+        doc.setFont('Arial', 'normal'); doc.setFontSize(14); doc.text(title, pageWidth / 2, 15, { align: 'center' });
+        doc.setFontSize(10); doc.setFont('Arial', 'normal'); doc.text(`Rapor Tarihi:`, 15, 25);
         doc.setFont('Arial', 'normal'); doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 25);
     };
     const addPdfFooter = (doc: jsPDF) => {
@@ -876,7 +876,8 @@ const ListStoreInvoice = () => {
     };
 
     const exportToPdf = (invoice: InvoiceType) => {
-        const doc = new jsPDF();
+        // const doc = new jsPDF();
+        const doc = new jsPDF('l', 'mm', 'a4');
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
@@ -885,29 +886,53 @@ const ListStoreInvoice = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        const rows = invoice.invoiceDetails.map(detail => [
-            detail.provider?.name || invoice.provider?.name || '-',
-            detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
-            detail.item?.name || '-',
-            Number(detail.quantity).toFixed(2) || '-',
-            detail.item?.unit?.title || '-',
-            cleanAndFormatPrice(detail.price),
-            Number(detail.discountPercent).toFixed(2) || '-',
-            cleanAndFormatPrice(detail.discountAmount),
-            detail.description || '-',
-        ]);
+        // const rows = invoice.invoiceDetails.map(detail => [
+        //     detail.provider?.name || invoice.provider?.name || '-',
+        //     detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
+        //     detail.item?.name || '-',
+        //     Number(detail.quantity).toFixed(2) || '-',
+        //     detail.item?.unit?.title || '-',
+        //     cleanAndFormatPrice(detail.price),
+        //     Number(detail.discountPercent).toFixed(2) || '-',
+        //     cleanAndFormatPrice(detail.discountAmount),
+        //     detail.description || '-',
+        // ]);
+
+        const rows = invoice.invoiceDetails.map(detail => {
+            const qty = cleanAndConvertNumber(detail.quantity);
+            const price = cleanAndConvertNumber(detail.price);
+            const discAmount = cleanAndConvertNumber(detail.discountAmount);
+
+            const indirimsizFiyat = qty * price;
+            const toplamIndirim = qty * discAmount;
+            const lineTotal = indirimsizFiyat - toplamIndirim;
+
+            return [
+                detail.provider?.name || invoice.provider?.name || '-',
+                detail.item?.name || '-',
+                qty.toFixed(2),
+                detail.item?.unit?.title || '-',
+                cleanAndFormatPrice(price),
+                cleanAndFormatPrice(indirimsizFiyat), // ستون جدید
+                cleanAndFormatPrice(discAmount),
+                cleanAndFormatPrice(toplamIndirim), // ستون جدید
+                cleanAndFormatPrice(lineTotal),    // ستون جدید (Toplam Fiyat)
+                detail.description || '-',
+            ];
+        });
 
         autoTable(doc, {
             startY: 90,
-            head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
+            // head: [['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama']],
+            head: [['Tedarikçi', 'Ürün', 'Miktar', 'Birim', 'Fiyat', 'Indirimsiz', 'İnd. Miktarı', 'Top. İndirim', 'Top. Fiyat', 'Açıklama']],
             body: rows,
             theme: 'grid',
             styles: { font: 'Arial', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
             columnStyles: {
                 0: { cellWidth: 25 }, 1: { cellWidth: 20 }, 2: { cellWidth: 30 },
-                3: { cellWidth: 15 }, 4: { cellWidth: 15 }, 5: { cellWidth: 20 },
-                6: { cellWidth: 20 }, 7: { cellWidth: 25 }, 8: { cellWidth: 'auto' },
+                3: { cellWidth: 15 }, 4: { cellWidth: 30 }, 5: { cellWidth: 30 },
+                6: { cellWidth: 30 }, 7: { cellWidth: 30 }, 8: { cellWidth: 30 }, 9: { cellWidth: 'auto' },
             },
             didDrawPage: () => {
                 addPdfHeader(doc, `Fatura Detayları`);
@@ -1026,7 +1051,9 @@ const ListStoreInvoice = () => {
         worksheet.addRow([]);
 
         // --- Table Headers ---
-        const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
+        // const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
+
+        const tableHeaders = ['Tedarikçi', 'Ürün Adı', 'Miktar', 'Birim', 'Birim Fiyat', 'Indirimsiz Fiyat', 'İndirim Miktarı', 'Toplam İndirim', 'Toplam Fiyat', 'Açıklama'];
         const headerRow = worksheet.addRow(tableHeaders);
         headerRow.font = { name: 'Arial', bold: true };
         headerRow.eachCell(cell => {
@@ -1035,22 +1062,40 @@ const ListStoreInvoice = () => {
         });
 
         // --- Table Data ---
-        invoice.invoiceDetails.forEach(detail => {
-            worksheet.addRow([
-                detail.provider?.name || invoice.provider?.name || '-',
-                detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
-                detail.item?.name || '-',
-                Number(detail.quantity),
-                detail.item?.unit?.title || '-',
-                cleanAndFormatPrice(detail.price),
-                Number(detail.discountPercent),
-                cleanAndFormatPrice(detail.discountAmount),
-                detail.description || '-'
-            ]).eachCell(cell => {
-                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-            });
-        });
+        // invoice.invoiceDetails.forEach(detail => {
+        //     worksheet.addRow([
+        //         detail.provider?.name || invoice.provider?.name || '-',
+        //         detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
+        //         detail.item?.name || '-',
+        //         Number(detail.quantity),
+        //         detail.item?.unit?.title || '-',
+        //         cleanAndFormatPrice(detail.price),
+        //         Number(detail.discountPercent),
+        //         cleanAndFormatPrice(detail.discountAmount),
+        //         detail.description || '-'
+        //     ]).eachCell(cell => {
+        //         cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        //     });
+        // });
 
+        invoice.invoiceDetails.forEach(detail => {
+            const qty = cleanAndConvertNumber(detail.quantity);
+            const price = cleanAndConvertNumber(detail.price);
+            const discAmount = cleanAndConvertNumber(detail.discountAmount);
+
+            worksheet.addRow([
+                detail.provider?.name || '-',
+                detail.item?.name || '-',
+                qty,
+                detail.item?.unit?.title || '-',
+                price,
+                qty * price,        // Indirimsiz Fiyat
+                discAmount,
+                qty * discAmount,   // Toplam İndirim
+                (qty * price) - (qty * discAmount), // Toplam Fiyat
+                detail.description || '-'
+            ]);
+        });
         // --- Column Auto Width ---
         worksheet.columns.forEach((column: any) => {
             let maxLength = 0;
@@ -1906,7 +1951,7 @@ const ListStoreInvoice = () => {
                 <DialogContent dividers>
                     <TableContainer component={Paper}>
                         <Table size="small">
-                            <TableHead sx={{ background: 'rgb(149 147 125 / 65%)' }}>
+                            {/* <TableHead sx={{ background: 'rgb(149 147 125 / 65%)' }}>
                                 <TableRow>
                                     <StyledTableCell><Typography variant="h6">Tedarikçi</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Firma</Typography></StyledTableCell>
@@ -1941,7 +1986,50 @@ const ListStoreInvoice = () => {
                                 ) : (
                                     <TableRow><StyledTableCell colSpan={9} align="center"><Typography variant="subtitle1" color="textSecondary">Hiç detay bulunamadı.</Typography></StyledTableCell></TableRow>
                                 )}
+                            </TableBody> */}
+                            <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
+                                <TableRow>
+                                    <StyledTableCell><Typography variant="h6">Tedarikçi</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Firma</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Ürün Adı</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Miktar</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Birim Fiyat</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Indirimsiz Fiyat</Typography></StyledTableCell> {/* جدید */}
+                                    <StyledTableCell><Typography variant="h6">İndirim Miktarı</Typography></StyledTableCell>
+                                    <StyledTableCell><Typography variant="h6">Toplam İndirim</Typography></StyledTableCell> {/* جدید */}
+                                    <StyledTableCell><Typography variant="h6">Toplam Fiyat</Typography></StyledTableCell> {/* جدید */}
+                                    <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {modalDetails.map((detail, index) => {
+                                    const qty = cleanAndConvertNumber(detail.quantity);
+                                    const price = cleanAndConvertNumber(detail.price);
+                                    const discAmount = cleanAndConvertNumber(detail.discountAmount);
+
+                                    const indirimsizFiyat = qty * price;
+                                    const toplamIndirim = qty * discAmount;
+                                    const lineTotal = indirimsizFiyat - toplamIndirim;
+
+                                    return (
+                                        <TableRow key={detail.id || index}>
+                                            <StyledTableCell>{detail.provider?.name || '-'}</StyledTableCell>
+                                            <StyledTableCell>{/* Chip logic for Firm */}</StyledTableCell>
+                                            <StyledTableCell>{detail.item?.name || '-'}</StyledTableCell>
+                                            <StyledTableCell>{qty}</StyledTableCell>
+                                            <StyledTableCell>{detail.item?.unit?.title || '-'}</StyledTableCell>
+                                            <StyledTableCell>{cleanAndFormatPrice(price)}</StyledTableCell>
+                                            <StyledTableCell>{cleanAndFormatPrice(indirimsizFiyat)}</StyledTableCell>
+                                            <StyledTableCell>{cleanAndFormatPrice(discAmount)}</StyledTableCell>
+                                            <StyledTableCell>{cleanAndFormatPrice(toplamIndirim)}</StyledTableCell>
+                                            <StyledTableCell sx={{ fontWeight: 'bold' }}>{cleanAndFormatPrice(lineTotal)}</StyledTableCell>
+                                            <StyledTableCell>{detail.description || '-'}</StyledTableCell>
+                                        </TableRow>
+                                    );
+                                })}
                             </TableBody>
+
                         </Table>
                     </TableContainer>
                     <>

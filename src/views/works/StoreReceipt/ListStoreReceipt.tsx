@@ -614,17 +614,54 @@ const ListStoreReceipts = () => {
         if (item) { setReceiptDetails(prev => [...prev, item]); setRemovedReceiptDetails(prev => prev.filter((_, i) => i !== idx)); }
     };
 
+    // const handleReceiptDetailChange = useCallback((index: number, field: keyof FormReceiptDetail, value: any) => {
+    //     setReceiptDetails(prev => {
+    //         const next = [...prev]; const updated = { ...next[index] };
+    //         if (field === 'quantity') {
+    //             const num = Number(value);
+    //             if (isNaN(num) || num < 0) { showAlert('Miktar negatif olamaz!', 'warning'); updated.quantity = 0; }
+    //             else { updated.quantity = num; }
+    //         } else { (updated as any)[field] = value; }
+    //         next[index] = updated; return next;
+    //     });
+    // }, [showAlert]);
+
+
     const handleReceiptDetailChange = useCallback((index: number, field: keyof FormReceiptDetail, value: any) => {
         setReceiptDetails(prev => {
-            const next = [...prev]; const updated = { ...next[index] };
+            const next = [...prev];
+            const updated = { ...next[index] };
+
             if (field === 'quantity') {
-                const num = Number(value);
-                if (isNaN(num) || num < 0) { showAlert('Miktar negatif olamaz!', 'warning'); updated.quantity = 0; }
-                else { updated.quantity = num; }
-            } else { (updated as any)[field] = value; }
-            next[index] = updated; return next;
+                const numValue = Number(value);
+
+                // پیدا کردن سقف مجاز از حواله مادر
+                const originalDispatchItem = selectedDispatchHeader?.warehouseDispatchDetails.find(
+                    d => d.id === updated.warehouseDispatchDetailId
+                );
+                const maxAllowed = originalDispatchItem ? Number(originalDispatchItem.quantity) : Infinity;
+
+                if (numValue < 0) {
+                    showAlert('Miktar 0\'dan küçük olamaz!', 'warning');
+                    updated.quantity = 0;
+                }
+                // چک کردن سقف مجاز
+                else if (numValue > maxAllowed) {
+                    // نمایش هشدار حتی در حالت کلیک روی دکمه‌های افزایشی
+                    showAlert(`Hata: Sevk miktarını (${maxAllowed}) aşamazsınız!`, 'error');
+                    updated.quantity = maxAllowed;
+                }
+                else {
+                    updated.quantity = value;
+                }
+            } else {
+                (updated as any)[field] = value;
+            }
+
+            next[index] = updated;
+            return next;
         });
-    }, [showAlert]);
+    }, [showAlert, selectedDispatchHeader]);
 
     const handleCloseMenu = () => { setAnchorEl(null); setSelectedRowForMenu(null); };
 
@@ -926,12 +963,45 @@ const ListStoreReceipts = () => {
                                                     </Stack>
                                                 </Grid>
                                                 <Grid item xs={6} md={3}>
-                                                    <CustomTextField
+                                                    {/* <CustomTextField
                                                         type="number"
                                                         placeholder="Miktar"
                                                         value={detail.quantity}
                                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleReceiptDetailChange(index, 'quantity', e.target.value)}
                                                         fullWidth size="small"
+                                                    /> */}
+                                                    <CustomTextField
+                                                        type="number"
+                                                        placeholder="Miktar"
+                                                        value={detail.quantity}
+                                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                                                            handleReceiptDetailChange(index, 'quantity', e.target.value)
+                                                        }
+                                                        // اضافه کردن این بخش برای مدیریت بهتر دکمه‌های بالا و پایین
+                                                        onInput={(e: any) => {
+                                                            const val = Number(e.target.value);
+                                                            const originalDispatchItem = selectedDispatchHeader?.warehouseDispatchDetails.find(
+                                                                d => d.id === detail.warehouseDispatchDetailId
+                                                            );
+                                                            const maxAllowed = originalDispatchItem ? Number(originalDispatchItem.quantity) : Infinity;
+
+                                                            if (val > maxAllowed) {
+                                                                // این بخش در برخی مرورگرها برای نمایش آنی هشدار حین استفاده از فلش‌ها کمک می‌کند
+                                                                showAlert(`Maksimum miktar: ${maxAllowed}`, 'error');
+                                                            }
+                                                        }}
+                                                        fullWidth
+                                                        size="small"
+                                                        InputProps={{
+                                                            inputProps: {
+                                                                min: 0,
+                                                                max: selectedDispatchHeader?.warehouseDispatchDetails.find(
+                                                                    d => d.id === detail.warehouseDispatchDetailId
+                                                                )?.quantity,
+                                                                step: "any"
+                                                            }
+                                                        }}
+                                                        error={Number(detail.quantity) <= 0}
                                                     />
                                                 </Grid>
                                                 <Grid item xs={5} md={4}>

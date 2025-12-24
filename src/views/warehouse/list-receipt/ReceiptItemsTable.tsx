@@ -169,11 +169,41 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
 
     const handleEditClick = (item: ProcessedReceiptItem) => setEditingItem(item);
 
+    // const handleUpdateChange = (id: any, field: 'quantity' | 'description', value: any) => {
+    //     if (field === 'quantity') {
+    //         const numValue = Number(value);
+    //         if (isNaN(numValue) || numValue <= 0) return;
+    //     }
+    //     const updatedItems = items.map(item => {
+    //         if (item.id === id) {
+    //             return {
+    //                 ...item,
+    //                 [field]: field === 'quantity' ? Number(value) : value
+    //             };
+    //         }
+    //         return item;
+    //     });
+    //     onItemsUpdate(updatedItems);
+    // };
+
     const handleUpdateChange = (id: any, field: 'quantity' | 'description', value: any) => {
         if (field === 'quantity') {
             const numValue = Number(value);
-            if (isNaN(numValue) || numValue <= 0) return;
+            const currentItem = items.find(i => i.id === id);
+
+            // بررسی مقدار کمتر از صفر
+            if (numValue <= 0) {
+                showAlert('Miktar 0\'dan büyük olmalıdır.', 'error');
+                return;
+            }
+
+            // رفع خطای تایپ اسکریپت با تبدیل رشته به عدد
+            if (currentItem?.orderDetail?.quantity && numValue > Number(currentItem.orderDetail.quantity)) {
+                showAlert(`Miktar fatura miktarından (${currentItem.orderDetail.quantity}) fazla olamaz!`, 'warning');
+                return;
+            }
         }
+
         const updatedItems = items.map(item => {
             if (item.id === id) {
                 return {
@@ -185,7 +215,6 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
         });
         onItemsUpdate(updatedItems);
     };
-
     const handleDeleteClick = (item: ProcessedReceiptItem) => {
         onItemDelete({ ...item, isDeleted: true });
         const updatedItems = items.filter(i => i.id !== item.id);
@@ -194,17 +223,38 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
 
     const handleCancelEdit = () => setEditingItem(null);
 
+    // const handleSaveEdit = () => {
+    //     if (!editingItem) return;
+    //     const currentItem = items.find(i => i.id === editingItem.id);
+    //     if (currentItem && (currentItem.quantity <= 0 || isNaN(currentItem.quantity))) {
+    //         showAlert('Miktar 0\'dan büyük bir sayı olmalıdır.', 'warning');
+    //         return;
+    //     }
+    //     setEditingItem(null);
+    //     showAlert('Ürün başarıyla güncellendi.', 'success');
+    // };
+
     const handleSaveEdit = () => {
         if (!editingItem) return;
+
         const currentItem = items.find(i => i.id === editingItem.id);
-        if (currentItem && (currentItem.quantity <= 0 || isNaN(currentItem.quantity))) {
-            showAlert('Miktar 0\'dan büyük bir sayı olmalıdır.', 'warning');
+
+        if (!currentItem || currentItem.quantity <= 0) {
+            showAlert('Lütfen geçerli یک miktar giriniz.', 'error');
             return;
         }
+
+        if (
+            currentItem.orderDetail?.quantity &&
+            currentItem.quantity > Number(currentItem.orderDetail.quantity)
+        ) {
+            showAlert(`Hata: Miktar fatura limitini (${currentItem.orderDetail.quantity}) aşıyor!`, 'error');
+            return;
+        }
+
         setEditingItem(null);
         showAlert('Ürün başarıyla güncellendi.', 'success');
     };
-
     return (
         <Paper elevation={3} sx={{ p: 2 }}>
             {/* لیبل + دکمه نمایش مودال */}
@@ -299,12 +349,25 @@ const ReceiptItemsTable: React.FC<ReceiptItemsTableProps> = ({
                                     <TableCell><Typography>{item.itemName || '-'}</Typography></TableCell>
                                     <TableCell>
                                         {editingItem?.id === item.id ? (
+                                            // <TextField
+                                            //     type="number"
+                                            //     size="small"
+                                            //     value={item.quantity}
+                                            //     onChange={(e) => handleUpdateChange(item.id as any, 'quantity', e.target.value)}
+                                            //     InputProps={{ inputProps: { min: 1, step: 'any' } }}
+                                            // />
                                             <TextField
                                                 type="number"
                                                 size="small"
                                                 value={item.quantity}
-                                                onChange={(e) => handleUpdateChange(item.id as any, 'quantity', e.target.value)}
-                                                InputProps={{ inputProps: { min: 1, step: 'any' } }}
+                                                onChange={(e) => handleUpdateChange(item.id, 'quantity', e.target.value)}
+                                                InputProps={{
+                                                    inputProps: {
+                                                        min: 0, // جلوگیری از انتخاب صفر یا منفی از طریق فلش‌ها
+                                                        step: 'any'
+                                                    }
+                                                }}
+                                                error={item.quantity <= 0} // قرمز شدن فیلد در صورت مقدار نامعتبر
                                             />
                                         ) : (
                                             <Typography>{Number(item.quantity).toFixed(2)}</Typography>

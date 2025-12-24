@@ -683,7 +683,7 @@ const ListBetweenReceipt = () => {
 
             const rows = (receipt.receiptDetails || []).map(d => [d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
             const totals = calculateTotalQuantity(receipt.receiptDetails || []);
-            const totalRows = Object.entries(totals).map(([unit, total]) => [{ content: 'Toplam:', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } }, total, unit, '']);
+            const totalRows = Object.entries(totals).map(([unit, total]) => [{ content: 'Toplam:', colSpan: 2, styles: { fontStyle: 'normal', halign: 'right' } }, total, unit, '']);
 
             autoTable(doc, {
                 startY: yPos,
@@ -714,7 +714,7 @@ const ListBetweenReceipt = () => {
 
         const rows = (receipt.receiptDetails || []).map(d => [d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
         const totals = calculateTotalQuantity(receipt.receiptDetails || []);
-        const totalRows = Object.entries(totals).map(([unit, total]) => [{ content: 'Toplam:', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } }, total, unit, '']);
+        const totalRows = Object.entries(totals).map(([unit, total]) => [{ content: 'Toplam:', colSpan: 2, styles: { fontStyle: 'normal', halign: 'right' } }, total, unit, '']);
 
         autoTable(doc, {
             startY: yPos,

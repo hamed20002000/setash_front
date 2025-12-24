@@ -858,57 +858,45 @@ const ListWarehouseDispatch = () => {
         setEndDate(null);
     };
 
-    // ✨ NEW: Consolidated PDF export function
     const exportDispatchesToPdf = (data: DispatchType[], title: string, subtitle?: string) => {
         if (!data || data.length === 0) {
             showAlert('PDF oluşturulacak sevk belgesi bulunamadı.', 'warning');
             return;
         }
         showAlert('PDF oluşturuluyor...', 'info');
+
+        // تنظیم صفحه به صورت افقی (l: landscape)
         const doc = new jsPDF();
         const docAny = doc as any;
-        let yPos = 60; // Initial Y position for content
-
-        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-        doc.setFont('NotoSans');
-
 
         data.forEach((dispatch, index) => {
             if (index > 0) {
                 doc.addPage();
-                yPos = 60;
             }
 
-            const pageTitle = `${title}`;
-            addPdfHeader(doc, pageTitle);
+            // افزودن فونت و هدر
+            addPdfHeader(doc, title);
 
             if (subtitle) {
                 doc.setFontSize(10);
-                doc.text(subtitle, 15, 50, { align: 'left' });
+                doc.text(subtitle, 15, 50);
             }
 
-            // Add main dispatch information
-            doc.setFontSize(12);
+            // اطلاعات اصلی حواله
+            doc.setFontSize(11);
+            let yPos = 65;
             doc.text(`Sevk Kodu: ${dispatch.code}`, 15, yPos);
-            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
+            doc.text(`Belge Tarihi: ${formatDateDisplay(dispatch.docDate)}`, 280, yPos, { align: 'right' });
 
             yPos += 7;
             doc.text(`Depo: ${dispatch.warehouse?.name || '-'}`, 15, yPos);
-            doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
+            doc.text(`Şantiye: ${dispatch.workhouse?.name || '-'}`, 280, yPos, { align: 'right' });
 
             yPos += 7;
             doc.text(`Şoför: ${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`, 15, yPos);
-            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
+            doc.text(`Araç: ${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || '-'})`, 280, yPos, { align: 'right' });
 
-            yPos += 7;
-            doc.text(`Durum: ${dispatch.statusText}`, 15, yPos);
-            // if (dispatch.statusDescription) {
-            doc.text(`Açıklama: ${dispatch.description}`, doc.internal.pageSize.getWidth() - 15, yPos, { align: 'right' });
-            // }
-
-            yPos += 15; // Space before the details table
-
+            // آماده‌سازی داده‌های جدول اصلی
             const detailsRows = (dispatch.warehouseDispatchDetails || []).map(d => [
                 d.item?.name || '-',
                 d.quantity,
@@ -916,36 +904,59 @@ const ListWarehouseDispatch = () => {
                 d.description || '-'
             ]);
 
-            const columns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
-            const totalQuantity = (dispatch.warehouseDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
-
+            // رسم جدول اصلی
             autoTable(docAny, {
-                startY: yPos,
-                head: [columns],
+                startY: yPos + 10,
+                head: [['Malzeme Adı', 'Miktar', 'Birim', 'Açıklama']],
                 body: detailsRows,
                 theme: 'grid',
-                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-                headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-                didDrawPage: () => {
-                    addPdfFooter(doc);
-                }
+                styles: { font: 'NotoSans', fontSize: 10 },
+                headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] },
+                didDrawPage: () => addPdfFooter(doc)
             });
 
-            const finalY = docAny.lastAutoTable.finalY || yPos;
-            doc.setFontSize(10);
-            doc.text(`Toplam Miktar: ${totalQuantity}`, 15, finalY + 5);
+            // --- بخش محاسبات جمع‌بندی بر اساس واحد ---
+            const finalY = docAny.lastAutoTable.finalY || (yPos + 20);
+            const unitSummary: Record<string, number> = {};
+            let grandTotal = 0;
 
-            yPos = finalY + 10;
+            dispatch.warehouseDispatchDetails.forEach(d => {
+                const unit = d.item?.unit?.title || "Diğer";
+                const qty = Number(d.quantity) || 0;
+                unitSummary[unit] = (unitSummary[unit] || 0) + qty;
+                grandTotal += qty;
+            });
+
+            const summaryRows = Object.entries(unitSummary).map(([unit, total]) => [
+                `${unit} Bazında Toplam`,
+                total.toString(),
+                unit
+            ]);
+
+            // افزودن سطر جمع کل نهایی
+            summaryRows.push([
+                { content: 'GENEL TOPLAM', styles: { fontStyle: 'normal', fillColor: [220, 220, 220] } },
+                { content: grandTotal.toString(), styles: { fontStyle: 'normal', fillColor: [220, 220, 220] } },
+                { content: '-', styles: { fillColor: [220, 220, 220] } }
+            ] as any);
+            // رسم جدول جمع‌بندی
+            autoTable(docAny, {
+                startY: finalY + 10,
+                head: [['Birim Bazlı Özet', 'Miktar', 'Birim']],
+                body: summaryRows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontSize: 10 },
+                headStyles: { fillColor: [100, 100, 100], textColor: [255, 255, 255] },
+                columnStyles: { 0: { cellWidth: 60 }, 1: { cellWidth: 30 }, 2: { cellWidth: 30 } }
+            });
         });
 
         doc.save(`${title.replace(/ /g, '_')}.pdf`);
         showAlert('PDF başarıyla oluşturuldu.', 'success');
     };
-
-    // ✨ NEW: Consolidated Excel export function
     const exportDispatchesToExcel = (data: DispatchType[], title: string) => {
         if (!data || data.length === 0) {
-            showAlert('Excel oluşturulacak sevk belgesi bulunamadı.', 'warning');
+            showAlert('Excel oluşturulacak sevk belgesi bulunamadی.', 'warning');
             return;
         }
         showAlert('Excel oluşturuluyor...', 'info');
@@ -955,44 +966,72 @@ const ListWarehouseDispatch = () => {
             const worksheetTitle = `Sevk_${dispatch.code}`.replace(/[\\/*?:[\]]/g, '_');
             const worksheet = workbook.addWorksheet(worksheetTitle);
 
-            const detailsColumns = ['Malzeme', 'Miktar', 'Birim', 'Açıklama'];
-            const totalColumns = detailsColumns.length;
+            // هدر اکسل
+            addExcelHeader(worksheet, title, 4);
 
-            addExcelHeader(worksheet, title, totalColumns);
-
-            // Add dispatch information
+            // اطلاعات حواله
             worksheet.addRow([`Sevk Kodu:`, dispatch.code]);
             worksheet.addRow([`Belge Tarihi:`, formatDateDisplay(dispatch.docDate)]);
             worksheet.addRow([`Depo:`, dispatch.warehouse?.name || '-']);
             worksheet.addRow([`Şantiye:`, dispatch.workhouse?.name || '-']);
             worksheet.addRow([`Şoför:`, `${dispatch.driver?.name || ''} ${dispatch.driver?.family || ''}`]);
             worksheet.addRow([`Araç:`, `${dispatch.driverVehicle?.name || '-'} (${dispatch.driverVehicle?.plaque || ''})`]);
-            worksheet.addRow([`Durum:`, dispatch.statusText || '-']);
-            worksheet.addRow([`Açıklama:`, dispatch.description || '-']);
             worksheet.addRow([]);
 
-            // Add details table
-            const headerRow = worksheet.addRow(detailsColumns);
+            // جدول جزئیات
+            const headerRow = worksheet.addRow(['Malzeme Adı', 'Miktar', 'Birim', 'Açıklama']);
             headerRow.font = { name: 'NotoSans', bold: true };
-            headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
-
-            (dispatch.warehouseDispatchDetails || []).forEach(d => {
-                worksheet.addRow([
-                    d.item?.name || '-',
-                    d.quantity,
-                    d.item?.unit?.title || '-',
-                    d.description || '-'
-                ]);
+            headerRow.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+                cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
             });
 
-            // Calculate and display total quantity
-            const totalQuantity = (dispatch.warehouseDispatchDetails || []).reduce((sum, detail) => sum + Number(detail.quantity), 0);
-            const totalRow = worksheet.addRow([`Toplam Miktar`, totalQuantity, '', '']);
-            totalRow.font = { name: 'NotoSans', bold: true };
-            totalRow.getCell(2).numFmt = '0';
+            const unitSummary: Record<string, number> = {};
+            let grandTotal = 0;
 
-            worksheet.addRow([]); // Add a blank line for spacing
-            addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, totalColumns);
+            (dispatch.warehouseDispatchDetails || []).forEach(d => {
+                const qty = Number(d.quantity) || 0;
+                const unit = d.item?.unit?.title || "Diğer";
+
+                worksheet.addRow([
+                    d.item?.name || '-',
+                    qty,
+                    unit,
+                    d.description || '-'
+                ]);
+
+                // محاسبه مجموع برای واحدها
+                unitSummary[unit] = (unitSummary[unit] || 0) + qty;
+                grandTotal += qty;
+            });
+
+            // --- افزودن بخش جمع‌بندی در اکسل ---
+            worksheet.addRow([]); // سطر فاصله
+
+            const summaryHeader = worksheet.addRow(['Birim Bazlı Toplamlar', '', '', '']);
+            summaryHeader.font = { bold: true, size: 11 };
+            worksheet.mergeCells(summaryHeader.number, 1, summaryHeader.number, 4);
+
+            Object.entries(unitSummary).forEach(([unit, total]) => {
+                const row = worksheet.addRow([`${unit} Bazında Toplam:`, total, unit, '']);
+                row.font = { name: 'NotoSans', bold: true };
+                row.getCell(2).alignment = { horizontal: 'left' };
+            });
+
+            // سطر جمع کل نهایی (GENEL TOPLAM)
+            const grandTotalRow = worksheet.addRow(['GENEL TOPLAM:', grandTotal, '', '']);
+            grandTotalRow.font = { name: 'NotoSans', bold: true, size: 12 };
+            grandTotalRow.eachCell(cell => {
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFF00' } }; // رنگ زرد برای جمع کل
+            });
+
+            // تنظیم عرض خودکار ستون‌ها
+            worksheet.columns.forEach(column => {
+                column.width = 25;
+            });
+
+            worksheet.addRow([]);
+            addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, 4);
         });
 
         const fileName = `${title.replace(/ /g, '_')}.xlsx`;
@@ -1070,6 +1109,21 @@ const ListWarehouseDispatch = () => {
         setOpenDescriptionModal(false);
         setFullDescriptionContent('');
     };
+
+    const detailsSummary = useMemo(() => {
+        const summary: Record<string, number> = {};
+        let grandTotal = 0;
+
+        detailsToShow.forEach((detail) => {
+            const unitTitle = detail.item?.unit?.title || "Diğer";
+            const qty = Number(detail.quantity) || 0;
+
+            summary[unitTitle] = (summary[unitTitle] || 0) + qty;
+            grandTotal += qty;
+        });
+
+        return { summary, grandTotal };
+    }, [detailsToShow]);
 
     // === UI ===
     return (
@@ -1495,6 +1549,7 @@ const ListWarehouseDispatch = () => {
                                                             variant="outlined"
                                                             startIcon={<IconEye />}
                                                             onClick={() => {
+                                                                setSelectedRowForMenu(row);
                                                                 setDetailsToShow(row.warehouseDispatchDetails || []);
                                                                 setOpenDetailsModal(true);
                                                             }}
@@ -1626,34 +1681,33 @@ const ListWarehouseDispatch = () => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {detailsToShow.length > 0 ? (
-                                        <>
-                                            {detailsToShow.map((detail, index) => (
-                                                <TableRow key={detail.id || index}>
-                                                    <StyledTableCell><Typography variant="body1">{detail.item?.name || '-'}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{detail.quantity}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{detail.item?.unit?.title || '-'}</Typography></StyledTableCell>
-                                                    <StyledTableCell><Typography variant="body1">{detail.description || '-'}</Typography></StyledTableCell>
-                                                </TableRow>
-                                            ))}
-                                            <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
-                                                <StyledTableCell sx={{ fontWeight: 'bold' }} colSpan={1}>Toplam Miktar:</StyledTableCell>
-                                                <StyledTableCell sx={{ fontWeight: 'bold' }}>
-                                                    {detailsToShow.reduce((sum, detail) => sum + Number(detail.quantity), 0)}
-                                                </StyledTableCell>
-                                                <StyledTableCell></StyledTableCell>
-                                                <StyledTableCell></StyledTableCell>
-                                            </TableRow>
-                                        </>
-                                    ) : (
-                                        <TableRow>
-                                            <StyledTableCell colSpan={4} align="center">
-                                                <Typography variant="subtitle1" color="textSecondary">
-                                                    Bu sevk belgesi için hiç detay bulunamadı.
-                                                </Typography>
-                                            </StyledTableCell>
+                                    {detailsToShow.map((detail, index) => (
+                                        <TableRow key={detail.id || index}>
+                                            <StyledTableCell>{detail.item?.name || '-'}</StyledTableCell>
+                                            <StyledTableCell>{detail.quantity}</StyledTableCell>
+                                            <StyledTableCell>{detail.item?.unit?.title || '-'}</StyledTableCell>
+                                            <StyledTableCell>{detail.description || '-'}</StyledTableCell>
                                         </TableRow>
-                                    )}
+                                    ))}
+
+                                    {/* سطر جمع‌بندی بر اساس واحدها */}
+                                    {Object.entries(detailsSummary.summary).map(([unit, total]) => (
+                                        <TableRow key={unit} sx={{ backgroundColor: 'rgba(0, 0, 0, 0.04)' }}>
+                                            <StyledTableCell sx={{ fontWeight: 'bold' }}>{unit} Bazında Toplam:</StyledTableCell>
+                                            <StyledTableCell sx={{ fontWeight: 'bold' }}>{total}</StyledTableCell>
+                                            <StyledTableCell sx={{ fontWeight: 'bold' }}>{unit}</StyledTableCell>
+                                            <StyledTableCell />
+                                        </TableRow>
+                                    ))}
+
+                                    {/* سطر جمع کل نهایی */}
+                                    <TableRow sx={{ backgroundColor: 'rgb(240, 240, 240)' }}>
+                                        <StyledTableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>GENEL TOPLAM:</StyledTableCell>
+                                        <StyledTableCell sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                                            {detailsSummary.grandTotal}
+                                        </StyledTableCell>
+                                        <StyledTableCell colSpan={2} />
+                                    </TableRow>
                                 </TableBody>
                             </Table>
                         </TableContainer>
@@ -1672,12 +1726,12 @@ const ListWarehouseDispatch = () => {
                         <Stack direction="row" spacing={2} sx={{ flexGrow: 1 }}>
                             <Button
 
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                                fullWidth
                                 sx={{ flex: 1 }} variant="contained"
                                 color="error"
                                 startIcon={<IconFileText />}
-                                // استفاده از تابع موجود در کد شما برای خروجی PDF
                                 onClick={() => {
+                                    debugger
                                     if (selectedRowForMenu) {
                                         exportDispatchesToPdf([selectedRowForMenu], `Sevk_${selectedRowForMenu.code}`);
                                     }

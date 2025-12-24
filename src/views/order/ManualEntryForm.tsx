@@ -1304,11 +1304,22 @@ const ManualEntryForm = () => {
         setPage(0);
     };
 
+    // const handleOpenHistoryModal = (row: OrderType) => {
+    //     setHistoryData(row.orderHeaderStatusHistories || []);
+    //     setOpenHistoryModal(true);
+    // };
+
     const handleOpenHistoryModal = (row: OrderType) => {
-        setHistoryData(row.orderHeaderStatusHistories || []);
+        // گرفتن کپی از آرایه و مرتب‌سازی آن بر اساس تاریخ (نزولی)
+        const sortedHistory = row.orderHeaderStatusHistories
+            ? [...row.orderHeaderStatusHistories].sort((a, b) =>
+                new Date(b.createAt).getTime() - new Date(a.createAt).getTime()
+            )
+            : [];
+
+        setHistoryData(sortedHistory);
         setOpenHistoryModal(true);
     };
-
     const handleCloseHistoryModal = () => {
         setOpenHistoryModal(false);
         setHistoryData([]);
@@ -1833,7 +1844,6 @@ const ManualEntryForm = () => {
 
             </BlankCard>
 
-            {/* ... Other Modals (History, Delete, Download, etc.) ... */}
             <Dialog open={openHistoryModal} onClose={handleCloseHistoryModal} maxWidth="md" fullWidth>
                 <DialogTitle>Sipariş Durum Geçmişi</DialogTitle>
                 <DialogContent dividers>
@@ -1906,11 +1916,8 @@ const ManualEntryForm = () => {
                     </TableContainer>
                     <>
                         {modalDetails.length > 0 && (
-                            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                                <Typography variant="h6" gutterBottom color="primary">
-                                    Birim Bazlı Toplamlar
-                                </Typography>
-                                <TableContainer component={Paper} elevation={0}>
+                            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                                <TableContainer component={Paper} variant="outlined" sx={{ width: 'auto', minWidth: '300px' }}>
                                     <Table size="small">
                                         <TableHead>
                                             <TableRow>

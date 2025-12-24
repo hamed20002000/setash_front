@@ -931,11 +931,11 @@ const ListWarehouses = () => {
                     fontSize: 9,
                 },
                 didDrawPage: () => {
-                    doc.setFont('Arial', 'bold');
+                    doc.setFont('Arial', 'normal');
                     doc.setFontSize(14);
                     doc.text('Tüm Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
                     doc.setFontSize(10);
-                    doc.setFont('Times', 'bold');
+                    doc.setFont('Times', 'normal');
                     doc.text(`Tarih:`, 15, 25);
                     doc.setFont('Times', 'normal');
                     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
@@ -1022,11 +1022,11 @@ const ListWarehouses = () => {
                     fontSize: 9,
                 },
                 didDrawPage: () => {
-                    doc.setFont('Arial', 'bold');
+                    doc.setFont('Arial', 'normal');
                     doc.setFontSize(14);
                     doc.text('Filtrelenmiş Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
                     doc.setFontSize(10);
-                    doc.setFont('Times', 'bold');
+                    doc.setFont('Times', 'normal');
                     doc.text(`Tarih:`, 15, 25);
                     doc.setFont('Times', 'normal');
                     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
@@ -1121,11 +1121,11 @@ const ListWarehouses = () => {
                     fontSize: 9,
                 },
                 didDrawPage: () => {
-                    doc.setFont('Arial', 'bold');
+                    doc.setFont('Arial', 'normal');
                     doc.setFontSize(14);
                     doc.text(`${warehouseName} Envanter Raporu`, pageWidth / 2, 15, { align: 'center' });
                     doc.setFontSize(10);
-                    doc.setFont('Times', 'bold');
+                    doc.setFont('Times', 'normal');
                     doc.text(`Tarih:`, 15, 25);
                     doc.setFont('Times', 'normal');
                     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
@@ -1793,7 +1793,7 @@ const ListWarehouses = () => {
                                             <StyledTableCell>
                                                 <Typography variant="body1">{row.code}</Typography>
                                             </StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 200 }} align="center">
+                                            <StyledTableCell align="left">
                                                 {row.address && row.address.trim().length > 0 ? (
                                                     // ✅ حالت اول: آدرس هست -> فقط دکمه نمایش بده
                                                     <Button
