@@ -914,6 +914,7 @@ const ListStoreInvoice = () => {
                 detail.item?.unit?.title || '-',
                 cleanAndFormatPrice(price),
                 cleanAndFormatPrice(indirimsizFiyat), // ستون جدید
+                Number(detail.discountPercent).toFixed(2) || '-',
                 cleanAndFormatPrice(discAmount),
                 cleanAndFormatPrice(toplamIndirim), // ستون جدید
                 cleanAndFormatPrice(lineTotal),    // ستون جدید (Toplam Fiyat)
@@ -930,9 +931,10 @@ const ListStoreInvoice = () => {
             styles: { font: 'Arial', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
             columnStyles: {
-                0: { cellWidth: 25 }, 1: { cellWidth: 20 }, 2: { cellWidth: 30 },
-                3: { cellWidth: 15 }, 4: { cellWidth: 30 }, 5: { cellWidth: 30 },
-                6: { cellWidth: 30 }, 7: { cellWidth: 30 }, 8: { cellWidth: 30 }, 9: { cellWidth: 'auto' },
+                0: { cellWidth: 25 }, 1: { cellWidth: 20 }, 2: { cellWidth: 25 },
+                3: { cellWidth: 15 }, 4: { cellWidth: 25 }, 5: { cellWidth: 25 },
+                6: { cellWidth: 25 }, 7: { cellWidth: 25 }, 8: { cellWidth: 25 },
+                9: { cellWidth: 25 }, 10: { cellWidth: 'auto' },
             },
             didDrawPage: () => {
                 addPdfHeader(doc, `Fatura Detayları`);
@@ -987,7 +989,7 @@ const ListStoreInvoice = () => {
             summaryRows.push(['GENEL TOPLAM', cleanAndFormatPrice(grandTotalPdf)]);
 
             autoTable(doc, {
-                startY: finalY + 10,
+                startY: finalY + 5,
                 head: [['Birim', 'Toplam Tutar ((Miktar x Fiyat) - İndirim)']],
                 body: summaryRows,
                 theme: 'grid',
@@ -1053,7 +1055,7 @@ const ListStoreInvoice = () => {
         // --- Table Headers ---
         // const tableHeaders = ['Tedarikçi', 'Firm', 'Ürün Adı', 'Miktar', 'Birim', 'Fiyat', 'İndirim %', 'İndirim Miktarı', 'Açıklama'];
 
-        const tableHeaders = ['Tedarikçi', 'Ürün Adı', 'Miktar', 'Birim', 'Birim Fiyat', 'Indirimsiz Fiyat', 'İndirim Miktarı', 'Toplam İndirim', 'Toplam Fiyat', 'Açıklama'];
+        const tableHeaders = ['Tedarikçi', 'Ürün Adı', 'Miktar', 'Birim', 'Birim Fiyat', 'Indirimsiz Fiyat', 'İndirim %', 'İndirim Miktarı', 'Toplam İndirim', 'Toplam Fiyat', 'Açıklama'];
         const headerRow = worksheet.addRow(tableHeaders);
         headerRow.font = { name: 'Arial', bold: true };
         headerRow.eachCell(cell => {
@@ -1090,6 +1092,7 @@ const ListStoreInvoice = () => {
                 detail.item?.unit?.title || '-',
                 price,
                 qty * price,        // Indirimsiz Fiyat
+                Number(detail.discountPercent),
                 discAmount,
                 qty * discAmount,   // Toplam İndirim
                 (qty * price) - (qty * discAmount), // Toplam Fiyat
@@ -1996,6 +1999,8 @@ const ListStoreInvoice = () => {
                                     <StyledTableCell><Typography variant="h6">Birim</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Birim Fiyat</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Indirimsiz Fiyat</Typography></StyledTableCell> {/* جدید */}
+
+                                    <StyledTableCell><Typography variant="h6">İndirim %</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">İndirim Miktarı</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Toplam İndirim</Typography></StyledTableCell> {/* جدید */}
                                     <StyledTableCell><Typography variant="h6">Toplam Fiyat</Typography></StyledTableCell> {/* جدید */}
@@ -2021,6 +2026,8 @@ const ListStoreInvoice = () => {
                                             <StyledTableCell>{detail.item?.unit?.title || '-'}</StyledTableCell>
                                             <StyledTableCell>{cleanAndFormatPrice(price)}</StyledTableCell>
                                             <StyledTableCell>{cleanAndFormatPrice(indirimsizFiyat)}</StyledTableCell>
+                                            <StyledTableCell><Typography variant="body1">{detail.discountPercent || '-'}</Typography></StyledTableCell>
+
                                             <StyledTableCell>{cleanAndFormatPrice(discAmount)}</StyledTableCell>
                                             <StyledTableCell>{cleanAndFormatPrice(toplamIndirim)}</StyledTableCell>
                                             <StyledTableCell sx={{ fontWeight: 'bold' }}>{cleanAndFormatPrice(lineTotal)}</StyledTableCell>
