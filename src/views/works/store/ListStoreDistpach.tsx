@@ -1729,7 +1729,7 @@ const ListStoreDispatch = () => {
                                                     {hasEditPermission && selectedRowForMenu?.status === 0 && (
                                                         <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>
                                                     )}
-                                                    {hasDeletePermission && (
+                                                    {hasDeletePermission && selectedRowForMenu?.status === 0 && (
                                                         <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
                                                     )}
                                                     {hasDownloadPermission && (

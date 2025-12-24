@@ -481,61 +481,46 @@ const ListInvoices = () => {
 
         const finalY = (doc as any).lastAutoTable.finalY;
 
-        // محاسبه مقادیر برای PDF
+        // --- بخش اصلاح شده محاسبات خلاصه ---
         const summaryData = new Map<string, number>();
         let grandTotalPdf = 0;
 
-        // توجه: در تابع exportAllDetailedPdf به جای invoice از حلقه استفاده کنید
         invoice.invoiceDetails.forEach(detail => {
             const unitTitle = detail.item?.unit?.title || "Diğer";
-
             const qty = cleanAndConvertNumber(detail.quantity);
             const price = cleanAndConvertNumber(detail.price);
-            const discount = cleanAndConvertNumber(detail.discountAmount);
+            const discAmount = cleanAndConvertNumber(detail.discountAmount);
 
-            // فرمول: (تعداد * قیمت) - تخفیف
-            const lineTotal = (qty * price) - discount;
+            // فرمول مشابه مودال: (تعداد * قیمت) - (تعداد * مبلغ تخفیف واحد)
+            const lineTotal = (qty * price) - (qty * discAmount);
 
             const currentTotal = summaryData.get(unitTitle) || 0;
             summaryData.set(unitTitle, currentTotal + lineTotal);
-
             grandTotalPdf += lineTotal;
         });
 
-        // رسم جدول خلاصه در PDF
+        // رسم جدول خلاصه نهایی در PDF
         if (summaryData.size > 0) {
-            const summaryRows: any[] = [];
-
-            Array.from(summaryData.entries()).forEach(([unit, total]) => {
-                summaryRows.push([unit, cleanAndFormatPrice(total)]);
-            });
-
-            // اضافه کردن جمع کل
+            const summaryRows = Array.from(summaryData.entries()).map(([unit, total]) => [
+                unit,
+                cleanAndFormatPrice(total)
+            ]);
             summaryRows.push(['GENEL TOPLAM', cleanAndFormatPrice(grandTotalPdf)]);
 
             autoTable(doc, {
                 startY: finalY + 5,
-                head: [['Birim', 'Toplam Tutar ((Miktar x Fiyat) - İndirim)']],
+                head: [['Birim', 'Toplam Tutar (Net)']],
                 body: summaryRows,
                 theme: 'grid',
-                styles: { font: 'Arial', fontSize: 10, fontStyle: 'normal' },
+                styles: { font: 'Arial', fontSize: 10 },
                 headStyles: { fillColor: [220, 220, 220], textColor: [0, 0, 0] },
-                columnStyles: {
-                    0: { cellWidth: 100 },
-                    1: { cellWidth: 'auto', halign: 'right' }
-                },
-                // پررنگ کردن سطر آخر (Genel Toplam)
-                didParseCell: (data) => {
-                    if (data.row.index === summaryRows.length - 1) {
-                        data.cell.styles.fontStyle = 'normal';
-                        data.cell.styles.textColor = [0, 0, 0]; // Black
-                    }
-                }
+                margin: { left: 180 }, // تراز کردن جدول خلاصه در سمت راست صفحه Landscape
+                columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 50, halign: 'right' } }
             });
         }
 
         doc.save(`Fatura_${invoice.id}.pdf`);
-        showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+        showAlert('PDF başarıyla oluşturuldu.', 'success');
     };
 
     const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number) => {
@@ -610,76 +595,52 @@ const ListInvoices = () => {
             const price = cleanAndConvertNumber(detail.price);
             const discAmount = cleanAndConvertNumber(detail.discountAmount);
 
+            const lineTotal = (qty * price) - (qty * discAmount);
+
             worksheet.addRow([
                 detail.provider?.name || '-',
                 detail.item?.name || '-',
                 qty,
                 detail.item?.unit?.title || '-',
                 price,
-                qty * price,        // Indirimsiz Fiyat
+                qty * price,
                 Number(detail.discountPercent),
                 discAmount,
-                qty * discAmount,   // Toplam İndirim
-                (qty * price) - (qty * discAmount), // Toplam Fiyat
+                qty * discAmount, // مجموع تخفیف سطر
+                lineTotal,        // مبلغ نهایی سطر
                 detail.description || '-'
             ]);
         });
-        // --- Column Auto Width ---
-        worksheet.columns.forEach((column: any) => {
-            let maxLength = 0;
-            if (column && typeof column.eachCell === 'function') {
-                column.eachCell({ includeEmpty: true }, (cell: any) => {
-                    const columnLength = cell.value ? cell.value.toString().length : 10;
-                    if (columnLength > maxLength) {
-                        maxLength = columnLength;
-                    }
-                });
-            }
-            column.width = Math.min(Math.max(maxLength + 2, 15), 50);
-        });
 
-        // --- Calculations (Grouping by Unit) ---
-        // فرمول جدید: (تعداد * قیمت) - تخفیف
+        // --- بخش اصلاح شده محاسبات خلاصه در اکسل ---
         const summaryMap = new Map<string, number>();
         let grandTotalExcel = 0;
 
         invoice.invoiceDetails.forEach(detail => {
             const unitTitle = detail.item?.unit?.title || "Diğer";
-
             const qty = cleanAndConvertNumber(detail.quantity);
             const price = cleanAndConvertNumber(detail.price);
-            const discount = cleanAndConvertNumber(detail.discountAmount);
+            const discAmount = cleanAndConvertNumber(detail.discountAmount);
 
-            // محاسبه خطی طبق فرمول
-            const lineTotal = (qty * price) - discount;
+            // فرمول مشابه مودال
+            const lineTotal = (qty * price) - (qty * discAmount);
 
-            // اضافه کردن به Map
             const currentTotal = summaryMap.get(unitTitle) || 0;
             summaryMap.set(unitTitle, currentTotal + lineTotal);
-
             grandTotalExcel += lineTotal;
         });
 
-        // --- Summary Table ---
         if (summaryMap.size > 0) {
             worksheet.addRow([]);
-            worksheet.addRow(['Birim Bazlı Toplamlar ((Miktar x Fiyat) - İndirim)']).font = { name: 'Arial', size: 12, bold: true };
+            worksheet.addRow(['Birim Bazlı Net Toplamlar']).font = { bold: true };
 
-            const summaryHeaderRow = worksheet.addRow(['Birim', 'Toplam Tutar']);
-            summaryHeaderRow.font = { name: 'Arial', bold: true };
-            summaryHeaderRow.eachCell(cell => {
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-                cell.border = { bottom: { style: 'thin' } };
-            });
-
-            // نمایش سطرهای واحدها
             Array.from(summaryMap.entries()).forEach(([unit, total]) => {
-                worksheet.addRow([unit, cleanAndFormatPrice(total)]);
+                const row = worksheet.addRow([unit, cleanAndFormatPrice(total)]);
+                row.getCell(2).alignment = { horizontal: 'right' };
             });
 
-            // نمایش جمع کل نهایی
             const grandTotalRow = worksheet.addRow(['GENEL TOPLAM', cleanAndFormatPrice(grandTotalExcel)]);
-            grandTotalRow.font = { name: 'Arial', bold: true, size: 11 };
+            grandTotalRow.font = { bold: true, size: 12 };
             grandTotalRow.getCell(2).alignment = { horizontal: 'right' };
         }
 
@@ -2084,14 +2045,14 @@ const ListInvoices = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {hasEditPermission && (
+                                                    {hasEditPermission && selectedInvoiceForMenu?.status === 0 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı düzenleyin" : ""}>
                                                             <MuiMenuItem onClick={() => handleEditClick(row)}>
                                                                 <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {hasDeletePermission && (
+                                                    {hasDeletePermission && selectedInvoiceForMenu?.status === 0 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu faturayı silin" : ""}>
                                                             <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.invoiceNo || '-')}>
                                                                 <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek

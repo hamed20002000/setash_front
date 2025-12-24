@@ -2015,14 +2015,14 @@ const ExcelImportComponent = () => {
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {hasEditPermission && (
+                                                    {hasEditPermission && selectedOrderForMenu?.status === 0 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi düzenleyin" : ""}>
                                                             <MuiMenuItem onClick={() => handleEditClick(row)}>
                                                                 <ListItemIcon><IconEdit size={18} /></ListItemIcon> Düzenle
                                                             </MuiMenuItem>
                                                         </CustomTooltip>
                                                     )}
-                                                    {hasDeletePermission && (
+                                                    {hasDeletePermission && selectedOrderForMenu?.status === 0 && (
                                                         <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu siparişi silin" : ""}>
                                                             <MuiMenuItem onClick={() => handleClickOpenDeleteModal(row.id, row.network.title)}>
                                                                 <ListItemIcon><IconTrash size={18} /></ListItemIcon> Silmek
