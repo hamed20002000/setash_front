@@ -262,7 +262,7 @@ const ListStoreDispatchToCenter = () => {
     const [docDateError, setDocDateError] = useState<boolean>(false);
     const [driverIdError, setDriverIdError] = useState<boolean>(false);
     const [destinationWarehouseIdError, setDestinationWarehouseIdError] = useState<boolean>(false);
-    const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
+    // const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [warehouses, setWarehouses] = useState<StoreType[]>([]);
@@ -308,6 +308,9 @@ const ListStoreDispatchToCenter = () => {
 
     const [openDescriptionModalT, setOpenDescriptionModalT] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+
+    const [newItem, setNewItem] = useState<FormDispatchDetail | null>(null);
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -377,52 +380,54 @@ const ListStoreDispatchToCenter = () => {
         }
     }, [showAlert, authToken]);
 
-    const fetchDispatchItemsByDestination = useCallback(async () => {
-        if (!authToken || !selectedDestinationWarehouseId) return;
+    // const fetchDispatchItemsByDestination = useCallback(async () => {
+    //     if (!authToken || !selectedDestinationWarehouseId) return;
 
-        setLoadingButton(true);
-        try {
-            const response = await axios.get<any>(
-                `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
-                { headers: { Authorization: `Bearer ${authToken}` } }
-            );
-            if (response.data.httpStatusCode === 200) {
-                // const itemDetails: DispatchDetailType[] = response.data.data || [];
-                const itemBalances: ItemBalanceType[] = response.data.data || [];
+    //     setLoadingButton(true);
+    //     try {
+    //         const response = await axios.get<any>(
+    //             `${server.baseurl}${server.warehouse}get-store-all-items-balance/${Number(storeId)}`,
+    //             { headers: { Authorization: `Bearer ${authToken}` } }
+    //         );
+    //         if (response.data.httpStatusCode === 200) {
+    //             // const itemDetails: DispatchDetailType[] = response.data.data || [];
+    //             const itemBalances: ItemBalanceType[] = response.data.data || [];
 
 
-                const formattedDetails: FormDispatchDetail[] = itemBalances.map((d: ItemBalanceType) => {
-                    const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
+    //             const formattedDetails: FormDispatchDetail[] = itemBalances.map((d: ItemBalanceType) => {
+    //                 const itemBalance = storeItems.find(item => Number(item.itemId) === Number(d.itemId));
 
-                    return {
-                        itemId: Number(d.itemId),
-                        quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
-                        description: '',
-                        item: d.name as any,
-                        balance: itemBalance ? Number(itemBalance.balance) : 0,
-                        unit: '' as any,
-                    };
-                });
+    //                 return {
+    //                     itemId: Number(d.itemId),
+    //                     quantity: Number(d.balance) > 0 ? Number(d.balance) : 0,
+    //                     description: '',
+    //                     item: d.name as any,
+    //                     balance: itemBalance ? Number(itemBalance.balance) : 0,
+    //                     unit: '' as any,
+    //                 };
+    //             });
 
-                setDispatchDetails(formattedDetails);
-                showAlert('Sevk detayları başarıyla yüklendi. Lütfen miktarları stok durumuna göre kontrol ediniz.', 'success');
-            } else {
-                setDispatchDetails([]);
-                showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
-            }
-        } catch (e: any) {
-            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
-            else if (e.response?.status === 401) {
-                localStorage.removeItem('authToken');
-                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
-            }
-            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
-        } finally {
-            setLoadingButton(false);
-        }
-    }, [authToken, selectedDestinationWarehouseId, showAlert, storeItems]);
+    //             setDispatchDetails(formattedDetails);
+    //             showAlert('Sevk detayları başarıyla yüklendi. Lütfen miktarları stok durumuna göre kontrol ediniz.', 'success');
+    //         } else {
+    //             setDispatchDetails([]);
+    //             showAlert('Bu merkez için önceden tanımlanmış iade detayı bulunamadı', 'warning');
+    //         }
+    //     } catch (e: any) {
+    //         if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+    //         else if (e.response?.status === 401) {
+    //             localStorage.removeItem('authToken');
+    //             showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+    //         }
+    //         else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingButton(false);
+    //     }
+    // }, [authToken, selectedDestinationWarehouseId, showAlert, storeItems]);
 
     // Fetch all store items balance
+
+
     const fetchStoreItems = useCallback(async () => {
         if (!authToken) { navigate("/"); return; }
         try {
@@ -561,7 +566,7 @@ const ListStoreDispatchToCenter = () => {
         }
 
         if (dispatchDetails.length === 0) {
-            setDispatchDetailsError(true);
+            // setDispatchDetailsError(true);
             isValid = false;
         } else {
             const isDetailsValid = dispatchDetails.every((detail) => {
@@ -593,10 +598,10 @@ const ListStoreDispatchToCenter = () => {
             });
 
             if (!isDetailsValid) {
-                setDispatchDetailsError(true);
+                // setDispatchDetailsError(true);
                 isValid = false;
             } else {
-                setDispatchDetailsError(false);
+                // setDispatchDetailsError(false);
             }
         }
 
@@ -619,7 +624,7 @@ const ListStoreDispatchToCenter = () => {
         setDocDateError(false);
         setDriverIdError(false);
         setDestinationWarehouseIdError(false);
-        setDispatchDetailsError(false);
+        // setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
         setRemovedDispatchDetails([]);
@@ -1127,6 +1132,60 @@ const ListStoreDispatchToCenter = () => {
         setFullDescriptionContent('');
     };
 
+    const handleAddNewRow = () => {
+        // اگر لیست به صورت خودکار پر شده بود، آن را پاک کن تا تکی اضافه شود
+        if (dispatchDetails.length === storeItems.length && storeItems.length > 0) {
+            setDispatchDetails([]);
+        }
+        setNewItem({
+            itemId: null,
+            quantity: '',
+            description: '',
+            balance: 0
+        });
+    };
+
+    // تایید آیتم تکی و اضافه کردن به لیست اصلی
+    const confirmNewItem = () => {
+        if (newItem && newItem.itemId && Number(newItem.quantity) > 0) {
+            const exists = dispatchDetails.some(d => d.itemId === newItem.itemId);
+            if (exists) {
+                showAlert("Bu ürün zaten listedه موجود!", "warning");
+                return;
+            }
+            setDispatchDetails(prev => [...prev, newItem]);
+            setNewItem({ itemId: null, quantity: '', description: '', balance: 0 }); // ریست برای آیتم بعدی
+        } else {
+            showAlert("Lütfen geçerli bir ürün ve miktar girin.", "warning");
+        }
+    };
+
+    // تابع افزودن/حذف یکجای تمام آیتم‌ها
+    const handleToggleAllItems = () => {
+        if (dispatchDetails.length > 0) {
+            // اگر لیست پر است و دکمه "Tümünü Kaldır" زده شد:
+            setDispatchDetails([]); // لیست اصلی خالی شود
+            setRemovedDispatchDetails([]); // لیست محصولات حذف شده (آرشیو) هم کاملاً پاک و مخفی شود ✨
+        } else {
+            // اگر لیست خالی است و دکمه "Tümünü Ekle" زده شد:
+            setNewItem(null);
+            const allItems = storeItems.map(item => ({
+                itemId: Number(item.itemId),
+                quantity: Number(item.balance),
+                description: '',
+                item: {
+                    id: item.itemId,
+                    name: item.name,
+                    abbreviation: item.code || '',
+                    unit: item.unit
+                },
+                balance: Number(item.balance)
+            }));
+            setDispatchDetails(allItems);
+            setRemovedDispatchDetails([]); // اطمینان از خالی بودن آرشیو هنگام پر کردن مجدد
+        }
+    };
+
 
     return (
         <>
@@ -1344,87 +1403,121 @@ const ListStoreDispatchToCenter = () => {
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
-                                {!editingId && ( // فقط در حالت ثبت جدید نمایش داده شود
-                                    <CustomTooltip title="Sevk edilecek ürünleri merkez deposundan önceden tanımlanmış listeye göre yükleyin.">
-                                        <Button
-                                            variant="outlined"
-                                            onClick={fetchDispatchItemsByDestination}
-                                            startIcon={<IconPlus />}
-                                            disabled={loadingButton || !selectedDestinationWarehouseId}
-                                        >
-                                            Detayları Yükle
-                                        </Button>
-                                    </CustomTooltip>
-                                )}
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        variant="outlined"
+                                        color="primary"
+                                        onClick={handleAddNewRow}
+                                        startIcon={<IconPlus />}
+                                        disabled={newItem !== null}
+                                    >
+                                        Tek Tek Ekle
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        color={dispatchDetails.length > 0 ? "error" : "secondary"}
+                                        onClick={handleToggleAllItems}
+                                        startIcon={dispatchDetails.length > 0 ? <IconTrash /> : <IconPlus />}
+                                        disabled={storeItems.length === 0}
+                                    >
+                                        {dispatchDetails.length > 0 ? "Tümünü Kaldır" : "Tümünü Ekle (Stoktan)"}
+                                    </Button>
+                                </Stack>
                             </Stack>
+
                             <Grid container spacing={2}>
+                                {/* ردیف ورودی آیتم جدید (تکی) */}
+                                {newItem && (
+                                    <Grid item xs={12} sx={{ bgcolor: 'rgba(0,0,0,0.03)', p: 2, borderRadius: 1, border: '1px dashed #ccc', mb: 2 }}>
+                                        <Grid container spacing={2} alignItems="center">
+                                            <Grid item xs={12} sm={4}>
+                                                <Autocomplete
+                                                    options={storeItems.filter(item => !dispatchDetails.some(d => Number(d.itemId) === Number(item.itemId)))}
+                                                    getOptionLabel={(option) => `${option.name} (${option.balance} ${option.unit?.title || ""})`}
+                                                    value={storeItems.find(i => Number(i.itemId) === newItem?.itemId) || null}
+                                                    onChange={(_, val) => {
+                                                        if (val) {
+                                                            setNewItem({
+                                                                ...newItem,
+                                                                itemId: Number(val.itemId),
+                                                                balance: Number(val.balance),
+                                                                item: { id: val.itemId, name: val.name, abbreviation: val.code || '', unit: val.unit }
+                                                            });
+                                                        }
+                                                    }}
+                                                    renderInput={(params) => <TextField {...params} label="Malzeme Seç" size="small" />}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <TextField
+                                                    label={`Miktar (Max: ${newItem.balance})`}
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={newItem.quantity}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        if (val > (newItem.balance || 0)) {
+                                                            setNewItem({ ...newItem, quantity: newItem.balance || 0 });
+                                                            showAlert(`Maksimum stok: ${newItem.balance}`, "warning");
+                                                        } else {
+                                                            setNewItem({ ...newItem, quantity: e.target.value });
+                                                        }
+                                                    }}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6} sm={4}>
+                                                <TextField
+                                                    label="Açıklama"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={newItem.description}
+                                                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={1} sx={{ textAlign: 'right' }}>
+                                                <IconButton color="success" onClick={confirmNewItem}><IconCheck /></IconButton>
+                                                <IconButton color="error" onClick={() => setNewItem(null)}><IconX /></IconButton>
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+                                )}
+
+                                {/* لیست آیتم‌های اضافه شده */}
                                 {dispatchDetails.map((detail, index) => {
                                     const selectedItem = storeItems.find(item => Number(item.itemId) === Number(detail.itemId));
-                                    const currentStockBalance = selectedItem ? Number(selectedItem.balance) : 0;
-                                    const originalQuantity = editingId && initialDispatchDetails.find(d => d.itemId === detail.itemId) ? Number(initialDispatchDetails.find(d => d.itemId === detail.itemId)?.quantity) : 0;
-                                    const maxAllowedQuantity = currentStockBalance + (editingId ? originalQuantity : 0);
-                                    const displayBalance = `(Stok: ${currentStockBalance}${editingId ? ` | Maks: ${maxAllowedQuantity}` : ''})`;
-
-                                    const isQuantityInvalid = Number(detail.quantity) < 0 || Number(detail.quantity) > maxAllowedQuantity;
+                                    const maxAllowed = (selectedItem ? Number(selectedItem.balance) : 0) +
+                                        (editingId ? Number(initialDispatchDetails.find(d => d.itemId === detail.itemId)?.quantity || 0) : 0);
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack
-                                                direction={{ xs: 'column', sm: 'row' }}
-                                                spacing={1}
-                                                alignItems={{ xs: 'flex-start', sm: 'center' }}
-                                                sx={{ borderBottom: '1px solid #eee', pb: 1 }}
-                                            >
-                                                <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: '200px' } }}>
-                                                    <Typography variant="body1" component="span" sx={{ fontWeight: 'bold' }}>
-                                                        {selectedItem?.name || 'Ürün Adı Bulunamadı'}
+                                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center" sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
+                                                <Box sx={{ flexGrow: 1, minWidth: '200px' }}>
+                                                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                                        {detail.item?.name || 'Ürün Adı'}
                                                     </Typography>
                                                 </Box>
-
-                                                <Stack
-                                                    direction={{ xs: 'column', md: 'row' }}
-                                                    spacing={1}
-                                                    alignItems="stretch"
-                                                    sx={{ flexGrow: 2, width: { xs: '100%', sm: 'auto' } }}
-                                                >
-                                                    <Box sx={{ width: { xs: '100%', md: '300px' } }}>
-                                                        <CustomTextField
-                                                            type="number"
-                                                            placeholder="Miktar"
-                                                            value={detail.quantity}
-                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                            fullWidth
-                                                            InputProps={{
-                                                                endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                            }}
-                                                            error={dispatchDetailsError && isQuantityInvalid}
-                                                            helperText={dispatchDetailsError && isQuantityInvalid ? `Geçerli bir miktar girin! (0 - ${maxAllowedQuantity})` : ""}
-                                                        />
-                                                    </Box>
-
-                                                    <Box sx={{ width: { xs: '100%', md: '300px' } }}>
-                                                        <CustomTextField
-                                                            placeholder="Açıklama"
-                                                            value={detail.description}
-                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)}
-                                                            fullWidth
-                                                        />
-                                                    </Box>
-                                                </Stack>
-
-                                                <IconButton
-                                                    color="error"
-                                                    onClick={() => handleRemoveDispatchDetail(index)}
-                                                    sx={{ flexShrink: 0, alignSelf: { xs: 'flex-end', sm: 'center' } }} // در موبایل به راست می‌چسبد
-                                                >
+                                                <CustomTextField
+                                                    type="number"
+                                                    label={`Miktar (Maks: ${maxAllowed})`}
+                                                    value={detail.quantity}
+                                                    onChange={(e: any) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                    sx={{ width: { xs: '100%', sm: '150px' } }}
+                                                />
+                                                <CustomTextField
+                                                    placeholder="Açıklama"
+                                                    value={detail.description}
+                                                    onChange={(e: any) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                    sx={{ flexGrow: 1 }}
+                                                />
+                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}>
                                                     <IconTrash />
                                                 </IconButton>
                                             </Stack>
                                         </Grid>
-                                    )
+                                    );
                                 })}
                             </Grid>
-                            {dispatchDetailsError && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>En az bir sevk detayı eklemek zorunludur!</Typography>}
                         </Box>
                         <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
                             {editingId ? (
@@ -1643,7 +1736,10 @@ const ListStoreDispatchToCenter = () => {
                                                                 <Button
                                                                     variant="outlined"
                                                                     startIcon={<IconEye />}
-                                                                    onClick={() => handleOpenDetailsModal(row.storeDispatchDetails || [])}
+                                                                    onClick={() => {
+                                                                        setSelectedRowForMenu(row);
+                                                                        handleOpenDetailsModal(row.storeDispatchDetails || [])
+                                                                    }}
                                                                 >
                                                                     Görünüm
                                                                 </Button>
@@ -1667,7 +1763,7 @@ const ListStoreDispatchToCenter = () => {
                                                             {hasEditPermission && row.status === 0 && (
                                                                 <MuiMenuItem onClick={handleEditClick}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>
                                                             )}
-                                                            {hasDeletePermission && row.recordStatus === 0 && (
+                                                            {hasDeletePermission && row.status === 0 && (
                                                                 <MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>
                                                             )}
 
@@ -2014,3 +2110,4 @@ const ListStoreDispatchToCenter = () => {
 };
 
 export default ListStoreDispatchToCenter;
+

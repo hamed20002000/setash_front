@@ -64,7 +64,7 @@ const TYPE_META: Record<
     to: (n) => ROUTES['warehouse-dispatch-between-warehouse'](String(n.warehouseId)),
   },
   'store-dispatch-to-project': {
-    label: 'Şantiyenin Depo Sevk', bg: 'info.main', icon: <IconHome size={22} />,
+    label: 'Şantiye Depo Sevk', bg: 'info.main', icon: <IconHome size={22} />,
     to: (n) => ROUTES['store-dispatch-to-project'](String(n.storeId)),
   },
   'store-dispatch-to-center': {
@@ -76,7 +76,7 @@ const TYPE_META: Record<
     to: (n) => ROUTES['store-dispatch-destruction-to-center'](String(n.storeId)),
   },
   'store-dispatch-between-store': {
-    label: 'Şantiyenin Depo Arası', bg: 'warning.main', icon: <IconArrowsExchange size={22} />,
+    label: 'Şantiye Depo Arası', bg: 'warning.main', icon: <IconArrowsExchange size={22} />,
     to: (n) => ROUTES['store-dispatch-between-store'](String(n.storeId)),
   },
   'project-planning-date-created': {

@@ -22,7 +22,8 @@ import { keyframes, styled } from '@mui/material/styles';
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
     IconArrowRight, IconEye, IconX, IconReload, IconFileText, IconFileSpreadsheet, IconCheck, IconInfoCircle,
-    IconRefresh
+    IconRefresh,
+    IconPlus
 } from '@tabler/icons-react';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BlankCard from 'src/components/shared/BlankCard';
@@ -335,7 +336,9 @@ const ListBetweenWarehouseDispatch = () => {
     const [docDateError, setDocDateError] = useState<boolean>(false);
     const [driverIdError, setDriverIdError] = useState<boolean>(false);
     const [destinationWarehouseIdError, setDestinationWarehouseIdError] = useState<boolean>(false);
-    const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
+    // const [dispatchDetailsError, setDispatchDetailsError] = useState<boolean>(false);
+
+    const [initialDispatchDetails, setInitialDispatchDetails] = useState<FormDispatchDetail[]>([]);
 
     const [drivers, setDrivers] = useState<DriverType[]>([]);
     const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
@@ -381,6 +384,9 @@ const ListBetweenWarehouseDispatch = () => {
     const [openDownloadFilteredModal, setOpenDownloadFilteredModal] = useState(false);
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedDispatchForDownload, setSelectedDispatchForDownload] = useState<BetweenWarehouseDispatchType | null>(null);
+
+    const [newItem, setNewItem] = useState<FormDispatchDetail | null>(null);
+
 
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
@@ -599,9 +605,10 @@ const ListBetweenWarehouseDispatch = () => {
         if (!selectedDestinationWarehouseId) { setDestinationWarehouseIdError(true); isValid = false; } else { setDestinationWarehouseIdError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
         if (dispatchDetails.length === 0 || dispatchDetails.some(d => !d.itemId || !d.quantity)) {
-            setDispatchDetailsError(true); isValid = false;
+            // setDispatchDetailsError(true);
+            isValid = false;
         } else {
-            setDispatchDetailsError(false);
+            // setDispatchDetailsError(false);
         }
         if (!isValid) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return isValid;
@@ -613,12 +620,13 @@ const ListBetweenWarehouseDispatch = () => {
         setSelectedDriverId(null);
         setSelectedDestinationWarehouseId(null);
         setDispatchDetails([]);
+        setInitialDispatchDetails([]);
         setIsFormVisible(false);
         setEditingId(null);
         setDocDateError(false);
         setDriverIdError(false);
         setDestinationWarehouseIdError(false);
-        setDispatchDetailsError(false);
+        // setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
     };
@@ -755,6 +763,7 @@ const ListBetweenWarehouseDispatch = () => {
                 };
             });
             setDispatchDetails(formattedDetails);
+            setInitialDispatchDetails(formattedDetails);
             setIsFormVisible(true);
             handleCloseMenu();
         }
@@ -1138,24 +1147,24 @@ const ListBetweenWarehouseDispatch = () => {
         setOpenRowDownloadModal(false);
     };
 
-    const handleAddAllItemsToDispatch = () => {
-        const itemsToForm = warehouseItems.map(item => ({
-            itemId: Number(item.itemId),
-            quantity: Number(item.balance),
-            description: '',
-            item: {
-                id: item.itemId,
-                name: item.name,
-                abbreviation: item.code || '',
-                unit: {
-                    id: '1',
-                    title: 'Adet',
-                },
-            },
-            balance: Number(item.balance)
-        }));
-        setDispatchDetails(itemsToForm);
-    };
+    // const handleAddAllItemsToDispatch = () => {
+    //     const itemsToForm = warehouseItems.map(item => ({
+    //         itemId: Number(item.itemId),
+    //         quantity: Number(item.balance),
+    //         description: '',
+    //         item: {
+    //             id: item.itemId,
+    //             name: item.name,
+    //             abbreviation: item.code || '',
+    //             unit: {
+    //                 id: '1',
+    //                 title: 'Adet',
+    //             },
+    //         },
+    //         balance: Number(item.balance)
+    //     }));
+    //     setDispatchDetails(itemsToForm);
+    // };
 
     const handleOpenStatusModal = (id: string, status: number) => {
         setStatusData({ id, status, description: '' });
@@ -1231,6 +1240,59 @@ const ListBetweenWarehouseDispatch = () => {
     };
 
 
+    // تابع باز کردن پنل افزودن تکی
+    const handleAddNewRow = () => {
+        // اگر لیست قبلاً با دکمه "یکجا" پر شده، آن را پاک کن
+        if (dispatchDetails.length === warehouseItems.length && warehouseItems.length > 0) {
+            setDispatchDetails([]);
+            setRemovedDispatchDetails([]);
+        }
+        setNewItem({
+            itemId: null,
+            quantity: '',
+            description: '',
+            balance: 0
+        });
+    };
+
+    // تایید و اضافه کردن آیتم تکی به لیست نهایی
+    const confirmNewItem = () => {
+        if (newItem && newItem.itemId && Number(newItem.quantity) > 0) {
+            const exists = dispatchDetails.some(d => d.itemId === newItem.itemId);
+            if (exists) {
+                showAlert("Bu ürün zaten listede mevcut!", "warning");
+                return;
+            }
+            setDispatchDetails(prev => [...prev, newItem]);
+            // ریست فرم برای آیتم بعدی بدون بستن پنل ورودی
+            setNewItem({ itemId: null, quantity: '', description: '', balance: 0 });
+        } else {
+            showAlert("Lütfen geçerli bir ürün ve miktar girin.", "warning");
+        }
+    };
+
+    // تابع افزودن یا حذف یکجای تمام آیتم‌ها از استوک انبار
+    const handleToggleAllItems = () => {
+        if (dispatchDetails.length > 0) {
+            setDispatchDetails([]);
+            setRemovedDispatchDetails([]); // پاک کردن آرشیو هنگام حذف یکجا ✨
+        } else {
+            setNewItem(null); // بستن پنل تکی در صورت باز بودن
+            const allItems = warehouseItems.map(item => ({
+                itemId: Number(item.itemId),
+                quantity: Number(item.balance),
+                description: '',
+                item: {
+                    id: item.itemId,
+                    name: item.name,
+                    abbreviation: item.code || '',
+                },
+                balance: Number(item.balance)
+            }));
+            setDispatchDetails(allItems);
+            setRemovedDispatchDetails([]);
+        }
+    };
 
     return (
         <>
@@ -1431,56 +1493,124 @@ const ListBetweenWarehouseDispatch = () => {
                         <Box mt={4}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                 <Typography variant="h6">Sevk Detayları</Typography>
-                                <Button
-                                    variant="outlined"
-                                    onClick={handleAddAllItemsToDispatch}
-                                    startIcon={<BoltIcon />}
-                                >
-                                    Tüm Ürünleri Stoktan Ekle
-                                </Button>
+                                <Stack direction="row" spacing={1}>
+                                    <Button
+                                        variant="outlined"
+                                        color="primary"
+                                        onClick={handleAddNewRow}
+                                        startIcon={<IconPlus />}
+                                        disabled={newItem !== null}
+                                    >
+                                        Tek Tek Ekle
+                                    </Button>
+                                    <Button
+                                        variant="outlined"
+                                        color={dispatchDetails.length > 0 ? "error" : "secondary"}
+                                        onClick={handleToggleAllItems}
+                                        startIcon={dispatchDetails.length > 0 ? <IconTrash /> : <BoltIcon />}
+                                        disabled={warehouseItems.length === 0}
+                                    >
+                                        {dispatchDetails.length > 0 ? "Tümünü Kaldır" : "Tümünü Ekle (Stoktan)"}
+                                    </Button>
+                                </Stack>
                             </Stack>
+
                             <Grid container spacing={2}>
+                                {/* پنل ورودی برای افزودن تکی */}
+                                {newItem && (
+                                    <Grid item xs={12} sx={{ bgcolor: 'rgba(0,0,0,0.03)', p: 2, borderRadius: 1, border: '1px dashed #ccc', mb: 2 }}>
+                                        <Grid container spacing={2} alignItems="center">
+                                            <Grid item xs={12} sm={4}>
+                                                <Autocomplete
+                                                    options={warehouseItems.filter(item => !dispatchDetails.some(d => Number(d.itemId) === Number(item.itemId)))}
+                                                    getOptionLabel={(option) => `${option.name} (${option.balance})`}
+                                                    value={warehouseItems.find(i => Number(i.itemId) === newItem?.itemId) || null}
+                                                    onChange={(_, val) => {
+                                                        if (val) {
+                                                            setNewItem({
+                                                                ...newItem,
+                                                                itemId: Number(val.itemId),
+                                                                balance: Number(val.balance),
+                                                                item: { id: val.itemId, name: val.name, abbreviation: val.code || '' }
+                                                            });
+                                                        }
+                                                    }}
+                                                    renderInput={(params) => <TextField {...params} label="Malzeme Seç" size="small" />}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <TextField
+                                                    label={`Miktar (Stok: ${newItem.balance || 0})`}
+                                                    type="number"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={newItem.quantity}
+                                                    onChange={(e) => {
+                                                        const val = Number(e.target.value);
+                                                        if (val > (newItem.balance || 0)) {
+                                                            setNewItem({ ...newItem, quantity: newItem.balance || 0 });
+                                                            showAlert(`Stok miktarını aşamazsınız!`, "warning");
+                                                        } else {
+                                                            setNewItem({ ...newItem, quantity: e.target.value });
+                                                        }
+                                                    }}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={6} sm={4}>
+                                                <TextField
+                                                    label="Açıklama"
+                                                    size="small"
+                                                    fullWidth
+                                                    value={newItem.description}
+                                                    onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                                                />
+                                            </Grid>
+                                            <Grid item xs={12} sm={1} sx={{ textAlign: 'right' }}>
+                                                <IconButton color="success" onClick={confirmNewItem}><IconCheck /></IconButton>
+                                                <IconButton color="error" onClick={() => setNewItem(null)}><IconX /></IconButton>
+                                            </Grid>
+                                        </Grid>
+                                    </Grid>
+                                )}
+
+                                {/* لیست ردیف‌های اضافه شده */}
                                 {dispatchDetails.map((detail, index) => {
                                     const selectedItem = warehouseItems.find(item => Number(item.itemId) === Number(detail.itemId));
-                                    const totalWarehouseBalance = Number(selectedItem?.balance || 0);
-                                    const otherQuantities = dispatchDetails
-                                        .filter((_, i) => i !== index)
-                                        .filter(d => d.itemId === detail.itemId)
-                                        .reduce((sum, d) => sum + Number(d.quantity), 0);
-                                    const maxEditableQuantity = totalWarehouseBalance + Number(detail.quantity) - otherQuantities; // این خط تغییر کرده
+                                    const warehouseBalance = Number(selectedItem?.balance || 0);
 
-                                    const displayBalance = selectedItem ? `(Stok: ${maxEditableQuantity})` : '';
-                                    const isQuantityInvalid = Number(detail.quantity) > maxEditableQuantity || Number(detail.quantity) < 0;
+                                    // محاسبه سقف مجاز (موجودی فعلی + مقدار قبلی در صورت ویرایش)
+                                    const originalQty = editingId ? Number(initialDispatchDetails.find(d => d.itemId === detail.itemId)?.quantity || 0) : 0;
+                                    const maxAllowed = warehouseBalance + originalQty;
 
                                     return (
                                         <Grid item xs={12} key={index}>
-                                            <Stack direction="row" spacing={2} alignItems="center">
-                                                <Box sx={{ flexGrow: 1, minWidth: '200px', maxWidth: '300px' }}>
-                                                    <Typography variant="body1" component="span" sx={{ mr: 1 }}>
-                                                        {selectedItem?.name || 'Ürün Adı Bulunamadı'}
+                                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center" sx={{ borderBottom: '1px solid #eee', pb: 1 }}>
+                                                <Box sx={{ flexGrow: 1, minWidth: '200px' }}>
+                                                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                                                        {detail.item?.name || 'Ürün Adı'}
                                                     </Typography>
                                                 </Box>
-
                                                 <CustomTextField
                                                     type="number"
-                                                    placeholder="Miktar"
+                                                    label={`Miktar (Stok: ${maxAllowed})`}
                                                     value={detail.quantity}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
-                                                    fullWidth
-                                                    InputProps={{
-                                                        endAdornment: <InputAdornment position="end">{displayBalance}</InputAdornment>
-                                                    }}
-                                                    error={isQuantityInvalid}
-                                                    helperText={isQuantityInvalid ? `Geçerli bir miktar girin! (0 - ${maxEditableQuantity})` : ""}
+                                                    onChange={(e: any) => handleDispatchDetailChange(index, 'quantity', e.target.value)}
+                                                    sx={{ width: { xs: '100%', sm: '150px' } }}
                                                 />
-                                                <CustomTextField placeholder="Açıklama" value={detail.description} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleDispatchDetailChange(index, 'description', e.target.value)} fullWidth />
-                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}><IconTrash /></IconButton>
+                                                <CustomTextField
+                                                    placeholder="Açıklama"
+                                                    value={detail.description}
+                                                    onChange={(e: any) => handleDispatchDetailChange(index, 'description', e.target.value)}
+                                                    sx={{ flexGrow: 1 }}
+                                                />
+                                                <IconButton color="error" onClick={() => handleRemoveDispatchDetail(index)}>
+                                                    <IconTrash />
+                                                </IconButton>
                                             </Stack>
                                         </Grid>
                                     );
                                 })}
                             </Grid>
-                            {dispatchDetailsError && <Typography color="error" variant="caption" sx={{ mt: 1.5, ml: 1.5 }}>En az bir sevk detayı eklemek zorunludur!</Typography>}
                         </Box>
                         <Stack direction="row" spacing={1} justifyContent="flex-end" mt={3}>
                             {editingId ? (

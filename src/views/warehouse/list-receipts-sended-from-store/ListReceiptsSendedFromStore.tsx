@@ -14,7 +14,9 @@ import {
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import {
-    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconPlus,
+    IconDots,
+    //  IconEdit, 
+    IconTrash, IconSearch, IconFileDownload, IconPlus,
     IconEye, IconX, IconFileText, IconFileSpreadsheet, IconReload
 } from '@tabler/icons-react';
 import ListIcon from '@mui/icons-material/List';
@@ -1479,7 +1481,7 @@ const ListReceiptsSendedFromStore = () => {
                                                 </IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
 
-                                                    {hasEditPermission && (
+                                                    {/* {hasEditPermission && (
                                                         <MuiMenuItem onClick={async () => {
                                                             if (!selectedRowForMenu) return;
                                                             setLoadingData(true);
@@ -1553,7 +1555,7 @@ const ListReceiptsSendedFromStore = () => {
                                                         }}>
                                                             <ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle
                                                         </MuiMenuItem>
-                                                    )}
+                                                    )} */}
                                                     {hasDeletePermission && (
                                                         <MuiMenuItem onClick={handleClickOpenDeleteModal}>
                                                             <ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek

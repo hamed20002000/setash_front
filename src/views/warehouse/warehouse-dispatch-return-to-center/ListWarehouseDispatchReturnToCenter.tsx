@@ -112,7 +112,7 @@ interface NewDispatchData {
     description: string,
     warehouseId: number;
     driverId: number;
-    workhouseId: number;
+    // workhouseId: number;
     driverVehicleId: number;
     dispatchDetails: {
         itemId: number;
@@ -384,6 +384,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedDispatchForDownload, setSelectedDispatchForDownload] = useState<DispatchType | null>(null);
 
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
 
@@ -561,11 +562,14 @@ const ListWarehouseDispatchReturnToCenter = () => {
     }, [dispatchList, searchTerm, statusFilter, startDate, endDate, notifIds]);
 
     useEffect(() => {
-        const isValid = !!selectedDriverId && !!selectedWorkhouseId &&
+        const isValid = !!selectedDriverId &&
+            // !!selectedWorkhouseId &&
             !!docDate && dispatchDetails.length > 0 &&
             dispatchDetails.every(d => !!d.itemId && Number(d.quantity) > 0);
         setIsFormValid(isValid);
-    }, [selectedDriverId, selectedWorkhouseId, docDate, dispatchDetails]);
+    }, [selectedDriverId,
+        // selectedWorkhouseId, 
+        docDate, dispatchDetails]);
 
     useEffect(() => {
         const hasSearch = searchTerm.trim() !== '';
@@ -602,7 +606,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const validateForm = (): boolean => {
         let isValid = true;
         if (!selectedDriverId) { setDriverIdError(true); isValid = false; } else { setDriverIdError(false); }
-        if (!selectedWorkhouseId) { setWorkhouseIdError(true); isValid = false; } else { setWorkhouseIdError(false); }
+        // if (!selectedWorkhouseId) { setWorkhouseIdError(true); isValid = false; } else { setWorkhouseIdError(false); }
         if (!docDate) { setDocDateError(true); isValid = false; } else { setDocDateError(false); }
         if (dispatchDetails.length === 0 || dispatchDetails.some(d => !d.itemId || !d.quantity)) {
             setDispatchDetailsError(true); isValid = false;
@@ -616,12 +620,12 @@ const ListWarehouseDispatchReturnToCenter = () => {
     const resetFormAndState = () => {
         setDocDate(new Date());
         setSelectedDriverId(null);
-        setSelectedWorkhouseId(null);
+        // setSelectedWorkhouseId(null);
         setDispatchDetails([]);
         setEditingId(null);
         setDocDateError(false);
         setDriverIdError(false);
-        setWorkhouseIdError(false);
+        // setWorkhouseIdError(false);
         setDispatchDetailsError(false);
         setSelectedVehicleId(null);
         setSelectedVehicleName(null);
@@ -642,7 +646,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                 warehouseId: Number(warehouseId),
                 driverId: Number(selectedDriverId),
                 driverVehicleId: Number(selectedVehicleId),
-                workhouseId: Number(selectedWorkhouseId),
+                // workhouseId: Number(selectedWorkhouseId),
                 dispatchDetails: dispatchDetails.map(d => ({ itemId: Number(d.itemId), quantity: Number(d.quantity), description: d.description }))
             };
             const response = await axios.post(server.baseurl + server.warehouse + "create-warehouse-dispatch-destruction",
@@ -680,7 +684,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
             warehouseId: Number(warehouseId),
             driverId: Number(selectedDriverId),
             driverVehicleId: Number(selectedVehicleId),
-            workhouseId: Number(selectedWorkhouseId),
+            // workhouseId: Number(selectedWorkhouseId),
             dispatchDetails: dispatchDetails.map(d => ({
                 itemId: Number(d.itemId),
                 quantity: Number(d.quantity),
@@ -778,7 +782,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
             setGeneralDescription(selectedRowForMenu.description || '');
             setEditingCode(selectedRowForMenu.code);
             setSelectedDriverId(Number(selectedRowForMenu.driver?.id));
-            setSelectedWorkhouseId(Number(selectedRowForMenu.workhouse?.id));
+            // setSelectedWorkhouseId(Number(selectedRowForMenu.workhouse?.id));
             if (selectedRowForMenu.driverVehicle) {
                 setSelectedVehicleId(Number(selectedRowForMenu.driverVehicle.id));
                 setSelectedVehicleName(`${selectedRowForMenu.driverVehicle.name} (${selectedRowForMenu.driverVehicle.plaque})`);
@@ -1331,7 +1335,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                 </Box>
                             )}
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid item xs={12} sm={4} display='none'>
                             <CustomFormLabel required>Şantiye</CustomFormLabel>
                             <Autocomplete
                                 id="workhouse-select"
@@ -1601,7 +1605,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                     <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell>
-                                    <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell>
+                                    {/* <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell> */}
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
 
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
@@ -1618,7 +1622,7 @@ const ListWarehouseDispatchReturnToCenter = () => {
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''}`}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
-                                            <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell>
+                                            {/* <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell> */}
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (
@@ -2037,3 +2041,4 @@ const ListWarehouseDispatchReturnToCenter = () => {
 };
 
 export default ListWarehouseDispatchReturnToCenter;
+

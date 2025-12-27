@@ -504,7 +504,7 @@ const NetworkDetails = () => {
     const handleStartNewTrAdiEntry = useCallback(() => {
         setTrAdi('');
         setSelectedTrafo(null);
-        resetMainFormFields();
+        // resetMainFormFields();
         setItemsToRegister([]);
         showAlert('Yeni TR ADI ve alt öğeleri girebilirsiniz.', 'info');
     }, [showAlert, resetMainFormFields]);

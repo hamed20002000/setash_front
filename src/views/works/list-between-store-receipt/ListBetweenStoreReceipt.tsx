@@ -450,7 +450,9 @@ const ListBetweenStoreReceipt = () => {
         if (!authToken) { navigate("/"); return []; }
         try {
             const res = await axios.get<ApiResponse<DispatchEntity[]>>(
-                `${server.baseurl}${server.warehouse}get-between-store-dispatches/${Number(storeId)}`,
+                // `${server.baseurl}${server.warehouse}get-between-store-dispatches/${Number(storeId)}`,
+                `${server.baseurl}${server.warehouse}get-between-store-dispatches-by-destination-store-id/${Number(storeId)}`,
+
                 { headers: { Authorization: `Bearer ${authToken}` } }
             );
             if (res.data.httpStatusCode === 200 && Array.isArray(res.data.data)) {

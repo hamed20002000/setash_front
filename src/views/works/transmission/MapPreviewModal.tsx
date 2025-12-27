@@ -10,6 +10,7 @@ import {
     Divider, Grid
 } from '@mui/material';
 import { useTheme, styled, Theme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import {
     IconX, IconSelect, IconHandGrab, IconPlus, IconMinus, IconTrash,
     IconLine, IconRotate2, IconPencil, IconMapPin, IconLock, IconLockOpen,
@@ -112,6 +113,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     // nodeStatusByChannelRowId,
 }) => {
     const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const textColor = getContrastingTextColor(theme);
     const svgContainerRef = useRef<HTMLDivElement>(null);
     const svgElementRef = useRef<SVGSVGElement>(null);
@@ -1180,7 +1182,10 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                     const r = 25 / scale;
                     return (
                         <g key={h.id} onClick={(e) => handleNodeClick(h, e as any)} style={{ cursor: activeTool === 'viewItems' ? 'help' : 'pointer' }}>
-                            <circle id={h.id} cx={h.x || 0} cy={h.y || 0} r={r} fill="transparent" stroke="transparent" strokeWidth={1 / scale} />
+                            <circle id={h.id} cx={h.x || 0} cy={h.y || 0} r={r}
+                                fill="transparent" stroke="transparent" strokeWidth={1 / scale}
+                                onPointerDown={(e) => handleNodeClick(h, e as any)}
+                            />
                             <path d={`M ${h.x || 0} ${(h.y || 0) - 20 / scale} L ${(h.x || 0) - 20 / scale} ${(h.y || 0) + 20 / scale} L ${(h.x || 0) + 20 / scale} ${(h.y || 0) + 20 / scale} Z`} fill={theme.palette.primary.main} stroke={selectedNodeIds.has(h.id) ? theme.palette.primary.dark : theme.palette.text.primary} strokeWidth={selectedNodeIds.has(h.id) ? 3 / scale : 1 / scale} style={{ pointerEvents: 'none' }} />
                             <text x={h.x || 0} y={(h.y || 0) + (8 / scale)} fontSize={`${10 / scale}px`} fill="white" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>{h.name}</text>
                             {symbol && (<text x={(h.x || 0) + (30 / scale)} y={(h.y || 0) + (5 / scale)}
@@ -1569,8 +1574,35 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                         <Box ref={svgContainerRef} sx={{
                             flexGrow: 1, border: '1px solid #ccc', overflow: 'hidden',
                             cursor: isPanning ? 'grabbing' : (activeTool === 'addNode' || activeTool === 'addTrafo') ? 'crosshair' : (activeTool === 'viewItems') ? 'help' : (activeTool === 'select') ? (isDraggingNode ? 'grabbing' : 'default') : (activeTool === 'rotate-drag') ? 'grab' : (activeTool === 'edit') ? 'text' : (activeTool === 'delete') ? 'not-allowed' : (activeTool === 'addEdge') ? 'crosshair' : 'auto',
-                            position: 'relative', borderRadius: 0
-                        }} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onWheel={handleWheel}>
+                            position: 'relative', borderRadius: 0,
+                            touchAction: 'none'
+                        }}
+                            onMouseDown={handleMouseDown}
+                            onMouseMove={handleMouseMove}
+                            onMouseUp={handleMouseUp}
+                            onMouseLeave={handleMouseUp}
+                            onWheel={handleWheel}
+
+                            // اضافه کردن رویدادهای لمسی (جدید)
+                            onTouchStart={(e) => {
+                                // تبدیل Touch به فرمت شبیه MouseEvent برای سازگاری با توابع قبلی شما
+                                const touch = e.touches[0];
+                                handleMouseDown({
+                                    clientX: touch.clientX,
+                                    clientY: touch.clientY,
+                                    preventDefault: () => e.preventDefault(),
+                                    target: e.target
+                                } as any);
+                            }}
+                            onTouchMove={(e) => {
+                                const touch = e.touches[0];
+                                handleMouseMove({
+                                    clientX: touch.clientX,
+                                    clientY: touch.clientY
+                                } as any);
+                            }}
+                            onTouchEnd={handleMouseUp}
+                        >
                             <svg ref={svgElementRef} width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
                                 <defs>{Object.keys(linkColors).map(key => (<marker key={key} id={`arrowhead-${key.toLowerCase().replace(/ /g, '-')}`} markerWidth="10" markerHeight="7" refX="12" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill={linkColors[key as keyof typeof linkColors]} /></marker>))}</defs>
                                 <g ref={svgGroupRef} transform={`rotate(${rotationAngle} ${rotateOriginX} ${rotateOriginY})`}>
@@ -1596,31 +1628,23 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                             <g key={node.id}>
                                                 <circle id={node.id}
                                                     cx={node.x || 0}
-                                                    cy={node.y || 0} r={r}
+                                                    cy={node.y || 0}
+                                                    r={r}
                                                     fill={status === 0 ? baseStroke : 'transparent'}
-                                                    stroke={baseStroke} strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale} className={node.isNew ? 'blink-node' : ''} style={{ cursor: ['select', 'edit', 'delete', 'addEdge', 'viewItems'].includes(activeTool) ? 'pointer' : 'auto' }} onClick={(e) => handleNodeClick(node, e as any)} />
+                                                    stroke={baseStroke} strokeWidth={selectedNodeIds.has(node.id) ? 3 / scale : 2 / scale} className={node.isNew ? 'blink-node' : ''} style={{ cursor: ['select', 'edit', 'delete', 'addEdge', 'viewItems'].includes(activeTool) ? 'pointer' : 'auto' }}
+                                                    onClick={(e) => handleNodeClick(node, e as any)}
+                                                    onPointerDown={(e) => {
+                                                        e.stopPropagation();
+                                                        handleNodeClick(node, e as any);
+                                                    }}
+                                                />
                                                 {status === 1 &&
                                                     (<circle cx={node.x || 0}
                                                         cy={node.y || 0} r={4 / scale} fill={baseStroke}
                                                         style={{ pointerEvents: 'none' }} />)}
 
 
-                                                {/* {symbol && (
-                                                    <text
-                                                        x={node.x || 0}
-                                                        y={(node.y || 0) + (4 / scale)} // انتقال به مرکز دایره
-                                                        fontSize={`${10 / scale}px`}
-                                                        textAnchor="middle"
-                                                        dominantBaseline="middle" // تراز عمودی دقیق
-                                                        style={{
-                                                            pointerEvents: 'none',
-                                                            userSelect: 'none',
-                                                            zIndex: 10 // اطمینان از قرارگیری روی دایره
-                                                        }}
-                                                    >
-                                                        {symbol}
-                                                    </text>
-                                                )} */}
+
 
                                                 <text x={node.x || 0} y={(node.y || 0) - (15 / scale)}
                                                     fontSize={`${10 / scale}px`} fill={textColor} textAnchor="middle"
@@ -1726,39 +1750,48 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 onClose={() => setViewItemsModalOpen(false)}
                 maxWidth="md"
                 fullWidth
+                fullScreen={isMobile}
             >
-                <DialogTitle>
+                <DialogTitle sx={{ bgcolor: theme.palette.grey[50] }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Typography variant="h6">{viewItemsTitle}</Typography>
+                        <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                            {viewItemsTitle}
+                        </Typography>
                         <IconButton onClick={() => setViewItemsModalOpen(false)}><IconX size={20} /></IconButton>
                     </Stack>
                 </DialogTitle>
-                <DialogContent dividers>
+
+                <DialogContent dividers sx={{ p: { xs: 3, md: 3 } }}>
                     {viewItemsLoading ? (
-                        <Box display="flex" justifyContent="center" alignItems="center" p={3}>
+                        <Box display="flex" flexDirection="column" justifyContent="center" alignItems="center" p={5}>
                             <CircularProgress />
-                            <Typography sx={{ ml: 2 }}>Yükleniyor...</Typography>
+                            <Typography sx={{ mt: 2 }}>Yükleniyor...</Typography>
                         </Box>
                     ) : (
                         viewItemsData.length > 0 ? (
                             <>
-                                <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ mb: 3 }}>
-                                    <Table size="small">
-                                        <TableHead sx={{ bgcolor: theme.palette.grey[100] }}>
+                                <Typography variant="subtitle2" gutterBottom color="primary" sx={{ fontWeight: 'bold' }}>
+                                    Malzeme Listesi
+                                </Typography>
+                                {/* اضافه کردن اسکرول افقی برای موبایل */}
+                                <TableContainer component={Paper} elevation={0} variant="outlined" sx={{ mb: 3, maxHeight: '400px' }}>
+                                    <Table size="small" stickyHeader>
+                                        <TableHead>
                                             <TableRow>
-                                                <TableCell>Malzeme Adı</TableCell>
-                                                <TableCell align="right">Miktar</TableCell>
-                                                <TableCell align="right">Birim</TableCell>
-                                                <TableCell align="right">Ağırlık (Birim)</TableCell>
+                                                <TableCell sx={{ bgcolor: theme.palette.grey[100] }}>Malzeme Adı</TableCell>
+                                                <TableCell align="right" sx={{ bgcolor: theme.palette.grey[100] }}>Miktar</TableCell>
+                                                <TableCell align="right" sx={{ bgcolor: theme.palette.grey[100] }}>Birim</TableCell>
+                                                <TableCell align="right" sx={{ bgcolor: theme.palette.grey[100], display: { xs: 'none', sm: 'table-cell' } }}>Ağırlık (Birim)</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
                                             {viewItemsData.map((item, index) => (
                                                 <TableRow key={item.id || index} hover>
-                                                    <TableCell>{item.name}</TableCell>
+                                                    <TableCell sx={{ fontSize: { xs: '0.75rem', md: '0.875rem' } }}>{item.name}</TableCell>
                                                     <TableCell align="right">{item.quantity}</TableCell>
                                                     <TableCell align="right">{item.unit}</TableCell>
-                                                    <TableCell align="right">{item.weight || '-'}</TableCell>
+                                                    {/* وزن در موبایل‌های خیلی کوچک مخفی می‌شود تا فضا باز شود */}
+                                                    <TableCell align="right" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{item.weight || '-'}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -1766,92 +1799,77 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 </TableContainer>
 
                                 <Divider sx={{ my: 2 }}>
-                                    <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'bold' }}>
+                                    <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 'bold', px: 2 }}>
                                         ÖZET TABLOSU
                                     </Typography>
                                 </Divider>
 
                                 <Grid container spacing={2}>
-                                    {/* جدول ۴ ستونی */}
-                                    <Grid item xs={12} md={9}>
-                                        <Paper variant="outlined" sx={{ overflow: 'hidden', bgcolor: theme.palette.background.paper }}>
+                                    {/* جدول خلاصه - در موبایل ۱۲ ستون و در دسکتاپ ۹ ستون */}
+                                    <Grid item xs={12} md={8}>
+                                        <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
                                             <Table size="small">
                                                 <TableHead sx={{ bgcolor: theme.palette.primary.dark }}>
                                                     <TableRow>
-                                                        <TableCell sx={{ color: '#fff', fontWeight: 'bold' }}>Birim (Unit)</TableCell>
-                                                        <TableCell align="right" sx={{ color: '#fff', fontWeight: 'bold' }}>Top. Miktar</TableCell>
-                                                        <TableCell align="right" sx={{ color: '#fff', fontWeight: 'bold' }}>Top. Birim Ağ.</TableCell>
-                                                        <TableCell align="right" sx={{ color: '#fff', fontWeight: 'bold' }}>Sonuç (Kg)</TableCell>
+                                                        <TableCell sx={{ color: '#fff', fontWeight: 'bold', fontSize: '0.75rem' }}>Birim</TableCell>
+                                                        <TableCell align="right" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '0.75rem' }}>Top. Miktar</TableCell>
+                                                        <TableCell align="right" sx={{ color: '#fff', fontWeight: 'bold', fontSize: '0.75rem' }}>Sonuç (Kg)</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
                                                     {Object.entries(calculatedTotals.finalRows).map(([unit, data]) => (
-                                                        <TableRow key={unit} hover>
-                                                            {/* ستون ۱: واحد */}
-                                                            <TableCell component="th" scope="row" sx={{ fontWeight: 'bold' }}>
-                                                                {unit}
-                                                            </TableCell>
-
-                                                            {/* ستون ۲: جمع کل مقدار */}
-                                                            <TableCell align="right">
-                                                                {data.totalQuantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </TableCell>
-
-                                                            {/* ستون ۳: جمع کل وزن‌های واحد */}
-                                                            <TableCell align="right" sx={{ color: '#666' }}>
-                                                                {data.totalUnitWeights.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </TableCell>
-
-                                                            {/* ستون ۴: حاصل‌ضرب ستون ۲ در ۳ */}
-                                                            <TableCell align="right" sx={{ color: theme.palette.info.main, fontWeight: 'bold', bgcolor: 'rgba(0,0,0,0.02)' }}>
-                                                                {data.rowTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        <TableRow key={unit}>
+                                                            <TableCell sx={{ fontWeight: 'bold' }}>{unit}</TableCell>
+                                                            <TableCell align="right">{data.totalQuantity.toLocaleString()}</TableCell>
+                                                            <TableCell align="right" sx={{ fontWeight: 'bold', color: theme.palette.info.main }}>
+                                                                {data.rowTotal.toLocaleString()}
                                                             </TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
                                             </Table>
-                                        </Paper>
+                                        </TableContainer>
                                     </Grid>
 
                                     {/* کادر جمع کل نهایی */}
-                                    <Grid item xs={12} md={3}>
+                                    <Grid item xs={12} md={4}>
                                         <Paper
-                                            elevation={4}
+                                            elevation={0}
                                             sx={{
                                                 p: 2,
                                                 height: '100%',
-                                                bgcolor: theme.palette.success.dark,
-                                                color: '#fff',
+                                                bgcolor: theme.palette.success.light,
+                                                border: `1px solid ${theme.palette.success.main}`,
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 justifyContent: 'center',
                                                 alignItems: 'center',
-                                                borderRadius: 2
+                                                borderRadius: 1
                                             }}
                                         >
-                                            <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 1, textAlign: 'center' }}>
-                                                GENEL TOPLAM
+                                            <Typography variant="caption" sx={{ color: theme.palette.success.dark, fontWeight: 'bold' }}>
+                                                GENEL TOPLAM AĞIRLIK
                                             </Typography>
-                                            <Divider sx={{ width: '80%', borderColor: 'rgba(255,255,255,0.3)', mb: 2 }} />
-
-                                            <Typography variant="h4" fontWeight="bold">
-                                                {calculatedTotals.grandTotalWeight.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                            <Typography variant="h5" sx={{ fontWeight: 'bold', color: theme.palette.success.dark }}>
+                                                {calculatedTotals.grandTotalWeight.toLocaleString()} <small style={{ fontSize: '0.6em' }}></small>
                                             </Typography>
                                         </Paper>
                                     </Grid>
                                 </Grid>
                             </>
                         ) : (
-                            <Typography color="textSecondary" align="center" p={2}>
-                                Görüntülenecek malzeme yok.
-                            </Typography>
+                            <Box sx={{ textAlign: 'center', py: 5 }}>
+                                <Typography color="textSecondary">Görüntülenecek malzeme yok.</Typography>
+                            </Box>
                         )
                     )}
                 </DialogContent>
 
-                <DialogActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
-                    <Stack direction="row" spacing={1}>
+                <DialogActions sx={{ flexDirection: { xs: 'column', sm: 'row' }, gap: 1, p: 2 }}>
+                    <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: 'center' }}>
                         <Button
+                            // fullWidth={useTheme().breakpoints.down('sm')}
+                            fullWidth={isMobile}
                             variant="contained"
                             color="success"
                             startIcon={<IconFileDownload size={18} />}
@@ -1861,6 +1879,8 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             Excel
                         </Button>
                         <Button
+                            // fullWidth={useTheme().breakpoints.down('sm')}
+                            fullWidth={isMobile}
                             variant="contained"
                             color="error"
                             startIcon={<IconFileDownload size={18} />}
@@ -1870,7 +1890,13 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                             PDF
                         </Button>
                     </Stack>
-                    <Button onClick={() => setViewItemsModalOpen(false)} variant="outlined" color="secondary">
+                    <Button
+                        // fullWidth={useTheme().breakpoints.down('sm')}
+                        fullWidth={isMobile}
+                        onClick={() => setViewItemsModalOpen(false)}
+                        variant="outlined"
+                        color="secondary"
+                    >
                         Kapat
                     </Button>
                 </DialogActions>
