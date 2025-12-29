@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { styled, useTheme } from '@mui/material/styles';
 import {
-    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconCheck,
+    IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
     IconX
 } from '@tabler/icons-react';
 
@@ -308,6 +308,11 @@ const ListRollCalls = () => {
     const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
     const [selectedDailyDate, setSelectedDailyDate] = useState<Date | null>(new Date());
 
+
+    const [dailySearchTerm, setDailySearchTerm] = useState('');
+    const [dailyPage, setDailyPage] = useState(0);
+    const [dailyRowsPerPage, setDailyRowsPerPage] = useState(10);
+
     // دسترسی‌های کاربر
     const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
     const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
@@ -602,25 +607,16 @@ const ListRollCalls = () => {
     }, [navigate, showAlert, fetchPersonnelWorkPlaces, selectedDailyDate]);
 
 
-    // 1. هوک برای واکشی RollCalls اصلی (فقط در بار اول و پس از عملیات CRUD)
     useEffect(() => {
         fetchRollCalls();
         fetchWorkhouses()
-    }, [/* وابستگی‌های کم: */ fetchRollCalls, fetchWorkhouses]); // فقط هنگام تغییر توابع callback اجرا می‌شود
-
-    // 2. هوک برای واکشی PersonnelWorkPlaces در هنگام تغییر فیلترهای روزانه
+    }, [fetchRollCalls, fetchWorkhouses]);
     useEffect(() => {
-        // 💡 اگر loadingData = false است، یعنی داده‌های RollCalls اصلی لود شده‌اند.
         if (dailyFilterType !== 'all' || selectedWorkhouseId !== null || selectedStoreId !== null || selectedDailyDate) {
-            // این فراخوانی تنها زمانی که فیلترهای روزانه تغییر می‌کنند یا تاریخ عوض می‌شود، رخ می‌دهد.
             fetchPersonnelWorkPlaces(rollCallsList, selectedDailyDate);
         }
     }, [dailyFilterType, selectedWorkhouseId, selectedStoreId, selectedDailyDate, fetchPersonnelWorkPlaces, rollCallsList]);
-    // rollCallsList را نگه دارید تا وقتی داده‌های تاریخچه تغییر می‌کنند، لیست روزانه به‌روز شود.
 
-
-
-    // Effect برای واکشی Stores پس از انتخاب Workhouse
     useEffect(() => {
         if (dailyFilterType === 'store' && selectedWorkhouseId) {
             fetchStoresByWorkhouse(selectedWorkhouseId);
@@ -768,13 +764,29 @@ const ListRollCalls = () => {
         }
     };
 
+    // ۱. لیست فیلتر شده بر اساس جستجو (نام یا کدملی)
+    const filteredPersonnelForDaily = useMemo(() => {
+        const term = dailySearchTerm.toLowerCase().trim();
+        if (!term) return personnelWorkPlaces;
+
+        return personnelWorkPlaces.filter(p =>
+            p.personnelName.toLowerCase().includes(term) ||
+            p.personnelIdentity.includes(term)
+        );
+    }, [personnelWorkPlaces, dailySearchTerm]);
+
+    // ۲. لیست نهایی برش خورده برای صفحه‌بندی
+    const paginatedPersonnelList = useMemo(() => {
+        const startIndex = dailyPage * dailyRowsPerPage;
+        return filteredPersonnelForDaily.slice(startIndex, startIndex + dailyRowsPerPage);
+    }, [filteredPersonnelForDaily, dailyPage, dailyRowsPerPage]);
+
+
     const displayedRollCalls = useMemo(() => {
-        // تبدیل تاریخ‌های فیلتر به فرمت استاندارد برای مقایسه
         const startFilterDate = startDate ? format(startDate, 'yyyy-MM-dd') : null;
         const endFilterDate = endDate ? format(endDate, 'yyyy-MM-dd') : null;
 
         const filteredBySearchAndStatus = rollCallsList.filter(rc => {
-            // فیلتر بر اساس متن جستجو
             const matchesSearch = searchTerm.trim() === '' ||
                 rc.personnelName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 rc.placeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1104,93 +1116,129 @@ const ListRollCalls = () => {
                             </Grid>
                         </>
                     )}
+
+
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            variant="outlined"
+                            placeholder="Personel adı , T.C. Kimlik No ile ara..."
+                            value={dailySearchTerm}
+                            onChange={(e) => {
+                                setDailySearchTerm(e.target.value);
+                                setDailyPage(0); // با هر بار جستجو به صفحه اول برگردد
+                            }}
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <IconSearch size={18} />
+                                    </InputAdornment>
+                                ),
+                                // دکمه پاک کردن جستجو
+                                endAdornment: dailySearchTerm && (
+                                    <InputAdornment position="end">
+                                        <IconButton size="small" onClick={() => setDailySearchTerm('')}>
+                                            <IconX size={16} />
+                                        </IconButton>
+                                    </InputAdornment>
+                                )
+                            }}
+                        />
+                    </Grid>
                 </Grid>
-                {/* -------------------------------------- */}
                 <TableContainer>
-                    {loadingData && personnelWorkPlaces.length === 0 ? (
-                        <Box display="flex" justifyContent="center" alignItems="center" height="150px">
-                            <CircularProgress />
-                            <Typography variant="h6" sx={{ ml: 2 }}>Personel listesi yükleniyor...</Typography>
-                        </Box>
-                    ) : (
-                        <Table size="small">
-                            <TableHead sx={{ background: theme.palette.grey[200] }}>
+                    <Table size="small">
+                        <TableHead sx={{ background: theme.palette.grey[200] }}>
+                            <TableRow>
+                                <StyledTableCell>Personel (TC)</StyledTableCell>
+                                <StyledTableCell>Pozisyon</StyledTableCell>
+                                <StyledTableCell>Tarih</StyledTableCell>
+                                <StyledTableCell>Başlangıç</StyledTableCell>
+                                <StyledTableCell>Bitiş</StyledTableCell>
+                                <StyledTableCell>Eylem</StyledTableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {/* ⚠️ نکته مهم: اینجا باید paginatedPersonnelList مپ شود */}
+                            {paginatedPersonnelList.length > 0 ? (
+                                paginatedPersonnelList.map((row) => {
+                                    const isRegistered = row.hasRollCallToday;
+                                    return (
+                                        <TableRow key={row.id}>
+                                            <StyledTableCell>
+                                                <Typography variant="body2" fontWeight="bold">{row.personnelName}</Typography>
+                                                <Typography variant="caption" color="textSecondary">{row.personnelIdentity}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <Typography variant="body2">{row.position?.title || '-'}</Typography>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                {formatDateDisplay(selectedDailyDate?.toISOString())}
+                                            </StyledTableCell>
+
+                                            {/* بخش تایم پیکرها (همان کد قبلی خودتان) */}
+                                            <StyledTableCell>
+                                                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+                                                    <TimePicker
+                                                        value={dailyTimes[row.id]?.startTime || defaultStartTime}
+                                                        onChange={(v) => handleDailyTimeChange(row.id, 'startTime', v)}
+                                                        renderInput={(params) => <TextField {...params} size="small" />}
+                                                        ampm={false}
+                                                        disabled={isRegistered}
+                                                    />
+                                                </LocalizationProvider>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
+                                                <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
+                                                    <TimePicker
+                                                        value={dailyTimes[row.id]?.endTime || defaultEndTime}
+                                                        onChange={(v) => handleDailyTimeChange(row.id, 'endTime', v)}
+                                                        renderInput={(params) => <TextField {...params} size="small" />}
+                                                        ampm={false}
+                                                        disabled={isRegistered}
+                                                    />
+                                                </LocalizationProvider>
+                                            </StyledTableCell>
+
+                                            <StyledTableCell>
+                                                <Button
+                                                    variant="contained"
+                                                    color={isRegistered ? 'success' : 'primary'}
+                                                    onClick={() => handleDailyRollCall(row)}
+                                                    disabled={isRegistered || isDailyRegisterLoading[row.id]}
+                                                >
+                                                    {isRegistered ? 'Onaylandı' : 'Onayla'}
+                                                </Button>
+                                            </StyledTableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            ) : (
                                 <TableRow>
-                                    <StyledTableCell sx={{ width: { xs: '30%', md: '35%' } }}>Personel (TC)</StyledTableCell>
-                                    <StyledTableCell sx={{ width: { xs: '10%', md: '15%' } }}>Tarih</StyledTableCell>
-                                    <StyledTableCell sx={{ width: { xs: '20%', md: '20%' } }}>Başlangıç Saati</StyledTableCell>
-                                    <StyledTableCell sx={{ width: { xs: '20%', md: '20%' } }}>Bitiş Saati</StyledTableCell>
-                                    <StyledTableCell sx={{ width: { xs: '20%', md: '10%' } }}>Eylem</StyledTableCell>
+                                    <StyledTableCell colSpan={6} align="center">
+                                        <Typography color="textSecondary">Kayıt bulunamadı.</Typography>
+                                    </StyledTableCell>
                                 </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {personnelWorkPlaces.length > 0 ? (
-                                    personnelWorkPlaces.map((row) => {
-                                        const isRegistered = row.hasRollCallToday;
-                                        const isLoading = isDailyRegisterLoading[row.id];
-
-                                        return (
-                                            <TableRow
-                                                key={row.id}
-                                                sx={{
-                                                    transition: 'background-color 0.3s ease',
-                                                    backgroundColor: isRegistered ? theme.palette.success.light + '33' : 'inherit'
-                                                }}
-                                            >
-                                                <StyledTableCell>
-                                                    <Typography variant="body1" fontWeight={isRegistered ? 'bold' : 'normal'}>
-                                                        {row.personnelName} ({row.personnelIdentity})
-
-                                                    </Typography>
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <Typography variant="body2">{formatDateDisplay(selectedDailyDate?.toISOString())}</Typography>
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
-                                                        <TimePicker
-                                                            value={dailyTimes[row.id]?.startTime || defaultStartTime}
-                                                            onChange={(v) => handleDailyTimeChange(row.id, 'startTime', v)}
-                                                            renderInput={(params) => <TextField {...params} size="small" sx={{ width: '100%', minWidth: 70 }} />}
-                                                            ampm={false} views={['hours', 'minutes']}
-                                                            disabled={isRegistered || !hasCreatePermission}
-                                                        />
-                                                    </LocalizationProvider>
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={tr}>
-                                                        <TimePicker
-                                                            value={dailyTimes[row.id]?.endTime || defaultEndTime}
-                                                            onChange={(v) => handleDailyTimeChange(row.id, 'endTime', v)}
-                                                            renderInput={(params) => <TextField {...params} size="small" sx={{ width: '100%', minWidth: 70 }} />}
-                                                            ampm={false} views={['hours', 'minutes']}
-                                                            disabled={isRegistered || !hasCreatePermission}
-                                                        />
-                                                    </LocalizationProvider>
-                                                </StyledTableCell>
-                                                <StyledTableCell>
-                                                    <CustomTooltip title={isRegistered ? "Bugün için zaten kayıtlı" : "Yoklamayı onayla"}>
-                                                        <Button
-                                                            variant="contained"
-                                                            color={isRegistered ? 'success' : 'primary'}
-                                                            onClick={() => handleDailyRollCall(row)}
-                                                            disabled={isRegistered || isLoading || !hasCreatePermission}
-                                                            startIcon={isRegistered ? <IconCheck size={18} /> : null}
-                                                        >
-                                                            {isLoading ? <CircularProgress size={20} color="inherit" /> : (isRegistered ? 'Onaylandı' : 'Onayla')}
-                                                        </Button>
-                                                    </CustomTooltip>
-                                                </StyledTableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                ) : (
-                                    <TableRow><StyledTableCell colSpan={5} align="center"><Typography variant="subtitle1" color="textSecondary">Seçilen filtreler için personel kaydı bulunamadı.</Typography></StyledTableCell></TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    )}
+                            )}
+                        </TableBody>
+                    </Table>
                 </TableContainer>
+
+                {/* صفحه‌بندی */}
+                <TablePagination
+                    rowsPerPageOptions={[10, 25, 50]}
+                    component="div"
+                    count={filteredPersonnelForDaily.length} // تعداد کل فیلتر شده‌ها
+                    rowsPerPage={dailyRowsPerPage}
+                    page={dailyPage}
+                    onPageChange={(_, newPage) => setDailyPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                        setDailyRowsPerPage(parseInt(e.target.value, 10));
+                        setDailyPage(0);
+                    }}
+                    labelRowsPerPage="Satır:"
+                />
             </Paper>
 
             <Grid container spacing={2} alignItems="center" mb={2}>

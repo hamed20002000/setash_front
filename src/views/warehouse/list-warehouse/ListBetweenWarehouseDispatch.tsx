@@ -2067,7 +2067,7 @@ const ListBetweenWarehouseDispatch = () => {
                 <DialogTitle>Sevk Belgesi Durumunu Güncelle</DialogTitle>
                 <DialogContent>
                     <Typography variant="body1" sx={{ my: 2 }}>
-                        Bu sevk belgesini **{statusData.status === 1 ? 'onaylamak' : 'reddetmek'}** üzeresiniz.
+                        Bu sevk belgesini {statusData.status === 1 ? 'onaylamak' : 'reddetmek'} üzeresiniz.
                     </Typography>
                     <CustomFormLabel>Açıklama (isteğe bağlı)</CustomFormLabel>
                     <CustomTextField

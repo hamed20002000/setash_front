@@ -4,6 +4,7 @@ import {
     TableContainer, Table, TableHead, TableRow, TableBody, Menu, ListItemIcon,
     TablePagination, MenuItem as MuiMenuItem, Dialog, DialogTitle, DialogActions,
     DialogContent, TextField, Autocomplete,
+    Divider,
 } from '@mui/material';
 import { IconChecks, IconX, IconInfoCircle, IconDots, IconLink, IconFileDownload } from '@tabler/icons-react';
 import axios from 'axios';
@@ -64,6 +65,14 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
     // --- Download Modal State (محلی) ---
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
 
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [viewingRow, setViewingRow] = useState<WorkhouseRentRequest | null>(null);
+
+    const handleOpenDetails = (row: WorkhouseRentRequest) => {
+        setViewingRow(row);
+        setOpenDetailsModal(true);
+    };
+
 
     // --- Handlers ---
     const handleCloseMenu = () => { setAnchorEl(null); };
@@ -98,7 +107,7 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
 
         try {
             // ⬅️ API CALL برای Kiralama
-            const apiEndpoint = server.baseurl + server.hr + "update-rental-request-status";
+            const apiEndpoint = server.baseurl + server.hr + "update-workhouse-request-status";
 
             const payload = {
                 id: Number(selectedRowForMenu.id), status: newStatus, statusDescription: statusDescription.trim() || null,
@@ -167,7 +176,7 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                     <Table aria-label="Kiralama Talep Listesi">
                         <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                {(['Başlık', 'İşyeri', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', ''] as const).map((head, index) => (
+                                {(['Başlık', 'İşyeri', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', 'Detaylar', ''] as const).map((head, index) => (
                                     <StyledTableCell key={index} sx={{ color: "#171c23" }}>
                                         <Typography variant="h6">{head}</Typography>
                                     </StyledTableCell>
@@ -214,6 +223,17 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                                                     <IconButton onClick={() => props.handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary"></Chip></IconButton>
                                                 </CustomTooltip>
                                             ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
+                                        </StyledTableCell>
+
+                                        <StyledTableCell>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                onClick={() => handleOpenDetails(row)}
+                                                startIcon={<IconInfoCircle size={16} />}
+                                            >
+                                                Detay
+                                            </Button>
                                         </StyledTableCell>
 
                                         {/* ⬅️ Cell عملیات (Menu) */}
@@ -278,6 +298,59 @@ const RentalReceiptList: React.FC<RentalReceiptListProps> = (props) => {
                     </Stack>
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDownloadSingleModal(false)} color="secondary">Kapat</Button></DialogActions>
+            </Dialog>
+
+            <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>Talep Detayları</DialogTitle>
+                <DialogContent dividers>
+                    {viewingRow && (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Başlık:</Typography>
+                                <Typography>{viewingRow.title}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Şantiye:</Typography>
+                                <Typography>{viewingRow.workhouseName || viewingRow.workhouse?.name}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Tariح Aralığı:</Typography>
+                                <Typography>{formatDateDisplay(viewingRow.rentStartDate)} - {formatDateDisplay(viewingRow.rentEndDate)}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Şirket:</Typography>
+                                <Typography>{viewingRow.company || '-'}</Typography>
+                            </Box>
+                            <Divider />
+                            <Typography fontWeight="bold">Açıklama:</Typography>
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', bgcolor: '#f5f5f5', p: 1, borderRadius: 1 }}>
+                                {viewingRow.description || 'Açıklama bulunmuyor.'}
+                            </Typography>
+
+                            <Stack direction="row" spacing={2} justifyContent="center" sx={{ pt: 2 }}>
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestPdf(viewingRow, 'Kiralama Talep Raporu')}
+                                >
+                                    PDF İndir
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="success"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestExcel(viewingRow, 'Kiralama Talep Detayları')}
+                                >
+                                    Excel İndir
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDetailsModal(false)} variant="contained" color="inherit">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
         </Box>

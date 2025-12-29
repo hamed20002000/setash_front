@@ -323,7 +323,7 @@ const ListProjectPlanning = () => {
                 setProjectData(formatted);
 
                 const s = p.startDate ? new Date(p.startDate) : null;
-                const e = p.endDate ? new Date(p.endDate) : null;
+                const e = p.predictEndDate ? new Date(p.predictEndDate) : null;
                 setProjectStart(s);
                 setProjectEnd(e);
             } else {
@@ -645,7 +645,9 @@ const ListProjectPlanning = () => {
             doc.text(`Proje Adı: ${projectTitle}`, 15, 25);
 
             const prStart = projectStart ? format(projectStart, 'dd MMMM yyyy', { locale: tr }) : '-';
-            const prEnd = projectEnd ? format(projectEnd, 'dd MMMM yyyy', { locale: tr }) : '-';
+            const prEnd = projectData?.predictEndDate
+                ? format(new Date(projectData.predictEndDate), 'dd MMMM yyyy', { locale: tr })
+                : '-';
             doc.text(`Proje Başlangıç: ${prStart}`, 15, 30);
             doc.text(`Proje Bitiş: ${prEnd}`, 70, 30);
 
@@ -739,7 +741,7 @@ const ListProjectPlanning = () => {
                 const rowData = [
                     item.project.title,
                     projectStart ? format(projectStart, 'dd MMM yyyy', { locale: tr }) : '-',
-                    projectEnd ? format(projectEnd, 'dd MMM yyyy', { locale: tr }) : '-',
+                    projectData?.predictEndDate ? format(new Date(projectData.predictEndDate), 'dd MMM yyyy', { locale: tr }) : '-', // ⬅️ اصلاح شد
                     `${format(new Date(item.startDate), 'dd MMM yyyy', { locale: tr })} 08:00 - 17:00`,
                     item.status,
                     ...ALL_PLANNING_FIELDS.map(f => {
@@ -860,7 +862,7 @@ const ListProjectPlanning = () => {
                             sx={{ marginBottom: { xs: 1, sm: 0 } }}
                         />
                         <Chip
-                            label={`Proje Tarih Aralığı: ${projectStart ? format(projectStart, 'dd MMM yyyy', { locale: tr }) : '-'} → ${projectEnd ? format(projectEnd, 'dd MMM yyyy', { locale: tr }) : '-'}`}
+                            label={`Proje Tarih Aralığı: ${projectStart ? format(projectStart, 'dd MMM yyyy', { locale: tr }) : '-'} → ${projectData?.predictEndDate ? format(new Date(projectData.predictEndDate), 'dd MMM yyyy', { locale: tr }) : '-'}`}
                             color="default"
                             variant="outlined"
                             size="small"
@@ -1278,8 +1280,8 @@ const ListProjectPlanning = () => {
             </Dialog>
 
             {/* Value Modal */}
-            <Dialog open={openValueModal} onClose={handleCloseValueModal}>
-                <DialogTitle>Değer Gir - {ALL_PLANNING_FIELDS.find(f => f.key === currentField)?.label}</DialogTitle>
+            {/* <Dialog open={openValueModal} onClose={handleCloseValueModal}>
+                <DialogTitle>Değer Gir  {ALL_PLANNING_FIELDS.find(f => f.key === currentField)?.label}</DialogTitle>
                 <DialogContent>
                     <CustomFormLabel>Tahmini Sayı</CustomFormLabel>
                     <CustomTextField
@@ -1318,6 +1320,76 @@ const ListProjectPlanning = () => {
                                     : ""
                         }
                     />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseValueModal}>İptal</Button>
+                    <Button variant="contained" onClick={handleSaveValue}>Kaydet</Button>
+                </DialogActions>
+            </Dialog> */}
+
+            <Dialog open={openValueModal} onClose={handleCloseValueModal} maxWidth="xs" fullWidth>
+                <DialogTitle>Değer Gir {ALL_PLANNING_FIELDS.find(f => f.key === currentField)?.label}</DialogTitle>
+                <DialogContent sx={{ minHeight: '320px' }}> {/* یک ارتفاع حداقل برای ثابت ماندن مودال */}
+
+                    <Box sx={{ mb: 3 }}> {/* استفاده از Box با فاصله ثابت */}
+                        <CustomFormLabel>Tahmini Sayı</CustomFormLabel>
+                        <CustomTextField
+                            inputRef={estimatedRef}
+                            type="number"
+                            value={currentValues.estimatedNumber}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, estimatedNumber: Number(e.target.value) }))}
+                            fullWidth
+                            size="small"
+                            onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()}
+                            inputProps={{ min: 0 }}
+                        />
+                    </Box>
+
+                    <Box sx={{ mb: 3, position: 'relative' }}> {/* Position Relative برای مدیریت متن خطا */}
+                        <CustomFormLabel sx={{ mt: 0 }}>Minimum</CustomFormLabel>
+                        <CustomTextField
+                            inputRef={minRef}
+                            type="number"
+                            value={currentValues.min}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, min: Number(e.target.value) }))}
+                            fullWidth
+                            size="small"
+                            onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()}
+                            inputProps={{ min: 0 }}
+                            error={currentValues.min > currentValues.estimatedNumber}
+                            helperText={currentValues.min > currentValues.estimatedNumber ? "Minimum değer Tahmini Sayıdan fazla olamaz." : ""}
+                            // تنظیم متن خطا به صورت مطلق برای جلوگیری از تغییر سایز فیلد
+                            FormHelperTextProps={{
+                                sx: { position: 'absolute', bottom: '-20px', left: 0, margin: 0 }
+                            }}
+                        />
+                    </Box>
+
+                    <Box sx={{ mb: 3, position: 'relative' }}>
+                        <CustomFormLabel sx={{ mt: 0 }}>Maksimum</CustomFormLabel>
+                        <CustomTextField
+                            inputRef={maxRef}
+                            type="number"
+                            value={currentValues.max}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentValues(prev => ({ ...prev, max: Number(e.target.value) }))}
+                            fullWidth
+                            size="small"
+                            onFocus={(e: React.ChangeEvent<HTMLInputElement>) => e.target.select()}
+                            inputProps={{ min: 0 }}
+                            error={currentValues.max < currentValues.min || currentValues.max < currentValues.estimatedNumber}
+                            helperText={
+                                currentValues.max < currentValues.min
+                                    ? "Maksimum değer minimumdan az olamaz."
+                                    : currentValues.max < currentValues.estimatedNumber
+                                        ? "Maksimum değer Tahmini Sayıdan az olamaz."
+                                        : ""
+                            }
+                            FormHelperTextProps={{
+                                sx: { position: 'absolute', bottom: '-20px', left: 0, margin: 0 }
+                            }}
+                        />
+                    </Box>
+
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseValueModal}>İptal</Button>

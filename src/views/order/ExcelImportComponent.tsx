@@ -1317,7 +1317,8 @@ const ExcelImportComponent = () => {
             setSelectedWork(null);
         }
         setWorkhouse(row.workhouse ? row.workhouse.id : '');
-        setRequestId(row.requestId || null);
+        const reqId = row.requestId ? Number(row.requestId) : (row.request?.id ? Number(row.request.id) : null);
+        setRequestId(reqId);
         setDocDate(new Date(row.docDate));
         setGeneralDescription(row.description || '');
         const itemsToEdit: OrderItem[] = row.orderDetails.map(detail => {

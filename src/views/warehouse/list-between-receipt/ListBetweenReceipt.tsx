@@ -1413,10 +1413,10 @@ const ListBetweenReceipt = () => {
                             onClick={() => { if (viewedReceipt) handleDownloadSingleReceiptExcel(viewedReceipt); }}
                         >
                             Excel İndir
-                            <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
-                                fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
-                                sx={{ flex: 1 }} >Kapat</Button>
                         </Button>
+                        <Button onClick={() => setOpenDetailsModal(false)} color="secondary" variant="outlined"
+                            fullWidth // باعث می‌شود در حالت ستونی تمام عرض را بگیرد
+                            sx={{ flex: 1 }} >Kapat</Button>
                     </Stack>
                 </DialogActions>
             </Dialog>

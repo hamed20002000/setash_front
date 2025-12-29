@@ -6,6 +6,7 @@ import {
     TableContainer, Table, TableHead, TableRow, TableBody, Menu, ListItemIcon,
     TablePagination, MenuItem as MuiMenuItem, Dialog, DialogTitle, DialogActions,
     DialogContent, TextField,
+    Divider,
 } from '@mui/material';
 import { IconChecks, IconX, IconInfoCircle, IconDots, IconLink, IconFileDownload } from '@tabler/icons-react';
 import axios from 'axios';
@@ -62,6 +63,14 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
 
     // --- Download Modal State (محلی) ---
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
+
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [viewingRow, setViewingRow] = useState<MaterialRequestType | null>(null);
+
+    const handleOpenDetails = (row: MaterialRequestType) => {
+        setViewingRow(row);
+        setOpenDetailsModal(true);
+    };
 
     // --- Handlers ---
     const handleCloseMenu = () => { setAnchorEl(null); };
@@ -144,6 +153,7 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Talep Eden</Typography></StyledTableCell>
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Durum</Typography></StyledTableCell>
                                 <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Ekler</Typography></StyledTableCell>
+                                <StyledTableCell sx={{ color: "#171c23" }}><Typography variant="h6">Detay</Typography></StyledTableCell> {/* ⬅️ اضافه شد */}
                                 <StyledTableCell></StyledTableCell>
                             </TableRow>
                         </TableHead>
@@ -190,6 +200,18 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                                                     <IconButton onClick={() => props.handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary"></Chip></IconButton>
                                                 </CustomTooltip>
                                             ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                color="info"
+                                                onClick={() => handleOpenDetails(row)}
+                                                startIcon={<IconInfoCircle size={16} />}
+                                                sx={{ fontSize: '10px' }}
+                                            >
+                                                Detay
+                                            </Button>
                                         </StyledTableCell>
                                         <StyledTableCell>
                                             <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
@@ -252,6 +274,65 @@ const MaterialReceiptList: React.FC<MaterialReceiptListProps> = (props) => {
                     </Stack>
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDownloadSingleModal(false)} color="secondary">Kapat</Button></DialogActions>
+            </Dialog>
+
+
+            {/* --- Material Details Modal --- */}
+            <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ bgcolor: 'info.main', color: 'white' }}>
+                    Malzeme Talep Detayları
+                </DialogTitle>
+                <DialogContent dividers>
+                    {viewingRow && (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Başlık:</Typography>
+                                <Typography>{viewingRow.subject}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Talep Eden:</Typography>
+                                <Typography>{viewingRow.user?.username || '-'}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Tarih:</Typography>
+                                <Typography>{new Date(viewingRow.createAt).toLocaleDateString('tr-TR')}</Typography>
+                            </Box>
+
+                            <Divider />
+
+                            <Typography fontWeight="bold">Açıklama:</Typography>
+                            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9', minHeight: '100px' }}>
+                                {/* استفاده از dangerouslySetInnerHTML در صورتی که متن حاوی تگ‌های HTML است */}
+                                <div dangerouslySetInnerHTML={{ __html: viewingRow.description || 'Açıklama belirtilmemiş.' }} />
+                            </Paper>
+
+                            <Divider sx={{ my: 1 }} />
+
+                            {/* دکمه‌های دانلود مستقیم داخل مودال */}
+                            <Stack direction="row" spacing={2} justifyContent="center" sx={{ pt: 1 }}>
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestPdf(viewingRow, 'Malzeme Talep Raporu')}
+                                >
+                                    PDF İndir
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="success"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestExcel(viewingRow, 'Malzeme Talep Detayları')}
+                                >
+                                    Excel İndir
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDetailsModal(false)} variant="contained" color="inherit">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
         </Box>

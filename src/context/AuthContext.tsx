@@ -27,6 +27,7 @@ interface UserRole {
 interface JwtPayload {
   username?: string;
   role?: string | string[];
+  userid?: string;
 }
 
 interface MenuOperation {
@@ -39,6 +40,11 @@ interface MenuOperation {
 }
 
 interface RoleMenuOperationApiResponse {
+  id: string;
+  recordStatus: number;
+  menuOperation: MenuOperation;
+}
+interface UserMenuOperationApiResponse {
   id: string;
   recordStatus: number;
   menuOperation: MenuOperation;
@@ -215,51 +221,133 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
 
+  // const updateMenuAndOperations = useCallback(async (roleId: string) => {
+  //   setIsAuthDataLoading(true);
+  //   setAllowedOperations([]);
+  //   setMenuItems([]);
+
+  //   const authToken = localStorage.getItem('authToken');
+  //   if (!authToken) {
+  //     setIsAuthDataLoading(false);
+  //     return { ops: [], rawMenus: [] }; // ✅ بازگرداندن مقادیر خالی
+  //   }
+  //   try {
+  //     const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
+  //       `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
+  //       { headers: { "Authorization": `Bearer ${authToken}` } }
+  //     );
+
+  //     const ops: AllowedOperation[] = operationsResponse.data?.data?.roleMenuOperations
+  //       .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
+  //       .map(op => ({
+  //         menuOperationId: op.menuOperation.id,
+  //         systemOperationId: op.menuOperation.systemOperation.id,
+  //         systemOperationName: op.menuOperation.systemOperation.name
+  //       })) || [];
+
+  //     const rawMenus = await getRawMenusFromApi();
+  //     const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
+  //     const finalMenuItems = filteredMenus.sort((a, b) => a.order - b.order);
+
+  //     // ✅ وضعیت‌ها را پس از دریافت اطلاعات کامل به‌روز می‌کنیم
+  //     setAllowedOperations(ops);
+  //     setMenuItems(finalMenuItems);
+
+  //     // ✅ اطلاعات را برمی‌گردانیم تا در تابع updateActiveRole استفاده شود
+  //     return { ops, rawMenus };
+
+  //   } catch (e) {
+  //     // console.error("Failed to fetch menu and role data:", e);
+  //     setAllowedOperations([]);
+  //     setMenuItems([]);
+  //     return { ops: [], rawMenus: [] }; // ✅ در صورت خطا مقادیر خالی را بازمی‌گردانیم
+  //   } finally {
+  //     setIsAuthDataLoading(false);
+  //   }
+  // }, [getRawMenusFromApi, mapApiDataToMenuItems]);
+
   const updateMenuAndOperations = useCallback(async (roleId: string) => {
     setIsAuthDataLoading(true);
     setAllowedOperations([]);
     setMenuItems([]);
 
     const authToken = localStorage.getItem('authToken');
+    const decoded = authToken ? decodeJwtToken(authToken) : null;
+    const userId = decoded?.userid; // گرفتن userId از توکن
+
     if (!authToken) {
       setIsAuthDataLoading(false);
-      return { ops: [], rawMenus: [] }; // ✅ بازگرداندن مقادیر خالی
+      return { ops: [], rawMenus: [] };
     }
+
     try {
-      const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
-        `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
-        { headers: { "Authorization": `Bearer ${authToken}` } }
-      );
+      // ۱. اجرای همزمان هر دو API برای سرعت بیشتر
+      const [roleOpsRes, userOpsRes, rawMenus] = await Promise.all([
+        axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
+          `${server.baseurl}${server.user}get-role-with-operations/${roleId}`,
+          { headers: { "Authorization": `Bearer ${authToken}` } }
+        ),
+        userId ? axios.get<{ data: { userMenuOperations: UserMenuOperationApiResponse[] } }>(
+          `${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`,
+          { headers: { "Authorization": `Bearer ${authToken}` } }
+        ) : Promise.resolve({ data: { data: { userMenuOperations: [] } } }),
+        getRawMenusFromApi()
+      ]);
 
-      const ops: AllowedOperation[] = operationsResponse.data?.data?.roleMenuOperations
+      // ۲. استخراج عملیات‌ها از نقش (Role Operations)
+      const roleOps = roleOpsRes.data?.data?.roleMenuOperations || [];
+
+      // ۳. استخراج عملیات‌ها از کاربر (User Operations)
+      const userOps = userOpsRes.data?.data?.userMenuOperations || [];
+
+      // ۴. ادغام دو لیست و حذف تکراری‌ها (با استفاده از Map بر اساس menuOperationId)
+      const allOpsMap = new Map<string, AllowedOperation>();
+
+      // افزودن عملیات‌های نقش
+      roleOps
         .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
-        .map(op => ({
-          menuOperationId: op.menuOperation.id,
-          systemOperationId: op.menuOperation.systemOperation.id,
-          systemOperationName: op.menuOperation.systemOperation.name
-        })) || [];
+        .forEach(op => {
+          allOpsMap.set(op.menuOperation.id, {
+            menuOperationId: op.menuOperation.id,
+            systemOperationId: op.menuOperation.systemOperation.id,
+            systemOperationName: op.menuOperation.systemOperation.name
+          });
+        });
 
-      const rawMenus = await getRawMenusFromApi();
-      const filteredMenus = mapApiDataToMenuItems(rawMenus, ops);
-      const finalMenuItems = filteredMenus.sort((a, b) => a.order - b.order);
+      // افزودن عملیات‌های مستقیم کاربر (اگر تکراری باشد جایگزین می‌شود یا نادیده گرفته می‌شود)
+      userOps
+        .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
+        .forEach(op => {
+          if (!allOpsMap.has(op.menuOperation.id)) {
+            allOpsMap.set(op.menuOperation.id, {
+              menuOperationId: op.menuOperation.id,
+              systemOperationId: op.menuOperation.systemOperation.id,
+              systemOperationName: op.menuOperation.systemOperation.name
+            });
+          }
+        });
 
-      // ✅ وضعیت‌ها را پس از دریافت اطلاعات کامل به‌روز می‌کنیم
-      setAllowedOperations(ops);
+      const finalOps = Array.from(allOpsMap.values());
+
+      // ۵. فیلتر کردن منوها بر اساس لیست نهایی عملیات‌ها
+      const filteredMenus = mapApiDataToMenuItems(rawMenus, finalOps);
+      const finalMenuItems = filteredMenus.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      // ۶. بروزرسانی استیت‌ها
+      setAllowedOperations(finalOps);
       setMenuItems(finalMenuItems);
 
-      // ✅ اطلاعات را برمی‌گردانیم تا در تابع updateActiveRole استفاده شود
-      return { ops, rawMenus };
+      return { ops: finalOps, rawMenus };
 
     } catch (e) {
-      // console.error("Failed to fetch menu and role data:", e);
+      console.error("Auth Data Merge Error:", e);
       setAllowedOperations([]);
       setMenuItems([]);
-      return { ops: [], rawMenus: [] }; // ✅ در صورت خطا مقادیر خالی را بازمی‌گردانیم
+      return { ops: [], rawMenus: [] };
     } finally {
       setIsAuthDataLoading(false);
     }
   }, [getRawMenusFromApi, mapApiDataToMenuItems]);
-
 
 
 

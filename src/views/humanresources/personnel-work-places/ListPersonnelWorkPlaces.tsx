@@ -1401,73 +1401,51 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                     )}
                                 />
                             </Grid>
-                            {/* User (Kullanıcı) - تبدیل به Autocomplete */}
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel>Kullanıcı</CustomFormLabel>
-                                <Autocomplete
-                                    options={usersList}
-                                    size="small"
-                                    getOptionLabel={(option) => option.username}
 
-                                    // 💡 یافتن مقدار فعلی بر اساس ID (User ID معمولا string است)
-                                    value={usersList.find(user => user.id === userId) || null}
-
-                                    isOptionEqualToValue={(option, value) => option.id === value.id}
-
-                                    onChange={(_, newValue) => {
-                                        const selectedUser = newValue;
-                                        const selectedUserId = selectedUser ? selectedUser.id : '';
-
-                                        setUserId(selectedUserId); // ID کاربر (string)
-                                        setUserRoleId(null); // ریست کردن نقش
-
-                                        // 💡 فراخوانی API مرتبط فقط اگر کاربری انتخاب شده باشد
-                                        if (selectedUserId) {
-                                            getUserRoles(selectedUserId);
-                                        }
-                                    }}
-
-                                    disabled={isUserRoleDisabled || assignmentMode === 'bulk'}
-
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            label="Kullanıcı Seçin"
+                            {!editingId && (
+                                <>
+                                    <Grid item xs={12} sm={4}>
+                                        <CustomFormLabel>Kullanıcı</CustomFormLabel>
+                                        <Autocomplete
+                                            options={usersList}
+                                            size="small"
+                                            getOptionLabel={(option) => option.username}
+                                            value={usersList.find(user => user.id === userId) || null}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            onChange={(_, newValue) => {
+                                                const selectedUserId = newValue ? newValue.id : '';
+                                                setUserId(selectedUserId);
+                                                setUserRoleId(null);
+                                                if (selectedUserId) {
+                                                    getUserRoles(selectedUserId);
+                                                }
+                                            }}
+                                            disabled={assignmentMode === 'bulk'}
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Kullanıcı Seç" />
+                                            )}
                                         />
-                                    )}
-                                />
-                            </Grid>
+                                    </Grid>
 
-                            {/* User Role (Kullanıcı Rolü) - تبدیل به Autocomplete */}
-                            <Grid item xs={12} sm={4}>
-                                <CustomFormLabel>Kullanıcı Rolü</CustomFormLabel>
-                                <Autocomplete
-                                    // 💡 ابتدا آیتم‌های فعال را فیلتر کنید
-                                    options={userRolesList.filter(role => role.recordStatus === 0)}
-                                    size="small"
-                                    // 💡 نمایش نام نقش (role.name)
-                                    getOptionLabel={(option) => option.role.name}
-
-                                    // 💡 یافتن مقدار فعلی بر اساس userRoleId (عدد)
-                                    value={userRolesList.find(item => item.id === userRoleId) || null}
-
-                                    isOptionEqualToValue={(option, value) => option.id === value.id}
-
-                                    onChange={(_, newValue) => {
-                                        const newRoleId = newValue ? newValue.id : null;
-                                        setUserRoleId(newRoleId); // ذخیره ID نقش (عدد)
-                                    }}
-
-                                    disabled={assignmentMode === 'bulk' || userRolesList.length === 0}
-
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            label="Kullanıcı Rolü"
+                                    <Grid item xs={12} sm={4}>
+                                        <CustomFormLabel>Kullanıcı Rolü</CustomFormLabel>
+                                        <Autocomplete
+                                            options={userRolesList.filter(role => role.recordStatus === 0)}
+                                            size="small"
+                                            getOptionLabel={(option) => option.role.name}
+                                            value={userRolesList.find(item => item.id === userRoleId) || null}
+                                            isOptionEqualToValue={(option, value) => option.id === value.id}
+                                            onChange={(_, newValue) => {
+                                                setUserRoleId(newValue ? newValue.id : null);
+                                            }}
+                                            disabled={assignmentMode === 'bulk' || userRolesList.length === 0}
+                                            renderInput={(params) => (
+                                                <TextField {...params} label="Kullanıcı Rolü" />
+                                            )}
                                         />
-                                    )}
-                                />
-                            </Grid>
+                                    </Grid>
+                                </>
+                            )}
 
                             {/* Place Kind Selector */}
                             <Grid item xs={12} sm={4}>

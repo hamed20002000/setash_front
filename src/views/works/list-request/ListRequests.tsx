@@ -340,6 +340,7 @@ const RequestTabs: React.FC = () => {
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
+                debugger
                 setRequestsList(response.data.data);
             } else {
                 showAlert(response.data.message || 'Talepler alınamadı.', 'error');
@@ -580,6 +581,15 @@ const RequestTabs: React.FC = () => {
     const [rentalSelectedRowForMenu, setRentalSelectedRowForMenu] = useState<WorkhouseRentRequest | null>(null);
     const [openDeleteRentalModal, setOpenDeleteRentalModal] = useState(false);
     const [rentalItemToEdit, setRentalItemToEdit] = useState<WorkhouseRentRequest | null>(null);
+
+
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [viewingRow, setViewingRow] = useState<MaterialRequestType | WorkhouseRentRequest | null>(null);
+
+    const handleOpenDetails = (row: MaterialRequestType | WorkhouseRentRequest) => {
+        setViewingRow(row);
+        setOpenDetailsModal(true);
+    };
 
     const fetchWorkhouses = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -1307,7 +1317,7 @@ const RequestTabs: React.FC = () => {
                             <Table aria-label="Malzeme Talepleri tablosu">
                                 <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
-                                        {(['Başlık', 'Açıklama', 'Durum', 'Tarih', 'Ekler', ''] as const).map((head, index) => (
+                                        {(['Başlık', 'Açıklama', 'Durum', 'Tarih', 'Ekler', 'Detay', ''] as const).map((head, index) => (
                                             <StyledTableCell key={index} sx={{ color: "#171c23" }}>
                                                 {head === 'Başlık' || head === 'Durum' || head === 'Tarih' ? (
                                                     <TableSortLabel
@@ -1380,6 +1390,7 @@ const RequestTabs: React.FC = () => {
                                                         </CustomTooltip>
                                                     ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
                                                 </StyledTableCell>
+
                                                 {/* <StyledTableCell>
                                                     <IconButton onClick={(event) => handleClickMenu(event, row)}>
                                                         <IconDots width={18} /></IconButton>
@@ -1399,7 +1410,18 @@ const RequestTabs: React.FC = () => {
                                                     </Menu>
                                                 </StyledTableCell> */}
 
-
+                                                <StyledTableCell>
+                                                    <Button
+                                                        variant="contained"
+                                                        size="small"
+                                                        color="info"
+                                                        onClick={() => handleOpenDetails(row)}
+                                                        startIcon={<IconInfoCircle size={16} />}
+                                                        sx={{ fontSize: '10px' }}
+                                                    >
+                                                        Detay
+                                                    </Button>
+                                                </StyledTableCell>
 
                                                 <StyledTableCell>
                                                     <IconButton onClick={(event) => handleClickMenu(event, row)}>
@@ -1527,7 +1549,7 @@ const RequestTabs: React.FC = () => {
                             <Table aria-label="Kiralama Talepleri tablosu">
                                 <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                                     <TableRow>
-                                        {(['Başlık', 'İşyeri', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', ''] as const).map((head, index) => (
+                                        {(['Başlık', 'İşyeri', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', 'Detay', ''] as const).map((head, index) => (
                                             <StyledTableCell key={index} sx={{ color: "#171c23" }}>
                                                 <TableSortLabel
                                                     active={rentalOrderBy === (head === 'Başlık' ? 'title' : head === 'Başlangıç' ? 'rentStartDate' : head === 'Bitiş' ? 'rentEndDate' : head === 'Fiyat (TL)' ? 'price' : head === 'Durum' ? 'status' : 'createAt')}
@@ -1573,6 +1595,18 @@ const RequestTabs: React.FC = () => {
                                                             <IconButton onClick={() => handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary"></Chip></IconButton>
                                                         </CustomTooltip>
                                                     ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
+                                                </StyledTableCell>
+                                                <StyledTableCell>
+                                                    <Button
+                                                        variant="contained"
+                                                        size="small"
+                                                        color="info"
+                                                        onClick={() => handleOpenDetails(row)}
+                                                        startIcon={<IconInfoCircle size={16} />}
+                                                        sx={{ fontSize: '10px' }}
+                                                    >
+                                                        Detay
+                                                    </Button>
                                                 </StyledTableCell>
                                                 <StyledTableCell>
                                                     <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
@@ -1868,6 +1902,86 @@ const RequestTabs: React.FC = () => {
                     })}
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
+            </Dialog>
+
+
+            {/* --- Details Modal --- */}
+            <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ bgcolor: 'info.main', color: 'white' }}>
+                    Talep Detay Bilgileri
+                </DialogTitle>
+                <DialogContent dividers>
+                    {viewingRow && (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            {/* بخش مشترک */}
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Başlık:</Typography>
+                                <Typography>{(viewingRow as MaterialRequestType).subject || (viewingRow as WorkhouseRentRequest).title}</Typography>
+                            </Box>
+
+                            {/* فیلدهای اختصاصی اجاره (Rental) */}
+                            {currentTab === 'rental' && (
+                                <>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">İşyeri:</Typography>
+                                        <Typography>{(viewingRow as WorkhouseRentRequest).workhouseName || '-'}</Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">Kira Aralığı:</Typography>
+                                        <Typography>
+                                            {formatDateDisplay((viewingRow as WorkhouseRentRequest).rentStartDate)} - {formatDateDisplay((viewingRow as WorkhouseRentRequest).rentEndDate)}
+                                        </Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">Şirket / Şoför:</Typography>
+                                        <Typography>
+                                            {(viewingRow as WorkhouseRentRequest).company || '-'} / {(viewingRow as WorkhouseRentRequest).driverInfo || '-'}
+                                        </Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">Fiyat:</Typography>
+                                        <Typography color="primary.main" fontWeight="bold">
+                                            {(viewingRow as WorkhouseRentRequest).price} TL
+                                        </Typography>
+                                    </Box>
+                                </>
+                            )}
+
+                            <Divider />
+
+                            {/* توضیحات کامل */}
+                            <Typography fontWeight="bold">Açıklama:</Typography>
+                            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9' }}>
+                                <div dangerouslySetInnerHTML={{ __html: viewingRow.description || 'Açıklama belirtilmemiş.' }} />
+                            </Paper>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* دکمه‌های دانلود داخل مودال */}
+                            <Stack direction="row" spacing={2} justifyContent="center">
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestPdf(viewingRow, currentTab === 'material' ? 'Malzeme Talep Raporu' : 'Kiralama Talep Raporu')}
+                                >
+                                    PDF
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="success"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestExcel(viewingRow, currentTab === 'material' ? 'Malzeme Talep Detayları' : 'Kiralama Talep Detayları')}
+                                >
+                                    Excel
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDetailsModal(false)} variant="contained" color="inherit">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
             {/* Delete Modals */}

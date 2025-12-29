@@ -13,7 +13,7 @@ import {
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { keyframes, styled } from '@mui/material/styles';
 import {
-    IconFileText, IconPlus, IconDownload, IconLink, IconX,
+    IconFileText, IconPlus, IconLink, IconX,
     IconInfoCircle, IconSearch, IconFileDownload
 } from '@tabler/icons-react';
 import axios from 'axios';
@@ -51,6 +51,12 @@ export interface MaterialRequestType {
     id: number | string; subject: string; description: string; status: 0 | 1 | 2;
     createAt: string; attachments: Attachment[]; statusDescription?: string | null;
     requestStatusHistories?: RequestStatusHistory[];
+    workhouse?: {
+        id: string;
+        name: string;
+        code: string;
+        address?: string;
+    };
 }
 export interface Workhouse { id: string; name: string; code: string; }
 interface APIWorkhouse { id: string; name: string; code: string; }
@@ -90,6 +96,12 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     animation: isBlinking ? `${blinkAnimation} 1.5s infinite` : 'none',
     transition: 'transform 0.3s ease-in-out',
 }));
+
+const borderBlink = keyframes`
+  0% { border-color: rgba(0, 0, 0, 0.23); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0); }
+  50% { border-color: #673ab7; box-shadow: 0 0 8px 2px rgba(103, 58, 183, 0.5); }
+  100% { border-color: rgba(0, 0, 0, 0.23); box-shadow: 0 0 0px 0px rgba(103, 58, 183, 0); }
+`;
 // --- توابع کمکی عمومی (بدون تغییر) ---
 const descendingComparator = <T, K extends keyof T>(a: T, b: T, orderBy: K) => {
     const va = a[orderBy] as any;
@@ -141,6 +153,10 @@ const stripHtml = (htmlString: string): string => {
     return doc.body.textContent || "";
 };
 
+
+
+
+
 const addPdfHeader = (doc: jsPDF, title: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const logoWidth = 50;
@@ -191,231 +207,7 @@ const addPdfFooter = (doc: jsPDF) => {
     doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
 
-const exportRequestPdf = (requestData: MaterialRequestType | WorkhouseRentRequest, title: string) => {
-    const doc = new jsPDF();
 
-    // --- تنظیمات فونت و زبان ---
-    // @ts-ignore
-    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    // @ts-ignore
-    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    // @ts-ignore
-    doc.addFileToVFS('Arial.ttf', ArialFont);
-    // @ts-ignore
-    doc.addFont('Arial.ttf', 'Arial', 'normal');
-    // @ts-ignore
-    doc.setFont('Arial');
-    // ----------------------------
-
-    const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
-    const tableData = [
-        ['Başlık', isMaterial ? (requestData as MaterialRequestType).subject : (requestData as WorkhouseRentRequest).title],
-        ['Durum', statusToLabel(requestData.status)],
-        ['Tarih', new Date(requestData.createAt).toLocaleDateString('tr-TR')],
-        ['Açıklama', stripHtml(requestData.description) || '-'],
-        ...(!isMaterial ? [
-            ['Şoför Bilgisi', (requestData as WorkhouseRentRequest).driverInfo || '-'],
-            ['Kiralandığı Şirket', (requestData as WorkhouseRentRequest).company || '-'],
-            ['Fiyat', (requestData as WorkhouseRentRequest).price + ' TL' || '-'],
-            ['Şantiye', (requestData as WorkhouseRentRequest).workhouseName || 'Bilinmiyor'],
-            ['Başlangıç', formatDateDisplay((requestData as WorkhouseRentRequest).rentStartDate)],
-            ['Bitiş', formatDateDisplay((requestData as WorkhouseRentRequest).rentEndDate)],
-        ] : []),
-    ];
-
-    autoTable(doc, {
-        startY: 75,
-        head: [['Özellik', 'Değer']],
-        body: tableData,
-        theme: 'grid',
-        // @ts-ignore
-        styles: { font: 'Arial', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
-        headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
-        didDrawPage: (_data: any) => {
-            addPdfHeader(doc, title);
-            addPdfFooter(doc);
-            doc.setFontSize(10);
-            // @ts-ignore
-            doc.setFont('Arial', 'normal');
-            // doc.text(`Talep ID: ${requestData.id}`, 15, 32);
-        },
-        margin: { top: 40, bottom: 45 },
-    });
-    doc.save(`${title.replace(/ /g, '_')}_Raporu_${requestData.id}.pdf`);
-};
-
-const exportRequestExcel = async (requestData: MaterialRequestType | WorkhouseRentRequest, title: string) => {
-    const workbook = new Excel.Workbook();
-    const worksheet = workbook.addWorksheet(title);
-    worksheet.views = [{ rightToLeft: false }];
-
-    // ⬅️ هدر اطلاعات شرکت در اکسل
-    worksheet.addRow(['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.']).font = { bold: true, size: 12 };
-    worksheet.addRow(['Rapor Başlığı:', title]).font = { bold: true };
-    worksheet.addRow(['Rapor Tarihi:', new Date().toLocaleDateString('tr-TR')]);
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-    // ---------------------------------------------
-
-    worksheet.columns = [
-        { header: 'Özellik', key: 'key', width: 25 },
-        { header: 'Değer', key: 'value', width: 60 }
-    ];
-
-    const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
-    worksheet.addRow({ key: 'Talep ID', value: requestData.id });
-    worksheet.addRow({ key: 'Konu', value: isMaterial ? (requestData as MaterialRequestType).subject : (requestData as WorkhouseRentRequest).title });
-    worksheet.addRow({ key: 'Durum', value: statusToLabel(requestData.status) });
-    worksheet.addRow({ key: 'Oluşturulma Tarihi', value: new Date(requestData.createAt).toLocaleDateString('tr-TR') });
-    worksheet.addRow({ key: 'Açıklama', value: stripHtml(requestData.description) || '-' });
-
-    if (!isMaterial) {
-        const rentalData = requestData as WorkhouseRentRequest;
-        worksheet.addRow({ key: 'Şantiye', value: rentalData.workhouseName || 'Bilinmiyor' });
-        worksheet.addRow({ key: 'Şoför Bilgisi', value: rentalData.driverInfo || '-' });
-        worksheet.addRow({ key: 'Kiralandığı Şirket', value: rentalData.company || '-' });
-        worksheet.addRow({ key: 'Fiyat', value: rentalData.price + ' TL' });
-        worksheet.addRow({ key: 'Kira Başlangıç', value: formatDateDisplay(rentalData.rentStartDate) });
-        worksheet.addRow({ key: 'Kira Bitiş', value: formatDateDisplay(rentalData.rentEndDate) });
-    }
-
-    worksheet.addRow([]);
-    worksheet.addRow(['Ekler']).font = { bold: true, size: 12 };
-    // @ts-ignore
-    worksheet.mergeCells(`A${worksheet.lastRow?.number}:B${worksheet.lastRow?.number}`);
-
-    if (requestData.attachments && requestData.attachments.length > 0) {
-        worksheet.addRow(['Dosya Adı', 'URL']).font = { bold: true };
-        requestData.attachments.forEach(att => { worksheet.addRow([att.fileUrl.split('/').pop() || '-', att.fileUrl]); });
-    } else {
-        worksheet.addRow(['Piyes bulunamadı']);
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}_Raporu_${requestData.id}.xlsx`);
-};
-
-const exportAllRequestsPdf = (dataList: (MaterialRequestType | WorkhouseRentRequest)[], title: string, isMaterial: boolean) => {
-    const doc = new jsPDF('l');
-
-    doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-    // @ts-ignore
-    doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    // @ts-ignore
-    doc.setFont('Arial');
-    // ----------------------------
-
-    const materialColumns = ['ID', 'Başlık', 'Durum', 'Tarih', 'Açıklama'];
-    const rentalColumns = ['ID', 'Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat', 'Durum', 'Kiralandığı Şirket'];
-
-    const head = [isMaterial ? materialColumns : rentalColumns];
-
-    const body = dataList.map((row) => {
-        if (isMaterial) {
-            const mRow = row as MaterialRequestType;
-            return [
-                mRow.id,
-                mRow.subject,
-                statusToLabel(mRow.status),
-                new Date(mRow.createAt).toLocaleDateString('tr-TR'),
-                stripHtml(mRow.description).substring(0, 50) + '...',
-            ];
-        } else {
-            const rRow = row as WorkhouseRentRequest;
-            const priceString = String(rRow.price || 0).replace(/[^0-9.]/g, '');
-            const numericPrice = parseFloat(priceString);
-            const formattedPrice = isNaN(numericPrice) ? rRow.price || '-' : new Intl.NumberFormat('tr-TR', { currency: 'TRY', minimumFractionDigits: 2 }).format(numericPrice);
-
-            return [
-                rRow.id,
-                // rRow.title,
-                rRow.workhouseName || '-',
-                formatDateDisplay(rRow.rentStartDate),
-                formatDateDisplay(rRow.rentEndDate),
-                formattedPrice,
-                statusToLabel(rRow.status),
-                rRow.company || '-',
-            ];
-        }
-    });
-
-    autoTable(doc, {
-        head: head,
-        body: body,
-        startY: 40,
-        theme: 'striped',
-        // @ts-ignore
-        styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
-        headStyles: { fillColor: [149, 147, 125], textColor: [255, 255, 255] },
-
-        // ⬅️ فراخوانی Header و Footer در هر صفحه جدید
-        didDrawPage: (_data: any) => {
-            addPdfHeader(doc, title);
-            addPdfFooter(doc);
-            // @ts-ignore
-            doc.setFont('NotoSans', 'normal');
-            doc.setFontSize(10);
-            doc.text('', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' }); // عنوان اصلی در بالاترین نقطه
-        },
-    });
-
-    doc.save(`${title.replace(/ /g, '_')}_Tüm_Raporlar_${new Date().toISOString().substring(0, 10)}.pdf`);
-};
-
-const exportAllRequestsExcel = async (dataList: (MaterialRequestType | WorkhouseRentRequest)[], title: string, isMaterial: boolean) => {
-    const workbook = new Excel.Workbook();
-    const worksheet = workbook.addWorksheet(title);
-    worksheet.views = [{ rightToLeft: false }];
-
-    // ⬅️ هدر اطلاعات شرکت در اکسل
-    worksheet.addRow(['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.']).font = { bold: true, size: 12 };
-    worksheet.addRow(['Rapor Başlığı:', title]).font = { bold: true };
-    worksheet.addRow(['Rapor Tarihi:', new Date().toLocaleDateString('tr-TR')]);
-    worksheet.addRow([]);
-    worksheet.addRow([]);
-    // ---------------------------------------------
-
-    if (isMaterial) {
-        worksheet.columns = [
-            { header: 'ID', key: 'id', width: 10 },
-            { header: 'Başlık', key: 'subject', width: 30 },
-            { header: 'Durum', key: 'status', width: 15 },
-            { header: 'Tarih', key: 'createAt', width: 18 },
-            { header: 'Açıklama', key: 'description', width: 50 },
-        ];
-        worksheet.addRows(dataList.map(r => ({
-            id: r.id,
-            subject: (r as MaterialRequestType).subject,
-            status: statusToLabel(r.status),
-            createAt: new Date(r.createAt).toLocaleDateString('tr-TR'),
-            description: stripHtml(r.description || ''),
-        })));
-    } else {
-        worksheet.columns = [
-            { header: 'ID', key: 'id', width: 10 },
-            { header: 'Başlık', key: 'title', width: 25 },
-            { header: 'Şantiye', key: 'workhouseName', width: 25 },
-            { header: 'Başlangıç', key: 'rentStartDate', width: 18 },
-            { header: 'Bitiş', key: 'rentEndDate', width: 18 },
-            { header: 'Fiyat (TL)', key: 'price', width: 15 },
-            { header: 'Durum', key: 'status', width: 15 },
-            { header: 'Kiralandığı Şirket', key: 'company', width: 20 },
-        ];
-        worksheet.addRows(dataList.map(r => ({
-            id: r.id,
-            title: (r as WorkhouseRentRequest).title,
-            workhouseName: (r as WorkhouseRentRequest).workhouseName || '-',
-            rentStartDate: formatDateDisplay((r as WorkhouseRentRequest).rentStartDate),
-            rentEndDate: formatDateDisplay((r as WorkhouseRentRequest).rentEndDate),
-            price: String((r as WorkhouseRentRequest).price) + ' TL',
-            status: statusToLabel(r.status),
-            company: (r as WorkhouseRentRequest).company || '-',
-        })));
-    }
-
-    const buffer = await workbook.xlsx.writeBuffer();
-    saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}_Tüm_Raporlar_${new Date().toISOString().substring(0, 10)}.xlsx`);
-};
 
 // ==============================================================================
 // 3. MAIN COMPONENT: RequestTabs
@@ -494,6 +286,14 @@ const RequestTabs: React.FC = () => {
     const hasIdsFilter = notifIds.length > 0;
     const idsSet = new Set<number>(notifIds);
 
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [viewingRow, setViewingRow] = useState<MaterialRequestType | WorkhouseRentRequest | null>(null);
+
+    const handleOpenDetails = (row: MaterialRequestType | WorkhouseRentRequest) => {
+        setViewingRow(row);
+        setOpenDetailsModal(true);
+    };
+
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
         setAlertSeverity(severity);
@@ -528,13 +328,25 @@ const RequestTabs: React.FC = () => {
     const fetchMaterialRequests = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
-        if (!authToken) { navigate("/"); setLoadingData(false); return; }
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
         try {
             const response = await axios.get(
                 server.baseurl + server.hr + "get-all-requests",
-                { headers: { "Authorization": `Bearer ${authToken}` } }
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
             );
             if (response.data.httpStatusCode === 200 && response.data.data) {
+                debugger
                 setRequestsList(response.data.data);
             } else {
                 showAlert(response.data.message || 'Malzeme talepleri alınamadı.', 'error');
@@ -572,6 +384,20 @@ const RequestTabs: React.FC = () => {
             // Error handling for workhouses fetch (silent if not in rental tab)
         }
     }, []);
+
+    const getWorkhouseNameFromRow = (row: MaterialRequestType) => {
+        if (row.workhouse && row.workhouse.name) {
+            return row.workhouse.name;
+        }
+
+        const whId = (row as any).workhouseId;
+        if (whId) {
+            const found = workhouses.find(w => String(w.id) === String(whId));
+            return found ? found.name : "-";
+        }
+
+        return "-";
+    };
 
     const fetchRentalRequests = useCallback(async (workhouseId: string | number) => {
         if (!workhouseId) { setRentalRequestsList([]); setLoadingData(false); return; }
@@ -627,6 +453,235 @@ const RequestTabs: React.FC = () => {
             }
         }
     }, [currentTab, searchParams, fetchMaterialRequests, fetchWorkhouses, fetchRentalRequests]);
+
+
+
+    const exportRequestPdf = (requestData: MaterialRequestType | WorkhouseRentRequest, title: string) => {
+        const doc = new jsPDF();
+
+        // --- تنظیمات فونت و زبان ---
+        // @ts-ignore
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        // @ts-ignore
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        // @ts-ignore
+        doc.addFileToVFS('Arial.ttf', ArialFont);
+        // @ts-ignore
+        doc.addFont('Arial.ttf', 'Arial', 'normal');
+        // @ts-ignore
+        doc.setFont('Arial');
+        // ----------------------------
+
+        const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
+        const tableData = [
+            ['Başlık', isMaterial ? (requestData as MaterialRequestType).subject : (requestData as WorkhouseRentRequest).title],
+            ['Durum', statusToLabel(requestData.status)],
+            ['Tarih', new Date(requestData.createAt).toLocaleDateString('tr-TR')],
+            ['Açıklama', stripHtml(requestData.description) || '-'],
+            ...(!isMaterial ? [
+                ['Şoför Bilgisi', (requestData as WorkhouseRentRequest).driverInfo || '-'],
+                ['Kiralandığı Şirket', (requestData as WorkhouseRentRequest).company || '-'],
+                ['Fiyat', (requestData as WorkhouseRentRequest).price + ' TL' || '-'],
+                ['Şantiye', (requestData as WorkhouseRentRequest).workhouseName || 'Bilinmiyor'],
+                ['Başlangıç', formatDateDisplay((requestData as WorkhouseRentRequest).rentStartDate)],
+                ['Bitiş', formatDateDisplay((requestData as WorkhouseRentRequest).rentEndDate)],
+            ] : []),
+        ];
+
+        autoTable(doc, {
+            startY: 75,
+            head: [['Özellik', 'Değer']],
+            body: tableData,
+            theme: 'grid',
+            // @ts-ignore
+            styles: { font: 'Arial', fontStyle: 'normal', fontSize: 10, cellPadding: 2, overflow: 'linebreak' },
+            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+            didDrawPage: (_data: any) => {
+                addPdfHeader(doc, title);
+                addPdfFooter(doc);
+                doc.setFontSize(10);
+                // @ts-ignore
+                doc.setFont('Arial', 'normal');
+                // doc.text(`Talep ID: ${requestData.id}`, 15, 32);
+            },
+            margin: { top: 40, bottom: 45 },
+        });
+        doc.save(`${title.replace(/ /g, '_')}_Raporu_${requestData.id}.pdf`);
+    };
+
+    const exportRequestExcel = async (requestData: MaterialRequestType | WorkhouseRentRequest, title: string) => {
+        const workbook = new Excel.Workbook();
+        const worksheet = workbook.addWorksheet(title);
+        worksheet.views = [{ rightToLeft: false }];
+
+        // ⬅️ هدر اطلاعات شرکت در اکسل
+        worksheet.addRow(['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.']).font = { bold: true, size: 12 };
+        worksheet.addRow(['Rapor Başlığı:', title]).font = { bold: true };
+        worksheet.addRow(['Rapor Tarihi:', new Date().toLocaleDateString('tr-TR')]);
+        worksheet.addRow([]);
+        worksheet.addRow([]);
+        // ---------------------------------------------
+
+        worksheet.columns = [
+            { header: 'Özellik', key: 'key', width: 25 },
+            { header: 'Değer', key: 'value', width: 60 }
+        ];
+
+        const isMaterial = (requestData as MaterialRequestType).subject !== undefined;
+        worksheet.addRow({ key: 'Talep ID', value: requestData.id });
+        worksheet.addRow({ key: 'Konu', value: isMaterial ? (requestData as MaterialRequestType).subject : (requestData as WorkhouseRentRequest).title });
+        worksheet.addRow({ key: 'Durum', value: statusToLabel(requestData.status) });
+        worksheet.addRow({ key: 'Oluşturulma Tarihi', value: new Date(requestData.createAt).toLocaleDateString('tr-TR') });
+        worksheet.addRow({ key: 'Açıklama', value: stripHtml(requestData.description) || '-' });
+
+        if (!isMaterial) {
+            const rentalData = requestData as WorkhouseRentRequest;
+            worksheet.addRow({ key: 'Şantiye', value: rentalData.workhouseName || 'Bilinmiyor' });
+            worksheet.addRow({ key: 'Şoför Bilgisi', value: rentalData.driverInfo || '-' });
+            worksheet.addRow({ key: 'Kiralandığı Şirket', value: rentalData.company || '-' });
+            worksheet.addRow({ key: 'Fiyat', value: rentalData.price + ' TL' });
+            worksheet.addRow({ key: 'Kira Başlangıç', value: formatDateDisplay(rentalData.rentStartDate) });
+            worksheet.addRow({ key: 'Kira Bitiş', value: formatDateDisplay(rentalData.rentEndDate) });
+        }
+
+        worksheet.addRow([]);
+        worksheet.addRow(['Ekler']).font = { bold: true, size: 12 };
+        // @ts-ignore
+        worksheet.mergeCells(`A${worksheet.lastRow?.number}:B${worksheet.lastRow?.number}`);
+
+        if (requestData.attachments && requestData.attachments.length > 0) {
+            worksheet.addRow(['Dosya Adı', 'URL']).font = { bold: true };
+            requestData.attachments.forEach(att => { worksheet.addRow([att.fileUrl.split('/').pop() || '-', att.fileUrl]); });
+        } else {
+            worksheet.addRow(['Piyes bulunamadı']);
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}_Raporu_${requestData.id}.xlsx`);
+    };
+
+    const exportAllRequestsPdf = (dataList: (MaterialRequestType | WorkhouseRentRequest)[], title: string, isMaterial: boolean) => {
+        const doc = new jsPDF('l');
+
+        doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        // @ts-ignore
+        doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        // @ts-ignore
+        doc.setFont('Arial');
+        // ----------------------------
+
+        const materialColumns = ['ID', 'Başlık', 'Şantiye', 'Durum', 'Tarih', 'Açıklama'];
+        const rentalColumns = ['ID', 'Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat', 'Durum', 'Kiralandığı Şirket'];
+
+        const head = [isMaterial ? materialColumns : rentalColumns];
+
+        const body = dataList.map((row) => {
+            if (isMaterial) {
+                const mRow = row as MaterialRequestType;
+                return [
+                    mRow.id,
+                    mRow.subject,
+                    getWorkhouseNameFromRow(mRow),
+                    statusToLabel(mRow.status),
+                    new Date(mRow.createAt).toLocaleDateString('tr-TR'),
+                    stripHtml(mRow.description).substring(0, 50) + '...',
+                ];
+            } else {
+                const rRow = row as WorkhouseRentRequest;
+                const priceString = String(rRow.price || 0).replace(/[^0-9.]/g, '');
+                const numericPrice = parseFloat(priceString);
+                const formattedPrice = isNaN(numericPrice) ? rRow.price || '-' : new Intl.NumberFormat('tr-TR', { currency: 'TRY', minimumFractionDigits: 2 }).format(numericPrice);
+
+                return [
+                    rRow.id,
+                    // rRow.title,
+                    rRow.workhouseName || '-',
+                    formatDateDisplay(rRow.rentStartDate),
+                    formatDateDisplay(rRow.rentEndDate),
+                    formattedPrice,
+                    statusToLabel(rRow.status),
+                    rRow.company || '-',
+                ];
+            }
+        });
+
+        autoTable(doc, {
+            head: head,
+            body: body,
+            startY: 40,
+            theme: 'striped',
+            // @ts-ignore
+            styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 1, overflow: 'linebreak' },
+            headStyles: { fillColor: [149, 147, 125], textColor: [255, 255, 255] },
+
+            // ⬅️ فراخوانی Header و Footer در هر صفحه جدید
+            didDrawPage: (_data: any) => {
+                addPdfHeader(doc, title);
+                addPdfFooter(doc);
+                // @ts-ignore
+                doc.setFont('NotoSans', 'normal');
+                doc.setFontSize(10);
+                doc.text('', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' }); // عنوان اصلی در بالاترین نقطه
+            },
+        });
+
+        doc.save(`${title.replace(/ /g, '_')}_Tüm_Raporlar_${new Date().toISOString().substring(0, 10)}.pdf`);
+    };
+
+    const exportAllRequestsExcel = async (dataList: (MaterialRequestType | WorkhouseRentRequest)[], title: string, isMaterial: boolean) => {
+        const workbook = new Excel.Workbook();
+        const worksheet = workbook.addWorksheet(title);
+        worksheet.views = [{ rightToLeft: false }];
+
+        // ⬅️ هدر اطلاعات شرکت در اکسل
+        worksheet.addRow(['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.']).font = { bold: true, size: 12 };
+        worksheet.addRow(['Rapor Başlığı:', title]).font = { bold: true };
+        worksheet.addRow(['Rapor Tarihi:', new Date().toLocaleDateString('tr-TR')]);
+        worksheet.addRow([]);
+        worksheet.addRow([]);
+        // ---------------------------------------------
+
+        if (isMaterial) {
+            worksheet.columns = [
+                { header: 'ID', key: 'id', width: 10 },
+                { header: 'Başlık', key: 'subject', width: 30 },
+                { header: 'Durum', key: 'status', width: 15 },
+                { header: 'Tarih', key: 'createAt', width: 18 },
+                { header: 'Açıklama', key: 'description', width: 50 },
+            ];
+            worksheet.addRows(dataList.map(r => ({
+                id: r.id,
+                subject: (r as MaterialRequestType).subject,
+                status: statusToLabel(r.status),
+                createAt: new Date(r.createAt).toLocaleDateString('tr-TR'),
+                description: stripHtml(r.description || ''),
+            })));
+        } else {
+            worksheet.columns = [
+                { header: 'ID', key: 'id', width: 10 },
+                { header: 'Başlık', key: 'title', width: 25 },
+                { header: 'Şantiye', key: 'workhouseName', width: 25 },
+                { header: 'Başlangıç', key: 'rentStartDate', width: 18 },
+                { header: 'Bitiş', key: 'rentEndDate', width: 18 },
+                { header: 'Fiyat (TL)', key: 'price', width: 15 },
+                { header: 'Durum', key: 'status', width: 15 },
+                { header: 'Kiralandığı Şirket', key: 'company', width: 20 },
+            ];
+            worksheet.addRows(dataList.map(r => ({
+                id: r.id,
+                title: (r as WorkhouseRentRequest).title,
+                workhouseName: (r as WorkhouseRentRequest).workhouseName || '-',
+                rentStartDate: formatDateDisplay((r as WorkhouseRentRequest).rentStartDate),
+                rentEndDate: formatDateDisplay((r as WorkhouseRentRequest).rentEndDate),
+                price: String((r as WorkhouseRentRequest).price) + ' TL',
+                status: statusToLabel(r.status),
+                company: (r as WorkhouseRentRequest).company || '-',
+            })));
+        }
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer]), `${title.replace(/ /g, '_')}_Tüm_Raporlar_${new Date().toISOString().substring(0, 10)}.xlsx`);
+    };
 
 
     const filteredMaterialRequests = useMemo(() => {
@@ -717,6 +772,23 @@ const RequestTabs: React.FC = () => {
         };
     }, []);
 
+
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
+    };
+
+
     // --- Table UI Builders ---
 
     const MaterialTable = () => (
@@ -777,7 +849,7 @@ const RequestTabs: React.FC = () => {
                     <Table aria-label="Malzeme Talepleri tablosu">
                         <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                {(['Başlık', 'Açıklama', 'Durum', 'Tarih', 'Ekler', ''] as const).map((head, index) => (
+                                {(['Başlık', 'Şantiye', 'Açıklama', 'Durum', 'Tarih', 'Ekler', 'Detay', ''] as const).map((head, index) => (
                                     <StyledTableCell key={index} sx={{ color: "#171c23" }}>
                                         <TableSortLabel
                                             active={materialOrderBy === (head === 'Başlık' ? 'subject' : head === 'Durum' ? 'status' : 'createAt')}
@@ -800,7 +872,13 @@ const RequestTabs: React.FC = () => {
                             {paginatedMaterialRequestsList.length > 0 ? (
                                 paginatedMaterialRequestsList.map((row) => (
                                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell><Typography variant="body1">{row.subject}</Typography></StyledTableCell>
+                                        <StyledTableCell>
+                                            <Typography variant="body1">
+                                                {/* اضافه کردن ID قبل از عنوان */}
+                                                <span style={{ color: '#9e9e9e', marginRight: '8px' }}>#{row.id}</span>
+                                                {row.subject}
+                                            </Typography>
+                                        </StyledTableCell>
                                         {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                             <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
                                             {row.description != null && row.description.length > 50 && (
@@ -812,7 +890,17 @@ const RequestTabs: React.FC = () => {
                                                 </CustomTooltip>
                                             )}
                                         </StyledTableCell> */}
-
+                                        <StyledTableCell>
+                                            <Typography variant="body1">
+                                                {getWorkhouseNameFromRow(row)}
+                                            </Typography>
+                                            {/* نمایش کد شانتيه به صورت کوچک زیر نام (اختیاری برای زیبایی) */}
+                                            {row.workhouse?.code && (
+                                                <Typography variant="caption" color="textSecondary" display="block">
+                                                    Kod: {row.workhouse.code}
+                                                </Typography>
+                                            )}
+                                        </StyledTableCell>
 
                                         <StyledTableCell sx={{ maxWidth: 150 }}>
                                             {row.description && row.description.trim().length > 0 ? (
@@ -859,6 +947,18 @@ const RequestTabs: React.FC = () => {
                                                     <IconButton onClick={() => handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary"></Chip></IconButton>
                                                 </CustomTooltip>
                                             ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                color="info"
+                                                onClick={() => handleOpenDetails(row)}
+                                                startIcon={<IconInfoCircle size={16} />}
+                                                sx={{ fontSize: '10px' }}
+                                            >
+                                                Detay
+                                            </Button>
                                         </StyledTableCell>
                                         {/* <StyledTableCell>
                                             <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
@@ -924,24 +1024,53 @@ const RequestTabs: React.FC = () => {
             </Grid>
                 <Grid container spacing={2} alignItems="center">
                     <Grid item xs={12} sm={6}>
-                        <FormControl fullWidth size="small">
-                            <Autocomplete
-                                id="table-workhouse-filter" options={workhouses} size="small"
-                                getOptionLabel={(option) => option.name ? `${option.name} (Kod:${option.code})` : 'Tüm İşyerleri'}
-                                isOptionEqualToValue={(option, value) => option.id === value.id}
-                                value={workhouses.find(w => w.id === selectedRentalWorkhouseId) || null}
-                                onChange={(_event, newValue) => {
-                                    const newWorkhouseId = newValue ? newValue.id : '';
-                                    setSelectedRentalWorkhouseId(newWorkhouseId);
-                                    setRentalPage(0);
-                                    const next = new URLSearchParams(searchParams);
-                                    if (newWorkhouseId) { next.set('rentalWorkhouseId', newWorkhouseId); } else { next.delete('rentalWorkhouseId'); }
-                                    setSearchParams(next, { replace: true });
-                                    fetchRentalRequests(newWorkhouseId);
-                                }}
-                                renderInput={(params) => (<TextField {...params} label="Şantiye Filtresi" variant="outlined" size="small" />)}
-                            />
-                        </FormControl>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                            <FormControl fullWidth size="small">
+                                <Autocomplete
+                                    id="table-workhouse-filter"
+                                    options={workhouses}
+                                    size="small"
+                                    getOptionLabel={(option) => option.name ? `${option.name} (Kod:${option.code})` : 'Tüm İşyerleri'}
+                                    isOptionEqualToValue={(option, value) => option.id === value.id}
+                                    value={workhouses.find(w => w.id === selectedRentalWorkhouseId) || null}
+                                    onChange={(_event, newValue) => {
+                                        const newWorkhouseId = newValue ? newValue.id : '';
+                                        setSelectedRentalWorkhouseId(newWorkhouseId);
+                                        setRentalPage(0);
+                                        const next = new URLSearchParams(searchParams);
+                                        if (newWorkhouseId) { next.set('rentalWorkhouseId', newWorkhouseId); } else { next.delete('rentalWorkhouseId'); }
+                                        setSearchParams(next, { replace: true });
+                                        fetchRentalRequests(newWorkhouseId);
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Şantiye Seçiniz"
+                                            variant="outlined"
+                                            size="small"
+                                            sx={{
+                                                // ⬅️ اگر شانتيه انتخاب نشده باشد، حاشیه چشمک می‌زند
+                                                '& .MuiOutlinedInput-root': {
+                                                    animation: !selectedRentalWorkhouseId
+                                                        ? `${borderBlink} 2s infinite ease-in-out`
+                                                        : 'none',
+                                                    transition: 'all 0.3s ease'
+                                                }
+                                            }}
+                                        />
+                                    )}
+                                />
+                            </FormControl>
+
+                            {/* ⬅️ آیکون راهنما با تولتیپ */}
+                            <CustomTooltip
+                                title={isTooltipGloballyEnabled ? "Tablo verilerini görüntülemek için lütfen listeden bir şantiye seçiniz." : ""}
+                            >
+                                <IconButton size="small" color="primary">
+                                    <IconInfoCircle size={22} />
+                                </IconButton>
+                            </CustomTooltip>
+                        </Stack>
                     </Grid>
                     <Grid item xs={12} sm={6}>
                         <TextField
@@ -974,7 +1103,7 @@ const RequestTabs: React.FC = () => {
                     <Table aria-label="Kiralama Talepleri tablosu">
                         <TableHead sx={{ background: "rgb(149 147 125 / 65%)" }}>
                             <TableRow>
-                                {(['Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', ''] as const).map((head, index) => (
+                                {(['Başlık', 'Şantiye', 'Başlangıç', 'Bitiş', 'Fiyat (TL)', 'Durum', 'Ekler', 'Detay', ''] as const).map((head, index) => (
                                     <StyledTableCell key={index} sx={{ color: "#171c23" }}>
                                         <TableSortLabel
                                             active={rentalOrderBy === (head === 'Başlık' ? 'title' : head === 'Başlangıç' ? 'rentStartDate' : head === 'Bitiş' ? 'rentEndDate' : head === 'Fiyat (TL)' ? 'price' : head === 'Durum' ? 'status' : 'createAt')}
@@ -997,7 +1126,13 @@ const RequestTabs: React.FC = () => {
                             {paginatedRentalRequestsList.length > 0 ? (
                                 paginatedRentalRequestsList.map((row) => (
                                     <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell><Typography variant="body1">{row.title}</Typography></StyledTableCell>
+                                        <StyledTableCell>
+                                            <Typography variant="body1">
+                                                {/* اضافه کردن ID قبل از عنوان */}
+                                                <span style={{ color: '#9e9e9e', marginRight: '8px' }}>#{row.id}</span>
+                                                {row.title}
+                                            </Typography>
+                                        </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.workhouseName || '-'}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.rentStartDate)}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.rentEndDate)}</Typography></StyledTableCell>
@@ -1018,6 +1153,18 @@ const RequestTabs: React.FC = () => {
                                                     <IconButton onClick={() => handleOpenAttachmentsModal(row.attachments)}><IconLink size={18} /><Chip label={row.attachments.length} color="primary"></Chip></IconButton>
                                                 </CustomTooltip>
                                             ) : (<Typography variant="body2" color="textSecondary">-</Typography>)}
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Button
+                                                variant="contained"
+                                                size="small"
+                                                color="info"
+                                                onClick={() => handleOpenDetails(row)}
+                                                startIcon={<IconInfoCircle size={16} />}
+                                                sx={{ fontSize: '10px' }}
+                                            >
+                                                Detay
+                                            </Button>
                                         </StyledTableCell>
                                         {/* <StyledTableCell>
                                             <IconButton onClick={(event) => handleClickMenu(event, row)}><IconDots width={18} /></IconButton>
@@ -1237,13 +1384,112 @@ const RequestTabs: React.FC = () => {
             <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
-                    {currentAttachments.map((attachment, index) => (
-                        <Button key={index} fullWidth variant="outlined" onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }} startIcon={<IconDownload />}>
-                            {attachment.fileUrl.split('/').pop()}
-                        </Button>
-                    ))}
+
+
+                    {currentAttachments.map((attachment, index) => {
+                        const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
+                        let finalFileName = rawFileName;
+                        try {
+                            finalFileName = decodeURIComponent(finalFileName);
+                        } catch (e) {
+                        }
+                        finalFileName = decodeLatin1ToUtf8(finalFileName);
+                        finalFileName = finalFileName.replace(/%20/g, ' ');
+                        return (
+                            <Button
+                                key={index}
+                                fullWidth
+                                variant="outlined"
+                                onClick={() => handleDownloadClick(attachment.fileUrl)}
+                                sx={{ mt: 1 }}
+                            >
+                                {finalFileName || `Dosya ${index + 1}`}
+                            </Button>
+                        );
+                    })}
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
+            </Dialog>
+            {/* --- Details Modal --- */}
+            <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ bgcolor: 'info.main', color: 'white' }}>
+                    Talep Detay Bilgileri
+                </DialogTitle>
+                <DialogContent dividers>
+                    {viewingRow && (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            {/* بخش مشترک */}
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Başlık:</Typography>
+                                <Typography>{(viewingRow as MaterialRequestType).subject || (viewingRow as WorkhouseRentRequest).title}</Typography>
+                            </Box>
+                            <Box display="flex" justifyContent="space-between">
+                                <Typography fontWeight="bold">Şantiye:</Typography>
+                                <Typography>{getWorkhouseNameFromRow(viewingRow as MaterialRequestType)}</Typography>
+                            </Box>
+                            {/* فیلدهای اختصاصی اجاره (Rental) */}
+                            {currentTab === 'rental' && (
+                                <>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">İşyeri:</Typography>
+                                        <Typography>{(viewingRow as WorkhouseRentRequest).workhouseName || '-'}</Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">Kira Aralığı:</Typography>
+                                        <Typography>
+                                            {formatDateDisplay((viewingRow as WorkhouseRentRequest).rentStartDate)} - {formatDateDisplay((viewingRow as WorkhouseRentRequest).rentEndDate)}
+                                        </Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">Şirket / Şoför:</Typography>
+                                        <Typography>
+                                            {(viewingRow as WorkhouseRentRequest).company || '-'} / {(viewingRow as WorkhouseRentRequest).driverInfo || '-'}
+                                        </Typography>
+                                    </Box>
+                                    <Box display="flex" justifyContent="space-between">
+                                        <Typography fontWeight="bold">Fiyat:</Typography>
+                                        <Typography color="primary.main" fontWeight="bold">
+                                            {(viewingRow as WorkhouseRentRequest).price} TL
+                                        </Typography>
+                                    </Box>
+                                </>
+                            )}
+
+                            <Divider />
+
+                            {/* توضیحات کامل */}
+                            <Typography fontWeight="bold">Açıklama:</Typography>
+                            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9f9f9' }}>
+                                <div dangerouslySetInnerHTML={{ __html: viewingRow.description || 'Açıklama belirtilmemiş.' }} />
+                            </Paper>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* دکمه‌های دانلود داخل مودال */}
+                            <Stack direction="row" spacing={2} justifyContent="center">
+                                <Button
+                                    variant="outlined"
+                                    color="primary"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestPdf(viewingRow, currentTab === 'material' ? 'Malzeme Talep Raporu' : 'Kiralama Talep Raporu')}
+                                >
+                                    PDF
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="success"
+                                    startIcon={<IconFileDownload />}
+                                    onClick={() => exportRequestExcel(viewingRow, currentTab === 'material' ? 'Malzeme Talep Detayları' : 'Kiralama Talep Detayları')}
+                                >
+                                    Excel
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDetailsModal(false)} variant="contained" color="inherit">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
             {/* Delete Modals */}

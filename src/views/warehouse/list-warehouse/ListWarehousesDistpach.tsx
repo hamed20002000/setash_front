@@ -1492,7 +1492,7 @@ const ListWarehouseDispatch = () => {
                                     <StyledTableCell><Typography variant="h6">Depo</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Şoför</Typography></StyledTableCell>
                                     {/* <StyledTableCell><Typography variant="h6">Araç</Typography></StyledTableCell> */}
-                                    <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell>
+                                    {/* <StyledTableCell><Typography variant="h6">Şantiye</Typography></StyledTableCell> */}
                                     <StyledTableCell><Typography variant="h6">Belge Tarihi</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Durum</Typography></StyledTableCell>
@@ -1508,7 +1508,7 @@ const ListWarehouseDispatch = () => {
                                             <StyledTableCell><Typography variant="body1">{row.warehouse?.name || '-'}</Typography></StyledTableCell>
                                             <StyledTableCell><Typography variant="body1">{`${row.driver?.name || ''} ${row.driver?.family || ''} - ${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell>
                                             {/* <StyledTableCell><Typography variant="body1">{`${row.driverVehicle?.name || '-'} (${row.driverVehicle?.plaque || ''})`}</Typography></StyledTableCell> */}
-                                            <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell>
+                                            {/* <StyledTableCell><Typography variant="body1">{row.workhouse?.name || '-'}</Typography></StyledTableCell> */}
                                             <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.docDate)}</Typography></StyledTableCell>
                                             <StyledTableCell sx={{ maxWidth: 150 }}>
                                                 {row.description && row.description.trim().length > 0 ? (

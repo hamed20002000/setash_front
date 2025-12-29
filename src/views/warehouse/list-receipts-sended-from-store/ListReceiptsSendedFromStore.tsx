@@ -113,6 +113,11 @@ interface DispatchHeader {
     isEnd: boolean | null;
     destruction?: boolean | null;
     store: { id: string | number; name: string; recordStatus: number; };
+    destinationWarehouse: {
+        id: string | number;
+        name: string;
+        code: string;
+    };
     storeDispatchDetails: Array<{
         id: string | number;
         quantity: string | number;
@@ -462,7 +467,7 @@ const ListReceiptsSendedFromStore = () => {
     const [openIsEndModal, setOpenIsEndModal] = useState(false);
 
     // Manage warehouse hide (keep as is if needed)
-    const [hiddenWarehouseIds, setHiddenWarehouseIds] = useState<Set<number>>(new Set());
+    // const [hiddenWarehouseIds, setHiddenWarehouseIds] = useState<Set<number>>(new Set());
 
     // Inactive receipts modal (kept as requested)
     const [openInactiveModal, setOpenInactiveModal] = useState(false);
@@ -621,6 +626,7 @@ const ListReceiptsSendedFromStore = () => {
             const url = server.baseurl + server.warehouse + `get-Store-dispatches-to-center/${Number(storeId)}`;
             const response = await axios.get(url, { headers: { "Authorization": `Bearer ${authToken}` } });
             if (response.data?.httpStatusCode === 200 && Array.isArray(response.data.data)) {
+                debugger
                 const all: DispatchHeader[] = response.data.data;
                 const filtered = all.filter(d => Number(d.status) === 1 && d.isEnd !== true);
                 setDispatchHeadersList(filtered);
@@ -643,7 +649,10 @@ const ListReceiptsSendedFromStore = () => {
 
     // NEW: Full list for modal (no isEnd filtering)
     const openManageDispatchModal = useCallback(async () => {
-        if (!selectedStoreId) { showAlert('ابتدا "Şantiye Depo" را انتخاب کنید.', 'warning'); return; }
+        if (!selectedStoreId) {
+            showAlert('Lütfen önce "Şantiye Depo" seçiniz.', 'warning');
+            return;
+        }
         try {
             setLoadingDispatches(true);
             const url = server.baseurl + server.warehouse + `get-Store-dispatches-to-center/${Number(selectedStoreId)}`;
@@ -762,6 +771,25 @@ const ListReceiptsSendedFromStore = () => {
             if (storeError) setStoreError(false);
         }
     }, [selectedStoreId, fetchDispatchHeadersByStoreId, storeError]);
+
+    // وقتی Sevk Belgesi انتخاب می‌شود، انبار مقصد را به طور خودکار ست کن
+    useEffect(() => {
+        if (selectedDispatchId) {
+            const selectedDispatch = dispatchHeadersList.find(d => Number(d.id) === Number(selectedDispatchId));
+
+            if (selectedDispatch && selectedDispatch.destinationWarehouse) {
+                const destId = Number(selectedDispatch.destinationWarehouse.id);
+                setSelectedWarehouseId(destId);
+                // خطا را اگر وجود داشت پاک کن
+                setWarehouseIdError(false);
+            } else {
+                // اگر به هر دلیلی Sevk انبار مقصد نداشت (برای جلوگیری از باگ)
+                setSelectedWarehouseId(null);
+            }
+        } else {
+            setSelectedWarehouseId(null);
+        }
+    }, [selectedDispatchId, dispatchHeadersList]);
 
     // on dispatch change => fill receipt details
     useEffect(() => {
@@ -1020,7 +1048,7 @@ const ListReceiptsSendedFromStore = () => {
             const res = await updateReceiptIsEnd(inv.id, false);
             if (res?.httpStatusCode === 200) {
                 showAlert(`Fatura ${inv.invoiceNo} aktif hale getirildi.`, 'success');
-                setHiddenWarehouseIds(prev => { const s = new Set(prev); s.delete(Number(inv.warehouseId)); return s; });
+                // setHiddenWarehouseIds(prev => { const s = new Set(prev); s.delete(Number(inv.warehouseId)); return s; });
                 await fetchInitialData();
             } else {
                 showAlert(res?.message || 'Fatura geri alınamadı.', 'error');
@@ -1208,7 +1236,7 @@ const ListReceiptsSendedFromStore = () => {
                         </Grid>
 
                         {/* Giriş Depo */}
-                        <Grid item xs={12} sm={6}>
+                        {/* <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Giriş Depo</CustomFormLabel>
                             <Autocomplete
                                 id="warehouse-select"
@@ -1219,8 +1247,32 @@ const ListReceiptsSendedFromStore = () => {
                                 isOptionEqualToValue={(option, value) => Number(option.id) === Number(value.id)}
                                 renderInput={(params) => (<TextField {...params} fullWidth size="small" placeholder="Giriş Depo Seçin" error={warehouseIdError} helperText={warehouseIdError ? "Depo seçimi zorunludur!" : ""} />)}
                             />
-                        </Grid>
+                        </Grid> */}
 
+                        <Grid item xs={12} sm={6}>
+                            <CustomFormLabel required>Giriş Depo (Otomatik)</CustomFormLabel>
+                            <Autocomplete
+                                id="warehouse-select"
+                                // لیست انبارها را هنوز نگه می‌داریم تا نام انبار پیدا شود
+                                options={warehouses}
+                                getOptionLabel={(option) => option.name}
+                                // مقدار را از استیتی که در useEffect بالا ست کردیم می‌گیرد
+                                value={warehouses.find(w => Number(w.id) === selectedWarehouseId) || null}
+                                // غیرفعال کردن برای جلوگیری از تغییر توسط کاربر
+                                disabled={true}
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        placeholder="Sevk belgesi seçildiğinde otomatik dolar"
+                                        // نمایش هشدار اگر Sevk انتخاب شده ولی انبار پیدا نشده (اختیاری)
+                                        error={warehouseIdError}
+                                        helperText={warehouseIdError ? "Sevk belgesinde hedef depo bulunamadı!" : "Bu alan sevk belgesine göre otomatik belirlenir."}
+                                    />
+                                )}
+                            />
+                        </Grid>
                         {/* Belge Tarihi */}
                         <Grid item xs={12} sm={6}>
                             <CustomFormLabel required>Belge Tarihi</CustomFormLabel>

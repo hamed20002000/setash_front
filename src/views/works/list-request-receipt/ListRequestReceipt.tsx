@@ -197,6 +197,9 @@ const ListRequestReceipt: React.FC = () => {
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
 
+
+
+
     const { allowedOperations } = useAuth();
     // در این کامپوننت، ما به مجوز ویرایش نیاز داریم تا بتوانیم وضعیت را تغییر دهیم.
     const hasStatusUpdatePermission = useMemo(() => {
@@ -409,9 +412,24 @@ const ListRequestReceipt: React.FC = () => {
         setOpenAttachmentsModal(true);
     };
 
-    const handleCloseAttachmentsModal = () => {
-        setOpenAttachmentsModal(false);
-        setCurrentAttachments([]);
+    // const handleCloseAttachmentsModal = () => {
+    //     setOpenAttachmentsModal(false);
+    //     setCurrentAttachments([]);
+    // };
+
+    const decodeLatin1ToUtf8 = (encodedString: string): string => {
+        try {
+            const bytes = new Uint8Array(encodedString.length);
+            for (let i = 0; i < encodedString.length; i++) {
+                bytes[i] = encodedString.charCodeAt(i);
+            }
+            const decoder = new TextDecoder('utf-8');
+            return decoder.decode(bytes);
+
+        } catch (e) {
+            console.error("Decoding error:", e);
+            return encodedString;
+        }
     };
 
     const handleDownloadClick = (fileUrl: string) => {
@@ -724,48 +742,34 @@ const ListRequestReceipt: React.FC = () => {
             </Dialog>
 
             {/* Attachments Download Modal */}
-            <Dialog open={openAttachmentsModal} onClose={handleCloseAttachmentsModal} maxWidth="sm" fullWidth>
+            <Dialog open={openAttachmentsModal} onClose={() => setOpenAttachmentsModal(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Ekler</DialogTitle>
                 <DialogContent dividers>
-                    {/* {currentAttachments.map((attachment, index) => (
-                        <Button
-                            key={index}
-                            fullWidth
-                            variant="outlined"
-                            onClick={() => handleDownloadClick(attachment.fileUrl)}
-                            sx={{ mt: 1 }}
-                            startIcon={<IconDownload />}
-                        >
-                            {attachment.fileUrl.split('/').pop()}
-                        </Button>
-                    ))} */}
+
 
                     {currentAttachments.map((attachment, index) => {
-
                         const rawFileName = attachment.fileUrl.split('/').pop() || `Dosya ${index + 1}`;
-
-                        let fileName = rawFileName;
+                        let finalFileName = rawFileName;
                         try {
-                            fileName = decodeURIComponent(rawFileName);
+                            finalFileName = decodeURIComponent(finalFileName);
                         } catch (e) {
                         }
-                        fileName = fileName
-                            .replace(/Ä±/g, 'ı')  // ı
-                            .replace(/ÄŸ/g, 'ğ')  // ğ
-                            .replace(/Ã¼/g, 'ü')  // ü
-                            .replace(/Ã¶/g, 'ö')  // ö
-                            .replace(/Ä°/g, 'İ')  // İ
-                            .replace(/ÅŸ/g, 'ş')  // ş
-                            .replace(/Ã‡/g, 'Ç')  // Ç
-                            .replace(/Ä±/g, 'ı'); // ğ
-
-                        return (<Button key={index} fullWidth variant="outlined"
-                            onClick={() => handleDownloadClick(attachment.fileUrl)} sx={{ mt: 1 }}>{fileName}</Button>);
+                        finalFileName = decodeLatin1ToUtf8(finalFileName);
+                        finalFileName = finalFileName.replace(/%20/g, ' ');
+                        return (
+                            <Button
+                                key={index}
+                                fullWidth
+                                variant="outlined"
+                                onClick={() => handleDownloadClick(attachment.fileUrl)}
+                                sx={{ mt: 1 }}
+                            >
+                                {finalFileName || `Dosya ${index + 1}`}
+                            </Button>
+                        );
                     })}
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCloseAttachmentsModal} color="primary">Kapat</Button>
-                </DialogActions>
+                <DialogActions><Button onClick={() => setOpenAttachmentsModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
         </Box>
     );

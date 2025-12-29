@@ -643,7 +643,7 @@ const ListPosition = () => {
                     doc.setFont('Times', 'bold');
                     doc.text(`Rapor Tarih:`, 15, 25);
                     doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
                     doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
 
                     doc.setFont('NotoSans', 'normal');
@@ -1096,7 +1096,7 @@ const ListPosition = () => {
                                                     'aria-labelledby': `basic-button-${selectedRowForMenu?.id}`,
                                                 }}
                                             >
-                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
+                                                {(Number(selectedRowForMenu?.id) !== 1 && Number(selectedRowForMenu?.id) !== 2) && hasEditPermission && selectedRowForMenu?.recordStatus === 0 && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Pozisyonu pasif yap" : ""}>
                                                         <MuiMenuItem onClick={handleSetInactive}>
                                                             <ListItemIcon>
@@ -1106,7 +1106,7 @@ const ListPosition = () => {
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
                                                 )}
-                                                {hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
+                                                {(Number(selectedRowForMenu?.id) !== 1 && Number(selectedRowForMenu?.id) !== 2) && hasEditPermission && selectedRowForMenu?.recordStatus === 1 && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Pozisyonu aktif yap" : ""}>
                                                         <MuiMenuItem onClick={handleSetActive}>
                                                             <ListItemIcon>
@@ -1116,7 +1116,7 @@ const ListPosition = () => {
                                                         </MuiMenuItem>
                                                     </CustomTooltip>
                                                 )}
-                                                {hasEditPermission && (
+                                                {(Number(selectedRowForMenu?.id) !== 1 && Number(selectedRowForMenu?.id) !== 2) && hasEditPermission && (
                                                     <CustomTooltip placement="left" title={isTooltipGloballyEnabled ? "Bu Pozisyonu düzenle" : ""}>
                                                         <MuiMenuItem onClick={handleEditClick}>
                                                             <ListItemIcon>

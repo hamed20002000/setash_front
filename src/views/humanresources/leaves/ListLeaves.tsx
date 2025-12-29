@@ -7,7 +7,8 @@ import {
     TableCell as MuiTableCell, MenuItem as MuiMenuItem, Stack, Grid, Button,
     Alert, TablePagination, TextField, InputAdornment, TableSortLabel,
     Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-    MenuItem, Select
+    MenuItem, Select,
+    Divider
 } from "@mui/material";
 import { styled, keyframes } from "@mui/material/styles";
 
@@ -373,7 +374,7 @@ const generateLeavePDFSubHeader = (doc: jsPDF, row: LeaveType) => {
     const subHeaderYPosition = 130;
     const leaveTypedesc = getLeaveTypedesc(row.type);
     doc.setFont("Arial", "normal");
-    doc.setFontSize(14);
+    doc.setFontSize(15);
     doc.text(leaveTypedesc.title1, 40, subHeaderYPosition);
 
     doc.setFont("Arial", "normal");
@@ -381,7 +382,7 @@ const generateLeavePDFSubHeader = (doc: jsPDF, row: LeaveType) => {
     doc.text("İŞ YERİNİN", 40, subHeaderYPosition + 20);
 
     doc.setFont("Arial", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.text("ÜNVANI:", 40, subHeaderYPosition + 40);
     doc.text("SETAŞ SİSTEM BİLİŞİM SAN. TİC. A.Ş.", 320, subHeaderYPosition + 40);
 
@@ -398,7 +399,7 @@ const generateLeavePDFPersonnelInfo = (doc: jsPDF, row: LeaveType) => {
     doc.text("ÇALIŞAN PERSONELİN", 40, personnelInfoYPosition);
 
     doc.setFont("Arial", "normal");
-    doc.setFontSize(10);
+    doc.setFontSize(8);
 
     doc.text("ADI SOYADI:", 40, personnelInfoYPosition + 20);
     doc.text(`${row.personnel.name} ${row.personnel.family}`, 320, personnelInfoYPosition + 20);
@@ -756,6 +757,12 @@ const ListLeaves: React.FC = () => {
     const [isBlinking, setIsBlinking] = useState(true);
 
 
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [selectedLeaveDetails, setSelectedLeaveDetails] = useState<LeaveType | null>(null);
+    const [annualLeaveData, setAnnualLeaveData] = useState<any>(null);
+    const [loadingAnnualLeave, setLoadingAnnualLeave] = useState(false);
+
+
 
     const showAlert = (m: string, s: "success" | "error" | "warning" | "info") => { setAlertMessage(m); setAlertSeverity(s); };
     const clearAlert = () => setAlertMessage(null);
@@ -882,6 +889,29 @@ const ListLeaves: React.FC = () => {
             }
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
+    };
+
+    const handleViewDetails = async (leave: LeaveType) => {
+        setSelectedLeaveDetails(leave);
+        setOpenDetailsModal(true);
+        setLoadingAnnualLeave(true);
+        setAnnualLeaveData(null);
+
+        const authToken = localStorage.getItem("authToken");
+        try {
+            const response = await axios.get(
+                `${server.baseurl}${server.hr}get-remaining-leave-by-personnelId/${leave.personnel.id}`,
+                { headers: { Authorization: `Bearer ${authToken}` } }
+            );
+
+            if (response.data.success) {
+                setAnnualLeaveData(response.data.data);
+            }
+        } catch (e) {
+            console.error("Error fetching leave summary", e);
+        } finally {
+            setLoadingAnnualLeave(false);
+        }
     };
 
 
@@ -1168,6 +1198,7 @@ const ListLeaves: React.FC = () => {
                                         <Typography variant="h6">Tür</Typography>
                                     </TableSortLabel>
                                 </StyledTableCell>
+                                <StyledTableCell><Typography variant="h6">Detay</Typography></StyledTableCell>
                                 <StyledTableCell>
                                     <TableSortLabel active={orderBy === "status"} direction={orderBy === "status" ? order : "asc"} onClick={() => handleRequestSort("status")} style={{ color: "#171c23" }}>
                                         <Typography variant="h6">Durum</Typography>
@@ -1201,8 +1232,19 @@ const ListLeaves: React.FC = () => {
                                                 </Typography>
                                             </StyledTableCell>
                                             <StyledTableCell>
+                                                <Button
+                                                    variant="outlined"
+                                                    size="small"
+                                                    onClick={() => handleViewDetails(row)}
+                                                    startIcon={<IconSearch size={16} />}
+                                                >
+                                                    Detay
+                                                </Button>
+                                            </StyledTableCell>
+                                            <StyledTableCell>
                                                 <Chip label={statusToLabel(row.status)} sx={(theme) => ({ backgroundColor: colors(theme).bg, color: colors(theme).fg })} />
                                             </StyledTableCell>
+
                                             <StyledTableCell>
                                                 <CustomTooltip title={isTooltipGloballyEnabled ? "Daha fazla seçenek" : ""}>
                                                     <IconButton id={`row-menu-${row.id}`} aria-controls={openMenu ? "row-menu" : undefined} aria-haspopup="true" aria-expanded={openMenu ? "true" : undefined} onClick={(e) => handleClickMenu(e as any, row)}>
@@ -1296,6 +1338,85 @@ const ListLeaves: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setOpenDownloadModal(false)} color="secondary">İptal</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openDetailsModal} onClose={() => setOpenDetailsModal(false)} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ backgroundColor: 'primary.main', color: 'white' }}>
+                    İzin ve Personel Detayları
+                </DialogTitle>
+                <DialogContent dividers>
+                    {selectedLeaveDetails && (
+                        <Grid container spacing={3}>
+                            {/* بخش اول: اطلاعات پرسنل */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="h6" gutterBottom color="primary">Personel Bilgileri</Typography>
+                                <Stack spacing={1}>
+                                    <Typography><b>Ad Soyad:</b> {selectedLeaveDetails.personnel.name} {selectedLeaveDetails.personnel.family}</Typography>
+                                    <Typography><b>T.C. Kimlik:</b> {selectedLeaveDetails.personnel.identityNumber}</Typography>
+                                    <Typography><b>Sigorta No:</b> {selectedLeaveDetails.personnel.insuranceNumber || '-'}</Typography>
+                                    <Typography><b>İşe Başlama:</b> {fmtTR(selectedLeaveDetails.personnel.workStartDate)}</Typography>
+                                </Stack>
+                            </Grid>
+
+                            {/* بخش دوم: اطلاعات این مرخصی */}
+                            <Grid item xs={12} md={6}>
+                                <Typography variant="h6" gutterBottom color="primary">İzin Detayı</Typography>
+                                <Stack spacing={1}>
+                                    <Typography><b>Tür:</b> {leaveTypes.find(t => t.value === selectedLeaveDetails.type)?.label}</Typography>
+                                    <Typography><b>Başlangıç:</b> {fmtTR(selectedLeaveDetails.startDate)}</Typography>
+                                    <Typography><b>Bitiş:</b> {fmtTR(selectedLeaveDetails.endDate)}</Typography>
+                                    <Typography><b>Süre:</b> {calculateLeaveDuration(selectedLeaveDetails.startDate, selectedLeaveDetails.endDate)}</Typography>
+                                    <Typography><b>Durum:</b> {statusToLabel(selectedLeaveDetails.status)}</Typography>
+                                </Stack>
+                            </Grid>
+
+                            {/* بخش سوم: خلاصه مرخصی‌های سالانه (از API دوم) */}
+                            <Grid item xs={12}>
+                                <Divider sx={{ my: 2 }} />
+                                <Typography variant="h6" gutterBottom color="secondary">Genel İzin Özeti</Typography>
+                                {loadingAnnualLeave ? (
+                                    <CircularProgress size={24} />
+                                ) : annualLeaveData ? (
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={6} sm={3}>
+                                            <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, textAlign: 'center' }}>
+                                                <Typography variant="caption">Resmi Hak</Typography>
+                                                <Typography variant="h6">{annualLeaveData.official} Gün</Typography>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={6} sm={3}>
+                                            <Box sx={{ p: 2, bgcolor: 'success.light', borderRadius: 1, textAlign: 'center' }}>
+                                                <Typography variant="caption">Kalan İzin</Typography>
+                                                <Typography variant="h6">{annualLeaveData.remaining} Gün</Typography>
+                                            </Box>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1, textAlign: 'center' }}>
+                                                <Typography variant="caption">Çalışma Süresi</Typography>
+                                                <Typography variant="body1" fontWeight="bold">
+                                                    {annualLeaveData.personnelWorkYearsAndMonths
+                                                        ? `${annualLeaveData.personnelWorkYearsAndMonths.years} Yıl, ${annualLeaveData.personnelWorkYearsAndMonths.months} Ay, ${annualLeaveData.personnelWorkYearsAndMonths.days} Gün`
+                                                        : `${annualLeaveData.yearOfWork} Yıl`}
+                                                </Typography>
+                                            </Box>
+                                        </Grid>
+                                    </Grid>
+                                ) : <Typography color="error">Özet bilgiler alınamadı.</Typography>}
+                            </Grid>
+                        </Grid>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<IconFileDownload />}
+                        onClick={() => selectedLeaveDetails && generateLeavePDF(selectedLeaveDetails)}
+                    >
+                        PDF İndir
+                    </Button>
+                    <Button onClick={() => setOpenDetailsModal(false)} variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
         </>

@@ -171,7 +171,7 @@ const TEMPLATE_HEADERS = [
     "Doğum Tarihi (yyyy-MM-dd)", "Medeni (Bekâr|Evli|Dul|0|1|2)", "Kan Grubu (A+|A-|B+|B-|AB+|AB-|O+|O-|0..7)",
     "Baba Adı", "Adres", "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)",
     "Maaş (Sadece Sayısal)", // ✅ جدید: ستون حقوق اضافه شد
-    "IBAN", "Telefon", "Mobil",
+    "IBAN", "Telefon", "Cep Telefon",
     "ISG (Var|Yok|True|False|0|1)", // YENİ
 ] as const;
 
@@ -630,6 +630,7 @@ const ListPersonnel: React.FC = () => {
                 imageSrc: profileImageUrlToSend, // NEW
                 hasISG: form.hasISG ?? false, // NEW
                 attachments: attachmentPayload, // NEW
+                salary: form.salary ? Number(form.salary) : null,
             };
             const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
                 headers: { Authorization: `Bearer ${authToken}` },
@@ -833,18 +834,35 @@ const ListPersonnel: React.FC = () => {
         const pageCount = docAny.internal.getNumberOfPages();
         doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, bottomLineY);
     };
+    // const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
+    //     if (priceInput === null || priceInput === undefined) {
+    //         return '₺0';
+    //     }
+    //     const cleanedString = String(priceInput).replace(/[$,]/g, '');
+    //     const numericValue = parseFloat(cleanedString);
+    //     if (isNaN(numericValue)) {
+    //         return '₺0';
+    //     }
+    //     const formattedPrice = numericValue.toLocaleString('tr-TR', {
+    //         style: 'currency',
+    //         currency: 'TRY',
+    //         minimumFractionDigits: 0,
+    //         maximumFractionDigits: 0
+    //     });
+    //     return formattedPrice;
+    // };
     const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
         if (priceInput === null || priceInput === undefined) {
-            return '₺0';
+            return '₺0'; // تغییر از $0 به ₺0
         }
-        const cleanedString = String(priceInput).replace(/[$,]/g, '');
+        const cleanedString = String(priceInput).replace(/[₺$,]/g, ''); // حذف علامت لیر قدیمی یا دلار
         const numericValue = parseFloat(cleanedString);
         if (isNaN(numericValue)) {
             return '₺0';
         }
         const formattedPrice = numericValue.toLocaleString('tr-TR', {
             style: 'currency',
-            currency: 'TRY',
+            currency: 'TRY', // تنظیم روی لیر ترکیه
             minimumFractionDigits: 0,
             maximumFractionDigits: 0
         });
@@ -876,7 +894,7 @@ const ListPersonnel: React.FC = () => {
             ["Eğitim", EDU_LABELS[p.educationStatus] ?? "—"],
             ["IBAN", p.iban || "—"],
             ["Telefon", p.telephone || "—"],
-            ["Mobil", p.mobile || "—"],
+            ["Cep Telefon", p.mobile || "—"],
             ["Durum", statusText(p.recordStatus)],
             ["Oluşturulma", formatDateDisplay(p.createAt?.slice(0, 10) || null)],
         ];
@@ -1038,7 +1056,7 @@ const ListPersonnel: React.FC = () => {
             "Ad", "Soyad", "TC Kimlik", "Başlangıç", "Bitiş", "Pozisyon",
             "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Tarihi",
             "Medeni Durum", "Baba Adı", "Eğitim", "ISG", // <--- NEW: ISG eklendi
-            "Telefon", "Mobil"
+            "Telefon", "Cep Telefon"
         ];
 
         const allData: any[] = [];
@@ -1109,37 +1127,40 @@ const ListPersonnel: React.FC = () => {
         saveAs(new Blob([buf]), "Personel_Sablonu.xlsx");
     };
 
-    // در نزدیکی توابع PDF قبلی اضافه کنید:
     const pdfForAnnualLeave = (p: PersonnelType, leaveData: any, filename: string) => {
         const doc = new jsPDF("p", "pt", "a4");
 
-        // ... (تنظیمات فونت)
+        // تنظیمات فونت
         (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
         (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
         doc.setFont("NotoSans", "normal");
 
         addPdfHeader(doc, "Yıllık İzin Detay Raporu");
 
+        // آماده‌سازی رشته Çalışma Yılı
+        const workDurationText = leaveData.personnelWorkYearsAndMonths
+            ? `${leaveData.personnelWorkYearsAndMonths.years} Yıl, ${leaveData.personnelWorkYearsAndMonths.months} Ay, ${leaveData.personnelWorkYearsAndMonths.days} Gün`
+            : `${leaveData.yearOfWork || 0} Yıl`;
+
         const leavePairs: Array<[string, string]> = [
             ["Adı Soyadı", `${p.name || "—"} ${p.family || "—"}`],
             ["Başlangıç Tarihi", formatDateDisplay(p.workStartDate)],
-            ["Bitiş Tarihi", formatDateDisplay(p.workEndDate)],
+            ["Bitiش Tarihi", formatDateDisplay(p.workEndDate)],
             ["Yaş", leaveData.age ? String(leaveData.age) : "—"],
-            ["Çalışma Yılı", leaveData.yearOfWork ? String(leaveData.yearOfWork) : "—"],
-            ["Resmi İzin Hakkı", leaveData.official ? String(leaveData.official) : "—"],
-            ["Kalan İzin Günü", leaveData.remaining ? String(leaveData.remaining) : "—"],
+            ["Çalışma Süresi", workDurationText], // تغییر نام به Çalışma Süresi برای دقت بیشتر یا همان Çalışma Yılı
+            ["Resmi İzin Hakkı", leaveData.official ? `${leaveData.official} Gün` : "—"],
+            ["Kalan İzin Günü", leaveData.remaining ? `${leaveData.remaining} Gün` : "—"],
         ];
 
         autoTable((doc as any), {
-            startY: 100,
+            startY: 120,
             head: [["Alan", "Değer"]],
             body: leavePairs,
             theme: "grid",
-            styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 4, overflow: "linebreak" },
-            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: "NotoSans", fontStyle: "normal" },
-            margin: { top: 100, bottom: 70, left: 40, right: 40 },
-            didDrawPage: (_data: any) => {
-                addPdfHeader(doc, "Yıllık İzin Detay Raporu");
+            styles: { font: "NotoSans", fontSize: 10, cellPadding: 8 },
+            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
+            columnStyles: { 0: { cellWidth: 150 }, 1: { cellWidth: "auto" } },
+            didDrawPage: () => {
                 addPdfFooter(doc);
             },
         });
@@ -1246,7 +1267,7 @@ const ListPersonnel: React.FC = () => {
                 const educationStatus = tryMapRadioFromText(getByTitle(row, map, "Eğitim (İlkokul|Ortaokul|Lise|Ön Lisans|Lisans|Yüksek Lisans|Doktora|0..6)"), EDU_LABELS as unknown as string[], 4);
                 const iban = getByTitle(row, map, "IBAN");
                 const telephone = getByTitle(row, map, "Telefon");
-                const mobile = getByTitle(row, map, "Mobil");
+                const mobile = getByTitle(row, map, "Cep Telefon");
                 const salaryRaw = getByTitle(row, map, "Maaş (Sadece Sayısal)");
                 const salary = salaryRaw === "" ? null : Number(salaryRaw);
                 const hasISGText = getByTitle(row, map, "ISG (Var|Yok|True|False|0|1)"); // NEW
@@ -1265,7 +1286,7 @@ const ListPersonnel: React.FC = () => {
                 if (!birthDate) requiredMissing.push("Doğum Tarihi (yyyy-MM-dd)");
                 if (!fatherName) requiredMissing.push("Baba Adı");
                 if (!address) requiredMissing.push("Adres");
-                if (!(mobile || telephone)) requiredMissing.push("Mobil/Telefon");
+                if (!(mobile || telephone)) requiredMissing.push("Cep Telefon");
 
                 const invalidDate: string[] = [];
                 if (getByTitle(row, map, "Başlangıç (yyyy-MM-dd)") && !workStartDate) invalidDate.push("Başlangıç");
@@ -1341,8 +1362,9 @@ const ListPersonnel: React.FC = () => {
             bloodType: r.bloodType, address: r.address, educationStatus: r.educationStatus,
             iban: r.iban, telephone: r.telephone, mobile: r.mobile,
             positionId: r.positionId,
-            salary: form.salary,
+            salary: r.salary ? Number(r.salary) : null,
             hasISG: r.hasISG, // NEW
+
         };
         const res = await axios.post(`${server.baseurl}${server.hr}create-personnel`, payload, {
             headers: { Authorization: `Bearer ${authToken}` },
@@ -1471,7 +1493,7 @@ const ListPersonnel: React.FC = () => {
             "Ad", "Soyad", "TC Kimlik", "Pozisyon", "Başlangıç", "Bitiş", "Maaş",
             "Sigorta No", "Cinsiyet", "Ücret Tipi", "Tahakkuk", "Grup", "Doğum Yeri",
             "Doğum Tarihi", "Medeni Durum", "Baba Adı", "Kan Grubu", "Adres",
-            "Eğitim", "IBAN", "Telefon", "Mobil", "ISG", "Durum"
+            "Eğitim", "IBAN", "Telefon", "Cep Telefon", "ISG", "Durum"
         ];
         const columnsLength = headerRowTitles.length;
 
@@ -2231,19 +2253,27 @@ const ListPersonnel: React.FC = () => {
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
                                     <CustomTextField
-                                        size="small" fullWidth
+                                        size="small"
+                                        fullWidth
                                         value={form.salary ?? ''}
-                                        // 💡 شرط کلیدی: اگر در حال ویرایش هستیم، غیرفعال کن
                                         disabled={Boolean(editingId)}
-                                        type="number" // برای اطمینان از ورودی عددی
-                                        placeholder="Maaş (sadece yeni kayıtta)"
+                                        type="text" // ⬅️ تغییر از number به text برای کنترل دقیق‌تر
+                                        placeholder="Maaş (Sadece sayı)"
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                            // تبدیل مقدار به عدد یا null/undefined
                                             const value = e.target.value;
-                                            setForm((f) => ({
-                                                ...f,
-                                                salary: value === '' ? null : Number(value)
-                                            }));
+                                            // ⬅️ فقط اعداد را اجازه می‌دهد (Regex)
+                                            if (value === '' || /^\d+$/.test(value)) {
+                                                setForm((f) => ({
+                                                    ...f,
+                                                    salary: value === '' ? null : Number(value)
+                                                }));
+                                            }
+                                        }}
+                                        // ⬅️ جلوگیری از وارد کردن کاراکترهای غیر عددی در لحظه فشردن کلید
+                                        onKeyDown={(e: React.KeyboardEvent) => {
+                                            if (["e", "E", "+", "-", ",", "."].includes(e.key)) {
+                                                e.preventDefault();
+                                            }
                                         }}
                                     />
                                     {/* پیام کمکی برای محدودیت ویرایش */}
@@ -2271,17 +2301,17 @@ const ListPersonnel: React.FC = () => {
                                         placeholder="Telefon"
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, telephone: e.target.value }))}
                                         error={showStepErrors && !(form.mobile?.trim() || form.telephone?.trim())}
-                                        helperText={showStepErrors && !(form.mobile?.trim() || form.telephone?.trim()) ? "Mobil veya Telefon zorunlu" : ""} />
+                                        helperText={showStepErrors && !(form.mobile?.trim() || form.telephone?.trim()) ? "Cep Telefon veya Telefon zorunlu" : ""} />
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3} display="flex" alignItems="center">
-                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Mobil</CustomFormLabel>
+                                    <CustomFormLabel sx={{ mt: 0, mb: { xs: "-10px", sm: 0 } }} required>Cep Telefon</CustomFormLabel>
                                 </Grid>
                                 <Grid item xs={12} sm={6} md={3}>
                                     <CustomTextField size="small" fullWidth value={form.mobile}
-                                        placeholder="Mobil"
+                                        placeholder="Cep Telefon"
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, mobile: e.target.value }))}
                                         error={showStepErrors && !(form.mobile?.trim() || form.telephone?.trim())}
-                                        helperText={showStepErrors && !(form.mobile?.trim() || form.telephone?.trim()) ? "Mobil veya Telefon zorunlu" : ""} />
+                                        helperText={showStepErrors && !(form.mobile?.trim() || form.telephone?.trim()) ? "Cep Telefon veya Telefon zorunlu" : ""} />
                                 </Grid>
                             </Grid>
                         )}
@@ -2797,10 +2827,10 @@ const ListPersonnel: React.FC = () => {
                                 <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="IBAN" value={r.iban} onChange={(e) => setR({ iban: e.target.value })} /></Grid>
                                 <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Telefon" value={r.telephone} onChange={(e) => setR({ telephone: e.target.value })} /></Grid>
                                 <Grid item xs={12} sm={6}>
-                                    <TextField fullWidth size="small" label="Mobil" value={r.mobile}
+                                    <TextField fullWidth size="small" label="Cep Telefon" value={r.mobile}
                                         onChange={(e) => setR({ mobile: e.target.value })}
-                                        error={r.errors.requiredMissing.includes("Mobil/Telefon")}
-                                        helperText={r.errors.requiredMissing.includes("Mobil/Telefon") ? "Mobil veya Telefon zorunlu" : ""} />
+                                        error={r.errors.requiredMissing.includes("Cep Telefon")}
+                                        helperText={r.errors.requiredMissing.includes("Cep Telefon") ? "Cep Telefon veya Telefon zorunlu" : ""} />
                                 </Grid>
                             </Grid>
                         );
@@ -2820,7 +2850,7 @@ const ListPersonnel: React.FC = () => {
                             if (!r.birthDate) req.push("Doğum Tarihi (yyyy-MM-dd)");
                             if (!r.fatherName) req.push("Baba Adı");
                             if (!r.address) req.push("Adres");
-                            if (!(r.mobile || r.telephone)) req.push("Mobil/Telefon");
+                            if (!(r.mobile || r.telephone)) req.push("Cep Telefon");
 
                             const identityDuplicate =
                                 !r.identityNumber ? false :
@@ -2890,7 +2920,17 @@ const ListPersonnel: React.FC = () => {
                                 <Box display="flex" justifyContent="space-between"><Typography variant="h6">İzin Hakkı</Typography><Chip label={annualLeaveData.official} color="primary" /></Box>
                                 <Box display="flex" justifyContent="space-between"><Typography variant="h6">Kalan İzin</Typography><Chip label={annualLeaveData.remaining} color="success" /></Box>
                                 <Box display="flex" justifyContent="space-between"><Typography variant="h6">Yaş</Typography><Chip label={annualLeaveData.age} color="info" /></Box>
-                                <Box display="flex" justifyContent="space-between"><Typography variant="h6">Çalışma Yılı</Typography><Chip label={annualLeaveData.yearOfWork} color="secondary" /></Box>
+                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="h6">Çalışma Yılı</Typography>
+                                    <Chip
+                                        label={
+                                            annualLeaveData.personnelWorkYearsAndMonths
+                                                ? `${annualLeaveData.personnelWorkYearsAndMonths.years} Yıl, ${annualLeaveData.personnelWorkYearsAndMonths.months} Ay, ${annualLeaveData.personnelWorkYearsAndMonths.days} Gün`
+                                                : `${annualLeaveData.yearOfWork} Yıl`
+                                        }
+                                        color="secondary"
+                                    />
+                                </Box>
 
                                 <Divider sx={{ my: 1 }} />
                                 <Typography variant="h6">Rapor İndir</Typography>
@@ -3263,21 +3303,34 @@ const ListPersonnel: React.FC = () => {
                                 TC Kimlik:   {personnelToUpdateSalary.identityNumber}
                             </Typography>
                             <Typography variant="body2" color="textSecondary">
-                                Mevcut Maaş:   {personnelToUpdateSalary.salary !== null ? personnelToUpdateSalary.salary.toLocaleString('tr-TR') : '—'} TL
+                                Mevcut Maaş:   {personnelToUpdateSalary.salary !== null ?
+                                    cleanAndFormatPrice(personnelToUpdateSalary.salary) : '—'} TL
+
                             </Typography>
 
                             <CustomFormLabel required>Yeni Maaş (TL)</CustomFormLabel>
                             <CustomTextField
-                                type="number"
+                                type="text" // ⬅️ استفاده از text برای جلوگیری از رفتارهای عجیب مرورگر در نوع number
                                 size="small"
                                 fullWidth
                                 placeholder="Yeni maaşı girin"
-                                value={newSalary ?? ''}
+                                value={cleanAndFormatPrice(newSalary) ?? ''}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                     const value = e.target.value;
-                                    setNewSalary(value === '' ? null : Number(value));
+                                    // ⬅️ فقط عدد (بدون حروف و نماد)
+                                    if (value === '' || /^\d+$/.test(value)) {
+                                        setNewSalary(value === '' ? null : Number(value));
+                                    }
                                 }}
-                                inputProps={{ min: "0", step: "0.01" }}
+                                onKeyDown={(e: React.KeyboardEvent) => {
+                                    if (["e", "E", "+", "-", ",", "."].includes(e.key)) {
+                                        e.preventDefault();
+                                    }
+                                }}
+                                inputProps={{
+                                    inputMode: 'numeric', // ⬅️ در موبایل کیبورد عددی را باز می‌کند
+                                    pattern: '[0-9]*'
+                                }}
                             />
                         </Stack>
                     ) : (

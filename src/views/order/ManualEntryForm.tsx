@@ -1148,7 +1148,9 @@ const ManualEntryForm = () => {
             setSelectedWorkhouseId(null);
         }
 
-        setRequestId(row.requestId || null);
+        // setRequestId(row.requestId || null);
+        const reqId = row.requestId ? Number(row.requestId) : (row.request?.id ? Number(row.request.id) : null);
+        setRequestId(reqId);
         setDocDate(new Date(row.docDate));
 
         setGeneralDescription(row.description || ''); // مقداردهی توضیحات
