@@ -1148,15 +1148,40 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         onClose();
     }, [mapEdges, mapNodes, transmissions, networkId, networkTitle, onSaveMapChanges, showAlert]);
 
+    // const handleDownload = useCallback((format: 'png' | 'pdf') => {
+    //     if (svgContainerRef.current) {
+    //         toPng(svgContainerRef.current, { backgroundColor: '#fff' })
+    //             .then((dataUrl) => {
+    //                 if (format === 'png') {
+    //                     const link = document.createElement('a');
+    //                     link.download = `${networkTitle}_map.png`;
+    //                     link.href = dataUrl;
+    //                     link.click();
+    //                 } else {
+    //                     const pdf = new jsPDF('l', 'mm', 'a4');
+    //                     const imgWidth = 280;
+    //                     const imgHeight = (pdf.internal.pageSize.getHeight() * imgWidth) / pdf.internal.pageSize.getWidth();
+    //                     pdf.addImage(dataUrl, 'PNG', 5, 5, imgWidth, imgHeight);
+    //                     pdf.save(`${networkTitle}_map.pdf`);
+    //                 }
+    //             })
+    //             .catch((err) => console.error('Export failed', err));
+    //     }
+    // }, [networkTitle]);
+
     const handleDownload = useCallback((format: 'png' | 'pdf') => {
         if (svgContainerRef.current) {
-            toPng(svgContainerRef.current, { backgroundColor: '#fff' })
+            toPng(svgContainerRef.current, { backgroundColor: '#fff', cacheBust: true })
                 .then((dataUrl) => {
                     if (format === 'png') {
                         const link = document.createElement('a');
                         link.download = `${networkTitle}_map.png`;
                         link.href = dataUrl;
+
+                        // ✅ اصلاح مخصوص فایرفاکس:
+                        document.body.appendChild(link);
                         link.click();
+                        document.body.removeChild(link); // بلافاصله حذف شود
                     } else {
                         const pdf = new jsPDF('l', 'mm', 'a4');
                         const imgWidth = 280;
@@ -1168,6 +1193,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 .catch((err) => console.error('Export failed', err));
         }
     }, [networkTitle]);
+
 
     if (!open) return null;
 
@@ -1353,7 +1379,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         doc.save(`${viewItemsTitle.replace(/\s+/g, '_')}.pdf`);
     };
 
-    // --- تابع دانلود اکسل (اصلاح شده با هدر/فوتر) ---
     const handleDownloadItemsExcel = async () => {
         const workbook = new Excel.Workbook();
         const worksheet = workbook.addWorksheet('Malzemeler');
