@@ -89,9 +89,9 @@ const StatusToggleButton = styled(MuiToggleButton)<{ value: number, selected: bo
     },
     '&.Mui-selected': {
         color: 'white',
-        ...(value === 1 && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
-        ...(value === 2 && selected && { backgroundColor: theme.palette.warning.main, '&:hover': { backgroundColor: theme.palette.warning.dark } }),
-        ...(value === 3 && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
+        ...(value === 0 && selected && { backgroundColor: theme.palette.success.main, '&:hover': { backgroundColor: theme.palette.success.dark } }),
+        ...(value === 1 && selected && { backgroundColor: theme.palette.warning.main, '&:hover': { backgroundColor: theme.palette.warning.dark } }),
+        ...(value === 2 && selected && { backgroundColor: theme.palette.error.main, '&:hover': { backgroundColor: theme.palette.error.dark } }),
     },
     '&:not(.Mui-selected)': {
         color: theme.palette.text.primary,
@@ -109,7 +109,7 @@ const STATUS_OPTIONS = [
 const getStatusLabel = (value: number) => STATUS_OPTIONS.find(o => o.value === value)?.label || 'Yok';
 
 interface ComboOption { id: number; name: string; }
-interface ChannelOption extends ComboOption { channelRowId: number; }
+interface ChannelOption extends ComboOption { channelRowId: number; type?: number; }
 interface TransmissionOption extends ComboOption { transmissionRowId: number; }
 
 /* ============ API types ============ */
@@ -342,6 +342,16 @@ const AutocompleteCombo: React.FC<AutocompleteComboProps> = ({ label, options, v
     return (
         <FormControl fullWidth size="small" required>
             <CustomFormLabel required sx={{ mb: 1 }}>{label}</CustomFormLabel>
+            {/* <Autocomplete
+                size="small"
+                disabled={disabled}
+                options={options}
+                getOptionLabel={(o) => o.name}
+                value={selectedOption}
+                isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
+                onChange={(_, nv) => onChange(nv ? nv.id : null)}
+                renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Arama yapın..." />}
+            /> */}
             <Autocomplete
                 size="small"
                 disabled={disabled}
@@ -350,6 +360,32 @@ const AutocompleteCombo: React.FC<AutocompleteComboProps> = ({ label, options, v
                 value={selectedOption}
                 isOptionEqualToValue={(o, v) => !!v && o.id === v.id}
                 onChange={(_, nv) => onChange(nv ? nv.id : null)}
+                // ⬇️ بخش جدید برای نمایش Chip
+                renderOption={(props, option: any) => {
+                    const typeLabels: Record<number, { label: string, color: any }> = {
+                        0: { label: 'Trafo', color: 'secondary' },
+                        1: { label: 'Demir', color: 'default' }, // آهن
+                        2: { label: 'Beton', color: 'primary' }
+                    };
+                    const typeInfo = typeLabels[option.type] || null;
+
+                    return (
+                        <li {...props}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                                <Typography variant="body2">{option.name}</Typography>
+                                {typeInfo && (
+                                    <Chip
+                                        label={typeInfo.label}
+                                        size="small"
+                                        color={typeInfo.color}
+                                        variant="outlined"
+                                        sx={{ ml: 1, fontSize: '0.65rem', height: '20px' }}
+                                    />
+                                )}
+                            </Box>
+                        </li>
+                    );
+                }}
                 renderInput={(params) => <TextField {...params} variant="outlined" placeholder="Arama yapın..." />}
             />
         </FormControl>
@@ -540,17 +576,32 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 `${server.baseurl}${server.initialoperations}get-network-by-work-id/${workId}`,
                 { headers: { "Authorization": `Bearer ${authToken}` } }
             );
+            debugger
             const data = networkResponse.data?.data;
             if (!data) { setChannelOptions([]); setTransmissionOptions([]); setComboLoading(false); return; }
+
+            // const ch: ChannelOption[] = [];
+            // (data.networkTrAdis || []).forEach((trAd: any) => {
+            //     (trAd.channelRows || []).forEach((row: any) => {
+            //         if (row?.id) ch.push({ id: Number(row.id), name: row.productType?.name || row.label || `Kanal ${row.id}`, channelRowId: Number(row.id) });
+            //     });
+            // });
+            // setChannelOptions(ch);
 
             const ch: ChannelOption[] = [];
             (data.networkTrAdis || []).forEach((trAd: any) => {
                 (trAd.channelRows || []).forEach((row: any) => {
-                    if (row?.id) ch.push({ id: Number(row.id), name: row.productType?.name || row.label || `Kanal ${row.id}`, channelRowId: Number(row.id) });
+                    if (row?.id) {
+                        ch.push({
+                            id: Number(row.id),
+                            name: row.productType?.name || row.label || `Kanal ${row.id}`,
+                            channelRowId: Number(row.id),
+                            type: row.productType?.type // ⬅️ استخراج تایپ (0, 1, 2)
+                        });
+                    }
                 });
             });
             setChannelOptions(ch);
-
             const idToName: Record<number, string> = ch.reduce((acc, o) => { acc[o.id] = o.name; return acc; }, {} as Record<number, string>);
             const tr: TransmissionOption[] = (data.transmissionRows || []).map((row: any) => {
                 const fromId = Number(row.fromProductType?.id);
