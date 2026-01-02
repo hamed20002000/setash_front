@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
     TableContainer, Table, TableHead, TableRow, TableBody,
     TableCell as MuiTableCell,
@@ -8,12 +8,14 @@ import {
     CircularProgress, Paper, Dialog, DialogTitle, DialogContent,
     DialogActions, DialogContentText, TableSortLabel, MenuItem as MuiMenuItem,
     Select, FormControl, InputLabel,
+    Divider,
 } from '@mui/material';
 
 import {
     IconDots, IconTrash, IconSearch, IconFileDownload, IconX, IconEdit,
-    IconFileSpreadsheet, IconFileText, IconBox, IconLink, IconCurrencyDollar, IconGasStation,
-    IconArrowRight
+    IconFileSpreadsheet, IconFileText, IconBox, IconLink, IconGasStation,
+    IconArrowRight,
+    IconEye
 } from '@tabler/icons-react';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
@@ -214,39 +216,69 @@ const FuelFileUpload: React.FC<{
 
 // --- توابع کامل دانلود PDF/Excel (کپی شده از کامپوننت قبلی با اصلاحات جزئی) ---
 const addPdfHeader = (doc: jsPDF, title: string) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const docAny = doc as any;
-    try {
-        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
-        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans');
-    }
-    catch (e) { }
 
-    docAny.addImage(Logo, 'PNG', pageWidth - 50, 5, 40, 25);
+    const docAny = doc as any;
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoHeight = 18;
+    const margin = 15;
+    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+
+    try {
+        doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
+    }
+
+    doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 15, { align: 'center' });
+    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+
     doc.setFontSize(10);
-    doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, 25);
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+
+    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+    // doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, pageWidth - 15, 40);
 };
+
 const addPdfFooter = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const docAny = doc as any;
+
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
+    doc.setTextColor(100);
+
     const companyInfo = [
         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
     ];
-    let footerY = pageHeight - 30;
-    companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
+
+    let footerY = pageHeight - 20;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 4;
+    });
+
+    doc.setTextColor(0);
     doc.setFontSize(10);
-    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-    const pageCount = docAny.internal.getNumberOfPages();
-    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
+
 
 const exportToPdf = (data: CarFuelRecord[], title: string, showAlert: (m: string, s: any) => void, setLoadingData: (l: boolean) => void) => {
     if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
@@ -268,7 +300,7 @@ const exportToPdf = (data: CarFuelRecord[], title: string, showAlert: (m: string
     try {
         addPdfHeader(doc, title);
         autoTable(docAny, {
-            head: [columns], body: body, startY: 35, theme: 'grid',
+            head: [columns], body: body, startY: 45, theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 10 },
             didDrawPage: (_data: any) => { addPdfFooter(doc); },
@@ -449,9 +481,17 @@ const handleDownloadExcel = (data: CarFuelRecord[], title: string, showAlert: (m
 
 
 const ListCarFuels: React.FC = () => {
-    const navigate = useNavigate();
-    const { consignedCarId } = useParams<{ consignedCarId: string }>(); // 💡 دریافت شناسه از URL
     const { allowedOperations } = useAuth();
+
+    const navigate = useNavigate();
+    const { consignedCarId } = useParams<{ consignedCarId: string }>();
+
+    const location = useLocation();
+    const state = location.state as { initialFuelType?: string } | null;
+    const transferredFuelType = state?.initialFuelType;
+
+    // ست کردن مقدار اولیه استیت نوع سوخت
+    const [fuelType, setFuelType] = useState<string>(transferredFuelType || 'GASOLINE');
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -469,7 +509,6 @@ const ListCarFuels: React.FC = () => {
 
     // Form Inputs
     const [date, setDate] = useState<Date | null>(new Date());
-    const [fuelType, setFuelType] = useState<string>('GASOLINE');
     const [amount, setAmount] = useState<number | ''>('');
     const [fee, setFee] = useState<number | ''>('');
     const [totalPrice, setTotalPrice] = useState<number | ''>('');
@@ -521,6 +560,13 @@ const ListCarFuels: React.FC = () => {
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
 
+    const [openDetailsModal, setOpenDetailsModal] = useState(false);
+    const [selectedRowForDetails, setSelectedRowForDetails] = useState<CarFuelRecord | null>(null);
+
+    const [openRowDownloadModal, setOpenRowDownloadModal] = useState(false);
+    const [selectedRowForDownload, setSelectedRowForDownload] = useState<CarFuelRecord | null>(null);
+
+
 
     // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -540,6 +586,12 @@ const ListCarFuels: React.FC = () => {
         };
     }, []);
 
+    useEffect(() => {
+        if (transferredFuelType) {
+            setFuelType(transferredFuelType);
+        }
+    }, [transferredFuelType]);
+
 
     const fetchFuelRecords = useCallback(async () => {
         if (!consignedCarId) { setLoadingData(false); return; }
@@ -552,6 +604,7 @@ const ListCarFuels: React.FC = () => {
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
 
             if (res.data.httpStatusCode === 200) {
+                debugger
                 const cleanedRecords = (res.data.data as any[]).map(record => ({
                     ...record,
                     fee: parseFloat(String(record.fee).replace(/[^0-9.]/g, '')),
@@ -568,9 +621,23 @@ const ListCarFuels: React.FC = () => {
         finally { setLoadingData(false); }
     }, [navigate, showAlert, consignedCarId]);
 
+
+
+
+
+
+
     useEffect(() => {
         fetchFuelRecords();
     }, [fetchFuelRecords]);
+
+    useEffect(() => {
+        const calculatedTotal = Number(amount || 0) * Number(fee || 0);
+        setTotalPrice(calculatedTotal > 0 ? calculatedTotal : '');
+
+        // اگر مقدار تغییر کرد، خطای احتمالی فیلد TotalPrice را هم پاک کن
+        if (calculatedTotal > 0) setTotalPriceError(false);
+    }, [amount, fee]);
 
 
     const validateForm = (): boolean => {
@@ -652,7 +719,7 @@ const ListCarFuels: React.FC = () => {
 
         const payload: CarFuelPayload = {
             // 💡 اضافه کردن id به Payload در صورت ویرایش
-            id: isEditing ? editRecordId : undefined,
+            id: isEditing ? Number(editRecordId) : undefined,
             date: date ? date.toISOString() : new Date().toISOString(),
             fuelType: fuelType,
             amount: Number(amount),
@@ -770,6 +837,34 @@ const ListCarFuels: React.FC = () => {
         setFullDescriptionContent('');
     };
 
+    const handleDownloadSingleRow = (row: CarFuelRecord, format: 'pdf' | 'excel') => {
+        const title = `Yakıt Kaydı - ${formatDateDisplay(row.date)}`;
+        if (format === 'pdf') {
+            exportToPdf([row], title, showAlert, setLoadingData);
+        } else {
+            exportToExcel([row], title, showAlert, setLoadingData);
+        }
+    };
+
+    const handleOpenRowDownloadMenu = (row: CarFuelRecord) => {
+        setSelectedRowForDownload(row);
+        setOpenRowDownloadModal(true);
+        handleCloseMenu(); // بستن منوی سه نقطه
+    };
+
+    const handleDownloadRowAction = (format: 'pdf' | 'excel') => {
+        if (!selectedRowForDownload) return;
+
+        const title = `Araç Yakıt Kaydı - ${formatDateDisplay(selectedRowForDownload.date)}`;
+        const handler = format === 'pdf' ? exportToPdf : exportToExcel;
+
+        // ارسال به صورت آرایه تک عضوی برای استفاده از توابع موجود
+        handler([selectedRowForDownload], title, showAlert, setLoadingData);
+
+        setOpenRowDownloadModal(false);
+        setSelectedRowForDownload(null);
+    };
+
 
     const decodeLatin1ToUtf8 = (encodedString: string): string => {
         try {
@@ -840,7 +935,7 @@ const ListCarFuels: React.FC = () => {
                                         value={date} onChange={(v) => setDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => <TextField {...params} size="small" fullWidth />} disabled={loadingButton} />
                                 </LocalizationProvider>
                             </Grid>
-                            <Grid item xs={12} sm={6} md={4}>
+                            {/* <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Yakıt Tipi</CustomFormLabel>
                                 <FormControl fullWidth size="small" error={fuelTypeError}>
                                     <InputLabel>Yakıt Tipi Seçin</InputLabel>
@@ -848,9 +943,38 @@ const ListCarFuels: React.FC = () => {
                                         {FUEL_TYPES.map(option => (<MuiMenuItem key={option.value} value={option.value}>{option.label}</MuiMenuItem>))}
                                     </Select>
                                 </FormControl>
+                            </Grid> */}
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Yakıt Tipi</CustomFormLabel>
+                                <FormControl fullWidth size="small" error={fuelTypeError}>
+                                    <InputLabel>Yakıt Tipi</InputLabel>
+                                    <Select
+                                        label="Yakıt Tipi"
+                                        value={fuelType}
+                                        // همیشه غیرفعال است چون از دیتای خودرو خوانده می‌شود
+                                        disabled={true}
+                                        onChange={(e) => setFuelType(e.target.value as string)}
+                                        sx={{
+                                            "& .Mui-disabled": {
+                                                WebkitTextFillColor: "#000",
+                                                fontWeight: "bold",
+                                                backgroundColor: "#f5f5f5"
+                                            }
+                                        }}
+                                    >
+                                        {FUEL_TYPES.map(option => (
+                                            <MuiMenuItem key={option.value} value={option.value}>
+                                                {option.label}
+                                            </MuiMenuItem>
+                                        ))}
+                                    </Select>
+                                    <Typography variant="caption" color="textSecondary">
+                                        * Araç detayına göre otomatik belirlenmiştir.
+                                    </Typography>
+                                </FormControl>
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Miktar (Litre/kWh)</CustomFormLabel>
+                                <CustomFormLabel required>Miktar (Litre/kWh/Kilo)</CustomFormLabel>
                                 <TextField placeholder="Miktar" type="number" size="small" fullWidth value={amount} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setAmount(Number(e.target.value)); setAmountError(false); }} error={amountError} helperText={amountError ? 'Pozitif değer girin.' : ''} disabled={loadingButton} />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
@@ -859,7 +983,19 @@ const ListCarFuels: React.FC = () => {
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Toplam Fiyat</CustomFormLabel>
-                                <TextField placeholder="Toplam Fiyat" type="number" size="small" fullWidth value={totalPrice} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setTotalPrice(Number(e.target.value)); setTotalPriceError(false); }} error={totalPriceError} helperText={totalPriceError ? 'Pozitif değer girin.' : ''} disabled={loadingButton} />
+                                <TextField
+                                    placeholder="Toplam Fiyat"
+                                    type="number"
+                                    size="small"
+                                    fullWidth
+                                    value={totalPrice}
+                                    // 👇 فیلد غیرفعال می‌شود چون سیستمی محاسبه می‌گردد
+                                    disabled={true}
+                                    error={totalPriceError}
+                                    helperText={totalPriceError ? 'Miktar و Birim Fiyat geçerli olmalıdır.' : ''}
+                                    // برای استایل بهتر در حالت غیرفعال
+                                    sx={{ "& .MuiInputBase-input.Mui-disabled": { WebkitTextFillColor: "#000", fontWeight: "bold" } }}
+                                />
                             </Grid>
 
                             <Grid item xs={12} sm={12} md={12}>
@@ -956,6 +1092,8 @@ const ListCarFuels: React.FC = () => {
 
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
+
+                                    <StyledTableCell><Typography variant="h6">Detayları</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6"></Typography></StyledTableCell>
                                 </TableRow>
                             </TableHead>
@@ -967,28 +1105,57 @@ const ListCarFuels: React.FC = () => {
                                             <StyledTableCell>
                                                 <Chip label={FUEL_TYPES.find(f => f.value === row.fuelType)?.label || row.fuelType || '-'} color="info" size="small" icon={<IconGasStation size={16} />} />
                                             </StyledTableCell>
-                                            <StyledTableCell>{row.amount.toLocaleString()} ({row.fuelType === 'ELECTRIC' ? 'kWh' : 'Litre'})</StyledTableCell>
+                                            <StyledTableCell>{row.amount.toLocaleString()} </StyledTableCell>
                                             <StyledTableCell>{row.fee.toLocaleString()} TL</StyledTableCell>
-                                            <StyledTableCell><Chip label={row.totatPrice.toLocaleString() + ' TL'} color="success" size="small" icon={<IconCurrencyDollar size={16} />} /></StyledTableCell>
-                                            <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
-                                                <Box sx={{
-                                                    maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                                                }}>
-                                                    <div dangerouslySetInnerHTML={{ __html: row.description }} />
-                                                </Box>
-                                                {row.description.length > 50 && (
+                                            <StyledTableCell><Chip label={row.totatPrice.toLocaleString() + ' TL'} color="success" size="small" /></StyledTableCell>
+                                            <StyledTableCell sx={{ maxWidth: 150 }}>
+                                                {row.description && row.description.trim().length > 0 ? (
+                                                    // حالت اول: اگر توضیحات وجود داشت (خالی نبود)
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }}
-                                                            onClick={() => { handleOpenDescriptionModal(row.description); }}>Devamını Oku</Button>
+                                                        <Button
+                                                            variant="text"
+                                                            style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                            onClick={() => handleOpenDescriptionModal(row.description)}
+                                                        >
+                                                            Açıklamanı Oku
+                                                        </Button>
                                                     </CustomTooltip>
+                                                ) : (
+                                                    // حالت دوم: اگر توضیحات نال یا خالی بود
+                                                    <Typography variant="body2" align="center">
+                                                        -
+                                                    </Typography>
                                                 )}
                                             </StyledTableCell>
                                             <StyledTableCell><IconButton onClick={() => handleOpenAttachmentsModal(row.attachment)}><IconLink size={18} /><Chip label={row.attachment.length} color="primary" size="small"></Chip></IconButton></StyledTableCell>
+                                            <StyledTableCell>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <CustomTooltip title={isTooltipGloballyEnabled ? "Detayları Görüntüle" : ""}>
+                                                        <Button
+                                                            variant="outlined"
+                                                            startIcon={<IconEye />}
+                                                            onClick={() => {
+                                                                setSelectedRowForDetails(row);
+                                                                setOpenDetailsModal(true);
+                                                            }}
+                                                        >
+                                                            Görünüm
+                                                        </Button>
+                                                    </CustomTooltip>
+                                                </Stack>
+                                            </StyledTableCell>
                                             <StyledTableCell>
                                                 <IconButton onClick={(e) => handleClickMenu(e, row)} size="small"><IconDots width={18} /></IconButton>
                                                 <Menu anchorEl={anchorEl} open={Boolean(anchorEl) && selectedRowForMenu?.id === row.id} onClose={handleCloseMenu}>
                                                     {hasEditPermission && (<MuiMenuItem onClick={() => handleEdit(row)}><ListItemIcon><IconEdit width={18} /></ListItemIcon>Düzenle</MuiMenuItem>)}
                                                     {hasDeletePermission && (<MuiMenuItem onClick={handleClickOpenDeleteModal}><ListItemIcon><IconTrash width={18} /></ListItemIcon>Silmek</MuiMenuItem>)}
+
+                                                    {hasDownloadPermission && (
+                                                        <MuiMenuItem onClick={() => handleOpenRowDownloadMenu(row)}>
+                                                            <ListItemIcon><IconFileDownload width={18} /></ListItemIcon>
+                                                            Bu satırı indir
+                                                        </MuiMenuItem>
+                                                    )}
                                                 </Menu>
                                             </StyledTableCell>
                                         </TableRow>
@@ -1054,6 +1221,109 @@ const ListCarFuels: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={handleCloseDescriptionModal} color="primary">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog
+                open={openDetailsModal}
+                onClose={() => setOpenDetailsModal(false)}
+                maxWidth="sm"
+                fullWidth
+            >
+                <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', mb: 2 }}>
+                    Kayıt Detayları
+                </DialogTitle>
+                <DialogContent>
+                    {selectedRowForDetails && (
+                        <Stack spacing={2} sx={{ mt: 1 }}>
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}><Typography variant="subtitle2">Tarih:</Typography></Grid>
+                                <Grid item xs={6}><Typography>{formatDateDisplay(selectedRowForDetails.date)}</Typography></Grid>
+
+                                <Grid item xs={6}><Typography variant="subtitle2">Yakıt Tipi:</Typography></Grid>
+                                <Grid item xs={6}>
+                                    <Chip
+                                        label={FUEL_TYPES.find(f => f.value === selectedRowForDetails.fuelType)?.label}
+                                        size="small"
+                                        color="info"
+                                    />
+                                </Grid>
+
+                                <Grid item xs={6}><Typography variant="subtitle2">Miktar:</Typography></Grid>
+                                <Grid item xs={6}><Typography>{selectedRowForDetails.amount.toLocaleString()} Unit</Typography></Grid>
+
+                                <Grid item xs={6}><Typography variant="subtitle2">Birim Fiyat:</Typography></Grid>
+                                <Grid item xs={6}><Typography>{selectedRowForDetails.fee.toLocaleString()} TL</Typography></Grid>
+
+                                <Grid item xs={6}><Typography variant="subtitle2" fontWeight="bold">Toplam Fiyat:</Typography></Grid>
+                                <Grid item xs={6}><Typography fontWeight="bold" color="success.main">{selectedRowForDetails.totatPrice.toLocaleString()} TL</Typography></Grid>
+
+                                <Grid item xs={12}><Typography variant="subtitle2">Açıklama:</Typography></Grid>
+                                <Grid item xs={12}>
+                                    <Paper variant="outlined" sx={{ p: 1, bgcolor: '#f9f9f9' }}>
+                                        <Typography variant="body2">{selectedRowForDetails.description || '-'}</Typography>
+                                    </Paper>
+                                </Grid>
+                            </Grid>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            <Typography variant="subtitle2">Raporu İndir:</Typography>
+                            <Stack direction="row" spacing={2}>
+                                <Button
+                                    variant="contained"
+                                    color="error"
+                                    fullWidth
+                                    startIcon={<IconFileText />}
+                                    onClick={() => handleDownloadSingleRow(selectedRowForDetails, 'pdf')}
+                                >
+                                    PDF İndir
+                                </Button>
+                                <Button
+                                    variant="contained"
+                                    color="success"
+                                    fullWidth
+                                    startIcon={<IconFileSpreadsheet />}
+                                    onClick={() => handleDownloadSingleRow(selectedRowForDetails, 'excel')}
+                                >
+                                    Excel İndir
+                                </Button>
+                            </Stack>
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenDetailsModal(false)} variant="outlined" color="secondary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* --- مودال انتخاب فرمت برای تک ردیف --- */}
+            <Dialog open={openRowDownloadModal} onClose={() => setOpenRowDownloadModal(false)} maxWidth="xs" fullWidth>
+                <DialogTitle>Kayıt Formatını Seçin</DialogTitle>
+                <DialogContent>
+                    <Stack direction="column" spacing={2} sx={{ mt: 2 }}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<IconFileText />}
+                            onClick={() => handleDownloadRowAction('pdf')}
+                        >
+                            PDF Olarak İndir
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<IconFileSpreadsheet />}
+                            onClick={() => handleDownloadRowAction('excel')}
+                        >
+                            Excel Olarak İndir
+                        </Button>
+                    </Stack>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenRowDownloadModal(false)} color="secondary">Kapat</Button>
                 </DialogActions>
             </Dialog>
         </>

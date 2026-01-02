@@ -360,46 +360,63 @@ const ListInvoices = () => {
 
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 50;
-        const logoHeight = 25;
-        const margin = 10;
-        const topMargin = 20;
-        const logoX = pageWidth - logoWidth - margin;
+        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoHeight = 18;
+        const margin = 15;
+        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
 
-        doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
-        doc.setFont('Arial', 'normal');
+        try {
+            doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+        } catch (e) {
+            console.error("Logo yüklenemedi", e);
+        }
+
+        doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 15, { align: 'center' });
+        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+
         doc.setFontSize(10);
-        doc.setFont('Arial', 'normal');
-        doc.text(`Rapor Tarihi:`, 15, 25);
-        doc.setFont('Arial', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 25);
+        doc.setFont('NotoSans', 'bold');
+        doc.text(`Rapor Tarihi:`, 15, 35);
+        doc.setFont('NotoSans', 'normal');
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+
+        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+        // doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(15, 40, pageWidth - 15, 40);
     };
 
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
+
         doc.setFontSize(8);
-        doc.setFont('Arial', 'normal');
+        doc.setFont('NotoSans', 'normal');
+        doc.setTextColor(100);
+
         const companyInfo = [
             'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
-        let footerY = pageHeight - 30;
+
+        let footerY = pageHeight - 20;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
             footerY += 4;
         });
 
+        doc.setTextColor(0);
         doc.setFontSize(10);
-        doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-        const docAny = doc as any;
-        const pageCount = docAny.internal.getNumberOfPages();
-        doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+        const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
+
 
     const exportToPdf = (invoice: InvoiceType) => {
         // const doc = new jsPDF();
@@ -412,17 +429,6 @@ const ListInvoices = () => {
         doc.addFont('Arial.ttf', 'Arial', 'normal');
         doc.setFont('Arial');
 
-        // const rows = invoice.invoiceDetails.map(detail => [
-        //     detail.provider?.name || invoice.provider?.name || '-',
-        //     detail.firm ? 'Şirket İçi' : 'Şirket Dışı',
-        //     detail.item?.name || '-',
-        //     Number(detail.quantity).toFixed(2) || '-',
-        //     detail.item?.unit?.title || '-',
-        //     cleanAndFormatPrice(detail.price),
-        //     Number(detail.discountPercent).toFixed(2) || '-',
-        //     cleanAndFormatPrice(detail.discountAmount),
-        //     detail.description || '-',
-        // ]);
 
         const rows = invoice.invoiceDetails.map(detail => {
             const qty = cleanAndConvertNumber(detail.quantity);

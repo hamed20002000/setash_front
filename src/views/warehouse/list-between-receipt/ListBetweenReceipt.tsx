@@ -593,14 +593,27 @@ const ListBetweenReceipt = () => {
     const getPdfHeader = (doc: jsPDF, title: string, isFiltered: boolean = false) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const startY = 15;
+        doc.text(title, pageWidth / 2, startY + 1, { align: 'center' });
         // If Logo is dataURL, use directly:
         // @ts-ignore
-        doc.addImage(Logo, 'PNG', pageWidth - 60, startY, 50, 25);
-        doc.setFont('NotoSans', 'normal');
-        doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, startY + 1, { align: 'center' });
+        // doc.addImage(Logo, 'PNG', pageWidth - 60, startY, 50, 25);
+        // doc.setFont('NotoSans', 'normal');
+        // doc.setFontSize(14);
+        // doc.setFontSize(10);
+        // doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, startY + 25, { align: 'left' });
+
         doc.setFontSize(10);
-        doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, startY + 25, { align: 'left' });
+        doc.setFont('NotoSans', 'bold');
+        doc.text(`Rapor Tarihi:`, 15, 40);
+        doc.setFont('NotoSans', 'normal');
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+        doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+        doc.setLineWidth(0.5);
+        doc.line(15, 45, pageWidth - 15, 45);
+
+
         if (isFiltered) {
             let filterInfo = '';
             if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
@@ -609,28 +622,41 @@ const ListBetweenReceipt = () => {
                 const e = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
                 filterInfo += `Tarih Aralığı: ${s} - ${e}`;
             }
-            if (filterInfo) { doc.setFontSize(9); doc.text(filterInfo, pageWidth / 2, startY + 30, { align: 'center' }); }
+            if (filterInfo) { doc.setFontSize(9); doc.text(filterInfo, pageWidth / 2, startY + 15, { align: 'center' }); }
         }
-        return isFiltered ? startY + 45 : startY + 35;
+        return isFiltered ? startY + 25 : startY + 35;
     };
-    const getPdfFooter = (doc: jsPDF) => {
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const docAny = doc as any;
-        doc.setFont('NotoSans', 'normal'); doc.setFontSize(8); doc.setTextColor(0);
+
+    const getPdfFooter = (pdfDoc: jsPDF) => {
+
+        const pageWidth = pdfDoc.internal.pageSize.getWidth();
+        const pageHeight = pdfDoc.internal.pageSize.getHeight();
+        pdfDoc.setFontSize(8);
+        pdfDoc.setFont('NotoSans', 'normal');
+        pdfDoc.setTextColor(100);
+
         const companyInfo = [
-            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
-        let footerY = pageHeight - 30;
-        companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
-        const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
-        const pageCount = docAny.internal.getNumberOfPages();
-        doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-        doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+        let footerY = pageHeight - 20;
+        companyInfo.forEach(line => {
+            pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
+            footerY += 4;
+        });
+
+        pdfDoc.setTextColor(0);
+        pdfDoc.setFontSize(10);
+        pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+        const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+        pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
+
     const getExcelStyles = () => {
         const thinBorder = { style: 'thin', color: { argb: 'FFD3D3D3' } };
         const border = { top: thinBorder, left: thinBorder, bottom: thinBorder, right: thinBorder };
@@ -674,12 +700,13 @@ const ListBetweenReceipt = () => {
         const doc = new jsPDF(); getDocFonts(doc);
         data.forEach((receipt, index) => {
             if (index > 0) doc.addPage();
-            let yPos = getPdfHeader(doc, isFiltered ? 'Filtrelenmiş Depolar Arası Fişler Raporu' : 'Tüm Depolar Arası Fişler Raporu', isFiltered) + 10;
+            let yPos = 55;
             doc.setFontSize(12);
+            doc.setFont('NotoSans', 'normal');
             doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
             doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos); yPos += 7;
             doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 15;
-            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 23
+            doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 20
 
             const rows = (receipt.receiptDetails || []).map(d => [d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
             const totals = calculateTotalQuantity(receipt.receiptDetails || []);
@@ -705,19 +732,20 @@ const ListBetweenReceipt = () => {
     const handleDownloadSingleReceiptPDF = useCallback((receipt: BetweenReceiptType) => {
         if (!receipt) { showAlert('PDF oluşturulacak fiş bulunamadı.', 'warning'); return; }
         const doc = new jsPDF(); getDocFonts(doc);
-        let yPos = getPdfHeader(doc, `Fiş Raporu: ${receipt.code}`) + 10;
+        let yPos = 55;
         doc.setFontSize(12);
+        doc.setFont('NotoSans', 'normal');
         doc.text(`Fiş Kodu: ${receipt.code}`, 15, yPos); yPos += 7;
         doc.text(`Depo: ${receipt.warehouse?.name || '-'}`, 15, yPos); yPos += 7;
         doc.text(`Belge Tarihi: ${formatDateDisplay(receipt.docDate)}`, 15, yPos); yPos += 15;
-        doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 23
+        doc.text(`Genel Açıklama: ${receipt.description || '-'}`, 15, yPos); yPos += 20
 
         const rows = (receipt.receiptDetails || []).map(d => [d.item?.name || '-', d.quantity, d.item?.unit?.title || '-', d.description || '-']);
         const totals = calculateTotalQuantity(receipt.receiptDetails || []);
         const totalRows = Object.entries(totals).map(([unit, total]) => [{ content: 'Toplam:', colSpan: 2, styles: { fontStyle: 'normal', halign: 'right' } }, total, unit, '']);
 
         autoTable(doc, {
-            startY: yPos,
+            startY: 75,
             head: [['Malzeme', 'Miktar', 'Birim', 'Açıklama']],
             body: rows,
             foot: totalRows as any,

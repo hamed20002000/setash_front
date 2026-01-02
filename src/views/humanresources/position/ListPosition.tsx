@@ -640,11 +640,15 @@ const ListPosition = () => {
                     // تغییر عنوان
                     doc.text('Tüm Pozisyon Raporu', pageWidth / 2, 15, { align: 'center' });
                     doc.setFontSize(10);
-                    doc.setFont('Times', 'bold');
-                    doc.text(`Rapor Tarih:`, 15, 25);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
-                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+                    doc.setFont('NotoSans', 'bold');
+                    doc.text(`Rapor Tarihi:`, 15, 40);
+                    doc.setFont('NotoSans', 'normal');
+                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+                    doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+                    doc.setLineWidth(0.5);
+                    doc.line(15, 45, pageWidth - 15, 45);
 
                     doc.setFont('NotoSans', 'normal');
                     doc.setFontSize(8);
@@ -654,17 +658,20 @@ const ListPosition = () => {
                         'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
                         'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
                     ];
-                    let footerY = pageHeight - 30;
+                    let footerY = pageHeight - 20;
                     companyInfo.forEach(line => {
                         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
                         footerY += 4;
                     });
+
+                    doc.setTextColor(0);
+                    doc.setFontSize(10);
+                    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
                     const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
                     const pageCount = (doc as any).internal.getNumberOfPages();
                     doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                    doc.setFont('NotoSans', 'normal');
-                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
                 },
                 showHead: 'everyPage',
                 margin: { top: 50, bottom: 45 },

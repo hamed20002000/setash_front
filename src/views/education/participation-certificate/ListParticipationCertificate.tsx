@@ -6,11 +6,13 @@ import { IconAward, IconFileCertificate, IconCertificate, IconClockHour3, IconSe
 // MUI bileşenlerini ekliyoruz (Projenizde zaten kurulu olmalıdır)
 import { Autocomplete, TextField, CircularProgress, Box, Button, Stack, Typography } from '@mui/material';
 
+import { tr } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 // فرض می‌کنیم NotoSansRegular و Logo در دسترس هستند
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import Logo from 'src/assets/images/logos/logo.png';
+import { format } from 'date-fns';
 
 interface PersonnelLite { id: number; name: string; family: string; identityNumber: string; hasISG: boolean; }
 interface Course { courseId: string; courseTitle: string; totalHours: string; }
@@ -24,39 +26,80 @@ const formatHours = (hours: string): string => {
         return hours;
     }
 };
-const addPdfHeader = (doc: jsPDF, title: string) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const docAny = doc as any;
-    // Font ekleme (Projenizdeki gerçek font dosyası ile değiştirin)
-    try { docAny.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular); docAny.addFont("NotoSans-Regular.ttf", "NotoSans", "normal"); doc.setFont("NotoSans"); } catch (e) { }
 
-    docAny.addImage(Logo, "PNG", pageWidth - 50, 15, 40, 25); // Logo ekleme (Eğer Base64 tanımlıysa)
-    doc.setFontSize(18);
-    doc.text(title, pageWidth / 2, 15, { align: "center" });
+
+
+const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "-";
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "Geçersiz Tarih";
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) { return "Geçersiz Tarih"; }
+};
+
+const addPdfHeader = (doc: jsPDF, title: string) => {
+
+    const docAny = doc as any;
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoHeight = 18;
+    const margin = 15;
+    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+
+    try {
+        doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
+    }
+
+    doc.setFont('NotoSans', 'normal');
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+
     doc.setFontSize(10);
-    doc.text(`Rapor Tarihi:`, 15, 30);
-    doc.text(`${new Date().toLocaleDateString('tr-TR')}`, 45, 30);
-    // if (subtitle) doc.text(subtitle, pageWidth / 2, 55, { align: "center" });
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+
+    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+    // doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, pageWidth - 15, 40);
 };
 
 const addPdfFooter = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    doc.setFontSize(8);
-    const companyInfo = [
-        'SETAŞ SİSTEM BİLİŞİم İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr',
-    ];
-    let footerY = pageHeight - 30;
-    companyInfo.forEach((line) => { doc.text(line, pageWidth / 2, footerY, { align: "center" }); footerY += 4; });
 
+    doc.setFontSize(8);
+    doc.setFont('NotoSans', 'normal');
+    doc.setTextColor(100);
+
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+    ];
+
+    let footerY = pageHeight - 20;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 4;
+    });
+
+    doc.setTextColor(0);
     doc.setFontSize(10);
-    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-    const docAny = doc as any;
-    const pageCount = docAny.internal.getNumberOfPages();
-    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
 
 
@@ -147,143 +190,239 @@ const ListParticipationCertificate: React.FC = () => {
     };
 
 
+    // const createParticipationCertificatePdf = (
+    //     personnel: PersonnelLite,
+    //     course: Course,
+    //     showAlert: (m: string, s: 'success' | 'error' | 'warning') => void
+    // ) => {
+    //     // 1. Dökümanı Hazırla
+    //     const doc = new jsPDF();
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     let finalY = 50;
+
+    //     // 2. Başlık
+    //     const title = "KATILIM SERTİFİKASI (BAŞARI BELGESİ)";
+    //     doc.setFont('NotoSans', 'normal');
+
+    //     const boldText11 = `${course.courseTitle}`;
+    //     addPdfHeader(doc, title); // فقط عنوان اصلی را پاس دهید
+
+    //     // نمایش زیرنویس سفارشی شده با bold
+    //     const sideMargin = 10;
+    //     const subtitleY = 55;
+    //     const textPrefix = "Kurs Adı: ";
+    //     const docAny = doc as any; // برای دسترسی به متد addFont/setFont
+
+    //     // تنظیم فونت برای بخش اول
+    //     doc.setFontSize(10);
+    //     doc.setFont('NotoSans', 'normal');
+    //     doc.text(textPrefix, doc.internal.pageSize.getWidth() / 2 - 5, subtitleY, { align: "right" });
+    //     let cursorX1 = doc.internal.pageSize.getWidth() / 2 - 20 + doc.getStringUnitWidth(textPrefix) * doc.getFontSize() / doc.internal.scaleFactor + 1;
+
+    //     let cursorX = sideMargin;
+    //     // تنظیم فونت برای بخش بُلد
+    //     doc.setFont('NotoSans', 'bold');
+    //     doc.text(boldText11, cursorX1, subtitleY, { align: "left" });
+
+    //     // بازگشت به فونت عادی برای بقیه سند
+    //     doc.setFont('NotoSans', 'normal');
+    //     doc.setFontSize(14);
+    //     doc.setFont('NotoSans', 'normal');
+    //     doc.setTextColor(0, 0, 0);
+    //     doc.text(`Sayın ${personnel.name} ${personnel.family},`, sideMargin, finalY);
+    //     finalY += 15; // فاصله بیشتر از عنوان
+
+    //     // شروع متن اصلی گواهی
+    //     doc.setFontSize(11);
+    //     let lineY = finalY;
+    //     const space = 2; // فاصله بین کلمات/بخش‌ها
+
+    //     // --- خط اول ---
+    //     const text1 = `T.C. Kimlik Numaralı`;
+    //     doc.text(text1, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(text1) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+    //     // بُلد: Kimlik Numarası
+    //     const boldText1 = `(${personnel.identityNumber})`;
+    //     doc.setFont('NotoSans', 'bold');
+    //     doc.text(boldText1, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(boldText1) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+    //     // عادی: personelimiz, Şirketimiz bünyesinde düzenlenen
+    //     doc.setFont('NotoSans', 'normal');
+    //     const text2 = `personelimiz, Şirketimiz bünyesinde düzenlenen`;
+    //     doc.text(text2, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(text2) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+
+    //     lineY += 10;
+    //     cursorX = sideMargin;
+
+    //     // بُلد: Course Title
+    //     const boldText2 = `${course.courseTitle}`;
+
+    //     doc.setFont('NotoSans', 'bold');
+    //     doc.text(boldText2, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(boldText2) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+    //     // عادی: adlı eğitime başarıyla katılım sağlamış ve toplam
+    //     doc.setFont('NotoSans', 'normal');
+    //     const text3 = `adlı eğitime başarıyla katılım sağlamış ve toplam`;
+    //     doc.text(text3, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(text3) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+
+    //     lineY += 10;
+    //     cursorX = sideMargin;
+
+    //     // بُلد: Total Hours
+    //     const boldText3 = `${formatHours(course.totalHours)}`;
+    //     doc.setFont('NotoSans', 'bold');
+    //     doc.text(boldText3, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(boldText3) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+    //     doc.setFont('NotoSans', 'normal');
+    //     const text4 = `süre ile eğitim almıştır.`;
+    //     doc.text(text4, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(text4) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+
+    //     lineY += 10;
+    //     cursorX = sideMargin;
+
+    //     doc.setFont('NotoSans', 'normal');
+    //     const text6 = `Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır.`;
+    //     doc.text(text6, cursorX, lineY);
+    //     cursorX += doc.getStringUnitWidth(text6) * doc.getFontSize() / doc.internal.scaleFactor + space;
+
+
+    //     // --- خط چهارم ---
+    //     lineY += 10;
+    //     cursorX = sideMargin;
+
+    //     // عادی: Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.
+    //     doc.setFont('NotoSans', 'normal');
+    //     const text5 = `Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
+    //     doc.text(text5, cursorX, lineY);
+
+
+    //     finalY = lineY + 20; // به‌روزرسانی مکان نهایی برای شروع جدول
+
+    //     // const splitText = doc.splitTextToSize(certificateText, pageWidth - 2);
+
+    //     // doc.text(splitText, sideMargin, finalY + 5);
+    //     // finalY += splitText.length * 3 + 30;
+
+    //     // 4. Detay Tablosu
+    //     doc.setFontSize(14);
+    //     doc.text("Detay Bilgileri", sideMargin, finalY);
+    //     finalY += 10;
+
+    //     const detailBody = [
+    //         ["Personel Adı Soyadı", `${personnel.name} ${personnel.family}`],
+    //         ["Kimlik Numarası", personnel.identityNumber || 'Belirtilmemiş'],
+    //         ["Kurs Adı", course.courseTitle],
+    //         ["Eğitim Süresi", formatHours(course.totalHours)],
+    //         ["Sertifika Tarihi", new Date().toLocaleDateString('tr-TR')],
+    //     ];
+
+    //     autoTable(docAny, {
+    //         startY: finalY,
+    //         head: [["Alan", "Değer"]],
+    //         body: detailBody,
+    //         theme: "grid",
+    //         styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
+    //         headStyles: { fillColor: [200, 220, 250], textColor: [0, 0, 0] },
+    //         columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 'auto' } }, // Genişlik ayarı
+    //         margin: { left: sideMargin, right: sideMargin },
+    //     });
+    //     finalY = (docAny.lastAutoTable.finalY || finalY) + 25;
+
+    //     // 5. İmza Alanları (Mühür ve Yetkili Onayı)
+    //     doc.setFontSize(10);
+
+    //     // Sol İmza
+    //     doc.text("Eğitmen / İSG Yetkilisi", sideMargin, finalY);
+    //     doc.line(sideMargin, finalY + 10, sideMargin + 60, finalY + 10);
+
+    //     // Sağ İmza
+    //     doc.text("Kurum Yetkilisi / Genel Müdür", pageWidth - sideMargin - 70, finalY);
+    //     doc.line(pageWidth - sideMargin - 70, finalY + 10, pageWidth - sideMargin, finalY + 10);
+
+    //     // 6. Footer'ı tüm sayfalara ekle
+    //     const pageCount = docAny.internal.getNumberOfPages();
+    //     for (let i = 1; i <= pageCount; i++) {
+    //         doc.setPage(i);
+    //         addPdfFooter(doc); // Footer'ı her sayfaya ekler
+    //     }
+
+    //     // 7. Kaydetme
+    //     const fileName = `Sertifika_${personnel.name}_${course.courseId}_${new Date().getFullYear()}.pdf`;
+    //     doc.save(fileName);
+    //     showAlert('Sertifika başarıyla oluşturuldu ve indiriliyor.', 'success');
+    // };
+
+
     const createParticipationCertificatePdf = (
         personnel: PersonnelLite,
         course: Course,
         showAlert: (m: string, s: 'success' | 'error' | 'warning') => void
     ) => {
-        // 1. Dökümanı Hazırla
+        // 1. آماده‌سازی سند
         const doc = new jsPDF();
+        const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
-        let finalY = 50;
+        const sideMargin = 20; // حاشیه استاندارد برای خوانایی بهتر
+        const maxWidth = pageWidth - (sideMargin * 2);
+        let finalY = 55;
 
-        // 2. Başlık
+        // بارگذاری فونت (مطمئن شوید NotoSans-Regular شامل کاراکترهای ترکی هست)
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
+
+        // 2. هدر
         const title = "KATILIM SERTİFİKASI (BAŞARI BELGESİ)";
-        doc.setFont('NotoSans', 'normal');
+        addPdfHeader(doc, title);
 
-        const boldText11 = `${course.courseTitle}`;
-        addPdfHeader(doc, title); // فقط عنوان اصلی را پاس دهید
-
-        // نمایش زیرنویس سفارشی شده با bold
-        const sideMargin = 10;
-        const subtitleY = 55;
-        const textPrefix = "Kurs Adı: ";
-        const docAny = doc as any; // برای دسترسی به متد addFont/setFont
-
-        // تنظیم فونت برای بخش اول
-        doc.setFontSize(10);
-        doc.setFont('NotoSans', 'normal');
-        doc.text(textPrefix, doc.internal.pageSize.getWidth() / 2 - 5, subtitleY, { align: "right" });
-        let cursorX1 = doc.internal.pageSize.getWidth() / 2 - 20 + doc.getStringUnitWidth(textPrefix) * doc.getFontSize() / doc.internal.scaleFactor + 1;
-
-        let cursorX = sideMargin;
-        // تنظیم فونت برای بخش بُلد
-        doc.setFont('NotoSans', 'bold');
-        doc.text(boldText11, cursorX1, subtitleY, { align: "left" });
-
-        // بازگشت به فونت عادی برای بقیه سند
-        doc.setFont('NotoSans', 'normal');
-
-
-
-
+        // 3. متن خوش‌آمدگویی
         doc.setFontSize(14);
-        doc.setFont('NotoSans', 'normal');
         doc.setTextColor(0, 0, 0);
         doc.text(`Sayın ${personnel.name} ${personnel.family},`, sideMargin, finalY);
-        finalY += 15; // فاصله بیشتر از عنوان
+        finalY += 15;
 
-        // شروع متن اصلی گواهی
+        // 4. متن اصلی با قابلیت Justify
+        // نکته: برای اینکه کاراکترهای ترکی به‌هم نریزند، متن به صورت یکپارچه ارسال می‌شود
         doc.setFontSize(11);
-        let lineY = finalY;
-        const space = 2; // فاصله بین کلمات/بخش‌ها
+        doc.setFont('NotoSans', 'normal');
 
-        // --- خط اول ---
-        const text1 = `T.C. Kimlik Numaralı`;
-        doc.text(text1, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(text1) * doc.getFontSize() / doc.internal.scaleFactor + space;
+        const certificateText = `T.C. Kimlik Numaralı (${personnel.identityNumber}) personelimiz, Şirketimiz bünyesinde düzenlenen "${course.courseTitle}" adlı eğitime başarıyla katılım sağlamış ve toplam ${formatHours(course.totalHours)} süre ile eğitim almıştır. Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır. Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
 
-        // بُلد: Kimlik Numarası
-        const boldText1 = `(${personnel.identityNumber})`;
+        // چاپ متن به صورت Justify
+        // پارامترهای maxWidth و align باعث تراز شدن خودکار می‌شوند
+        doc.text(certificateText, sideMargin, finalY, {
+            align: 'justify',
+            maxWidth: maxWidth,
+            lineHeightFactor: 1.6
+        });
+
+        // محاسبه خودکار ارتفاع متن برای قرارگیری جدول در جای درست
+        const textLines = doc.splitTextToSize(certificateText, maxWidth);
+        const textHeight = (textLines.length * doc.getLineHeight() / doc.internal.scaleFactor);
+        finalY += textHeight + 20;
+
+        // 5. جدول جزئیات (Detay Tablosu)
+        doc.setFontSize(13);
         doc.setFont('NotoSans', 'bold');
-        doc.text(boldText1, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(boldText1) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-        // عادی: personelimiz, Şirketimiz bünyesinde düzenlenen
-        doc.setFont('NotoSans', 'normal');
-        const text2 = `personelimiz, Şirketimiz bünyesinde düzenlenen`;
-        doc.text(text2, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(text2) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-        lineY += 10;
-        cursorX = sideMargin;
-
-        // بُلد: Course Title
-        const boldText2 = `${course.courseTitle}`;
-        doc.setFont('NotoSans', 'bold');
-        doc.text(boldText2, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(boldText2) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-        // عادی: adlı eğitime başarıyla katılım sağlamış ve toplam
-        doc.setFont('NotoSans', 'normal');
-        const text3 = `adlı eğitime başarıyla katılım sağlamış ve toplam`;
-        doc.text(text3, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(text3) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-        lineY += 10;
-        cursorX = sideMargin;
-
-        // بُلد: Total Hours
-        const boldText3 = `${formatHours(course.totalHours)}`;
-        doc.setFont('NotoSans', 'bold');
-        doc.text(boldText3, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(boldText3) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-        doc.setFont('NotoSans', 'normal');
-        const text4 = `süre ile eğitim almıştır.`;
-        doc.text(text4, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(text4) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-        lineY += 10;
-        cursorX = sideMargin;
-
-        doc.setFont('NotoSans', 'normal');
-        const text6 = `Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır.`;
-        doc.text(text6, cursorX, lineY);
-        cursorX += doc.getStringUnitWidth(text6) * doc.getFontSize() / doc.internal.scaleFactor + space;
-
-
-        // --- خط چهارم ---
-        lineY += 10;
-        cursorX = sideMargin;
-
-        // عادی: Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.
-        doc.setFont('NotoSans', 'normal');
-        const text5 = `Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
-        doc.text(text5, cursorX, lineY);
-
-
-        finalY = lineY + 20; // به‌روزرسانی مکان نهایی برای شروع جدول
-
-        // const splitText = doc.splitTextToSize(certificateText, pageWidth - 2);
-
-        // doc.text(splitText, sideMargin, finalY + 5);
-        // finalY += splitText.length * 3 + 30;
-
-        // 4. Detay Tablosu
-        doc.setFontSize(14);
         doc.text("Detay Bilgileri", sideMargin, finalY);
-        finalY += 10;
+        finalY += 7;
 
         const detailBody = [
             ["Personel Adı Soyadı", `${personnel.name} ${personnel.family}`],
             ["Kimlik Numarası", personnel.identityNumber || 'Belirtilmemiş'],
             ["Kurs Adı", course.courseTitle],
             ["Eğitim Süresi", formatHours(course.totalHours)],
-            ["Sertifika Tarihi", new Date().toLocaleDateString('tr-TR')],
+            ["Sertifika Tarihi", format(new Date(), 'dd MMMM yyyy', { locale: tr })],
         ];
 
         autoTable(docAny, {
@@ -291,35 +430,43 @@ const ListParticipationCertificate: React.FC = () => {
             head: [["Alan", "Değer"]],
             body: detailBody,
             theme: "grid",
-            styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
-            headStyles: { fillColor: [200, 220, 250], textColor: [0, 0, 0] },
-            columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 'auto' } }, // Genişlik ayarı
+            styles: {
+                font: "NotoSans",
+                fontStyle: "normal",
+                fontSize: 10,
+                cellPadding: 4,
+                halign: 'left' // در جدول معمولاً چپ‌چین برای ترکی بهتر است
+            },
+            headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'normal' },
+            columnStyles: { 0: { cellWidth: 50, fillColor: [250, 250, 250] } },
             margin: { left: sideMargin, right: sideMargin },
         });
-        finalY = (docAny.lastAutoTable.finalY || finalY) + 25;
 
-        // 5. İmza Alanları (Mühür ve Yetkili Onayı)
+        finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
+
+        // 6. بخش امضا
         doc.setFontSize(10);
+        doc.setFont('NotoSans', 'normal');
 
-        // Sol İmza
+        // امضا چپ
         doc.text("Eğitmen / İSG Yetkilisi", sideMargin, finalY);
-        doc.line(sideMargin, finalY + 10, sideMargin + 60, finalY + 10);
+        doc.line(sideMargin, finalY + 2, sideMargin + 50, finalY + 2);
 
-        // Sağ İmza
-        doc.text("Kurum Yetkilisi / Genel Müdür", pageWidth - sideMargin - 70, finalY);
-        doc.line(pageWidth - sideMargin - 70, finalY + 10, pageWidth - sideMargin, finalY + 10);
+        // امضا راست
+        doc.text("Kurum Yetkilisi / Genel Müdür", pageWidth - sideMargin, finalY, { align: 'right' });
+        doc.line(pageWidth - sideMargin - 50, finalY + 2, pageWidth - sideMargin, finalY + 2);
 
-        // 6. Footer'ı tüm sayfalara ekle
-        const pageCount = docAny.internal.getNumberOfPages();
-        for (let i = 1; i <= pageCount; i++) {
+        // 7. افزودن فوتر به تمامی صفحات
+        const totalPages = docAny.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
             doc.setPage(i);
-            addPdfFooter(doc); // Footer'ı her sayfaya ekler
+            addPdfFooter(doc);
         }
 
-        // 7. Kaydetme
-        const fileName = `Sertifika_${personnel.name}_${course.courseId}_${new Date().getFullYear()}.pdf`;
+        // 8. ذخیره‌سازی
+        const fileName = `Sertifika_${personnel.name}_${personnel.family}.pdf`;
         doc.save(fileName);
-        showAlert('Sertifika başarıyla oluşturuldu ve indiriliyor.', 'success');
+        showAlert('Sertifika başarıyla oluşturuldu.', 'success');
     };
 
     const handlePrint = (courseId: string, _courseTitle: string) => {

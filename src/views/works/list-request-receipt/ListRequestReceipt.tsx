@@ -198,8 +198,6 @@ const ListRequestReceipt: React.FC = () => {
     const [openDownloadSingleModal, setOpenDownloadSingleModal] = useState(false);
 
 
-
-
     const { allowedOperations } = useAuth();
     // در این کامپوننت، ما به مجوز ویرایش نیاز داریم تا بتوانیم وضعیت را تغییر دهیم.
     const hasStatusUpdatePermission = useMemo(() => {

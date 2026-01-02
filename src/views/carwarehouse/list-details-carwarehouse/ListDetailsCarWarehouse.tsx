@@ -9,7 +9,8 @@ import {
     TableSortLabel, MenuItem as MuiMenuItem,
     Dialog, DialogTitle, DialogContent, DialogActions,
     DialogContentText,
-    Autocomplete, // ⭐️ کامپوننت Autocomplete اضافه شد
+    Autocomplete,
+    TableCell,
 } from '@mui/material';
 
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
@@ -21,7 +22,8 @@ import CustomTextField from '../../../components/forms/theme-elements/CustomText
 import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
     IconX, IconFileSpreadsheet, IconFileText, IconBox,
-    IconLink,
+    IconLink, IconGasStation,
+    IconRefresh,
 } from '@tabler/icons-react';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -57,9 +59,15 @@ interface AttachmentType { fileUrl: string; }
 interface CarDetail {
     id: number;
     brand: string;
-    model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number;
+    model: string;
+    manufactureDate: string;
+    plaque: string;
+    description: string;
+    carWarehouseId: number;
     attachments: AttachmentType[];
-    recordStatus: 0 | 1; createAt: string;
+    recordStatus: 0 | 1;
+    createAt: string;
+    fuelType: string; // 👈 این خط را اضافه کنید
 }
 // interface CarWarehouseInfo { id: number; name: string; code: string; address: string; } // ⭐️ id: number تغییر به string در API جدید
 interface CarWarehouseApi { // ⭐️ اینترفیس جدید برای API لیست انبارها
@@ -70,7 +78,34 @@ interface CarWarehouseApi { // ⭐️ اینترفیس جدید برای API ل�
     createAt: string;
     recordStatus: number;
     region: { id: string; name: string; depth: number; createAt: string; recordStatus: number; };
+
+
 }
+
+interface ConsignmentApiData {
+    id: string;
+    date: string;
+    consigned: boolean; // وضعیت امانت
+    kilometer: number;
+    description: string;
+    personnel: {
+        name: string;
+        family: string;
+        identityNumber: string;
+    };
+    carWarehouseDetail: {
+        brand: string;
+        model: string;
+        plaque: string;
+    };
+    workhouse: {
+        name: string;
+    };
+}
+
+// داخل کامپوننت اصلی این Stateها را اضافه کنید:
+
+
 type SortableKeys = 'brand' | 'model' | 'plaque' | 'manufactureDate' | 'createAt';
 
 // ... (Styles, Date & Sorting, File Helpers, ConsignmentFileUpload, uploadFiles, PDF/Excel Helpers - بدون تغییر)
@@ -259,6 +294,13 @@ const ConsignmentFileUpload: React.FC<{
     );
 };
 
+const FUEL_TYPES = [
+    { value: 'GASOLINE', label: 'Benzin' },
+    { value: 'DIESEL', label: 'Dizel' },
+    { value: 'LPG', label: 'LPG' },
+    { value: 'ELECTRIC', label: 'Elektrik' },
+];
+
 const uploadFiles = async (
     files: File[],
     authToken: string,
@@ -292,36 +334,69 @@ const uploadFiles = async (
 };
 
 const addPdfHeader = (doc: jsPDF, title: string) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
+
     const docAny = doc as any;
-    try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans'); } catch (e) { }
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoHeight = 18;
+    const margin = 15;
+    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
 
+    try {
+        doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
+    }
 
-    docAny.addImage(Logo, 'PNG', pageWidth - 50, 5, 40, 25);
+    doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 15, { align: 'center' });
+    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
 
     doc.setFontSize(10);
-    doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, 25);
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+
+    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+    // doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, pageWidth - 15, 40);
 };
+
 const addPdfFooter = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const docAny = doc as any;
 
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
-    const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR'];
-    let footerY = pageHeight - 30;
-    companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
+    doc.setTextColor(100);
 
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+    ];
+
+    let footerY = pageHeight - 20;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 4;
+    });
+
+    doc.setTextColor(0);
     doc.setFontSize(10);
-    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
 
-    const pageCount = docAny.internal.getNumberOfPages();
-    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
+
 
 const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
     worksheet.views = [{ rightToLeft: false }];
@@ -373,7 +448,8 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [brand, setBrand] = useState<string>('');
     const [model, setModel] = useState<string>('');
-    const [manufactureDate, setManufactureDate] = useState<Date | null>(null);
+    // const [manufactureDate, setManufactureDate] = useState<Date | null>(null);
+    const [manufactureYear, setManufactureYear] = useState<number | ''>('');
     const [plaque, setPlaque] = useState<string>('');
     const [description, setDescription] = useState<string>('');
 
@@ -431,6 +507,23 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [attachmentsToView, setAttachmentsToView] = useState<AttachmentType[]>([]);
 
 
+    const [fuelType, setFuelType] = useState<string>('');
+    const [fuelTypeError, setFuelTypeError] = useState(false);
+
+
+
+    const [openConsignmentModal, setOpenConsignmentModal] = useState(false);
+    const [consignedCars, setConsignedCars] = useState<ConsignmentApiData[]>([]);
+    const [loadingConsignment, setLoadingConsignment] = useState(false);
+
+
+    const years = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const startYear = 1990;
+        return Array.from({ length: currentYear - startYear + 1 }, (_, i) => currentYear - i);
+    }, []);
+
+
     // --- Utility Functions ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -455,6 +548,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
         carWarehouseId: Number(r.carWarehouseId),
         attachments: (r.attachments || r.attacments || []).map((a: any) => ({ fileUrl: a.fileUrl })),
         recordStatus: Number(r.recordStatus) as 0 | 1,
+        fuelType: r.fuelType || '',
         createAt: r.createAt,
     });
 
@@ -530,6 +624,24 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     }, [navigate, showAlert]);
 
+    const handleOpenConsignmentModal = async () => {
+        setLoadingConsignment(true);
+        setOpenConsignmentModal(true);
+        const authToken = localStorage.getItem('authToken');
+        try {
+            const res = await axios.get(`${server.baseurl}${server.warehouse}get-all-consigned-cars`, {
+                headers: { Authorization: `Bearer ${authToken}` }
+            });
+            if (res.data.httpStatusCode === 200) {
+                setConsignedCars(res.data.data);
+            }
+        } catch (e) {
+            showAlert('Amant verileri yüklenemedi.', 'error');
+        } finally {
+            setLoadingConsignment(false);
+        }
+    };
+
     // --- Initial Load Effect ⭐️ ---
     useEffect(() => {
         fetchCarWarehouses();
@@ -552,7 +664,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
         if (!brand.trim()) { setBrandError(true); ok = false; }
         if (!model.trim()) { setModelError(true); ok = false; }
         if (!plaque.trim()) { setPlaqueError(true); ok = false; }
-        if (!manufactureDate) { setDateError(true); ok = false; }
+        // if (!manufactureDate) { setDateError(true); ok = false; }
+        if (!fuelType) { setFuelTypeError(true); ok = false; }
+        if (!manufactureYear) { setDateError(true); ok = false; }
 
         if (!ok) { showAlert('Lütfen tüm zorunlu alanları doldurun ve hataları düzeltin.', 'warning'); }
         return ok;
@@ -562,7 +676,8 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setEditingId(null);
         setBrand('');
         setModel('');
-        setManufactureDate(null);
+        // setManufactureDate(null);
+        setManufactureYear('');
         setAttachmentError(false);
         setPlaque('');
         setDescription('');
@@ -570,19 +685,42 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setCurrentAttachments([]);
         setBrandError(false); setModelError(false); setPlaqueError(false); setDateError(false); setWarehouseError(false); // ⭐️ خطای انبار اضافه شد
         setIsFormVisible(false);
+        setFuelType('');
+        setFuelTypeError(false);
     }, []);
 
-    const buildPayload = (id?: number, finalAttachments: AttachmentType[] = []): { id?: number; brand: string; model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } => {
-        // ⭐️ carWarehouseId از انبار انتخاب شده می‌آید
+    // const buildPayload = (id?: number, finalAttachments: AttachmentType[] = []): { id?: number; brand: string; model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } => {
+    //     // ⭐️ carWarehouseId از انبار انتخاب شده می‌آید
+    //     const currentWarehouseId = selectedCarWarehouse ? Number(selectedCarWarehouse.id) : 0;
+
+    //     const payload: { id?: number; brand: string; model: string; manufactureDate: string; fuelType: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } = {
+    //         brand: brand.trim(),
+    //         model: model.trim(),
+    //         manufactureDate: manufactureDate ? manufactureDate.toISOString() : '',
+    //         fuelType: fuelType,
+    //         plaque: plaque.trim(),
+    //         description: description,
+    //         carWarehouseId: currentWarehouseId, // ⭐️ استفاده از ID انبار انتخاب شده
+    //         attachments: finalAttachments,
+    //     };
+    //     if (id) payload.id = id;
+    //     return payload;
+    // };
+
+    const buildPayload = (id?: number, finalAttachments: AttachmentType[] = []) => {
         const currentWarehouseId = selectedCarWarehouse ? Number(selectedCarWarehouse.id) : 0;
 
-        const payload: { id?: number; brand: string; model: string; manufactureDate: string; plaque: string; description: string; carWarehouseId: number; attachments: AttachmentType[]; recordStatus?: 0 | 1 } = {
+        // تبدیل سال به تاریخ کامل (اول ژانویه آن سال)
+        const fullDate = manufactureYear ? `${manufactureYear}-01-01T00:00:00.000Z` : '';
+
+        const payload: any = {
             brand: brand.trim(),
             model: model.trim(),
-            manufactureDate: manufactureDate ? manufactureDate.toISOString() : '',
+            manufactureDate: fullDate, // ارسال تاریخ کامل
+            fuelType: fuelType,
             plaque: plaque.trim(),
             description: description,
-            carWarehouseId: currentWarehouseId, // ⭐️ استفاده از ID انبار انتخاب شده
+            carWarehouseId: currentWarehouseId,
             attachments: finalAttachments,
         };
         if (id) payload.id = id;
@@ -670,7 +808,14 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setEditingId(row.id);
         setBrand(row.brand);
         setModel(row.model);
-        setManufactureDate(row.manufactureDate ? new Date(row.manufactureDate) : null);
+        // setManufactureDate(row.manufactureDate ? new Date(row.manufactureDate) : null);
+        setFuelType(row.fuelType || '');
+        if (row.manufactureDate) {
+            const year = new Date(row.manufactureDate).getFullYear();
+            setManufactureYear(year);
+        } else {
+            setManufactureYear('');
+        }
         setPlaque(row.plaque);
         setDescription(row.description);
         setCurrentAttachments(row.attachments);
@@ -701,12 +846,20 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 showAlert(`Araç detayı başarıyla ${statusText} olarak ayarlandı!`, 'success');
                 resetForm();
                 fetchCarDetails(selectedCarWarehouse!.id); // ⭐️ واکشی مجدد داده‌ها
-            } else {
-                showAlert(response.data.message || 'Durum güncellenirken bir hata oluştu.', 'error');
+            }
+            else if (response.data.message == "The carwarehouse is in use and cannot be set to unavailable!") {
+                showAlert('Araç deposu kullanımda olduğu için "kullanılamaz" olarak ayarlanamıyor.', 'error');
+            }
+            else {
+                showAlert(response.data.message == "The carwarehouse is in use and cannot be set to unavailable!" ? "" : 'Durum güncellenirken bir hata oluştu.', 'error');
             }
         } catch (e: any) {
             if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
             else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+
+            else if (e.response?.data?.message == "The carwarehouse is in use and cannot be set to unavailable!") {
+                showAlert('Araç deposu kullanımda olduğu için "kullanılamaz" olarak ayarlanamıyor.', 'error');
+            }
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally {
             handleCloseMenu();
@@ -749,6 +902,49 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const handleCloseDeleteModal = () => { setOpenDeleteModal(false); setDeleteId(null); setDeleteName(''); fetchCarDetails(selectedCarWarehouse!.id); }; // ⭐️ واکشی مجدد داده‌ها
 
     // --- Download Handlers ---
+    // const exportDetailsToPdf = (data: CarDetail[], title: string) => {
+    //     if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
+    //     setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
+
+    //     // @ts-ignore
+    //     const doc = new jsPDF();
+    //     const docAny = doc as any;
+
+    //     const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Kayıt Tarihi'];
+
+    //     const body = data.map(r => [
+    //         r.brand || '-',
+    //         r.model || '-',
+    //         r.plaque || '-',
+    //         FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
+    //         formatDateDisplay(r.manufactureDate || null),
+    //         formatDateDisplay(r.createAt || null),
+    //     ]);
+
+    //     try {
+    //         addPdfHeader(doc, title);
+
+    //         autoTable(docAny, {
+    //             head: [columns],
+    //             body: body,
+    //             startY: 35,
+    //             theme: 'grid',
+    //             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
+    //             headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 10 },
+    //             didDrawPage: (_data: any) => { addPdfFooter(doc); },
+    //             margin: { top: 30, bottom: 35, left: 10, right: 10 }
+    //         });
+
+    //         const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+    //         docAny.save(fileName);
+    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //     } catch (error) {
+    //         console.error("PDF dışa aktarılırken hata:", error);
+    //         showAlert('PDF dışa aktarılırken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingData(false);
+    //     }
+    // };
     const exportDetailsToPdf = (data: CarDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Rapor oluşturuluyor...', 'info');
@@ -757,11 +953,14 @@ const ListDetailsCarWarehouse: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        const columns = ['Marka', 'Model', 'Plaka', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
+        const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Kayıt Tarihi'];
+
         const body = data.map(r => [
-            r.brand || '-', r.model || '-', r.plaque || '-',
+            r.brand || '-',
+            r.model || '-',
+            r.plaque || '-',
+            FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
             formatDateDisplay(r.manufactureDate || null),
-            r.description,
             formatDateDisplay(r.createAt || null),
         ]);
 
@@ -771,13 +970,47 @@ const ListDetailsCarWarehouse: React.FC = () => {
             autoTable(docAny, {
                 head: [columns],
                 body: body,
-                startY: 35,
+                startY: 45,
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
                 headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 10 },
                 didDrawPage: (_data: any) => { addPdfFooter(doc); },
                 margin: { top: 30, bottom: 35, left: 10, right: 10 }
             });
+
+            // --- بخش خلاصه وضعیت سوخت ---
+            const fuelTotals: { [key: string]: number } = {};
+            data.forEach(record => {
+                const type = record.fuelType || 'Unknown';
+                fuelTotals[type] = (fuelTotals[type] || 0) + 1;
+            });
+
+            let finalY = docAny.lastAutoTable.finalY + 10;
+            doc.setFontSize(11);
+            doc.text("Yakıt Türüne Göre Araç Sayısı Özeti:", 10, finalY);
+
+            const summaryRows: any[] = [];
+            FUEL_TYPES.forEach(ft => {
+                const count = fuelTotals[ft.value];
+                if (count && count > 0) {
+                    summaryRows.push([
+                        ft.label,
+                        `${count} Adet`
+                    ]);
+                }
+            });
+
+            if (summaryRows.length > 0) {
+                autoTable(docAny, {
+                    startY: finalY + 5,
+                    head: [['Yakıt Tipi', 'Toplam Araç']],
+                    body: summaryRows,
+                    theme: 'grid',
+                    styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9 },
+                    headStyles: { font: 'NotoSans', fillColor: [200, 200, 200], textColor: [0, 0, 0] },
+                    margin: { left: 10, right: 10 }
+                });
+            }
 
             const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
             docAny.save(fileName);
@@ -790,6 +1023,56 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     };
 
+    // const exportDetailsToExcel = (data: CarDetail[], title: string) => {
+    //     if (!data || data.length === 0) { showAlert('Excel oluşturulacak kayıt bulunamadı.', 'warning'); return; }
+    //     setLoadingData(true); showAlert('Excel dosyası oluşturuluyor...', 'info');
+
+    //     try {
+    //         const workbook = new Excel.Workbook();
+    //         const worksheet = workbook.addWorksheet(title.substring(0, 31));
+
+    //         const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
+    //         addExcelHeader(worksheet, title, columns.length);
+
+    //         const headerRow = worksheet.addRow(columns);
+    //         headerRow.font = { name: 'NotoSans', bold: true };
+    //         headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
+
+    //         data.forEach(r => {
+    //             worksheet.addRow([
+    //                 r.brand || '-', r.model || '-', r.plaque || '-',
+    //                 FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
+    //                 formatDateDisplay(r.manufactureDate || null),
+    //                 r.description || '-',
+    //                 formatDateDisplay(r.createAt || null),
+    //             ]);
+    //         });
+
+    //         worksheet.columns.forEach((column) => {
+    //             let maxLength = 0;
+    //             // @ts-ignore
+    //             column.eachCell({ includeEmpty: true }, (cell) => {
+    //                 const columnLength = cell.value ? cell.value.toString().length : 10;
+    //                 if (columnLength > maxLength) { maxLength = columnLength; }
+    //             });
+    //             column.width = Math.min(Math.max(maxLength + 2, 12), 50);
+    //         });
+
+    //         addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, columns.length);
+
+    //         const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
+    //         workbook.xlsx.writeBuffer().then(buffer => {
+    //             saveAs(new Blob([buffer]), fileName);
+    //             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //         });
+    //     } catch (error) {
+    //         console.error("Excel dışa aktarılırken hata:", error);
+    //         showAlert('Excel dışa aktarılırken bir hata oluştu.', 'error');
+    //     } finally {
+    //         setLoadingData(false);
+    //     }
+    // };
+
     const exportDetailsToExcel = (data: CarDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('Excel oluşturulacak kayıt bulunamadı.', 'warning'); return; }
         setLoadingData(true); showAlert('Excel dosyası oluşturuluyor...', 'info');
@@ -798,7 +1081,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet(title.substring(0, 31));
 
-            const columns = ['Marka', 'Model', 'Plaka', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
+            const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
             addExcelHeader(worksheet, title, columns.length);
 
             const headerRow = worksheet.addRow(columns);
@@ -807,23 +1090,50 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
             data.forEach(r => {
                 worksheet.addRow([
-                    r.brand || '-', r.model || '-', r.plaque || '-',
+                    r.brand || '-',
+                    r.model || '-',
+                    r.plaque || '-',
+                    FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
                     formatDateDisplay(r.manufactureDate || null),
                     r.description || '-',
                     formatDateDisplay(r.createAt || null),
                 ]);
             });
 
+            // تنظیم عرض خودکار ستون‌ها برای جدول اصلی
             worksheet.columns.forEach((column) => {
                 let maxLength = 0;
-                // @ts-ignore
-                column.eachCell({ includeEmpty: true }, (cell) => {
+                column.eachCell?.({ includeEmpty: true }, (cell) => {
                     const columnLength = cell.value ? cell.value.toString().length : 10;
                     if (columnLength > maxLength) { maxLength = columnLength; }
                 });
                 column.width = Math.min(Math.max(maxLength + 2, 12), 50);
             });
 
+            // --- بخش خلاصه وضعیت سوخت در Excel ---
+            worksheet.addRow([]); // سطر خالی
+            const summaryTitleRow = worksheet.addRow(['Yakıt Türüne Göre Araç Sayısı Özeti']);
+            summaryTitleRow.font = { name: 'NotoSans', size: 12, bold: true };
+            worksheet.mergeCells(`A${summaryTitleRow.number}:${String.fromCharCode(65 + columns.length - 1)}${summaryTitleRow.number}`);
+
+            const summaryHeaderRow = worksheet.addRow(['Yakıt Tipi', 'Toplam Araç']);
+            summaryHeaderRow.font = { name: 'NotoSans', bold: true };
+            summaryHeaderRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }; });
+
+            const fuelTotals: { [key: string]: number } = {};
+            data.forEach(record => {
+                const type = record.fuelType || 'Unknown';
+                fuelTotals[type] = (fuelTotals[type] || 0) + 1;
+            });
+
+            FUEL_TYPES.forEach(ft => {
+                const count = fuelTotals[ft.value];
+                if (count && count > 0) {
+                    worksheet.addRow([ft.label, `${count} Adet`]);
+                }
+            });
+
+            // اضافه کردن اطلاعات شرکت در انتها
             addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, columns.length);
 
             const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
@@ -833,12 +1143,11 @@ const ListDetailsCarWarehouse: React.FC = () => {
             });
         } catch (error) {
             console.error("Excel dışa aktarılırken hata:", error);
-            showAlert('Excel dışa aktarılırken bir hata oluştu.', 'error');
+            showAlert('Excel dışa aktارılırken bir hata oluştu.', 'error');
         } finally {
             setLoadingData(false);
         }
     };
-
     const handleDownloadAll = (format: 'pdf' | 'excel') => {
         const warehouseName = selectedCarWarehouse?.name || 'Tüm';
         const title = `Tüm Araç Detay Raporu (${warehouseName})`;
@@ -852,7 +1161,12 @@ const ListDetailsCarWarehouse: React.FC = () => {
         setOpenDownloadFilteredModal(false);
     };
 
-    const handleOpenRowDownloadModal = (row: CarDetail) => { setSelectedRowForDownload(row); setOpenRowDownloadModal(true); handleCloseMenu(); };
+    const handleOpenRowDownloadModal = (row: CarDetail) => {
+        setSelectedRowForDownload(row);
+        setOpenRowDownloadModal(true);
+
+        handleCloseMenu();
+    };
 
     const handleCloseRowDownloadModal = () => { setOpenRowDownloadModal(false); setSelectedRowForDownload(null); };
     const handleDownloadRow = (format: 'pdf' | 'excel') => {
@@ -902,6 +1216,64 @@ const ListDetailsCarWarehouse: React.FC = () => {
         }
     };
 
+    const exportConsignmentToPdf = (data: ConsignmentApiData[], title: string) => {
+        if (!data || data.length === 0) {
+            showAlert('PDF oluşturulacak kayıt bulunamadı.', 'warning');
+            return;
+        }
+
+
+        const doc = new jsPDF();
+        const docAny = doc as any;
+
+        // تنظیم فونت برای پشتیبانی از کاراکترهای خاص
+        try {
+            docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+            docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+            doc.setFont('NotoSans');
+        } catch (e) {
+            console.error("Font loading error", e);
+        }
+
+        // هدر و فوتر استاندارد پروژه شما
+        addPdfHeader(doc, title);
+
+        const columns = [
+            { header: 'Plaka', dataKey: 'plaque' },
+            { header: 'Marka/Model', dataKey: 'car' },
+            { header: 'Personel', dataKey: 'personnel' },
+            { header: 'Şantiye', dataKey: 'workhouse' },
+            { header: 'KM', dataKey: 'km' },
+            { header: 'Tarih', dataKey: 'date' }
+        ];
+
+        const rows = data.map(item => ({
+            plaque: item.carWarehouseDetail.plaque,
+            car: `${item.carWarehouseDetail.brand} ${item.carWarehouseDetail.model}`,
+            personnel: `${item.personnel.name} ${item.personnel.family}`,
+            workhouse: item.workhouse.name,
+            km: `${item.kilometer?.toLocaleString()} km`,
+            date: formatDateDisplay(item.date)
+        }));
+
+        autoTable(docAny, {
+            columns: columns,
+            body: rows,
+            startY: 55,
+            theme: 'grid',
+            styles: { font: 'NotoSans', fontSize: 8, cellPadding: 3 },
+            headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], fontStyle: 'normal' },
+            didDrawPage: () => {
+                addPdfFooter(doc);
+            },
+            margin: { left: 20, right: 20 }
+        });
+
+        const fileName = `${title.replace(/\s+/g, '_')}_${format(new Date(), 'yyyyMMdd')}.pdf`;
+        doc.save(fileName);
+        showAlert('PDF başarıyla oluşturuldu.', 'success');
+    };
+
     return (
         <>
             <div style={{ borderBottom: "1px solid", margin: "10px 0 30px 0", padding: "10px 15px 30px 15px" }}>
@@ -916,7 +1288,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                     flexWrap="wrap"
                 >
                     <Typography variant="h5" sx={{ mb: { xs: 2, md: 0 } }}>
-                        Araç Depo Detayları - ({selectedCarWarehouse?.name || 'Depo Seçilmedi'})
+                        Yeni Araç Eklemek- ({selectedCarWarehouse?.name || 'Depo Seçilmedi'})
                     </Typography>
 
                     {/* Action Buttons */}
@@ -928,7 +1300,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                         justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}
                     >
                         {!isFormVisible && hasCreatePermission && (
-                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Detay Ekle Belgesi kaydetmek için tıklayınız" : ""}>
+                            <CustomTooltip title={isTooltipGloballyEnabled ? "Yeni Araç Ekle Belgesi kaydetmek için tıklayınız" : ""}>
                                 <BlinkingButton
                                     variant="contained"
                                     color="primary"
@@ -936,7 +1308,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     isBlinking={isBlinking}
                                     fullWidth={false}
                                 >
-                                    Yeni Detay Ekle
+                                    Yeni Araç Ekle
                                 </BlinkingButton>
                             </CustomTooltip>
                         )}
@@ -1003,11 +1375,33 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Yakıt Tipi</CustomFormLabel>
+                                <Autocomplete
+                                    size="small"
+                                    options={FUEL_TYPES}
+                                    getOptionLabel={(option) => option.label}
+                                    value={FUEL_TYPES.find(f => f.value === fuelType) || null}
+                                    onChange={(_, newValue) => {
+                                        setFuelType(newValue ? newValue.value : '');
+                                        setFuelTypeError(false);
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Yakıt Tipi Seçin"
+                                            error={fuelTypeError}
+                                            helperText={fuelTypeError ? 'Zorunlu alan.' : ''}
+                                        />
+                                    )}
+                                    disabled={loadingButton}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Model</CustomFormLabel>
                                 <CustomTextField placeholder="Model Adı" size="small" fullWidth value={model} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setModel(e.target.value); setModelError(false); }} error={modelError} helperText={modelError ? 'Zorunlu alan.' : ''} />
                             </Grid>
                             {/* Manufacture Date & Plaque */}
-                            <Grid item xs={12} sm={6} md={4}>
+                            {/* <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Üretim Tarihi</CustomFormLabel>
                                 <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                                     <DatePicker
@@ -1018,11 +1412,34 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                         renderInput={(params) => <TextField {...params} size="small" fullWidth error={dateError} helperText={dateError ? 'Zorunlu alan.' : params.helperText} />}
                                     />
                                 </LocalizationProvider>
+                            </Grid> */}
+                            <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Üretim Yılı</CustomFormLabel>
+                                <Autocomplete
+                                    size="small"
+                                    options={years}
+                                    getOptionLabel={(option) => option.toString()}
+                                    value={typeof manufactureYear === 'number' ? manufactureYear : null}
+                                    onChange={(_, newValue) => {
+                                        setManufactureYear(newValue || '');
+                                        setDateError(false);
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Yıl Seçin"
+                                            error={dateError}
+                                            helperText={dateError ? 'Zorunlu alan.' : ''}
+                                        />
+                                    )}
+                                    disabled={loadingData}
+                                />
                             </Grid>
                             <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Plaka</CustomFormLabel>
                                 <CustomTextField placeholder="Plaka Numarası" size="small" fullWidth value={plaque} onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setPlaque(e.target.value); setPlaqueError(false); }} error={plaqueError} helperText={plaqueError ? 'Zorunlu alan.' : ''} />
                             </Grid>
+
                             {/* Description */}
                             <Grid item xs={12}>
                                 <CustomFormLabel>Açıklama</CustomFormLabel>
@@ -1063,7 +1480,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
                 <Box sx={{ p: 2 }}>
                     <Grid container spacing={2} alignItems="center">
-                        <Grid item xs={12} sm={6} md={6}>
+                        <Grid item xs={12} sm={4} md={4}>
                             <Autocomplete
                                 size="small"
                                 options={carWarehousesList}
@@ -1083,7 +1500,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                 )}
                             />
                         </Grid>
-                        <Grid item xs={12} sm={6} md={6}>
+                        <Grid item xs={12} sm={8} md={8}>
 
                             <Stack direction="row" spacing={3} justifyContent="flex-end" mb={2} mr={2}>
                                 {isFilterActive && hasDownloadPermission && (
@@ -1096,6 +1513,15 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                         onClick={() => setOpenDownloadAllModal(true)} startIcon={<IconFileDownload />}
                                         disabled={loadingData} size="small">Tümünü İndir</Button>
                                 )}
+                                <Button
+                                    variant="contained"
+                                    color="warning"
+                                    onClick={handleOpenConsignmentModal}
+                                    startIcon={<IconBox />}
+                                    size="small"
+                                >
+                                    Amantları Görüntüle
+                                </Button>
                             </Stack>
 
                         </Grid>
@@ -1147,7 +1573,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     <StyledTableCell><TableSortLabel active={orderBy === 'plaque'} direction={orderBy === 'plaque' ? order : 'asc'} onClick={() => handleRequestSort('plaque')} sx={{ color: 'inherit' }}><Typography variant="h6">Plaka</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'brand'} direction={orderBy === 'brand' ? order : 'asc'} onClick={() => handleRequestSort('brand')} sx={{ color: 'inherit' }}><Typography variant="h6">Marka</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'model'} direction={orderBy === 'model' ? order : 'asc'} onClick={() => handleRequestSort('model')} sx={{ color: 'inherit' }}><Typography variant="h6">Model</Typography></TableSortLabel></StyledTableCell>
-
+                                    <StyledTableCell><Typography variant="h6">Yakıt</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'manufactureDate'} direction={orderBy === 'manufactureDate' ? order : 'asc'} onClick={() => handleRequestSort('manufactureDate')} sx={{ color: 'inherit' }}><Typography variant="h6">Üretim Tarihi</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
@@ -1163,6 +1589,10 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                             <StyledTableCell>{row.plaque || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.brand || '-'}</StyledTableCell>
                                             <StyledTableCell>{row.model || '-'}</StyledTableCell>
+                                            <StyledTableCell>
+                                                <Chip label={FUEL_TYPES.find(f => f.value === row.fuelType)?.label || row.fuelType || '-'}
+                                                    color="info" size="small" icon={<IconGasStation size={16} />} />
+                                            </StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.manufactureDate || null)}</StyledTableCell>
                                             {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
@@ -1172,7 +1602,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                 </Box>
                                                 {row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Devamını Oku</Button>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Açıklamanı Oku</Button>
                                                     </CustomTooltip>
                                                 )}
                                             </StyledTableCell> */}
@@ -1185,7 +1615,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                             style={{ fontSize: "10px", padding: "2px 5px" }}
                                                             onClick={() => handleOpenDescriptionModal(row.description)}
                                                         >
-                                                            Devamını Oku
+                                                            Açıklamayı  Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (
@@ -1312,8 +1742,125 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 </DialogActions>
             </Dialog>
 
+            <Dialog open={openConsignmentModal} onClose={() => setOpenConsignmentModal(false)} maxWidth="lg" fullWidth>
+                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
+                    <Typography variant="h6">Araç Amant ve Zimmet Takibi</Typography>
+                    <IconButton onClick={() => setOpenConsignmentModal(false)} sx={{ color: 'white' }}><IconX /></IconButton>
+                </DialogTitle>
+
+                <DialogContent dividers>
+                    {loadingConsignment ? (
+                        <Box display="flex" flexDirection="column" alignItems="center" p={5}>
+                            <CircularProgress size={40} />
+                            <Typography sx={{ mt: 2 }}>Veriler hazırlanıyor...</Typography>
+                        </Box>
+                    ) : (
+                        <Grid container spacing={4}>
+
+                            {/* --- بخش اول: خودروهای نزد پرسنل (Aktif Amantlar) --- */}
+                            <Grid item xs={12}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                                    <Typography variant="h6" color="error.main" display="flex" alignItems="center">
+                                        <IconBox style={{ marginRight: '8px' }} /> Personeldeki Araçlar (Teslim Edilen)
+                                    </Typography>
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        startIcon={<IconFileText />}
+                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => c.consigned), "Aktif_Amant_Listesi")}
+                                    >
+                                        PDF İndir
+                                    </Button>
+                                </Stack>
+                                <TableContainer component={Paper} variant="outlined">
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#fff5f5' }}>
+                                            <TableRow>
+                                                <TableCell>Plaka / Araç</TableCell>
+                                                <TableCell>Personel / Şantiye</TableCell>
+                                                <TableCell>KM</TableCell>
+                                                <TableCell>Tarih</TableCell>
+                                                <TableCell>Açıklama</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {consignedCars.filter(c => c.consigned).map((item) => (
+                                                <TableRow key={item.id} hover>
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight="bold">{item.carWarehouseDetail.plaque}</Typography>
+                                                        <Typography variant="caption">{item.carWarehouseDetail.brand} {item.carWarehouseDetail.model}</Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2">{item.personnel.name} {item.personnel.family}</Typography>
+                                                        <Typography variant="caption" color="textSecondary">{item.workhouse.name}</Typography>
+                                                    </TableCell>
+                                                    <TableCell>{item.kilometer?.toLocaleString()} km</TableCell>
+                                                    <TableCell>{formatDateDisplay(item.date)}</TableCell>
+                                                    <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {item.description}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Grid>
+
+                            {/* --- بخش دوم: تاریخچه امانات عودت داده شده (İade Edilenler) --- */}
+                            <Grid item xs={12}>
+                                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                                    <Typography variant="h6" color="success.main" display="flex" alignItems="center">
+                                        <IconRefresh style={{ marginRight: '8px' }} /> İade Alınanlar (Geçmiş)
+                                    </Typography>
+
+
+                                    <Button
+                                        variant="contained"
+                                        color="success"
+                                        startIcon={<IconFileText />}
+                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => !c.consigned), "Iade_Edilen_Amant_Listesi")}
+                                    >
+                                        PDF İndir
+                                    </Button>
+                                </Stack>
+                                <TableContainer component={Paper} variant="outlined">
+                                    <Table size="small">
+                                        <TableHead sx={{ bgcolor: '#f5fff5' }}>
+                                            <TableRow>
+                                                <TableCell>Plaka / Araç</TableCell>
+                                                <TableCell>Personel / Şantiye</TableCell>
+                                                <TableCell>KM</TableCell>
+                                                <TableCell>Tarih</TableCell>
+                                                <TableCell>Durum</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {consignedCars.filter(c => !c.consigned).map((item) => (
+                                                <TableRow key={item.id} hover>
+                                                    <TableCell>{item.carWarehouseDetail.plaque}</TableCell>
+                                                    <TableCell>{item.personnel.name} {item.personnel.family}</TableCell>
+                                                    <TableCell>{item.kilometer} km</TableCell>
+                                                    <TableCell>{formatDateDisplay(item.date)}</TableCell>
+                                                    <TableCell><Chip label="İade Edildi" size="small" color="success" variant="outlined" /></TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            </Grid>
+                        </Grid>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenConsignmentModal(false)} color="inherit">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
         </>
     );
 };
 
 export default ListDetailsCarWarehouse;
+
+
+

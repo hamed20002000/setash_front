@@ -35,8 +35,8 @@ import { format } from 'date-fns';
 import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
-import { TimesNewRoman } from 'src/assets/fonts/Times';
-import { ArialFont } from 'src/assets/fonts/Arial';
+// import { TimesNewRoman } from 'src/assets/fonts/Times';
+// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -883,25 +883,369 @@ const ListWarehouses = () => {
         }
     };
 
+
+
+
+    // const handleDownloadAllWarehousesPDF = async () => {
+    //     if (!allWarehousesForReport || allWarehousesForReport.length === 0) {
+    //         showAlert('PDF oluşturulacak depo bulunamadı.', 'warning');
+    //         return;
+    //     }
+    //     setOpenAllDownloadModal(false);
+
+    //     const doc = new jsPDF();
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     const pageHeight = doc.internal.pageSize.getHeight();
+
+    //     try {
+    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+    //         doc.addFileToVFS('Arial.ttf', ArialFont);
+    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
+    //         doc.setFont('Arial');
+
+    //         const rows = allWarehousesForReport.map(wh => [
+    //             wh.name || '-',
+    //             wh.code || '-',
+    //             wh.address || '-',
+    //             wh.region?.name || '-',
+    //             formatDateDisplay(wh.createAt),
+    //             wh.status,
+    //         ]);
+
+    //         autoTable(doc, {
+    //             startY: 65,
+    //             head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+    //             body: rows,
+    //             theme: 'grid',
+    //             styles: {
+    //                 font: 'Arial',
+    //                 fontStyle: 'normal',
+    //                 fontSize: 8,
+    //                 cellPadding: 2,
+    //                 overflow: 'linebreak'
+    //             },
+    //             headStyles: {
+    //                 fillColor: [242, 242, 242],
+    //                 textColor: [0, 0, 0],
+    //                 font: 'Arial',
+    //                 fontSize: 9,
+    //             },
+    //             didDrawPage: () => {
+    //                 doc.setFont('Arial', 'normal');
+    //                 doc.setFontSize(14);
+    //                 doc.text('Tüm Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
+    //                 doc.setFontSize(10);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`Tarih:`, 15, 25);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.setFontSize(8);
+    //                 doc.setTextColor(0);
+    //                 const companyInfo = [
+    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    //                 ];
+    //                 let footerY = pageHeight - 30;
+    //                 companyInfo.forEach(line => {
+    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+    //                     footerY += 4;
+    //                 });
+    //                 const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    //                 const pageCount = (doc as any).internal.getNumberOfPages();
+    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    //             },
+    //             showHead: 'everyPage',
+    //             margin: { top: 50, bottom: 45 },
+    //         });
+
+    //         doc.save('Tüm_Depolar_Raporu.pdf');
+    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //     } catch (error: any) {
+    //         console.error('PDF oluşturulurken hata:', error);
+    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    //     }
+    // };
+
+
+    // const handleDownloadFilteredPDF = async () => {
+    //     if (!filteredAndSortedWarehousesList || filteredAndSortedWarehousesList.length === 0) {
+    //         showAlert('PDF oluşturulacak filtrelenmiş depo bulunamadı.', 'warning');
+    //         return;
+    //     }
+    //     setOpenFilteredDownloadModal(false);
+
+    //     const doc = new jsPDF();
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     const pageHeight = doc.internal.pageSize.getHeight();
+
+    //     try {
+    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+    //         doc.addFileToVFS('Arial.ttf', ArialFont);
+    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
+    //         doc.setFont('Arial');
+
+    //         const rows = filteredAndSortedWarehousesList.map(wh => [
+    //             wh.name || '-',
+    //             wh.code || '-',
+    //             wh.address || '-',
+    //             wh.region?.name || '-',
+    //             formatDateDisplay(wh.createAt),
+    //             wh.status,
+    //         ]);
+
+    //         autoTable(doc, {
+    //             startY: 65,
+    //             head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+    //             body: rows,
+    //             theme: 'grid',
+    //             styles: {
+    //                 font: 'Arial',
+    //                 fontStyle: 'normal',
+    //                 fontSize: 8,
+    //                 cellPadding: 2,
+    //                 overflow: 'linebreak'
+    //             },
+    //             headStyles: {
+    //                 fillColor: [242, 242, 242],
+    //                 textColor: [0, 0, 0],
+    //                 font: 'Arial',
+    //                 fontSize: 9,
+    //             },
+    //             didDrawPage: () => {
+    //                 doc.setFont('Arial', 'normal');
+    //                 doc.setFontSize(14);
+    //                 doc.text('Filtrelenmiş Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
+    //                 doc.setFontSize(10);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`Tarih:`, 15, 25);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+    //                 let filterInfo = '';
+    //                 if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
+    //                 if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
+    //                 if (startDate || endDate) {
+    //                     const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+    //                     const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
+    //                     filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
+    //                 }
+    //                 if (filterInfo) {
+    //                     doc.setFont('Arial', 'normal');
+    //                     doc.setFontSize(9);
+    //                     doc.text(filterInfo, pageWidth / 2, 47, { align: 'center' });
+    //                 }
+
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.setFontSize(8);
+    //                 doc.setTextColor(0);
+    //                 const companyInfo = [
+    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    //                 ];
+    //                 let footerY = pageHeight - 30;
+    //                 companyInfo.forEach(line => {
+    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+    //                     footerY += 4;
+    //                 });
+    //                 const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    //                 const pageCount = (doc as any).internal.getNumberOfPages();
+    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    //             },
+    //             showHead: 'everyPage',
+    //             margin: { top: 50, bottom: 45 },
+    //         });
+    //         doc.save('Filtrelenmis_Depolar_Raporu.pdf');
+    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //     } catch (error: any) {
+    //         console.error('PDF oluşturulurken hata:', error);
+    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    //     }
+    // };
+
+
+    // const handleDownloadBalancePDF = async (warehouseName: string, balanceData: any[]) => {
+    //     if (!balanceData || balanceData.length === 0) {
+    //         showAlert('PDF oluşturulacak envanter bulunamadı.', 'warning');
+    //         return;
+    //     }
+
+    //     const doc = new jsPDF();
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     const pageHeight = doc.internal.pageSize.getHeight();
+
+    //     try {
+    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+    //         doc.addFileToVFS('Arial.ttf', ArialFont);
+    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
+    //         doc.setFont('Arial');
+
+    //         const rows = balanceData.map(item => [
+    //             item.name,
+    //             item.balance,
+    //         ]);
+
+    //         autoTable(doc, {
+    //             startY: 65,
+    //             head: [['Ürün Adı', 'Miktar']],
+    //             body: rows,
+    //             theme: 'grid',
+    //             styles: {
+    //                 font: 'Arial',
+    //                 fontStyle: 'normal',
+    //                 fontSize: 8,
+    //                 cellPadding: 2,
+    //                 overflow: 'linebreak'
+    //             },
+    //             headStyles: {
+    //                 fillColor: [242, 242, 242],
+    //                 textColor: [0, 0, 0],
+    //                 font: 'Arial',
+    //                 fontSize: 9,
+    //             },
+    //             didDrawPage: () => {
+    //                 doc.setFont('Arial', 'normal');
+    //                 doc.setFontSize(14);
+    //                 doc.text(`${warehouseName} Envanter Raporu`, pageWidth / 2, 15, { align: 'center' });
+    //                 doc.setFontSize(10);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`Tarih:`, 15, 25);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.setFontSize(8);
+    //                 doc.setTextColor(0);
+    //                 const companyInfo = [
+    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    //                 ];
+    //                 let footerY = pageHeight - 30;
+    //                 companyInfo.forEach(line => {
+    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+    //                     footerY += 4;
+    //                 });
+    //                 const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    //                 const pageCount = (doc as any).internal.getNumberOfPages();
+    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    //             },
+    //             showHead: 'everyPage',
+    //             margin: { top: 50, bottom: 45 },
+    //         });
+
+    //         doc.save(`${warehouseName}_Envanter_Raporu.pdf`);
+    //         showAlert('Envanter PDF dosyası başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //     } catch (error: any) {
+    //         console.error('PDF oluşturulurken hata:', error);
+    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    //     }
+    // };
+
+
+
+
+
+    const applyPdfLayout = (pdfDoc: jsPDF, title: string) => {
+        const pageWidth = pdfDoc.internal.pageSize.getWidth();
+        const pageHeight = pdfDoc.internal.pageSize.getHeight();
+
+        // --- ۱. هدر (لوگو و عنوان) ---
+        try {
+            pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+        } catch (e) {
+            console.error("Logo yüklenemedi", e);
+        }
+
+        pdfDoc.setFont('NotoSans', 'normal');
+        pdfDoc.setFontSize(14);
+        pdfDoc.setTextColor(40);
+        pdfDoc.text(title, pageWidth / 2, 25, { align: 'center' });
+
+        // --- ۲. بخش تاریخ گزارش (با استایل بولد) ---
+        pdfDoc.setFontSize(10);
+
+        // ابتدا کلمه "Rapor Tarihi:" را بولد می‌کنیم
+        pdfDoc.setFont('NotoSans', 'bold');
+        pdfDoc.text('Rapor Tarihi:', 15, 40);
+
+        // حالا برای مقدار تاریخ، فونت را به حالت معمولی برمی‌گردانیم
+        pdfDoc.setFont('NotoSans', 'normal');
+        const dateText = formatDateDisplay(new Date().toISOString());
+        // مقدار را کمی جلوتر از متن قبلی چاپ می‌کنیم (مثلاً در موقعیت x=40)
+        pdfDoc.text(dateText, 40, 40);
+
+        // --- ۳. خط جداکننده هدر ---
+        pdfDoc.setDrawColor(66, 66, 66);
+        pdfDoc.setLineWidth(0.5);
+        pdfDoc.line(15, 45, pageWidth - 15, 45);
+
+        // --- ۴. فوتر (اطلاعات شرکت و شماره صفحه) ---
+        pdfDoc.setFontSize(8);
+        pdfDoc.setTextColor(100);
+        const companyInfo = [
+            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+        ];
+
+        let footerY = pageHeight - 20;
+        companyInfo.forEach(line => {
+            pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
+            footerY += 4;
+        });
+
+        // بخش امضا و شماره صفحه
+        const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+        pdfDoc.setTextColor(40);
+        pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+
+        // متن İmza را هم می‌توانید در صورت تمایل بولد کنید
+        pdfDoc.setFont('NotoSans', 'normal');
+        pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        pdfDoc.setFont('NotoSans', 'normal'); // برگشت به حالت عادی برای بقیه المان‌ها
+
+        pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+    };
+
+    // ۱. دانلود تمام انبارها
     const handleDownloadAllWarehousesPDF = async () => {
         if (!allWarehousesForReport || allWarehousesForReport.length === 0) {
             showAlert('PDF oluşturulacak depo bulunamadı.', 'warning');
             return;
         }
         setOpenAllDownloadModal(false);
-
         const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-            doc.addFileToVFS('Arial.ttf', ArialFont);
-            doc.addFont('Arial.ttf', 'Arial', 'normal');
-            doc.setFont('Arial');
+            doc.setFont('NotoSans');
 
             const rows = allWarehousesForReport.map(wh => [
                 wh.name || '-',
@@ -913,86 +1257,35 @@ const ListWarehouses = () => {
             ]);
 
             autoTable(doc, {
-                startY: 65,
-                head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+                startY: 55,
+                head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Tarih', 'Durum']],
                 body: rows,
                 theme: 'grid',
-                styles: {
-                    font: 'Arial',
-                    fontStyle: 'normal',
-                    fontSize: 8,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: {
-                    fillColor: [242, 242, 242],
-                    textColor: [0, 0, 0],
-                    font: 'Arial',
-                    fontSize: 9,
-                },
-                didDrawPage: () => {
-                    doc.setFont('Arial', 'normal');
-                    doc.setFontSize(14);
-                    doc.text('Tüm Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
-                    doc.setFontSize(10);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`Tarih:`, 15, 25);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-                    doc.setFont('NotoSans', 'normal');
-                    doc.setFontSize(8);
-                    doc.setTextColor(0);
-                    const companyInfo = [
-                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-                    ];
-                    let footerY = pageHeight - 30;
-                    companyInfo.forEach(line => {
-                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-                        footerY += 4;
-                    });
-                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                    const pageCount = (doc as any).internal.getNumberOfPages();
-                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                    doc.setFont('NotoSans', 'normal');
-                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 45 },
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 3 },
+                headStyles: { fillColor: [66, 66, 66], textColor: [255, 255, 255] },
+                didDrawPage: () => applyPdfLayout(doc, 'Tüm Depolar Raporu')
             });
 
-            doc.save('Tüm_Depolar_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+            doc.save('Tum_Depolar_Raporu.pdf');
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
         } catch (error: any) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+            showAlert('Hata: ' + error.message, 'error');
         }
     };
 
-
+    // ۲. دانلود انبارهای فیلتر شده
     const handleDownloadFilteredPDF = async () => {
         if (!filteredAndSortedWarehousesList || filteredAndSortedWarehousesList.length === 0) {
-            showAlert('PDF oluşturulacak filtrelenmiş depo bulunamadı.', 'warning');
+            showAlert('Filtrelenmiş depo bulunamadı.', 'warning');
             return;
         }
         setOpenFilteredDownloadModal(false);
-
         const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-            doc.addFileToVFS('Arial.ttf', ArialFont);
-            doc.addFont('Arial.ttf', 'Arial', 'normal');
-            doc.setFont('Arial');
+            doc.setFont('NotoSans');
 
             const rows = filteredAndSortedWarehousesList.map(wh => [
                 wh.name || '-',
@@ -1004,164 +1297,58 @@ const ListWarehouses = () => {
             ]);
 
             autoTable(doc, {
-                startY: 65,
-                head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Oluşturulma Tarihi', 'Durum']],
+                startY: 55,
+                head: [['İsim', 'Kod', 'Adres', 'Bölge', 'Tarih', 'Durum']],
                 body: rows,
                 theme: 'grid',
-                styles: {
-                    font: 'Arial',
-                    fontStyle: 'normal',
-                    fontSize: 8,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: {
-                    fillColor: [242, 242, 242],
-                    textColor: [0, 0, 0],
-                    font: 'Arial',
-                    fontSize: 9,
-                },
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8 },
+                headStyles: { fillColor: [66, 66, 66] },
                 didDrawPage: () => {
-                    doc.setFont('Arial', 'normal');
-                    doc.setFontSize(14);
-                    doc.text('Filtrelenmiş Depolar Raporu', pageWidth / 2, 15, { align: 'center' });
-                    doc.setFontSize(10);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`Tarih:`, 15, 25);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-                    let filterInfo = '';
-                    if (searchTerm) filterInfo += `Arama: ${searchTerm} | `;
-                    if (statusFilter !== 'all') filterInfo += `Durum: ${statusFilter === 'active' ? 'Aktif' : 'Pasif'} | `;
-                    if (startDate || endDate) {
-                        const startStr = startDate ? format(startDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
-                        const endStr = endDate ? format(endDate, 'dd.MM.yyyy') : formatDateDisplay(new Date().toISOString());
-                        filterInfo += `Tarih Aralığı: ${startStr} - ${endStr}`;
-                    }
-                    if (filterInfo) {
-                        doc.setFont('Arial', 'normal');
-                        doc.setFontSize(9);
-                        doc.text(filterInfo, pageWidth / 2, 47, { align: 'center' });
-                    }
-
-                    doc.setFont('NotoSans', 'normal');
+                    applyPdfLayout(doc, 'Filtrelenmiş Depolar Raporu');
+                    // نمایش اطلاعات فیلتر در صورت نیاز زیر خط هدر
                     doc.setFontSize(8);
-                    doc.setTextColor(0);
-                    const companyInfo = [
-                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-                    ];
-                    let footerY = pageHeight - 30;
-                    companyInfo.forEach(line => {
-                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-                        footerY += 4;
-                    });
-                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                    const pageCount = (doc as any).internal.getNumberOfPages();
-                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                    doc.setFont('NotoSans', 'normal');
-                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 45 },
+                    doc.text(`Filtre: ${searchTerm || 'Yok'} | Durum: ${statusFilter}`, 15, 52);
+                }
             });
+
             doc.save('Filtrelenmis_Depolar_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (error: any) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+            showAlert('Hata: ' + error.message, 'error');
         }
     };
 
-
+    // ۳. دانلود بالانس انبار (Inventory)
     const handleDownloadBalancePDF = async (warehouseName: string, balanceData: any[]) => {
         if (!balanceData || balanceData.length === 0) {
-            showAlert('PDF oluşturulacak envanter bulunamadı.', 'warning');
+            showAlert('Envanter bulunamadı.', 'warning');
             return;
         }
-
         const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
 
         try {
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-            doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
-            doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-            doc.addFileToVFS('Arial.ttf', ArialFont);
-            doc.addFont('Arial.ttf', 'Arial', 'normal');
-            doc.setFont('Arial');
+            doc.setFont('NotoSans');
 
-            const rows = balanceData.map(item => [
-                item.name,
-                item.balance,
-            ]);
+            const rows = balanceData.map(item => [item.name, item.balance]);
 
             autoTable(doc, {
-                startY: 65,
+                startY: 55,
                 head: [['Ürün Adı', 'Miktar']],
                 body: rows,
                 theme: 'grid',
-                styles: {
-                    font: 'Arial',
-                    fontStyle: 'normal',
-                    fontSize: 8,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
-                },
-                headStyles: {
-                    fillColor: [242, 242, 242],
-                    textColor: [0, 0, 0],
-                    font: 'Arial',
-                    fontSize: 9,
-                },
-                didDrawPage: () => {
-                    doc.setFont('Arial', 'normal');
-                    doc.setFontSize(14);
-                    doc.text(`${warehouseName} Envanter Raporu`, pageWidth / 2, 15, { align: 'center' });
-                    doc.setFontSize(10);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`Tarih:`, 15, 25);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-                    doc.setFont('NotoSans', 'normal');
-                    doc.setFontSize(8);
-                    doc.setTextColor(0);
-                    const companyInfo = [
-                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-                    ];
-                    let footerY = pageHeight - 30;
-                    companyInfo.forEach(line => {
-                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-                        footerY += 4;
-                    });
-                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                    const pageCount = (doc as any).internal.getNumberOfPages();
-                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                    doc.setFont('NotoSans', 'normal');
-                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 45 },
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9 },
+                headStyles: { fillColor: [66, 66, 66] },
+                columnStyles: { 1: { halign: 'left' } }, // مرکزچین کردن ستون مقدار
+                didDrawPage: () => applyPdfLayout(doc, `${warehouseName} Envanter Raporu`)
             });
 
-            doc.save(`${warehouseName}_Envanter_Raporu.pdf`);
-            showAlert('Envanter PDF dosyası başarıyla oluşturuldu ve indiriliyor.', 'success');
+            doc.save(`${warehouseName}_Envanter.pdf`);
         } catch (error: any) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+            showAlert('Hata: ' + error.message, 'error');
         }
     };
+
 
     const handleExportExcel = async (dataToExport: WarehouseType[], isFiltered: boolean) => {
         setOpenAllDownloadModal(false);

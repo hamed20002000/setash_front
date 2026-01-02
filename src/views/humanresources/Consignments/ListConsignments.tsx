@@ -952,13 +952,13 @@ const ListConsignments: React.FC = () => {
         debugger
 
         if (typeNum === 0) {
-            name = warehousesList.find(w => w.id === placeIdNum)?.name || 'Depo (Bilinmiyor)';
+            name = warehousesList.find(w => w.id === placeIdNum)?.name || 'Depo   ';
         } else if (typeNum === 1) {
-            name = workhousesList.find(w => w.id === placeIdNum)?.name || 'Şantiye (Bilinmiyor)';
+            name = workhousesList.find(w => w.id === placeIdNum)?.name || 'Şantiye   ';
         } else if (typeNum === 2) {
             name = storesList.find(s => s.id === placeIdNum)?.name || `Şantiye Deposu (${placeIdNum})`;
         } else if (typeNum === 3) {
-            name = carWarehousesList.find(w => w.id === placeIdNum)?.name || 'Filo (Bilinmiyor)';
+            name = carWarehousesList.find(w => w.id === placeIdNum)?.name || 'Filo   ';
         } else if (typeNum === 4) {
             name = 'Merkez';
         }
@@ -1314,27 +1314,42 @@ const ListConsignments: React.FC = () => {
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: 'NotoSans', fontSize: 9 },
-            didDrawPage: (data: any) => {
+            didDrawPage: (_data: any) => {
+                try {
+                    docAny.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+                } catch (e) {
+                    console.error("Logo yüklenemedi", e);
+                }
                 docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(14);
                 docAny.text(title, pageWidth / 2, 15, { align: 'center' });
-                docAny.setFontSize(10); docAny.setFont('NotoSans', 'normal');
-                docAny.text(`Rapor Tarih:`, 15, 25);
+
+                docAny.setFontSize(10);
+                docAny.setFont('NotoSans', 'bold');
+                docAny.text(`Rapor Tarihi:`, 15, 40);
                 docAny.setFont('NotoSans', 'normal');
-                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 35, 25);
-                docAny.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+                docAny.setLineWidth(0.5);
+                docAny.line(15, 48, pageWidth - 15, 48);
 
                 docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(8); docAny.setTextColor(0);
                 const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
-                let footerY = pageHeight - 30;
-                companyInfo.forEach(line => { docAny.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
-                const pageNumber = data.pageNumber;
-                const pageCount = docAny.internal.getNumberOfPages();
+                let footerY = pageHeight - 20;
+                companyInfo.forEach(line => {
+                    docAny.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+
+                docAny.setTextColor(0);
+                docAny.setFontSize(10);
+                docAny.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                docAny.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (docAny as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (docAny as any).internal.getNumberOfPages();
                 docAny.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
             },
-            startY: 50, showHead: 'everyPage', margin: { top: 40, bottom: 45, left: 10, right: 10 }
+            startY: 55, showHead: 'everyPage', margin: { top: 40, bottom: 45, left: 10, right: 10 }
         });
 
         const fileName = isFiltered ? `Filtrelenmis_Ambarkaytlari_Raporu_${format(new Date(), 'yyyyMMdd')}.pdf` : `Tum_Ambarkaytlari_Raporu_${format(new Date(), 'yyyyMMdd')}.pdf`;
@@ -2029,7 +2044,7 @@ const ListConsignments: React.FC = () => {
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
                                                         }}>
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 )}
@@ -2043,7 +2058,7 @@ const ListConsignments: React.FC = () => {
                                                             style={{ fontSize: "10px", padding: "2px 5px" }}
                                                             onClick={() => handleOpenDescriptionModal(row.description)}
                                                         >
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (

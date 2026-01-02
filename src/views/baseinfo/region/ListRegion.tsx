@@ -60,7 +60,7 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
-import { ArialFont } from 'src/assets/fonts/Arial';
+// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -768,6 +768,96 @@ const ListRegion = () => {
         return rows;
     };
 
+    // const handleDownloadAllRegionsPDF = () => {
+    //     if (!rawApiRegions || rawApiRegions.length === 0) {
+    //         showAlert('PDF oluşturulacak bölge bulunamadı.', 'warning');
+    //         return;
+    //     }
+
+    //     const doc = new jsPDF();
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     const pageHeight = doc.internal.pageSize.getHeight();
+
+    //     try {
+    //         // Add fonts
+    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+    //         doc.addFileToVFS('Arial.ttf', ArialFont);
+    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
+    //         doc.setFont('Arial');
+
+    //         const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
+
+    //         autoTable(doc, {
+    //             startY: 65,
+    //             head: [['Bölge Adı', 'Oluşturulma Tarihi', 'Durum']],
+    //             body: rows,
+    //             theme: 'grid',
+    //             styles: {
+    //                 font: 'Arial',
+    //                 fontStyle: 'normal',
+    //                 fontSize: 8,
+    //                 cellPadding: 2,
+    //                 overflow: 'linebreak'
+    //             },
+    //             headStyles: {
+    //                 fillColor: [242, 242, 242],
+    //                 textColor: [0, 0, 0],
+    //                 font: 'Arial',
+    //                 fontSize: 9,
+    //             },
+    //             didDrawPage: () => {
+    //                 // --- Header Section ---
+    //                 doc.setFont('Arial', 'bold');
+    //                 doc.setFontSize(14);
+    //                 doc.text('Tüm Bölgeler Raporu', pageWidth / 2, 15, { align: 'center' });
+    //                 doc.setFontSize(10);
+    //                 doc.setFont('Times', 'bold');
+    //                 doc.text(`Tarih:`, 15, 25);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+    //                 // --- Footer Section ---
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.setFontSize(8);
+    //                 doc.setTextColor(0);
+    //                 const companyInfo = [
+    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    //                 ];
+    //                 let footerY = pageHeight - 30;
+    //                 companyInfo.forEach(line => {
+    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+    //                     footerY += 4;
+    //                 });
+    //                 const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    //                 const pageCount = (doc as any).internal.getNumberOfPages();
+    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    //             },
+    //             showHead: 'everyPage',
+    //             margin: { top: 50, bottom: 45 },
+    //         });
+
+    //         doc.save('Tüm_Bölgeler_Raporu.pdf');
+    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //     } catch (error: any) {
+    //         console.error('PDF oluşturulurken hata:', error);
+    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    //     }
+    // };
+
+
+
+    // New Excel Download Function
+
+
     const handleDownloadAllRegionsPDF = () => {
         if (!rawApiRegions || rawApiRegions.length === 0) {
             showAlert('PDF oluşturulacak bölge bulunamadı.', 'warning');
@@ -777,83 +867,112 @@ const ListRegion = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
+        const reportTitle = 'Tüm Bölgeler Raporu';
 
         try {
-            // Add fonts
+            // ۱. اضافه کردن فونت‌ها
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
             doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-            doc.addFileToVFS('Arial.ttf', ArialFont);
-            doc.addFont('Arial.ttf', 'Arial', 'normal');
-            doc.setFont('Arial');
+            doc.setFont('NotoSans');
 
+            // ۲. تابع هدر (لوگو راست، عنوان وسط، خط جداکننده)
+            const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
+                try {
+                    pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+                } catch (e) {
+                    console.error("Logo yüklenemedi", e);
+                }
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.setFontSize(14);
+                pdfDoc.setTextColor(0);
+                pdfDoc.text(title, pageWidth / 2, 25, { align: 'center' });
+
+                pdfDoc.setFontSize(10);
+                pdfDoc.setFont('NotoSans', 'bold');
+                pdfDoc.text(`Rapor Tarihi:`, 15, 40);
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+                // خط جداکننده خاکستری
+                // pdfDoc.setDrawColor(200, 200, 200);
+                pdfDoc.setLineWidth(0.5);
+                pdfDoc.line(15, 45, pageWidth - 15, 45);
+            };
+
+            // ۳. تابع فوتر (مشخصات شرکت SETAŞ)
+            const addPdfFooter = (pdfDoc: jsPDF) => {
+                pdfDoc.setFontSize(8);
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.setTextColor(100);
+
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+                    'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+                ];
+
+                let footerY = pageHeight - 20;
+                companyInfo.forEach(line => {
+                    pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+
+                // امضا و شماره صفحه
+                pdfDoc.setTextColor(0);
+                pdfDoc.setFontSize(10);
+                pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+                pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+            };
+
+            // ۴. آماده‌سازی ردیف‌ها (فلت کردن ساختار درختی مناطق)
             const rows = flattenAndPrepareRegionsForPdf(rawApiRegions);
 
+            // ۵. رسم جدول با استایل یکپارچه [66, 66, 66]
             autoTable(doc, {
-                startY: 65,
+                startY: 55,
                 head: [['Bölge Adı', 'Oluşturulma Tarihi', 'Durum']],
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'Arial',
-                    fontStyle: 'normal',
-                    fontSize: 8,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
+                    font: 'NotoSans',
+                    fontSize: 9,
+                    cellPadding: 3,
+                    valign: 'middle'
                 },
                 headStyles: {
-                    fillColor: [242, 242, 242],
-                    textColor: [0, 0, 0],
-                    font: 'Arial',
-                    fontSize: 9,
+                    fillColor: [66, 66, 66], // رنگ خاکستری تیره استاندارد پروژه شما
+                    textColor: [255, 255, 255],
+                    fontStyle: 'normal',
+                    halign: 'left'
                 },
+                columnStyles: {
+                    0: { cellWidth: 'auto' }, // Region Name (Breadcrumb style)
+                    1: { halign: 'left', cellWidth: 45 }, // Date
+                    2: { halign: 'left', cellWidth: 35 }  // Status
+                },
+                margin: { top: 55, bottom: 30 },
                 didDrawPage: () => {
-                    // --- Header Section ---
-                    doc.setFont('Arial', 'bold');
-                    doc.setFontSize(14);
-                    doc.text('Tüm Bölgeler Raporu', pageWidth / 2, 15, { align: 'center' });
-                    doc.setFontSize(10);
-                    doc.setFont('Times', 'bold');
-                    doc.text(`Tarih:`, 15, 25);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-                    // --- Footer Section ---
-                    doc.setFont('NotoSans', 'normal');
-                    doc.setFontSize(8);
-                    doc.setTextColor(0);
-                    const companyInfo = [
-                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-                    ];
-                    let footerY = pageHeight - 30;
-                    companyInfo.forEach(line => {
-                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-                        footerY += 4;
-                    });
-                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                    const pageCount = (doc as any).internal.getNumberOfPages();
-                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                    doc.setFont('NotoSans', 'normal');
-                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 45 },
+                    addPdfHeader(doc, reportTitle);
+                    addPdfFooter(doc);
+                }
             });
 
-            doc.save('Tüm_Bölgeler_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+            doc.save(`Tum_Bolgeler_Raporu.pdf`);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
         } catch (error: any) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+            console.error('PDF error:', error);
+            showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
         }
     };
 
-    // New Excel Download Function
+
+
     const handleExportExcel = async () => {
         setOpenDownloadModal(false);
         if (!rawApiRegions || rawApiRegions.length === 0) {

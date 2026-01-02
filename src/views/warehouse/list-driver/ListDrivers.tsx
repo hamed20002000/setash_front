@@ -680,11 +680,15 @@ const ListDrivers = () => {
             const title = isFiltered ? 'Filtrelenmiş Şoförler Raporu' : 'Tüm Şoförler Raporu';
             doc.text(title, pageWidth / 2, 15, { align: 'center' });
             doc.setFontSize(10);
-            doc.setFont('Times', 'normal');
-            doc.text(`Rapor Tarih:`, 15, 25);
-            doc.setFont('Times', 'normal');
-            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
-            doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+            doc.setFont('NotoSans', 'bold');
+            doc.text(`Rapor Tarihi:`, 15, 40);
+            doc.setFont('NotoSans', 'normal');
+            doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+            doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+            doc.setLineWidth(0.5);
+            doc.line(15, 45, pageWidth - 15, 45);
 
             if (isFiltered) {
                 let filterInfo = '';
@@ -703,26 +707,31 @@ const ListDrivers = () => {
             }
         };
 
-        const footer = () => {
-            doc.setFont('NotoSans', 'normal');
-            doc.setFontSize(8);
-            doc.setTextColor(0);
+        const footer = (pdfDoc: jsPDF) => {
+            pdfDoc.setFontSize(8);
+            pdfDoc.setFont('NotoSans', 'normal');
+            pdfDoc.setTextColor(100);
+
             const companyInfo = [
-                'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+                'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
             ];
-            let footerY = pageHeight - 30;
+
+            let footerY = pageHeight - 20;
             companyInfo.forEach(line => {
-                doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
                 footerY += 4;
             });
-            const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-            const pageCount = (doc as any).internal.getNumberOfPages();
-            doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-            doc.setFont('NotoSans', 'normal');
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+            pdfDoc.setTextColor(0);
+            pdfDoc.setFontSize(10);
+            pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+            pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+            const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+            const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+            pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         };
 
         const rows = data.map(driver => [
@@ -735,7 +744,7 @@ const ListDrivers = () => {
         ]);
 
         autoTable(doc, {
-            startY: isFiltered ? 55 : 45,
+            startY: isFiltered ? 55 : 50,
             head: [['Adı Soyadı', 'Doğum Tarihi', 'Baba Adı', 'TC Kimlik No', 'Sürücü Tipi', 'Durum']],
             body: rows,
             theme: 'grid',
@@ -754,7 +763,7 @@ const ListDrivers = () => {
             },
             didDrawPage: () => {
                 header();
-                footer();
+                footer(doc);
             },
             showHead: 'everyPage',
             margin: { top: 50, bottom: 45 },
@@ -974,12 +983,23 @@ const ListDrivers = () => {
                 doc.setFontSize(14);
                 const title = isFiltered ? 'Filtrelenmiş Araçlı Şoförler Raporu' : 'Araçlı Şoförler Raporu';
                 doc.text(title, pageWidth / 2, 15, { align: 'center' });
+
+                // doc.setFontSize(10);
+                // doc.setFont('Times', 'normal');
+                // doc.text(`Rapor Tarih:`, 15, 25);
+                // doc.setFont('Times', 'normal');
+                // doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
+
                 doc.setFontSize(10);
-                doc.setFont('Times', 'normal');
-                doc.text(`Rapor Tarih:`, 15, 25);
-                doc.setFont('Times', 'normal');
-                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
-                doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+                doc.setFont('NotoSans', 'bold');
+                doc.text(`Rapor Tarihi:`, 15, 40);
+                doc.setFont('NotoSans', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+                doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+                doc.setLineWidth(0.5);
+                doc.line(15, 45, pageWidth - 15, 45);
 
                 if (isFiltered) {
                     let filterInfo = '';
@@ -997,27 +1017,33 @@ const ListDrivers = () => {
                     }
                 }
             };
-            const footer = () => {
-                doc.setFont('NotoSans', 'normal');
-                doc.setFontSize(8);
-                doc.setTextColor(0);
+            const footer = (pdfDoc: jsPDF) => {
+                pdfDoc.setFontSize(8);
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.setTextColor(100);
+
                 const companyInfo = [
-                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+                    'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
                 ];
-                let footerY = pageHeight - 30;
+
+                let footerY = pageHeight - 20;
                 companyInfo.forEach(line => {
-                    doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
                     footerY += 4;
                 });
-                const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                const pageCount = (doc as any).internal.getNumberOfPages();
-                doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                doc.setFont('NotoSans', 'normal');
-                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+                pdfDoc.setTextColor(0);
+                pdfDoc.setFontSize(10);
+                pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+                pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
+
 
             const tableBody: (string[] | { content: string; colSpan: number; styles: object }[])[] = [];
 
@@ -1062,7 +1088,7 @@ const ListDrivers = () => {
                 headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
                 didDrawPage: (_data) => {
                     header();
-                    footer();
+                    footer(doc);
                 },
                 showHead: 'everyPage',
                 margin: { top: 50, bottom: 20 }
@@ -1281,33 +1307,42 @@ const ListDrivers = () => {
                 doc.setFontSize(14);
                 doc.text('Sürücü Detay Raporu', pageWidth / 2, 15, { align: 'center' });
                 doc.setFontSize(10);
-                doc.setFont('Times', 'normal');
-                doc.text(`Rapor Tarih:`, 15, 25);
-                doc.setFont('Times', 'normal');
-                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 25);
-                doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+                doc.setFont('NotoSans', 'bold');
+                doc.text(`Rapor Tarihi:`, 15, 40);
+                doc.setFont('NotoSans', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+                doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+                doc.setLineWidth(0.5);
+                doc.line(15, 45, pageWidth - 15, 45);
             };
 
-            const footer = () => {
-                doc.setFont('NotoSans', 'normal');
-                doc.setFontSize(8);
-                doc.setTextColor(0);
+            const footer = (pdfDoc: jsPDF) => {
+                pdfDoc.setFontSize(8);
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.setTextColor(100);
+
                 const companyInfo = [
-                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                    'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+                    'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
                 ];
-                let footerY = pageHeight - 30;
+
+                let footerY = pageHeight - 20;
                 companyInfo.forEach(line => {
-                    doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
                     footerY += 4;
                 });
-                const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                const pageCount = (doc as any).internal.getNumberOfPages();
-                doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                doc.setFont('NotoSans', 'normal');
-                doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+                pdfDoc.setTextColor(0);
+                pdfDoc.setFontSize(10);
+                pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+                pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
             };
 
             header();
@@ -1357,7 +1392,7 @@ const ListDrivers = () => {
                     headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0] },
                     didDrawPage: (_data) => {
                         header();
-                        footer();
+                        footer(doc);
                     },
                     showHead: 'everyPage',
                     margin: { top: 50, bottom: 45 },
@@ -1366,7 +1401,7 @@ const ListDrivers = () => {
                 doc.text('Bu sürücüye ait araç bilgisi bulunamadı.', 15, currentY + 10);
             }
 
-            footer();
+            footer(doc);
             doc.save(`Sürücü_Detay_${driver.id}.pdf`);
             showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
         } catch (e: any) {

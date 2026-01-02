@@ -407,55 +407,69 @@ const ExcelImportComponent = () => {
         return doc.body.textContent || "";
     };
 
-    // ------------------ New Export Functions ------------------
+
     const addPdfHeader = (doc: jsPDF, title: string) => {
         const pageWidth = doc.internal.pageSize.getWidth();
-        const logoWidth = 50; // عرض لوگو
-        const logoHeight = 25; // ارتفاع لوگو
-        const margin = 10; // حاشیه از سمت راست
-        const topMargin = 20;
-        const logoX = pageWidth - logoWidth - margin; // محاسبه موقعیت افقی جدید
+        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoHeight = 18;
+        const margin = 15;
+        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
 
-        // لوگو را در موقعیت جدید قرار دهید
-        doc.addImage(Logo, 'PNG', logoX, topMargin, logoWidth, logoHeight);
+        try {
+            doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+        } catch (e) {
+            console.error("Logo yüklenemedi", e);
+        }
 
-        doc.setFont('Arial', 'bold');
+        doc.setFont('NotoSans', 'normal');
         doc.setFontSize(14);
-        doc.text(title, pageWidth / 2, 15, { align: 'center' });
-        doc.setFontSize(10);
-        doc.setFont('Arial', 'bold');
-        doc.text(`Tarih:`, 15, 25);
-        doc.setFont('Arial', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-    };
+        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
 
+        doc.setFontSize(10);
+        doc.setFont('NotoSans', 'bold');
+        doc.text(`Rapor Tarihi:`, 15, 40);
+        doc.setFont('NotoSans', 'normal');
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+        // doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(15, 45, pageWidth - 15, 45);
+    };
 
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
         doc.setFontSize(8);
-        doc.setFont('Arial', 'normal');
+        doc.setFont('NotoSans', 'normal');
+        doc.setTextColor(100);
+
         const companyInfo = [
             'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
-        let footerY = pageHeight - 30;
+
+        let footerY = pageHeight - 20;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
             footerY += 4;
         });
 
+        doc.setTextColor(0);
         doc.setFontSize(10);
-        doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-        doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-        const docAny = doc as any;
-        const pageCount = docAny.internal.getNumberOfPages();
-        doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+        doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+        const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
 
+
     const exportToPdf = (orderData: OrderType) => {
+        debugger
         const doc = new jsPDF();
         // بارگذاری فونت‌ها
         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
@@ -477,7 +491,7 @@ const ExcelImportComponent = () => {
 
         // رسم جدول اصلی
         autoTable(doc, {
-            startY: 90,
+            startY: 105,
             head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
             body: rows,
             theme: 'grid',
@@ -488,12 +502,12 @@ const ExcelImportComponent = () => {
                     addPdfHeader(doc, `Sipariş Detayları`);
                     doc.setFont('Arial');
                     doc.setFontSize(10);
-                    doc.text(`Sipariş No: ${orderData.id}`, 15, 47);
-                    doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 54);
-                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 61); // تغییر Y coordinate بقیه
-                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 68); // Y += 7
-                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 75); // Y += 7
-                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 82);
+                    doc.text(`Sipariş No: ${orderData.id}`, 15, 54);
+                    doc.text(`Şebeke: ${orderData.network ? orderData.network.title : '-'}`, 15, 60);
+                    doc.text(`Şantiye: ${orderData.workhouse ? orderData.workhouse.name : '-'}`, 15, 67); // تغییر Y coordinate بقیه
+                    doc.text(`Tarih: ${formatDateDisplay(orderData.docDate)}`, 15, 75); // Y += 7
+                    doc.text(`İlişkili Talep No: ${orderData.request ? '#' + orderData.request.id + orderData.request.subject : '-'}`, 15, 82); // Y += 7
+                    doc.text(`Genel Açıklama: ${orderData.description || '-'}`, 15, 90);
                 }
                 addPdfFooter(doc);
             },
@@ -555,6 +569,7 @@ const ExcelImportComponent = () => {
         doc.save(`Sipariş_${orderData.id}_Detayları.pdf`);
     };
 
+
     const exportDetailedPdf = (filtered: boolean) => {
         const dataToExport = filtered ? sortedAndFilteredOrders : ordersList;
         if (dataToExport.length === 0) {
@@ -577,12 +592,12 @@ const ExcelImportComponent = () => {
             const title = filtered ? 'Filtrelenmiş Sipariş Raporu' : 'Tüm Siparişler Raporu';
             addPdfHeader(doc, title);
             doc.setFontSize(10);
-            doc.text(`Sipariş No: ${order.id}`, 15, 47);
-            doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 54);
-            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 61); // تغییر Y coordinate بقیه
-            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 68); // Y += 7
-            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 75); // Y += 7
-            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 82);
+            doc.text(`Sipariş No: ${order.id}`, 15, 54);
+            doc.text(`Şebeke: ${order.network ? order.network.title : '-'}`, 15, 60);
+            doc.text(`Şantiye: ${order.workhouse ? order.workhouse.name : '-'}`, 15, 66); // تغییر Y coordinate بقیه
+            doc.text(`Tarih: ${formatDateDisplay(order.docDate)}`, 15, 75); // Y += 7
+            doc.text(`İlişkili Talep No: ${order.request ? '#' + order.request.id + order.request.subject : '-'}`, 15, 82); // Y += 7
+            doc.text(`Genel Açıklama: ${order.description || '-'}`, 15, 90);
 
             const rows = order.orderDetails.map(detail => [
                 detail.item.name || '-',
@@ -593,7 +608,7 @@ const ExcelImportComponent = () => {
             ]);
 
             autoTable(doc, {
-                startY: 85,
+                startY: 105,
                 head: [['Ürün Adı', 'Miktar', 'Birim', 'Açıklama', 'Fiyat']],
                 body: rows,
                 theme: 'grid',
@@ -661,6 +676,7 @@ const ExcelImportComponent = () => {
         setOpenDownloadAllModal(false);
         setOpenDownloadFilteredModal(false);
     };
+
 
     const addExcelCompanyInfo = (worksheet: Excel.Worksheet, startRow: number) => {
         const companyInfo = [
@@ -1292,7 +1308,10 @@ const ExcelImportComponent = () => {
     const handleOpenModal = (details: OrderDetailType[]) => { setModalDetails(details); setOpenModal(true); };
     const handleCloseModal = () => { setOpenModal(false); };
     const handleClickMenu = (event: React.MouseEvent<HTMLButtonElement>, row: OrderType) => { setAnchorEl(event.currentTarget); setSelectedOrderForMenu(row); };
-    const handleCloseMenu = () => { setAnchorEl(null); setSelectedOrderForMenu(null); };
+    const handleCloseMenu = () => {
+        setAnchorEl(null);
+        // setSelectedOrderForMenu(null); 
+    };
     // const handleAction = async (action: 'approve' | 'reject' | 'edit' | 'delete') => { alert(`Sipariş #${selectedOrderForMenu?.id} için "${action}" işlemi yapıldı.`); handleCloseMenu(); };
 
     const onDeleteSuccess = () => { getListOrders(); };

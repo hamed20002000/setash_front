@@ -360,7 +360,8 @@ const ListPersonnelConsigneds: React.FC = () => {
             });
             if (res.data.httpStatusCode === 200) {
                 const list: PersonnelType[] = (res.data?.data ?? [])
-                    .filter((p: any) => p.hasISG === true && (!p.workEndDate || p.workEndDate === null))
+                    // .filter((p: any) => p.hasISG === true && (!p.workEndDate || p.workEndDate === null))
+                    .filter((p: any) => (!p.workEndDate || p.workEndDate === null))
                     .map((x: any) => ({
                         id: Number(x.id),
                         name: x.name,
@@ -826,29 +827,45 @@ const ListPersonnelConsigneds: React.FC = () => {
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: 'NotoSans', fontSize: 9 },
-            didDrawPage: (data: any) => {
+            didDrawPage: (_data: any) => {
                 // --- Header Logic ---
+                try {
+                    docAny.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+                } catch (e) {
+                    console.error("Logo yüklenemedi", e);
+                }
                 docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(14);
                 docAny.text(title, pageWidth / 2, 15, { align: 'center' });
-                docAny.setFontSize(10); docAny.setFont('NotoSans', 'normal');
-                docAny.text(`Rapor Tarih:`, 15, 25);
+
+                docAny.setFontSize(10);
+                docAny.setFont('NotoSans', 'bold');
+                docAny.text(`Rapor Tarihi:`, 15, 40);
                 docAny.setFont('NotoSans', 'normal');
-                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 35, 25);
-                docAny.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25); // If you have Logo imported
+                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+
+                docAny.setLineWidth(0.5);
+                docAny.line(15, 48, pageWidth - 15, 48);
 
                 // --- Footer Logic (Company Info & Page Numbers) ---
                 docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(8); docAny.setTextColor(0);
                 const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
-                let footerY = pageHeight - 30;
-                companyInfo.forEach(line => { docAny.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
-                const pageNumber = data.pageNumber;
-                const pageCount = docAny.internal.getNumberOfPages();
+                let footerY = pageHeight - 20;
+                companyInfo.forEach(line => {
+                    docAny.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+
+                docAny.setTextColor(0);
+                docAny.setFontSize(10);
+                docAny.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                docAny.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (docAny as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (docAny as any).internal.getNumberOfPages();
                 docAny.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
             },
-            startY: 50, showHead: 'everyPage', margin: { top: 40, bottom: 45, left: 10, right: 10 }
+            startY: 55, showHead: 'everyPage', margin: { top: 40, bottom: 45, left: 10, right: 10 }
         });
 
         const fileName = isFiltered ? `Filtrelenmis_ZimmetRaporu_${format(new Date(), 'yyyyMMdd')}.pdf` : `Tum_ZimmetRaporu_${format(new Date(), 'yyyyMMdd')}.pdf`;
@@ -949,7 +966,8 @@ const ListPersonnelConsigneds: React.FC = () => {
     const createPostSubmissionReportPdf = (record: PersonnelConsigned, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
         const title = record.returnDate ? "ZİMMET TESLİM ALMA BELGESİ" : "ZİMMET VERİLİŞ BELGESİ";
 
-        const doc = new jsPDF("p", "pt", "a4");
+        // @ts-ignore
+        const doc = new jsPDF("p", "pt", "a4"); // حفظ حالت pt و a4 کد اصلی خودت
         const docAny = doc as any;
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -958,30 +976,18 @@ const ListPersonnelConsigneds: React.FC = () => {
             docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.setFont('NotoSans');
-        } catch (e) {
-            showAlert('PDF font hatası!', 'error');
-            return;
-        }
+        } catch (e) { }
 
         const sideMargin = 40;
         let finalY = 80;
 
-        // Header logic 
-        docAny.addImage(Logo, 'PNG', doc.internal.pageSize.getWidth() - 85, 5, 75, 35);
-        doc.setFontSize(14);
-        doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
-        doc.setFontSize(10);
-        doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, 25);
-
-        // --- Text Details ---
+        // --- چاپ متن‌های اصلی (بدون هیچ تغییری) ---
         doc.setFontSize(12);
-
         doc.text(`Personel: ${record.personnelName}`, sideMargin, finalY);
         finalY += 16;
         doc.text(`Mal Kaydı: ${record.consignmentNameWithCode}`, sideMargin, finalY);
         finalY += 25;
 
-        // --- Table Details ---
         doc.setFontSize(14);
         doc.text("İşlem Detayları", sideMargin, finalY);
         finalY += 10;
@@ -993,35 +999,62 @@ const ListPersonnelConsigneds: React.FC = () => {
             ["Açıklama", record.description || "-"],
         ];
 
-        autoTable((docAny), {
+        autoTable(docAny, {
             startY: finalY,
             head: [["Alan", "Değer"]],
             body: detailBody,
             theme: "grid",
             styles: { font: "NotoSans", fontStyle: "normal", fontSize: 10, cellPadding: 5, overflow: 'linebreak' },
             headStyles: { fillColor: record.returnDate ? [255, 200, 200] : [200, 255, 200], textColor: [0, 0, 0] },
-            didDrawPage: (data: any) => {
-                docAny.setFont('NotoSans', 'normal'); docAny.setFontSize(8); docAny.setTextColor(0);
-                const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
+
+            // 🔹 هدر و فوتر دقیقاً مطابق ساختار exportToPdf 🔹
+            didDrawPage: (_data: any) => {
+                // --- Header ---
+                try {
+                    docAny.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+                } catch (e) { }
+
+                docAny.setFont('NotoSans', 'normal');
+                docAny.setFontSize(14);
+                docAny.text(title, pageWidth / 2, 15, { align: 'center' });
+
+                docAny.setFontSize(10);
+                docAny.setFont('NotoSans', 'bold');
+                docAny.text(`Rapor Tarihi:`, 15, 40);
+                docAny.setFont('NotoSans', 'normal');
+                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 40);
+
+                docAny.setLineWidth(0.5);
+                docAny.line(15, 52, pageWidth - 15, 52);
+
+                // --- Footer ---
+                docAny.setFont('NotoSans', 'normal');
+                docAny.setFontSize(8);
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+                    'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+                ];
                 let footerY = pageHeight - 40;
-                companyInfo.forEach(line => { docAny.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 10; });
-                const pageNumber = data.pageNumber;
+                companyInfo.forEach(line => {
+                    docAny.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 10;
+                });
+
+                docAny.setFontSize(10);
+                docAny.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                docAny.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
                 const pageCount = docAny.internal.getNumberOfPages();
                 docAny.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                docAny.line(pageWidth - 65, pageHeight - 25, pageWidth - 15, pageHeight - 25);
-            }, showHead: 'everyPage',
-            margin: { top: 40, bottom: 60, left: 10, right: 10 }
-
+            },
+            margin: { top: 60, bottom: 45, left: 10, right: 10 }
         });
 
+        // --- بخش امضا (دقیقاً کد خودت بدون تغییر) ---
         finalY = (docAny.lastAutoTable.finalY || finalY) + 30;
-
-        // --- Signatures ---
         doc.setFontSize(10);
-
         doc.text("Personel İmzası:", sideMargin, finalY);
         doc.line(sideMargin + 100, finalY, sideMargin + 250, finalY);
 
@@ -1378,7 +1411,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                     <Grid container spacing={2} alignItems="center">
                         {/* Filters */}
                         <Grid item xs={12} sm={6} md={3}>
-                            <TextField label="Ara (Personel / Ambar / Açıklama)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
+                            <TextField label="Ara (Personel  / Açıklama)" variant="outlined" fullWidth value={searchTerm} onChange={handleSearchChange} InputProps={{ startAdornment: (<InputAdornment position="start"><IconSearch size={20} /></InputAdornment>) }} />
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
                             <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -1449,7 +1482,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
                                                         }}>
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 )}
@@ -1463,7 +1496,7 @@ const ListPersonnelConsigneds: React.FC = () => {
                                                             style={{ fontSize: "10px", padding: "2px 5px" }}
                                                             onClick={() => handleOpenDescriptionModal(row.description)}
                                                         >
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (

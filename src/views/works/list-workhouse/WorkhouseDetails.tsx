@@ -987,7 +987,7 @@ const WorkhouseDetails = () => {
                                                         sx={{ fontSize: "10px", padding: "2px 5px" }}
                                                         onClick={() => handleOpenDescriptionModal(entry.description)}
                                                     >
-                                                        Devamını Oku
+                                                        Açıklamanı Oku
                                                     </Button>
                                                 </CustomTooltip>
                                             )}

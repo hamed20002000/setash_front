@@ -209,48 +209,107 @@ const BlinkingButton = styled(Button)<{ isBlinking: boolean }>(({ isBlinking }) 
     transition: 'transform 0.3s ease-in-out',
 }));
 
+// const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
+//     const pageWidth = doc.internal.pageSize.getWidth();
+//     const docAny = doc as any;
+//     docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+//     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+//     doc.setFont('NotoSans');
+
+//     docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
+//     doc.setFontSize(14);
+//     doc.text(title, pageWidth / 2, 35, { align: 'center' });
+
+//     doc.setFontSize(10);
+//     doc.text(`Rapor Tarihi:`, 15, 45);
+//     doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
+
+//     if (subtitle) {
+//         doc.text(subtitle, pageWidth - 15, 47, { align: 'right' });
+//     }
+// };
+
+
 const addPdfHeader = (doc: jsPDF, title: string, subtitle?: string) => {
     const pageWidth = doc.internal.pageSize.getWidth();
+
     const docAny = doc as any;
     docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
     docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-    doc.setFont('NotoSans');
 
-    docAny.addImage(Logo, 'PNG', pageWidth - 50, 30, 40, 25);
-    doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 35, { align: 'center' });
+    // تنظیم فونت و بارگذاری (مطمئن شوید NotoSansBold هم اگر دارید اضافه کنید، 
+    // در غیر این صورت jsPDF سعی می‌کند شبیه‌سازی کند)
+    doc.setFont('NotoSans', 'normal');
 
-    doc.setFontSize(10);
-    doc.text(`Rapor Tarihi:`, 15, 45);
-    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 45, 45);
-
-    if (subtitle) {
-        doc.text(subtitle, pageWidth - 15, 47, { align: 'right' });
+    // ۱. افزودن لوگو (سمت راست)
+    try {
+        doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
     }
+
+    // ۲. عنوان اصلی (وسط)
+    doc.setFontSize(14);
+    doc.setTextColor(40); // خاکستری تیره
+    doc.text(title, pageWidth / 2, 25, { align: 'center' });
+
+    // ۳. تاریخ گزارش (سمت چپ - کلمه Rapor Tarihi بولد شده)
+    doc.setFontSize(10);
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 40);
+
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+    // ۴. زیرعنوان (در صورت وجود - مثلاً بازه تاریخی فیلتر شده)
+    if (subtitle) {
+        doc.setFontSize(9);
+        doc.setFont('NotoSans', 'normal');
+        doc.setTextColor(100);
+        doc.text(subtitle, 15, 45);
+    }
+
+    // ۵. خط جداکننده هدر (مشابه طرح قبلی)
+    doc.setDrawColor(66, 66, 66);
+    doc.setLineWidth(0.5);
+    doc.line(15, 48, pageWidth - 15, 48);
 };
 
 const addPdfFooter = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
+
+    // ۱. اطلاعات شرکت (مرکز پایین)
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
+    doc.setTextColor(100);
     const companyInfo = [
-        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+        'SETAŞ SİSTEM BİLİŞİM İNŞاAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
     ];
-    let footerY = pageHeight - 30;
+
+    let footerY = pageHeight - 20;
     companyInfo.forEach(line => {
         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
         footerY += 4;
     });
+
+    // ۲. بخش امضا (سمت راست)
     doc.setFontSize(10);
-    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    doc.setTextColor(40);
+    doc.setFont('NotoSans', 'normal');
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+    // ۳. شماره صفحه (سمت چپ)
     const docAny = doc as any;
+    const pageNumber = docAny.internal.getCurrentPageInfo().pageNumber;
     const pageCount = docAny.internal.getNumberOfPages();
-    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
+
 
 const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
     worksheet.views = [{ rightToLeft: false }];

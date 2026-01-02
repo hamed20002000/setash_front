@@ -67,6 +67,11 @@ interface UserDetail {
 interface WorkhouseDetail {
     id: string; name: string;
 }
+interface WorkhouseType {
+    id: string | number;
+    name: string;
+    recordStatus: number;
+}
 
 interface CourseDetail {
     id: number;
@@ -78,7 +83,7 @@ interface CourseDetail {
     teacherId: number;
     recordStatus: 0 | 1;
     createAt: string;
-
+    workhouseId: number;
     teacher: TeacherApi;
     user: UserDetail;
     workhouse: WorkhouseDetail | null;
@@ -200,40 +205,69 @@ const uploadFiles = async (
     }
 };
 
+
 const addPdfHeader = (doc: jsPDF, title: string) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
+
     const docAny = doc as any;
-    try { docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular); docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal'); doc.setFont('NotoSans'); } catch (e) { }
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoHeight = 18;
+    const margin = 15;
+    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
 
+    try {
+        doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
+    }
 
-    docAny.addImage(Logo, 'PNG', pageWidth - 50, 5, 40, 25);
+    doc.setFont('NotoSans', 'normal');
     doc.setFontSize(14);
-    doc.text(title, pageWidth / 2, 15, { align: 'center' });
+    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
 
     doc.setFontSize(10);
-    doc.text(`Rapor Tarihi: ${formatDateDisplay(new Date().toISOString())}`, 15, 25);
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+
+    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+    // doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, pageWidth - 15, 40);
 };
+
 const addPdfFooter = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const docAny = doc as any;
 
     doc.setFontSize(8);
     doc.setFont('NotoSans', 'normal');
+    doc.setTextColor(100);
+
     const companyInfo = [
         'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
     ];
-    let footerY = pageHeight - 30;
-    companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
 
+    let footerY = pageHeight - 20;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 4;
+    });
+
+    doc.setTextColor(0);
     doc.setFontSize(10);
-    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
 
-    const pageCount = docAny.internal.getNumberOfPages();
-    doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
 
 const addExcelHeader = (worksheet: Excel.Worksheet, title: string, columnsLength: number) => {
@@ -458,6 +492,11 @@ const ListCourses: React.FC = () => {
     const [endCourseError, setEndCourseError] = useState(false);
 
 
+    const [workhousesList, setWorkhousesList] = useState<WorkhouseDetail[]>([]);
+    const [selectedWorkhouse, setSelectedWorkhouse] = useState<WorkhouseDetail | null>(null);
+    const [workhouseError, setWorkhouseError] = useState(false);
+
+
     // --- Utility Functions (Alerts) ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
         setAlertMessage(message);
@@ -480,6 +519,7 @@ const ListCourses: React.FC = () => {
         endDateTime: r.endDateTime || null, // 💡 مقدار null را قبول می‌کند
         attachments: (r.attachments || r.attacments || []).map((a: any) => ({ fileUrl: a.fileUrl })),
         teacherId: Number(r.teacher?.id),
+        workhouseId: Number(r.workhouse?.id),
         recordStatus: Number(r.recordStatus) as 0 | 1,
         createAt: r.createAt,
         teacher: r.teacher as TeacherApi,
@@ -543,11 +583,48 @@ const ListCourses: React.FC = () => {
         }
     }, [navigate, showAlert]);
 
+
+    const getWorkhousesList = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        const role = localStorage.getItem('activeUserRoleName') || '';
+        if (!authToken) {
+            navigate("/");
+            return;
+        }
+        let requestParams = {};
+        if (role.toLowerCase() !== 'admin') {
+            requestParams = { rolename: role };
+        }
+        try {
+            const response = await axios.get(
+                server.baseurl + server.initialoperations + "get-workhouse",
+                {
+                    headers: { "Authorization": `Bearer ${authToken}` },
+                    params: requestParams
+                }
+            );
+            if (response.data.httpStatusCode === 200) {
+                const activeWorkhouses = response.data.data.filter((wh: WorkhouseType) => wh.recordStatus === 0);
+                setWorkhousesList(activeWorkhouses);
+            } else {
+                showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error');
+            }
+        } catch (e: any) {
+            if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
+            else if (e.response?.status === 401) {
+                localStorage.removeItem('authToken');
+                showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/");
+            }
+            else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
+        }
+    }, [navigate]);
+
     // --- Initial Load Effect ---
     useEffect(() => {
         fetchTeachers();
         fetchCourses();
-    }, [fetchTeachers, fetchCourses]);
+        getWorkhousesList(); // اطمینان از لود شدن لیست شانتیه‌ها
+    }, [fetchTeachers, fetchCourses, getWorkhousesList]);
 
 
     const validateForm = (): boolean => {
@@ -592,17 +669,14 @@ const ListCourses: React.FC = () => {
             startDateTime: startDateTime?.toISOString(),
             endDateTime: null,
             teacherId: selectedTeacher ? Number(selectedTeacher.id) : 0,
+            workhouseId: selectedWorkhouse ? Number(selectedWorkhouse.id) : 0,
             attachments: finalAttachments,
             hours: Number(hours),
-            ISG: ISG,
+            ISG: ISG
         };
-        if (id) payload.id = id;
-        // if (currentStatus !== undefined) payload.recordStatus = currentStatus;
-
-        // اگر در حال ویرایش هستیم، endDateTime موجود را حفظ می‌کنیم، مگر اینکه در مودال اتمام دوره تنظیم شده باشد.
         if (id) {
+            payload.id = id;
             const existingCourse = courses.find(c => c.id === id);
-            // مطمئن می‌شویم که تاریخ پایان قبلی حفظ شود (مگر اینکه null باشد)
             payload.endDateTime = existingCourse?.endDateTime ?? null;
         }
 
@@ -675,6 +749,12 @@ const ListCourses: React.FC = () => {
             setSelectedTeacher(teacherToSelect);
         } else {
             setSelectedTeacher(null);
+        }
+
+        if (row.workhouse) {
+            setSelectedWorkhouse(row.workhouse);
+        } else {
+            setSelectedWorkhouse(null);
         }
 
         setEditingId(row.id);
@@ -829,9 +909,10 @@ const ListCourses: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Saat', 'ISG', 'Açıklama', 'Kayıt Tarihi'];
+        const columns = ['Başlık', 'Şantiye', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Saat', 'ISG', 'Açıklama', 'Kayıt Tarihi'];
         const body = data.map(r => [
             r.title || '-',
+            r.workhouse?.name || '-',
             `${r.teacher.name || ''} ${r.teacher.surname || ''}` || '-',
             formatDateDisplay(r.startDateTime || null),
             formatDateDisplay(r.endDateTime || null),
@@ -847,7 +928,7 @@ const ListCourses: React.FC = () => {
             autoTable(docAny, {
                 head: [columns],
                 body: body,
-                startY: 35,
+                startY: 50,
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
                 headStyles: { font: 'NotoSans', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 10 },
@@ -875,7 +956,7 @@ const ListCourses: React.FC = () => {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet(title.substring(0, 31));
 
-            const columns = ['Başlık', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Saat', 'ISG', 'Açıklama', 'Kayıt Tarihi'];
+            const columns = ['Başlık', 'Şantiye', 'Öğretmen', 'Başlangıç', 'Bitiş', 'Saat', 'ISG', 'Açıklama', 'Kayıt Tarihi'];
             addExcelHeader(worksheet, title, columns.length); // 💡 Columns length = 8
 
             const headerRow = worksheet.addRow(columns);
@@ -885,6 +966,7 @@ const ListCourses: React.FC = () => {
             data.forEach(r => {
                 worksheet.addRow([
                     r.title || '-',
+                    r.workhouse?.name || '-',
                     `${r.teacher.name || ''} ${r.teacher.surname || ''}` || '-',
                     formatDateDisplay(r.startDateTime || null),
                     formatDateDisplay(r.endDateTime || null),
@@ -1095,6 +1177,27 @@ const ListCourses: React.FC = () => {
                         <Grid container spacing={2}>
                             {/* Title & Teacher Selection */}
                             <Grid item xs={12} sm={6} md={4}>
+                                <CustomFormLabel required>Şantiye (Workhouse)</CustomFormLabel>
+                                <Autocomplete
+                                    size="small"
+                                    options={workhousesList}
+                                    getOptionLabel={(option) => option.name}
+                                    value={selectedWorkhouse}
+                                    onChange={(_, newValue) => {
+                                        setSelectedWorkhouse(newValue);
+                                        setWorkhouseError(false);
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Şantiye Seçin"
+                                            error={workhouseError}
+                                            helperText={workhouseError ? 'Zorunlu alan.' : ''}
+                                        />
+                                    )}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6} md={4}>
                                 <CustomFormLabel required>Kurs Adı</CustomFormLabel>
                                 <CustomTextField placeholder="Kurs Başlığı"
                                     inputRef={nameInputRef}
@@ -1184,7 +1287,7 @@ const ListCourses: React.FC = () => {
                             </Grid>
                             {/* Attachments */}
                             <Grid item xs={12}>
-                                <CustomFormLabel>Ekler (Resimler)</CustomFormLabel>
+                                <CustomFormLabel>Ekler (Resim/pdf/excel)</CustomFormLabel>
                                 <ConsignmentFileUpload
                                     files={selectedFiles}
                                     setFiles={setSelectedFiles}
@@ -1328,7 +1431,7 @@ const ListCourses: React.FC = () => {
                                                 </Box>
                                                 {row.description.length > 50 && (
                                                     <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Devamını Oku</Button>
+                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => { handleOpenDescriptionModal(row.description); }}>Açıklamanı Oku</Button>
                                                     </CustomTooltip>
                                                 )}
                                             </StyledTableCell> */}
@@ -1341,7 +1444,7 @@ const ListCourses: React.FC = () => {
                                                             style={{ fontSize: "10px", padding: "2px 5px" }}
                                                             onClick={() => handleOpenDescriptionModal(row.description)}
                                                         >
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (

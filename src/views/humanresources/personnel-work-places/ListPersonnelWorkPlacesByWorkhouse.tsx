@@ -639,38 +639,50 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
             theme: 'grid',
             styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
             headStyles: { fillColor: [242, 242, 242], textColor: [0, 0, 0], font: 'NotoSans', fontStyle: 'normal', fontSize: 9 },
-            didDrawPage: (data: any) => {
+            didDrawPage: (_data: any) => {
                 // Header (includes Workhouse info)
-                docAny.setFont('NotoSans', 'bold');
+                docAny.setFont('NotoSans', 'normal');
                 docAny.setFontSize(13);
-                docAny.text(title, 75, 15, { align: 'center' });
+                docAny.text(title, 100, 15, { align: 'center' });
 
                 docAny.setFontSize(10);
                 docAny.setFont('NotoSans', 'normal');
                 docAny.text(`Şantiye:`, 15, 25);
                 docAny.setFont('NotoSans', 'normal');
                 docAny.text(workhouseInfo?.name || '-', 40, 25);
-                docAny.setFont('NotoSans', ' normal');
-                docAny.text(`Rapor Tarih:`, 15, 30);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 30);
+                doc.setFontSize(10);
+                doc.setFont('NotoSans', 'bold');
+                doc.text(`Rapor Tarihi:`, 15, 40);
+                doc.setFont('NotoSans', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-                docAny.addImage(Logo, 'PNG', pageWidth - 50, 20, 40, 15);
+                doc.addImage(Logo, 'PNG', pageWidth - 50, 18, 35, 18);
+
+                doc.setLineWidth(0.5);
+                doc.line(15, 45, pageWidth - 15, 45);
 
                 // Footer
                 docAny.setFont('NotoSans', 'normal');
                 docAny.setFontSize(8);
                 const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
-                let footerY = pageHeight - 30;
-                companyInfo.forEach(line => { docAny.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
-                const pageNumber = data.pageNumber;
-                const pageCount = docAny.internal.getNumberOfPages();
+                let footerY = pageHeight - 20;
+                companyInfo.forEach(line => {
+                    docAny.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+
+                docAny.setTextColor(0);
+                docAny.setFontSize(10);
+                docAny.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                docAny.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (docAny as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (docAny as any).internal.getNumberOfPages();
                 docAny.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+
             },
-            startY: 40,
+            startY: 55,
             showHead: 'everyPage',
             margin: { top: 40, bottom: 45, left: 10, right: 10 }
         });
@@ -1031,10 +1043,20 @@ const ListPersonnelWorkPlacesByWorkhouse: React.FC = () => {
                                                 <StyledTableCell>{row.personnelName || '-'}</StyledTableCell>
                                                 <StyledTableCell>{formatDateDisplay(row.startDate)}</StyledTableCell>
                                                 <StyledTableCell>{row.endDate ? formatDateDisplay(row.endDate) : '-'}</StyledTableCell>
-                                                <StyledTableCell sx={{ maxWidth: 280 }}>
-                                                    <Typography variant="body1" noWrap title={row.description || ''}>{row.description || '-'}</Typography>
-                                                    {row.description != null && row.description.length > 50 && (
-                                                        <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => handleOpenDescriptionModal(row.description)}>Devamını Oku</Button>
+                                                <StyledTableCell>
+                                                    {row.description && row.description.trim().length > 0 ? (
+                                                        <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                            <Button
+
+                                                                variant="outlined"
+                                                                style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                                onClick={() => handleOpenDescriptionModal(row.description)}
+                                                            >
+                                                                Açıklamayı Oku
+                                                            </Button>
+                                                        </CustomTooltip>
+                                                    ) : (
+                                                        <Typography variant="body2" align="center">-</Typography>
                                                     )}
                                                 </StyledTableCell>
                                                 <StyledTableCell>

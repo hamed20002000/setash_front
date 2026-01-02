@@ -39,7 +39,7 @@ const DeleteCourses = ({ openModal, idToDelete, nameToDelete, onClose, onDeleteS
 
         setLoading(true);
         try {
-            const url = `${server.baseurl}${server.education}delete-course/${idToDelete}`;
+            const url = `${server.baseurl}${server.education}delete-teacher/${idToDelete}`;
 
             const response = await axios.delete(
                 url,

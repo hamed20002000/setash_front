@@ -17,7 +17,7 @@ import BoltIcon from "@mui/icons-material/Bolt";
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 // IconFile برای نمایش مدارک جدید اضافه شد
-import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconEye, IconRefresh, IconUpload, IconFile, IconCurrencyDollar } from "@tabler/icons-react";
+import { IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload, IconX, IconRefresh, IconUpload, IconFile, IconCurrencyDollar } from "@tabler/icons-react";
 import BlankCard from "src/components/shared/BlankCard";
 import CustomFormLabel from "src/components/forms/theme-elements/CustomFormLabel";
 import CustomTextField from "src/components/forms/theme-elements/CustomTextField";
@@ -38,7 +38,7 @@ import jsPDF from "jspdf";
 // @ts-ignore
 import { autoTable } from "jspdf-autotable";
 import { NotoSansRegular } from "src/assets/fonts/NotoSans-Regular";
-import { ArialFont } from "src/assets/fonts/Arial";
+// import { ArialFont } from "src/assets/fonts/Arial";
 import Logo from "src/assets/images/logos/logo.png";
 import Excel from "exceljs";
 import { saveAs } from "file-saver";
@@ -778,62 +778,69 @@ const ListPersonnel: React.FC = () => {
 
 
     const addPdfHeader = (doc: jsPDF, title: string) => {
+
+        const docAny = doc as any;
+        docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+        docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+        doc.setFont('NotoSans');
         const pageWidth = doc.internal.pageSize.getWidth();
-        const d: any = doc;
+        const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+        const logoHeight = 18;
+        const margin = 15;
+        const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
 
-        // فرض: فونت‌ها در آدرس‌های مشخص شده موجود هستند.
-        d.addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
-        d.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
-        d.addFileToVFS("Arial.ttf", ArialFont);
-        d.addFont("Arial.ttf", "Arial", "normal");
-        doc.setFont("NotoSans", "normal");
+        try {
+            doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+        } catch (e) {
+            console.error("Logo yüklenemedi", e);
+        }
 
-        if ((doc as any).setCharSpace) (doc as any).setCharSpace(0);
-        if ((doc as any).setWordSpace) (doc as any).setWordSpace(0);
-
-        const logoW = 48, logoH = 30;
-        const margin = 36;
-        doc.addImage(Logo as any, "PNG", pageWidth - margin - logoW, margin - 6, logoW, logoH);
-
-        doc.setFontSize(16);
-        doc.text(title, pageWidth / 2, margin + 2, { align: "center" });
+        doc.setFont('NotoSans', 'normal');
+        doc.setFontSize(14);
+        doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
 
         doc.setFontSize(10);
-        const labelX = margin, labelY = margin + 22;
-        doc.text("Rapor Tarihi:", labelX, labelY);
-        doc.text(format(new Date(), "dd MMMM yyyy", { locale: tr }), labelX + 65, labelY);
+        doc.setFont('NotoSans', 'bold');
+        doc.text(`Rapor Tarihi:`, 15, 35);
+        doc.setFont('NotoSans', 'normal');
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
+
+        // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+        // doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(15, 40, pageWidth - 15, 40);
     };
 
     const addPdfFooter = (doc: jsPDF) => {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
 
-        // --- 1. تنظیمات و اطلاعات شرکت ---
         doc.setFontSize(8);
         doc.setFont('NotoSans', 'normal');
+        doc.setTextColor(100);
+
         const companyInfo = [
             'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+            'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
 
-        const bottomLineY = pageHeight - 10;
-        let footerY = pageHeight - 50;
-        const lineSpacing = 12;
-
+        let footerY = pageHeight - 40;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += lineSpacing;
+            footerY += 12;
         });
+
+        doc.setTextColor(0);
         doc.setFontSize(10);
-        doc.text('İmza', pageWidth - 15, bottomLineY, { align: 'right' });
+        doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
 
-        doc.line(pageWidth - 65, bottomLineY - 10, pageWidth - 15, bottomLineY - 10);
-
-        const docAny = doc as any;
-        const pageCount = docAny.internal.getNumberOfPages();
-        doc.text(`Sayfa ${docAny.internal.getCurrentPageInfo().pageNumber} / ${pageCount}`, 15, bottomLineY);
+        const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
     };
+
     // const cleanAndFormatPrice = (priceInput: string | number | null | undefined): string => {
     //     if (priceInput === null || priceInput === undefined) {
     //         return '₺0';
@@ -2421,6 +2428,15 @@ const ListPersonnel: React.FC = () => {
                                     </TableSortLabel>
                                 </StyledTableCell>
                                 <StyledTableCell>
+                                    <TableSortLabel
+                                        active={orderBy === "hasISG"}
+                                        direction={orderBy === "hasISG" ? order : "asc"}
+                                        onClick={() => handleRequestSort("hasISG")}
+                                    >
+                                        <Typography variant="h6">ISG</Typography>
+                                    </TableSortLabel>
+                                </StyledTableCell>
+                                <StyledTableCell>
                                     <TableSortLabel active={orderBy === "workStartDate"} direction={orderBy === "workStartDate" ? order : "asc"} onClick={() => handleRequestSort("workStartDate")} style={{ color: "#171c23" }}>
                                         <Typography variant="h6">Başlangıç</Typography>
                                     </TableSortLabel>
@@ -2470,6 +2486,25 @@ const ListPersonnel: React.FC = () => {
                                             <Typography variant="body1">{row.position?.title || "Pozisyon yok"}</Typography>
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{row.identityNumber}</Typography></StyledTableCell>
+                                        <StyledTableCell>
+                                            {row.hasISG ? (
+                                                <Chip
+                                                    label="Var"
+                                                    size="small"
+                                                    color="success"
+                                                    variant="filled" // یا "outlined"
+                                                    icon={<DoneRoundedIcon style={{ fontSize: '16px' }} />}
+                                                />
+                                            ) : (
+                                                <Chip
+                                                    label="Yok"
+                                                    size="small"
+                                                    color="error"
+                                                    variant="outlined"
+                                                    icon={<IconX size={16} />}
+                                                />
+                                            )}
+                                        </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.workStartDate)}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{formatDateDisplay(row.workEndDate)}</Typography></StyledTableCell>
                                         <StyledTableCell>
@@ -2488,7 +2523,7 @@ const ListPersonnel: React.FC = () => {
                                             />
                                         </StyledTableCell>
                                         <StyledTableCell>
-                                            <Button variant="outlined" size="small" startIcon={<IconEye size={16} />} onClick={() => handleClickDetails(row)}>
+                                            <Button variant="outlined" size="small" onClick={() => handleClickDetails(row)}>
                                                 Detay
                                             </Button>
                                         </StyledTableCell>

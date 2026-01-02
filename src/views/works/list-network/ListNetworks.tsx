@@ -38,7 +38,7 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
-import { ArialFont } from 'src/assets/fonts/Arial';
+// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 import Excel from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -737,7 +737,113 @@ const ListNetwork = () => {
         return div.textContent || div.innerText || '';
     };
 
-    // New and updated PDF and Excel functions
+    // const handleDownloadNetworksPDF = () => {
+    //     setOpenDownloadModal(false);
+    //     if (!networks || networks.length === 0) {
+    //         showAlert('PDF oluşturulacak şebeke bulunamadı.', 'warning');
+    //         return;
+    //     }
+
+    //     const doc = new jsPDF();
+    //     const pageWidth = doc.internal.pageSize.getWidth();
+    //     const pageHeight = doc.internal.pageSize.getHeight();
+
+    //     try {
+    //         // Add fonts
+    //         doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    //         doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    //         doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+    //         doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+    //         doc.addFileToVFS('Arial.ttf', ArialFont);
+    //         doc.addFont('Arial.ttf', 'Arial', 'normal');
+    //         doc.setFont('Arial');
+
+    //         const head = ['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
+    //         const rows = networks.map(network => {
+    //             const description = network.description ? stripHtmlTags(network.description) : '-';
+    //             return [
+    //                 network.title,
+    //                 description.length > 50 ? `${description.substring(0, 50)}...` : description,
+    //                 formatDateDisplay(network.createAt),
+    //                 network.status
+    //             ];
+    //         });
+
+    //         if (workId === undefined) {
+    //             head.splice(1, 0, 'Bağlı İş');
+    //             rows.forEach((row, index) => {
+    //                 const workTitle = networks[index].work?.title || 'Bilinmiyor';
+    //                 row.splice(1, 0, workTitle);
+    //             });
+    //         }
+
+    //         autoTable(doc, {
+    //             startY: 65,
+    //             head: [head],
+    //             body: rows,
+    //             theme: 'grid',
+    //             styles: {
+    //                 font: 'Arial',
+    //                 fontStyle: 'normal',
+    //                 fontSize: 8,
+    //                 cellPadding: 2,
+    //                 overflow: 'linebreak'
+    //             },
+    //             headStyles: {
+    //                 fillColor: [242, 242, 242],
+    //                 textColor: [0, 0, 0],
+    //                 font: 'Arial',
+    //                 fontSize: 9,
+    //             },
+    //             didDrawPage: () => {
+    //                 doc.setFont('Arial', 'bold');
+    //                 doc.setFontSize(14);
+    //                 doc.text('Şebekeler Raporu', pageWidth / 2, 15, { align: 'center' });
+    //                 doc.setFontSize(10);
+    //                 doc.setFont('Times', 'bold');
+    //                 doc.text(`Tarih:`, 15, 25);
+    //                 doc.setFont('Times', 'normal');
+    //                 doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+    //                 doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+    //                 if (workId) {
+    //                     doc.text(`İş: ${workTitleForDisplay}`, pageWidth - 20, 47, { align: 'right' });
+    //                 }
+    //                 if (tenderId) {
+    //                     doc.text(`İhale: ${tenderTitleForDisplay}`, pageWidth - 20, 54, { align: 'right' });
+    //                 }
+
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.setFontSize(8);
+    //                 doc.setTextColor(0);
+    //                 const companyInfo = [
+    //                     'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+    //                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
+    //                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+    //                 ];
+    //                 let footerY = pageHeight - 30;
+    //                 companyInfo.forEach(line => {
+    //                     doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+    //                     footerY += 4;
+    //                 });
+    //                 const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    //                 const pageCount = (doc as any).internal.getNumberOfPages();
+    //                 doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+    //                 doc.setFont('NotoSans', 'normal');
+    //                 doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+    //                 doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+    //             },
+    //             showHead: 'everyPage',
+    //             margin: { top: 50, bottom: 45 },
+    //         });
+    //         doc.save('Şebekeler_Raporu.pdf');
+    //         showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+    //     } catch (error: any) {
+    //         console.error('PDF oluşturulurken hata:', error);
+    //         showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+    //     }
+    // };
+
+
     const handleDownloadNetworksPDF = () => {
         setOpenDownloadModal(false);
         if (!networks || networks.length === 0) {
@@ -748,101 +854,133 @@ const ListNetwork = () => {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
+        const reportTitle = 'Şebekeler Raporu';
 
         try {
-            // Add fonts
+            // ۱. بارگذاری فونت‌ها
             doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
             doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
             doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
             doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
-            doc.addFileToVFS('Arial.ttf', ArialFont);
-            doc.addFont('Arial.ttf', 'Arial', 'normal');
-            doc.setFont('Arial');
+            doc.setFont('NotoSans');
 
-            const head = ['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum'];
+            // ۲. تابع هدر استاندارد پروژه
+            const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
+                try {
+                    pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+                } catch (e) {
+                    console.error("Logo yüklenemedi", e);
+                }
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.setFontSize(14);
+                pdfDoc.setTextColor(0);
+                pdfDoc.text(title, pageWidth / 2, 25, { align: 'center' });
+
+                pdfDoc.setFontSize(10);
+                pdfDoc.setFont('NotoSans', 'bold');
+                pdfDoc.text(`Rapor Tarihi:`, 15, 40);
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+                // اطلاعات تکمیلی در هدر (اگر WorkId یا TenderId موجود باشد)
+                pdfDoc.setFontSize(9);
+                if (workId) {
+                    pdfDoc.text(`İş: ${workTitleForDisplay}`, 15, 48);
+                }
+
+                // خط جداکننده خاکستری
+                // pdfDoc.setDrawColor(200, 200, 200);
+                pdfDoc.setLineWidth(0.5);
+                pdfDoc.line(15, 52, pageWidth - 15, 52);
+            };
+
+            // ۳. تابع فوتر با مشخصات رسمی SETAŞ
+            const addPdfFooter = (pdfDoc: jsPDF) => {
+                pdfDoc.setFontSize(8);
+                pdfDoc.setFont('NotoSans', 'normal');
+                pdfDoc.setTextColor(100);
+
+                const companyInfo = [
+                    'SETAŞ SİSTEM BİLİŞİM İنŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+                    'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+                    'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+                ];
+
+                let footerY = pageHeight - 20;
+                companyInfo.forEach(line => {
+                    pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                    footerY += 4;
+                });
+
+                pdfDoc.setTextColor(0);
+                pdfDoc.setFontSize(10);
+                pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+                pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+            };
+
+            // ۴. آماده‌سازی ستون‌ها و ردیف‌ها
+            const head = workId === undefined
+                ? [['Şebeke Adı', 'Bağlı İş', 'Açıklama', 'Kayıt Tarihi', 'Durum']]
+                : [['Şebeke Adı', 'Açıklama', 'Kayıt Tarihi', 'Durum']];
+
             const rows = networks.map(network => {
-                const description = network.description ? stripHtmlTags(network.description) : '-';
-                return [
+                const desc = network.description ? stripHtmlTags(network.description) : '-';
+                const baseData = [
                     network.title,
-                    description.length > 50 ? `${description.substring(0, 50)}...` : description,
+                    desc.length > 60 ? `${desc.substring(0, 60)}...` : desc,
                     formatDateDisplay(network.createAt),
                     network.status
                 ];
+
+                if (workId === undefined) {
+                    baseData.splice(1, 0, network.work?.title || 'Bilinmiyor');
+                }
+                return baseData;
             });
 
-            if (workId === undefined) {
-                head.splice(1, 0, 'Bağlı İş');
-                rows.forEach((row, index) => {
-                    const workTitle = networks[index].work?.title || 'Bilinmiyor';
-                    row.splice(1, 0, workTitle);
-                });
-            }
-
+            // ۵. رسم جدول با تم تیره [66, 66, 66]
             autoTable(doc, {
-                startY: 65,
-                head: [head],
+                startY: 58,
+                head: head,
                 body: rows,
                 theme: 'grid',
                 styles: {
-                    font: 'Arial',
-                    fontStyle: 'normal',
-                    fontSize: 8,
-                    cellPadding: 2,
-                    overflow: 'linebreak'
+                    font: 'NotoSans',
+                    fontSize: 9,
+                    cellPadding: 3,
+                    valign: 'middle'
                 },
                 headStyles: {
-                    fillColor: [242, 242, 242],
-                    textColor: [0, 0, 0],
-                    font: 'Arial',
-                    fontSize: 9,
+                    fillColor: [66, 66, 66], // خاکستری تیره استاندارد پروژه
+                    textColor: [255, 255, 255],
+                    fontStyle: 'normal',
+                    halign: 'left'
                 },
+                columnStyles: {
+                    0: { cellWidth: 40 }, // Network Name
+                    1: { cellWidth: workId === undefined ? 40 : 'auto' }, // Work Name or Description
+                    2: { cellWidth: workId === undefined ? 'auto' : 40 }, // Description or Date
+                },
+                margin: { top: 58, bottom: 30 },
                 didDrawPage: () => {
-                    doc.setFont('Arial', 'bold');
-                    doc.setFontSize(14);
-                    doc.text('Şebekeler Raporu', pageWidth / 2, 15, { align: 'center' });
-                    doc.setFontSize(10);
-                    doc.setFont('Times', 'bold');
-                    doc.text(`Tarih:`, 15, 25);
-                    doc.setFont('Times', 'normal');
-                    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-                    doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-                    if (workId) {
-                        doc.text(`İş: ${workTitleForDisplay}`, pageWidth - 20, 47, { align: 'right' });
-                    }
-                    if (tenderId) {
-                        doc.text(`İhale: ${tenderTitleForDisplay}`, pageWidth - 20, 54, { align: 'right' });
-                    }
-
-                    doc.setFont('NotoSans', 'normal');
-                    doc.setFontSize(8);
-                    doc.setTextColor(0);
-                    const companyInfo = [
-                        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-                        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
-                        'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-                    ];
-                    let footerY = pageHeight - 30;
-                    companyInfo.forEach(line => {
-                        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-                        footerY += 4;
-                    });
-                    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-                    const pageCount = (doc as any).internal.getNumberOfPages();
-                    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                    doc.setFont('NotoSans', 'normal');
-                    doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                    doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-                },
-                showHead: 'everyPage',
-                margin: { top: 50, bottom: 45 },
+                    addPdfHeader(doc, reportTitle);
+                    addPdfFooter(doc);
+                }
             });
-            doc.save('Şebekeler_Raporu.pdf');
-            showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+
+            doc.save(`Sebekeler_Raporu.pdf`);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
         } catch (error: any) {
-            console.error('PDF oluşturulurken hata:', error);
-            showAlert('PDF oluşturulurken bir hata oluştu: ' + error.message, 'error');
+            console.error('PDF error:', error);
+            showAlert('PDF oluşturulurken hata oluştu.', 'error');
         }
     };
+
+
 
     const handleExportExcel = async () => {
         setOpenDownloadModal(false);
@@ -1379,7 +1517,7 @@ const ListNetwork = () => {
                                                                 sx={{ fontSize: "10px", padding: "2px 5px" }}
                                                                 onClick={() => handleOpenDescriptionModal(row.description)}
                                                             >
-                                                                Devamını Oku
+                                                                Açıklamanı Oku
                                                             </Button>
                                                         </CustomTooltip>
                                                     )}

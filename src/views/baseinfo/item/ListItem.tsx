@@ -47,7 +47,7 @@ import jsPDF from 'jspdf';
 import { autoTable } from 'jspdf-autotable';
 import { NotoSansRegular } from 'src/assets/fonts/NotoSans-Regular';
 import { TimesNewRoman } from 'src/assets/fonts/Times';
-import { ArialFont } from 'src/assets/fonts/Arial';
+// import { ArialFont } from 'src/assets/fonts/Arial';
 import Logo from 'src/assets/images/logos/logo.png';
 
 
@@ -1202,166 +1202,291 @@ const ListItemComponent = () => {
   };
 
 
+  // const handlePrintAllItems = () => {
+  //   if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
+  //     showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
+  //     return;
+  //   }
+
+  //   const doc = new jsPDF();
+  //   const pageWidth = doc.internal.pageSize.getWidth();
+  //   const pageHeight = doc.internal.pageSize.getHeight();
+
+  //   const stripHtml = (htmlString: string) => {
+  //     const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+  //     return doc.body.textContent || "";
+  //   };
+
+  //   try {
+
+  //     doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+  //     doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+
+
+  //     doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
+  //     doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+
+  //     doc.addFileToVFS('Arial.ttf', ArialFont);
+  //     doc.addFont('Arial.ttf', 'Arial', 'normal');
+
+  //     const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
+  //       const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
+  //       return [
+  //         item.name || '-',
+  //         item.code || '-', // ✅ Added Code to PDF
+  //         item.unit?.title || '-',
+  //         item.category?.name || '-',
+  //         item.abbreviation || '-',
+  //         item.weight !== null ? String(item.weight) : '-',
+  //         descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
+  //         formatDateDisplay(item.createAt) || '-',
+  //         item.status || '-',
+  //       ];
+  //     });
+
+  //     autoTable(doc, {
+  //       startY: 65,
+  //       // ✅ Added "Ürün Kodu" to header
+  //       head: [['Ürün Adı', 'Ürün Kodu', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
+  //       body: rowsWithoutHtml,
+  //       theme: 'grid',
+  //       styles: {
+  //         font: 'Arial',
+  //         fontStyle: 'normal',
+  //         fontSize: 8,
+  //         cellPadding: 2,
+  //         overflow: 'linebreak'
+  //       },
+  //       headStyles: {
+  //         fillColor: [242, 242, 242],
+  //         textColor: [0, 0, 0],
+  //         font: 'Arial',
+  //         fontSize: 9,
+  //       },
+  //       didDrawPage: () => {
+  //         // --- بخش جدید هدر ---
+  //         // 1. عنوان در سطر اول و وسط
+  //         doc.setFont('Arial', 'bold');
+  //         doc.setFontSize(14);
+  //         doc.text('Tüm Ürünler Raporu', pageWidth / 2, 15, { align: 'center' });
+
+  //         // 2. تاریخ در سطر دوم و سمت چپ
+  //         doc.setFontSize(10);
+  //         doc.setFont('Times', 'bold');
+  //         doc.text(`Tarih:`, 15, 25);
+
+  //         doc.setFont('Times', 'normal');
+  //         doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
+
+  //         // 3. لوگو در سطر دوم و سمت راست
+  //         doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+
+  //         // --- پایان بخش جدید هدر ---
+
+  //         // --- بخش جدید فوتر ---
+  //         // 1. اطلاعات شرکت در مرکز و با فونت 8
+  //         doc.setFont('NotoSans', 'normal');
+  //         doc.setFontSize(8);
+  //         doc.setTextColor(0);
+  //         const companyInfo = [
+  //           'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+  //           'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx  Fax: +90 (232) 347 77 11',
+  //           'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
+  //         ];
+
+  //         let footerY = pageHeight - 30;
+  //         companyInfo.forEach(line => {
+  //           doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+  //           footerY += 4;
+  //         });
+
+  //         // 2. شماره صفحه در سمت چپ
+  //         const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+  //         const pageCount = (doc as any).internal.getNumberOfPages();
+  //         doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+
+  //         // 3. امضا در سمت راست
+  //         doc.setFont('NotoSans', 'normal');
+  //         doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
+  //         doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+
+  //       },
+  //       margin: { top: 50, bottom: 45 },
+  //     });
+
+
+  //     const totalWeightMap = new Map<string, number>();
+  //     sortedAndFilteredItems.forEach(item => {
+  //       if (item.weight !== null && !isNaN(Number(item.weight))) {
+  //         const unitTitle = item.unit?.title || 'Bilinmeyen Birim';
+  //         const currentWeight = totalWeightMap.get(unitTitle) || 0;
+  //         const totalWeight = currentWeight + Number(item.weight);
+  //         totalWeightMap.set(unitTitle, totalWeight);
+  //       }
+  //     });
+
+  //     if (totalWeightMap.size > 0) {
+  //       doc.addPage();
+  //       doc.setFont('NotoSans');
+  //       doc.setFontSize(14);
+  //       doc.text('Ağırlık Toplamları', 15, 20);
+
+  //       const summaryRows = Array.from(totalWeightMap.entries()).map(([unit, totalWeight]) => [
+  //         unit,
+  //         totalWeight.toFixed(2)
+  //       ]);
+
+  //       autoTable(doc, {
+  //         startY: 30,
+  //         head: [['Ölçü', 'Toplam Ağırlık']],
+  //         body: summaryRows,
+  //         theme: 'grid',
+  //         styles: {
+  //           font: 'NotoSans',
+  //           fontSize: 8,
+  //         },
+  //         headStyles: {
+  //           fillColor: [242, 242, 242],
+  //           textColor: [0, 0, 0],
+  //           font: 'NotoSans',
+  //           fontSize: 9,
+  //         },
+  //       });
+  //     }
+
+  //     doc.save('Tüm_Ürünler_Raporu.pdf');
+  //     showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
+
+  //   } catch (error) {
+  //     console.error('PDF oluşturulurken hata:', error);
+  //     showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
+  //   }
+  // };
+
+
   const handlePrintAllItems = () => {
     if (!sortedAndFilteredItems || sortedAndFilteredItems.length === 0) {
       showAlert('PDF oluşturulacak ürün bulunamadı.', 'warning');
       return;
     }
 
-    const doc = new jsPDF();
+    const doc = new jsPDF('l', 'mm', 'a4'); // حالت Landscape (افقی) به دلیل تعداد زیاد ستون‌ها
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-
-    const stripHtml = (htmlString: string) => {
-      const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-      return doc.body.textContent || "";
-    };
+    const reportTitle = 'Tüm Ürünler Raporu';
 
     try {
-
+      // ۱. بارگذاری فونت‌ها
       doc.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
       doc.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
-
-
       doc.addFileToVFS('Times-New-Roman.ttf', TimesNewRoman);
       doc.addFont('Times-New-Roman.ttf', 'Times', 'normal');
+      doc.setFont('NotoSans');
 
-      doc.addFileToVFS('Arial.ttf', ArialFont);
-      doc.addFont('Arial.ttf', 'Arial', 'normal');
+      // ۲. تابع هدر (استایل شیک و رسمی)
+      const addPdfHeader = (pdfDoc: jsPDF, title: string) => {
+        try {
+          pdfDoc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+        } catch (e) {
+          console.error("Logo yüklenemedi", e);
+        }
+        pdfDoc.setFont('NotoSans', 'normal');
+        pdfDoc.setFontSize(14);
+        pdfDoc.setTextColor(0);
+        pdfDoc.text(title, pageWidth / 2, 25, { align: 'center' });
 
-      const rowsWithoutHtml = sortedAndFilteredItems.map(item => {
-        const descriptionWithoutHtml = item.description ? stripHtml(item.description) : '-';
-        return [
-          item.name || '-',
-          item.code || '-', // ✅ Added Code to PDF
-          item.unit?.title || '-',
-          item.category?.name || '-',
-          item.abbreviation || '-',
-          item.weight !== null ? String(item.weight) : '-',
-          descriptionWithoutHtml.length > 50 ? `${descriptionWithoutHtml.substring(0, 50)}...` : descriptionWithoutHtml,
-          formatDateDisplay(item.createAt) || '-',
-          item.status || '-',
+        pdfDoc.setFontSize(10);
+        pdfDoc.setFont('NotoSans', 'bold');
+        pdfDoc.text(`Rapor Tarihi:`, 15, 40);
+        pdfDoc.setFont('NotoSans', 'normal');
+        pdfDoc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+
+        // pdfDoc.setDrawColor(200, 200, 200);
+        pdfDoc.setLineWidth(0.5);
+        pdfDoc.line(15, 45, pageWidth - 15, 45);
+      };
+
+      // ۳. تابع فوتر (اطلاعات رسمی شرکت)
+      const addPdfFooter = (pdfDoc: jsPDF) => {
+        pdfDoc.setFontSize(8);
+        pdfDoc.setFont('NotoSans', 'normal');
+        pdfDoc.setTextColor(100);
+
+        const companyInfo = [
+          'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+          'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+          'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
-      });
 
+        let footerY = pageHeight - 20;
+        companyInfo.forEach(line => {
+          pdfDoc.text(line, pageWidth / 2, footerY, { align: 'center' });
+          footerY += 4;
+        });
+
+        pdfDoc.setTextColor(0);
+        pdfDoc.setFontSize(10);
+        pdfDoc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+        pdfDoc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+        const pageNumber = (pdfDoc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageCount = (pdfDoc as any).internal.getNumberOfPages();
+        pdfDoc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+      };
+
+      // ۴. آماده‌سازی ردیف‌ها (بدون HTML)
+      const rows = sortedAndFilteredItems.map(item => [
+        item.name || '-',
+        item.code || '-',
+        item.unit?.title || '-',
+        item.category?.name || '-',
+        item.abbreviation || '-',
+        item.weight !== null ? String(item.weight) : '-',
+        item.description ? stripHtml(item.description).substring(0, 40) + '...' : '-',
+        formatDateDisplay(item.createAt),
+        item.status || '-'
+      ]);
+
+      // ۵. رسم جدول با تم تیره (Landscape)
       autoTable(doc, {
-        startY: 65,
-        // ✅ Added "Ürün Kodu" to header
-        head: [['Ürün Adı', 'Ürün Kodu', 'Ölçü', 'Kategori', 'Kısaltma', 'Ağırlık', 'Açıklama', 'Oluşturulma Tarihi', 'Durum']],
-        body: rowsWithoutHtml,
+        startY: 55,
+        head: [['Ürün Adı', 'Kod', 'Ölçü', 'Kategori', 'Kıs.', 'Ağırlık', 'Açıklama', 'Tarih', 'Durum']],
+        body: rows,
         theme: 'grid',
         styles: {
-          font: 'Arial',
-          fontStyle: 'normal',
+          font: 'NotoSans',
           fontSize: 8,
           cellPadding: 2,
-          overflow: 'linebreak'
+          valign: 'middle'
         },
         headStyles: {
-          fillColor: [242, 242, 242],
-          textColor: [0, 0, 0],
-          font: 'Arial',
-          fontSize: 9,
+          fillColor: [66, 66, 66], // خاکستری تیره مشابه کدهای قبلی
+          textColor: [255, 255, 255],
+          fontStyle: 'normal',
+          halign: 'left'
         },
+        columnStyles: {
+          0: { cellWidth: 'auto' }, // Name
+          1: { halign: 'left', cellWidth: 20 }, // Code
+          5: { halign: 'left', cellWidth: 15 }, // Weight
+          8: { halign: 'left', cellWidth: 15 }  // Status
+        },
+        margin: { top: 55, bottom: 30 },
         didDrawPage: () => {
-          // --- بخش جدید هدر ---
-          // 1. عنوان در سطر اول و وسط
-          doc.setFont('Arial', 'bold');
-          doc.setFontSize(14);
-          doc.text('Tüm Ürünler Raporu', pageWidth / 2, 15, { align: 'center' });
-
-          // 2. تاریخ در سطر دوم و سمت چپ
-          doc.setFontSize(10);
-          doc.setFont('Times', 'bold');
-          doc.text(`Tarih:`, 15, 25);
-
-          doc.setFont('Times', 'normal');
-          doc.text(`${formatDateDisplay(new Date().toISOString())}`, 30, 25);
-
-          // 3. لوگو در سطر دوم و سمت راست
-          doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-
-          // --- پایان بخش جدید هدر ---
-
-          // --- بخش جدید فوتر ---
-          // 1. اطلاعات شرکت در مرکز و با فونت 8
-          doc.setFont('NotoSans', 'normal');
-          doc.setFontSize(8);
-          doc.setTextColor(0);
-          const companyInfo = [
-            'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
-            'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx  Fax: +90 (232) 347 77 11',
-            'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
-          ];
-
-          let footerY = pageHeight - 30;
-          companyInfo.forEach(line => {
-            doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 4;
-          });
-
-          // 2. شماره صفحه در سمت چپ
-          const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
-          const pageCount = (doc as any).internal.getNumberOfPages();
-          doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-
-          // 3. امضا در سمت راست
-          doc.setFont('NotoSans', 'normal');
-          doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-          doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
-
-        },
-        margin: { top: 50, bottom: 45 },
-      });
-
-
-      const totalWeightMap = new Map<string, number>();
-      sortedAndFilteredItems.forEach(item => {
-        if (item.weight !== null && !isNaN(Number(item.weight))) {
-          const unitTitle = item.unit?.title || 'Bilinmeyen Birim';
-          const currentWeight = totalWeightMap.get(unitTitle) || 0;
-          const totalWeight = currentWeight + Number(item.weight);
-          totalWeightMap.set(unitTitle, totalWeight);
+          addPdfHeader(doc, reportTitle);
+          addPdfFooter(doc);
         }
       });
 
-      if (totalWeightMap.size > 0) {
-        doc.addPage();
-        doc.setFont('NotoSans');
-        doc.setFontSize(14);
-        doc.text('Ağırlık Toplamları', 15, 20);
-
-        const summaryRows = Array.from(totalWeightMap.entries()).map(([unit, totalWeight]) => [
-          unit,
-          totalWeight.toFixed(2)
-        ]);
-
-        autoTable(doc, {
-          startY: 30,
-          head: [['Ölçü', 'Toplam Ağırlık']],
-          body: summaryRows,
-          theme: 'grid',
-          styles: {
-            font: 'NotoSans',
-            fontSize: 8,
-          },
-          headStyles: {
-            fillColor: [242, 242, 242],
-            textColor: [0, 0, 0],
-            font: 'NotoSans',
-            fontSize: 9,
-          },
-        });
-      }
-
-      doc.save('Tüm_Ürünler_Raporu.pdf');
-      showAlert('PDF başarıyla oluşturuldu ve indiriliyor.', 'success');
-
-    } catch (error) {
-      console.error('PDF oluşturulurken hata:', error);
+      doc.save(`Tum_Urunler_Raporu.pdf`);
+      showAlert('PDF başarıyla oluşturuldu.', 'success');
+    } catch (error: any) {
+      console.error('PDF error:', error);
       showAlert('PDF oluşturulurken bir hata oluştu.', 'error');
     }
   };
+
+
   const addCompanyInfo = (worksheet: Excel.Worksheet) => {
     worksheet.addRow([]);
     const companyInfo = [
@@ -2144,7 +2269,7 @@ const ListItemComponent = () => {
                           <Button variant="text" style={{ fontSize: "10px", padding: "2px 5px" }} onClick={() => {
                             handleOpenDescriptionModal(row.description);
                           }}>
-                            Devamını Oku
+                            Açıklamanı Oku
                           </Button>
                         </CustomTooltip>
                       )}

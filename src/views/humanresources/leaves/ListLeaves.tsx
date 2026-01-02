@@ -35,7 +35,10 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
 import { Autocomplete } from "@mui/material";
-import { differenceInMinutes, differenceInDays } from 'date-fns';
+import { differenceInMinutes, differenceInDays, format } from 'date-fns';
+
+
+import { tr } from 'date-fns/locale';
 
 const fmtTR = (iso?: string | null) => {
     if (!iso) return "-";
@@ -214,34 +217,109 @@ const printDateTR = () => {
     const monthsTR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
     return `${pad(d.getDate())} ${monthsTR[d.getMonth()]} ${d.getFullYear()}`;
 };
+export const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "N/A";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
+// const drawHeader = (doc: jsPDF, title: string) => {
+//     const pw = doc.internal.pageSize.getWidth();
+//     doc.setFont("Arial", "normal"); doc.setFontSize(14);
+//     doc.text(title, pw / 2, 40, { align: "center" });
+
+//     doc.setFont("Times", "normal"); doc.setFontSize(10);
+//     doc.text(`Rapor Tarihi: ${printDateTR()}`, 40, 56, { align: "left" });
+
+//     try { doc.addImage(Logo as any, "PNG", pw - 100, 20, 68, 68); } catch { }
+// };
+// const drawFooter = (doc: jsPDF) => {
+//     const pw = doc.internal.pageSize.getWidth();
+//     const ph = doc.internal.pageSize.getHeight();
+//     doc.setFont("NotoSans", "normal"); doc.setFontSize(8);
+//     const companyInfo = [
+//         "SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.",
+//         "Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11",
+//         "http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr",
+//     ];
+//     let y = ph - 48;
+//     companyInfo.forEach((line) => { doc.text(line, pw / 2, y, { align: "center" }); y += 12; });
+//     const anyDoc = doc as any;
+//     const pageNum = anyDoc.internal.getCurrentPageInfo().pageNumber;
+//     const pageCount = anyDoc.internal.getNumberOfPages();
+//     doc.text(`Sayfa ${pageNum} / ${pageCount}`, 40, ph - 16);
+//     doc.text("İmza", pw - 40, ph - 16, { align: "right" });
+//     doc.line(pw - 120, ph - 24, pw - 40, ph - 24);
+// };
+
 const drawHeader = (doc: jsPDF, title: string) => {
-    const pw = doc.internal.pageSize.getWidth();
-    doc.setFont("Arial", "normal"); doc.setFontSize(14);
-    doc.text(title, pw / 2, 40, { align: "center" });
 
-    doc.setFont("Times", "normal"); doc.setFontSize(10);
-    doc.text(`Rapor Tarihi: ${printDateTR()}`, 40, 56, { align: "left" });
+    const docAny = doc as any;
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoHeight = 18;
+    const margin = 15;
+    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
 
-    try { doc.addImage(Logo as any, "PNG", pw - 100, 20, 68, 68); } catch { }
+    try {
+        doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
+    }
+
+    doc.setFont('NotoSans', 'normal');
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+
+    doc.setFontSize(10);
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
+
+    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+    // doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, pageWidth - 15, 40);
 };
+
 const drawFooter = (doc: jsPDF) => {
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = doc.internal.pageSize.getHeight();
-    doc.setFont("NotoSans", "normal"); doc.setFontSize(8);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    doc.setFontSize(8);
+    doc.setFont('NotoSans', 'normal');
+    doc.setTextColor(100);
+
     const companyInfo = [
-        "SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.",
-        "Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11",
-        "http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr",
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
     ];
-    let y = ph - 48;
-    companyInfo.forEach((line) => { doc.text(line, pw / 2, y, { align: "center" }); y += 12; });
-    const anyDoc = doc as any;
-    const pageNum = anyDoc.internal.getCurrentPageInfo().pageNumber;
-    const pageCount = anyDoc.internal.getNumberOfPages();
-    doc.text(`Sayfa ${pageNum} / ${pageCount}`, 40, ph - 16);
-    doc.text("İmza", pw - 40, ph - 16, { align: "right" });
-    doc.line(pw - 120, ph - 24, pw - 40, ph - 24);
+
+    let footerY = pageHeight - 40;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 12;
+    });
+
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
 };
+
 
 const buildRowsForExport = (rows: LeaveType[]) =>
     rows.map((lv) => [

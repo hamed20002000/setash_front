@@ -1036,21 +1036,22 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                 fontSize: 9,
             },
             // ** منطق Header و Footer شامل آرم **
-            didDrawPage: (data: any) => {
+            didDrawPage: (_data: any) => {
                 // Header (سربرگ)
                 docAny.setFont('NotoSans', 'bold');
                 docAny.setFontSize(14);
                 docAny.text(title, pageWidth / 2, 15, { align: 'center' });
 
-                docAny.setFontSize(10);
-                docAny.setFont('NotoSans', 'bold');
-                docAny.text(`Rapor Tarih:`, 15, 25);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text(`${formatDateDisplay(new Date().toISOString())}`, 35, 25);
+                doc.setFontSize(10);
+                doc.setFont('NotoSans', 'bold');
+                doc.text(`Rapor Tarihi:`, 15, 40);
+                doc.setFont('NotoSans', 'normal');
+                doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
 
-                // ⬅️ افزودن آرم به گوشه بالا سمت راست 
-                // فرض می‌شود متغیر 'Logo' یک رشته base64 یا آدرس معتبر برای jsPDF است.
-                docAny.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
+                doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+                doc.setLineWidth(0.5);
+                doc.line(15, 45, pageWidth - 15, 45);
 
                 // Footer (پانویس)
                 docAny.setFont('NotoSans', 'normal');
@@ -1061,19 +1062,20 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                     'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR Tel: +90 (232) 347 74 74 pbx Fax: +90 (232) 347 77 11',
                     'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'
                 ];
-                let footerY = pageHeight - 30;
+                let footerY = pageHeight - 20;
                 companyInfo.forEach(line => {
                     docAny.text(line, pageWidth / 2, footerY, { align: 'center' });
                     footerY += 4;
                 });
 
-                // شماره صفحه و امضا
-                const pageNumber = data.pageNumber;
-                const pageCount = docAny.internal.getNumberOfPages();
+                docAny.setTextColor(0);
+                docAny.setFontSize(10);
+                docAny.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+                docAny.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+                const pageNumber = (docAny as any).internal.getCurrentPageInfo().pageNumber;
+                const pageCount = (docAny as any).internal.getNumberOfPages();
                 docAny.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
-                docAny.setFont('NotoSans', 'normal');
-                docAny.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-                docAny.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
             },
             startY: 50,
             showHead: 'everyPage',
@@ -1806,7 +1808,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                         <Button variant="text" style={{ fontSize: "10px", padding: "2px 2px" }} onClick={() => {
                                                             handleOpenDescriptionModal(row.description);
                                                         }}>
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 )}
@@ -1821,7 +1823,7 @@ const ListPersonnelWorkPlaces: React.FC = () => {
                                                             style={{ fontSize: "10px", padding: "2px 5px" }}
                                                             onClick={() => handleOpenDescriptionModal(row.description)}
                                                         >
-                                                            Devamını Oku
+                                                            Açıklamanı Oku
                                                         </Button>
                                                     </CustomTooltip>
                                                 ) : (

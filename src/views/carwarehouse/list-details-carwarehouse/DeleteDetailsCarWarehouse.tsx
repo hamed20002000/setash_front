@@ -37,7 +37,7 @@ const DeleteDetailsCarWarehouse: React.FC<DeleteProps> = ({ openModal, idToDelet
 
         setLoading(true);
         try {
-            const url = `${server.baseurl}${server.initialoperations}delete-car-warehouse-details/${idToDelete}`;
+            const url = `${server.baseurl}${server.warehouse}delete-car-warehouse-details/${idToDelete}`;
 
             const response = await axios.delete(
                 url,
