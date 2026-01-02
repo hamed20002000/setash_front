@@ -497,7 +497,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         if (editingId !== null) setEditingId(null);
 
         const base: any = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
-            (acc as any)[f.key] = 0;
+            (acc as any)[f.key] = null;
             return acc;
         }, {
             description: formData.description || '',
