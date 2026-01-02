@@ -13,6 +13,7 @@ import {
     TableCell,
 } from '@mui/material';
 
+import "./style.css"
 import DoNotDisturbOnRoundedIcon from '@mui/icons-material/DoNotDisturbOnRounded';
 import DoneRoundedIcon from '@mui/icons-material/DoneRounded';
 import { keyframes, styled } from '@mui/material/styles';
@@ -67,7 +68,8 @@ interface CarDetail {
     attachments: AttachmentType[];
     recordStatus: 0 | 1;
     createAt: string;
-    fuelType: string; // 👈 این خط را اضافه کنید
+    fuelType: string;
+    available: boolean
 }
 // interface CarWarehouseInfo { id: number; name: string; code: string; address: string; } // ⭐️ id: number تغییر به string در API جدید
 interface CarWarehouseApi { // ⭐️ اینترفیس جدید برای API لیست انبارها
@@ -106,7 +108,7 @@ interface ConsignmentApiData {
 // داخل کامپوننت اصلی این Stateها را اضافه کنید:
 
 
-type SortableKeys = 'brand' | 'model' | 'plaque' | 'manufactureDate' | 'createAt';
+type SortableKeys = 'brand' | 'model' | 'plaque' | 'manufactureDate' | 'createAt' | 'available';
 
 // ... (Styles, Date & Sorting, File Helpers, ConsignmentFileUpload, uploadFiles, PDF/Excel Helpers - بدون تغییر)
 // ... (توابع کمکی مشترک بالا را اینجا قرار دهید) ...
@@ -544,6 +546,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
         model: r.model,
         manufactureDate: r.manufactureDate,
         plaque: r.plaque,
+        available: r.available,
         description: r.description || '',
         carWarehouseId: Number(r.carWarehouseId),
         attachments: (r.attachments || r.attacments || []).map((a: any) => ({ fileUrl: a.fileUrl })),
@@ -636,7 +639,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                 setConsignedCars(res.data.data);
             }
         } catch (e) {
-            showAlert('Amant verileri yüklenemedi.', 'error');
+            showAlert('Emanet verileri yüklenemedi.', 'error');
         } finally {
             setLoadingConsignment(false);
         }
@@ -953,7 +956,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
-        const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Kayıt Tarihi'];
+        const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', "Uygunluk", 'Kayıt Tarihi'];
 
         const body = data.map(r => [
             r.brand || '-',
@@ -961,6 +964,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
             r.plaque || '-',
             FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
             formatDateDisplay(r.manufactureDate || null),
+            r.available ? "Mevcut" : "Emanet",
             formatDateDisplay(r.createAt || null),
         ]);
 
@@ -1081,7 +1085,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
             const workbook = new Excel.Workbook();
             const worksheet = workbook.addWorksheet(title.substring(0, 31));
 
-            const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
+            const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', "Uygunluk", 'Açıklama', 'Kayıt Tarihi'];
             addExcelHeader(worksheet, title, columns.length);
 
             const headerRow = worksheet.addRow(columns);
@@ -1095,6 +1099,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                     r.plaque || '-',
                     FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
                     formatDateDisplay(r.manufactureDate || null),
+                    r.available ? "Mevcut" : "Emanet",
                     r.description || '-',
                     formatDateDisplay(r.createAt || null),
                 ]);
@@ -1520,7 +1525,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     startIcon={<IconBox />}
                                     size="small"
                                 >
-                                    Amantları Görüntüle
+                                    Araç Durumlarını Görüntüle
                                 </Button>
                             </Stack>
 
@@ -1574,7 +1579,18 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                     <StyledTableCell><TableSortLabel active={orderBy === 'brand'} direction={orderBy === 'brand' ? order : 'asc'} onClick={() => handleRequestSort('brand')} sx={{ color: 'inherit' }}><Typography variant="h6">Marka</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'model'} direction={orderBy === 'model' ? order : 'asc'} onClick={() => handleRequestSort('model')} sx={{ color: 'inherit' }}><Typography variant="h6">Model</Typography></TableSortLabel></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Yakıt</Typography></StyledTableCell>
+
                                     <StyledTableCell><TableSortLabel active={orderBy === 'manufactureDate'} direction={orderBy === 'manufactureDate' ? order : 'asc'} onClick={() => handleRequestSort('manufactureDate')} sx={{ color: 'inherit' }}><Typography variant="h6">Üretim Tarihi</Typography></TableSortLabel></StyledTableCell>
+                                    <StyledTableCell>
+                                        <TableSortLabel
+                                            active={orderBy === 'available'}
+                                            direction={orderBy === 'available' ? order : 'asc'}
+                                            onClick={() => handleRequestSort('available')}
+                                            sx={{ color: 'inherit' }}
+                                        >
+                                            <Typography variant="h6">Uygunluk</Typography>
+                                        </TableSortLabel>
+                                    </StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Açıklama</Typography></StyledTableCell>
                                     <StyledTableCell><Typography variant="h6">Ekler</Typography></StyledTableCell>
                                     <StyledTableCell><TableSortLabel active={orderBy === 'createAt'} direction={orderBy === 'createAt' ? order : 'asc'} onClick={() => handleRequestSort('createAt')} sx={{ color: 'inherit' }}><Typography variant="h6">Kayıt Tarihi</Typography></TableSortLabel></StyledTableCell>
@@ -1594,6 +1610,25 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                                     color="info" size="small" icon={<IconGasStation size={16} />} />
                                             </StyledTableCell>
                                             <StyledTableCell>{formatDateDisplay(row.manufactureDate || null)}</StyledTableCell>
+                                            <StyledTableCell>
+                                                {row.available ? (
+                                                    <Chip
+                                                        label="Mevcut"
+                                                        size="small"
+                                                        color="success"
+                                                        icon={<DoneRoundedIcon style={{ fontSize: '16px' }} />}
+                                                        sx={{ fontWeight: 'bold' }}
+                                                    />
+                                                ) : (
+                                                    <Chip
+                                                        label="Emanet"
+                                                        size="small"
+                                                        color="error"
+                                                        icon={<IconBox size={16} />}
+                                                        sx={{ fontWeight: 'bold' }}
+                                                    />
+                                                )}
+                                            </StyledTableCell>
                                             {/* <StyledTableCell sx={{ maxWidth: 200, verticalAlign: 'top' }}>
                                                 <Box sx={{
                                                     maxHeight: '5em', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
@@ -1744,7 +1779,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
 
             <Dialog open={openConsignmentModal} onClose={() => setOpenConsignmentModal(false)} maxWidth="lg" fullWidth>
                 <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
-                    <Typography variant="h6">Araç Amant ve Zimmet Takibi</Typography>
+                    <Typography variant="h6">Araç Emanet ve Zimmet Takibi</Typography>
                     <IconButton onClick={() => setOpenConsignmentModal(false)} sx={{ color: 'white' }}><IconX /></IconButton>
                 </DialogTitle>
 
@@ -1757,7 +1792,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                     ) : (
                         <Grid container spacing={4}>
 
-                            {/* --- بخش اول: خودروهای نزد پرسنل (Aktif Amantlar) --- */}
+                            {/* --- بخش اول: خودروهای نزد پرسنل (Aktif Emanetlar) --- */}
                             <Grid item xs={12}>
                                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                                     <Typography variant="h6" color="error.main" display="flex" alignItems="center">
@@ -1767,7 +1802,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                         variant="contained"
                                         color="error"
                                         startIcon={<IconFileText />}
-                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => c.consigned), "Aktif_Amant_Listesi")}
+                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => c.consigned), "Aktif_Emanet_Listesi")}
                                     >
                                         PDF İndir
                                     </Button>
@@ -1818,7 +1853,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
                                         variant="contained"
                                         color="success"
                                         startIcon={<IconFileText />}
-                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => !c.consigned), "Iade_Edilen_Amant_Listesi")}
+                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => !c.consigned), "Iade_Edilen_Emanet_Listesi")}
                                     >
                                         PDF İndir
                                     </Button>

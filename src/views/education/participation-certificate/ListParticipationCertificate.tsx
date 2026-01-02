@@ -15,7 +15,7 @@ import Logo from 'src/assets/images/logos/logo.png';
 import { format } from 'date-fns';
 
 interface PersonnelLite { id: number; name: string; family: string; identityNumber: string; hasISG: boolean; }
-interface Course { courseId: string; courseTitle: string; totalHours: string; }
+interface Course { courseId: string; courseTitle: string; totalHours: string; courseHours: string; }
 const showAlert = (message: string, type: 'success' | 'error' | 'warning') => console.log(`Uyarı (${type}): ${message}`);
 const navigate = (path: string) => console.log(`Yönlendiriliyor: ${path}`);
 const formatHours = (hours: string): string => {
@@ -396,8 +396,7 @@ const ListParticipationCertificate: React.FC = () => {
         doc.setFontSize(11);
         doc.setFont('NotoSans', 'normal');
 
-        const certificateText = `T.C. Kimlik Numaralı (${personnel.identityNumber}) personelimiz, Şirketimiz bünyesinde düzenlenen "${course.courseTitle}" adlı eğitime başarıyla katılım sağlamış ve toplam ${formatHours(course.totalHours)} süre ile eğitim almıştır. Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır. Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
-
+        const certificateText = `T.C. Kimlik Numaralı (${personnel.identityNumber}) personelimiz, Şirketimiz bünyesinde düzenlenen "${course.courseTitle}" adlı eğitime başarıyla katılım sağlamış ve toplam ${formatHours(course.courseHours)} süre ile eğitim almıştır. Gerekli yeterlilikleri yerine getirdiği için bu belgeyi almaya hak kazanmıştır. Bu belge, personelin kariyer gelişimine katkıda bulunmak amacıyla düzenlenmiştir.`;
         // چاپ متن به صورت Justify
         // پارامترهای maxWidth و align باعث تراز شدن خودکار می‌شوند
         doc.text(certificateText, sideMargin, finalY, {
@@ -421,7 +420,8 @@ const ListParticipationCertificate: React.FC = () => {
             ["Personel Adı Soyadı", `${personnel.name} ${personnel.family}`],
             ["Kimlik Numarası", personnel.identityNumber || 'Belirtilmemiş'],
             ["Kurs Adı", course.courseTitle],
-            ["Eğitim Süresi", formatHours(course.totalHours)],
+            // ["Eğitim Süresi", formatHours(course.totalHours)],
+            ["Eğitim Süresi", formatHours(course.courseHours)],
             ["Sertifika Tarihi", format(new Date(), 'dd MMMM yyyy', { locale: tr })],
         ];
 
@@ -574,17 +574,23 @@ const ListParticipationCertificate: React.FC = () => {
                                 onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                             >
-                                {/* Kurs Bilgileri */}
+                                {/* داخل حلقه نمایش کورس‌ها */}
                                 <div style={{ marginBottom: '15px' }}>
                                     <h3 style={{ margin: '0 0 10px 0', display: 'flex', alignItems: 'center', color: '#0056b3' }}>
-                                        <IconCertificate size={22}
-                                            style={{ marginLeft: '8px', marginRight: '8px', color: '#0787ffff' }} />
+                                        <IconCertificate size={22} style={{ marginLeft: '8px', marginRight: '8px', color: '#0787ffff' }} />
                                         {course.courseTitle}
                                     </h3>
-                                    <p style={{ margin: '0', color: '#555', display: 'flex', alignItems: 'center' }}>
-                                        <IconClockHour3 size={18} style={{ marginLeft: '8px', marginRight: '8px', color: '#ff0707ff' }} />
-                                        Eğitim Süresi: {formatHours(course.totalHours)}
-                                    </p>
+                                    <Stack spacing={1}>
+                                        <p style={{ margin: '0', color: '#555', display: 'flex', alignItems: 'center' }}>
+                                            <IconClockHour3 size={18} style={{ marginLeft: '8px', marginRight: '8px', color: '#ff0707ff' }} />
+                                            Katılım Süresi: {formatHours(course.totalHours)}
+                                        </p>
+                                        {/* فیلد جدید برای ساعت کلی دوره */}
+                                        <p style={{ margin: '0', color: '#666', display: 'flex', alignItems: 'center', fontSize: '0.9rem' }}>
+                                            <IconClockHour3 size={18} style={{ marginLeft: '8px', marginRight: '8px', color: '#757575' }} />
+                                            Toplam Kurs Süresi: {formatHours(course.courseHours)}
+                                        </p>
+                                    </Stack>
                                 </div>
 
                                 {/* Sertifika Yazdırma Düğmesi */}

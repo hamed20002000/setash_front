@@ -10,6 +10,8 @@ import {
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions,
     CircularProgress,
+    Paper,
+    Divider,
 } from '@mui/material';
 
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
@@ -1252,31 +1254,79 @@ const ListProjectPlanning = () => {
 
 
             {/* Details Modal */}
-            <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="sm">
-                <DialogTitle>Proje Planlama Detayları</DialogTitle>
+            {/* Proje Planlama Detayları Modalı */}
+            <Dialog
+                open={openDetailModal}
+                onClose={() => setOpenDetailModal(false)}
+                fullWidth
+                maxWidth="md" // تغییر سایز مودال به متوسط یا بزرگ (md/lg)
+            >
+                <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white' }}>
+                    Proje Planlama Detayları
+                </DialogTitle>
                 <DialogContent dividers>
                     {detailData && (
-                        <Grid container spacing={2}>
-                            <Grid item xs={12}><Typography variant="subtitle1">Proje: {detailData.project?.title}</Typography></Grid>
-                            <Grid item xs={12} sm={6}><Typography variant="body2">Başlangıç Tarihi: {format(new Date(detailData.startDate), 'dd MMMM yyyy HH:mm', { locale: tr })}</Typography></Grid>
-                            <Grid item xs={12} sm={6}><Typography variant="body2">Bitiş Tarihi: {format(new Date(detailData.endDate), 'dd MMMM yyyy HH:mm', { locale: tr })}</Typography></Grid>
+                        <Grid container spacing={2} sx={{ mt: 1 }}>
+                            {/* بخش اطلاعات کلی در یک ردیف کامل */}
+                            <Grid item xs={12}>
+                                <Paper elevation={0} sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, mb: 2 }}>
+                                    <Typography variant="h6" color="primary">{detailData.project?.title}</Typography>
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mt={1}>
+                                        <Typography variant="body2"><b>Başlangıç:</b> {format(new Date(detailData.startDate), 'dd MMMM yyyy HH:mm', { locale: tr })}</Typography>
+                                        <Typography variant="body2"><b>Bitiş:</b> {format(new Date(detailData.endDate), 'dd MMMM yyyy HH:mm', { locale: tr })}</Typography>
+                                    </Stack>
+                                </Paper>
+                            </Grid>
+
+                            {/* نمایش فیلدها به صورت کارت‌های ۳ تایی */}
                             {planningFields.map(field => {
                                 const values = (detailData as any)[field.key];
-                                return values && (
-                                    <Grid item xs={12} key={field.key}>
-                                        <Typography variant="subtitle2" mt={2}>{field.label}</Typography>
-                                        <Stack direction="row" spacing={1} mt={1}>
-                                            <Chip label={`Tahmini: ${values.estimatedNumber}`} color="success" size="small" />
-                                            <Chip label={`Min: ${values.min}`} color="primary" size="small" />
-                                            <Chip label={`Max: ${values.max}`} color="secondary" size="small" />
-                                        </Stack>
+                                // فقط اگر مقداری غیر از صفر وجود داشت نمایش دهد (اختیاری)
+                                const hasValue = values && (values.estimatedNumber > 0 || values.min > 0 || values.max > 0);
+
+                                if (!values) return null;
+
+                                return (
+                                    <Grid item xs={12} sm={6} md={4} key={field.key}> {/* md={4} باعث نمایش ۳ کارت در هر ردیف می‌شود */}
+                                        <Paper
+                                            variant="outlined"
+                                            sx={{
+                                                p: 2,
+                                                height: '100%',
+                                                borderRadius: 2,
+                                                transition: '0.3s',
+                                                '&:hover': { boxShadow: 3, borderColor: 'primary.main' },
+                                                opacity: hasValue ? 1 : 0.6 // اگر صفر باشد کمرنگ‌تر نمایش دهد
+                                            }}
+                                        >
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, minHeight: '40px' }}>
+                                                {field.label}
+                                            </Typography>
+                                            <Divider sx={{ mb: 1 }} />
+                                            <Stack spacing={1}>
+                                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="caption" color="textSecondary">Tahmini:</Typography>
+                                                    <Chip label={values.estimatedNumber} size="small" color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                                </Box>
+                                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="caption" color="textSecondary">Min:</Typography>
+                                                    <Chip label={values.min} size="small" color="error" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                                </Box>
+                                                <Box display="flex" justifyContent="space-between" alignItems="center">
+                                                    <Typography variant="caption" color="textSecondary">Max:</Typography>
+                                                    <Chip label={values.max} size="small" color="success" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                                                </Box>
+                                            </Stack>
+                                        </Paper>
                                     </Grid>
                                 );
                             })}
                         </Grid>
                     )}
                 </DialogContent>
-                <DialogActions><Button onClick={() => setOpenDetailModal(false)} color="primary">Kapat</Button></DialogActions>
+                <DialogActions>
+                    <Button onClick={() => setOpenDetailModal(false)} variant="contained" color="primary">Kapat</Button>
+                </DialogActions>
             </Dialog>
 
             {/* Value Modal */}

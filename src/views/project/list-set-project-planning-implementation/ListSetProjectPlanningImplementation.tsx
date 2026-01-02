@@ -102,9 +102,9 @@ const StatusToggleButton = styled(MuiToggleButton)<{ value: number, selected: bo
 
 /* =================== Constants =================== */
 const STATUS_OPTIONS = [
-    { value: 1, label: 'Tamamlandı', color: 'success' as const },
-    { value: 2, label: 'Mevcut', color: 'warning' as const },
-    { value: 3, label: 'İptal', color: 'error' as const },
+    { value: 0, label: 'Tamamlandı', color: 'success' as const },
+    { value: 1, label: 'Mevcut', color: 'warning' as const },
+    { value: 2, label: 'İptal', color: 'error' as const },
 ];
 const getStatusLabel = (value: number) => STATUS_OPTIONS.find(o => o.value === value)?.label || 'Yok';
 
