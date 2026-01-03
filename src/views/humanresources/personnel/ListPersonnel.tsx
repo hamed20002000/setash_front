@@ -3345,25 +3345,19 @@ const ListPersonnel: React.FC = () => {
 
                             <CustomFormLabel required>Yeni Maaş (TL)</CustomFormLabel>
                             <CustomTextField
-                                type="text" // ⬅️ استفاده از text برای جلوگیری از رفتارهای عجیب مرورگر در نوع number
+                                type="text"
                                 size="small"
                                 fullWidth
                                 placeholder="Yeni maaşı girin"
-                                value={cleanAndFormatPrice(newSalary) ?? ''}
+                                // مقدار را فرمت شده نمایش بده، اگر null بود رشته خالی
+                                value={newSalary !== null ? cleanAndFormatPrice(newSalary) : ''}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    const value = e.target.value;
-                                    // ⬅️ فقط عدد (بدون حروف و نماد)
-                                    if (value === '' || /^\d+$/.test(value)) {
-                                        setNewSalary(value === '' ? null : Number(value));
-                                    }
+                                    const rawValue = e.target.value.replace(/\D/g, '');
+                                    setNewSalary(rawValue === '' ? null : Number(rawValue));
                                 }}
-                                onKeyDown={(e: React.KeyboardEvent) => {
-                                    if (["e", "E", "+", "-", ",", "."].includes(e.key)) {
-                                        e.preventDefault();
-                                    }
-                                }}
+                                // onKeyDown اینجا اختیاری است چون در onChange همه غیرعددی‌ها را فیلتر می‌کنیم
                                 inputProps={{
-                                    inputMode: 'numeric', // ⬅️ در موبایل کیبورد عددی را باز می‌کند
+                                    inputMode: 'numeric',
                                     pattern: '[0-9]*'
                                 }}
                             />

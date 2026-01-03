@@ -7,16 +7,14 @@ import {
     Button, Typography, Box, Stack, IconButton,
     ToggleButtonGroup, ToggleButton as MuiToggleButton, Tooltip,
     Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, CircularProgress,
-    Divider, Grid,
-    TextField
+    Divider, Grid
 } from '@mui/material';
 import { useTheme, styled, Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import {
     IconX, IconSelect, IconHandGrab, IconPlus, IconMinus, IconTrash,
     IconLine, IconRotate2, IconPencil, IconMapPin, IconLock, IconLockOpen,
-    IconEye,
-    IconWorld
+    IconEye
 } from '@tabler/icons-react';
 import { useTooltip, CustomTooltip } from 'src/context/TooltipContext';
 import * as d3 from 'd3-force';
@@ -48,7 +46,7 @@ const formatDateDisplay = (dateString: string | null): string => {
 };
 
 
-type ToolType = 'select' | 'pan' | 'addNode' | 'addEdge' | 'delete' | 'zoomIn' | 'zoomOut' | 'rotate-drag' | 'edit' | 'addTrafo' | 'viewItems' | 'geoMode';
+type ToolType = 'select' | 'pan' | 'addNode' | 'addEdge' | 'delete' | 'zoomIn' | 'zoomOut' | 'rotate-drag' | 'edit' | 'addTrafo' | 'viewItems';
 
 const StyledToolButton = styled(MuiToggleButton)(({ theme }) => ({
     '&.Mui-selected': {
@@ -77,7 +75,6 @@ const linkColors = {
 };
 
 type NodeStatus = 0 | 1 | 2;
-
 
 interface MapPreviewModalProps {
     open: boolean;
@@ -150,8 +147,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     const [isTrafoModalOpen, setIsTrafoModalOpen] = useState(false);
     const [isProductTypeModalOpen, setIsProductTypeModalOpen] = useState(false);
 
-    const [isGeoModalOpen, setIsGeoModalOpen] = useState(false);
-    const [geoBounds, setGeoBounds] = useState({ minLat: 0, maxLat: 10, minLon: 0, maxLon: 10 });
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
@@ -181,16 +176,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
         const p = pt.matrixTransform(inv);
         return { x: p.x, y: p.y };
     }, []);
-
-    // تابعی برای تبدیل پیکسل به مختصات فرضی کاربر
-    const pixelToGeo = (val: number, isLat: boolean) => {
-        const min = isLat ? geoBounds.minLat : geoBounds.minLon;
-        const max = isLat ? geoBounds.maxLat : geoBounds.maxLon;
-        const size = isLat ? initialViewHeight : initialViewWidth;
-        return (min + (val / size) * (max - min)).toFixed(6);
-    };
-
-
     // const getMaterialSymbol = (ptcat?: 1 | 2) => (ptcat === 1 ? '🧱' : ptcat === 2 ? '⚙️' : '');
 
     // const getMaterialSymbol = (ptcat?: any) => {
@@ -609,29 +594,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
     //     return { nodes: Array.from(nodesMap.values()), links };
     // }, [initialViewHeight, initialViewWidth, productTypesList, allProductTypes]);
 
-    const updateNodeLocation = useCallback((nodeId: string, newX?: number, newY?: number) => {
-        setMapNodes(prevNodes => prevNodes.map(n =>
-            n.id === nodeId ? { ...n, x: newX ?? n.x, y: newY ?? n.y, fx: newX ?? n.fx, fy: newY ?? n.fy } : n
-        ));
-
-        setMapEdges(prevEdges => prevEdges.map(edge => {
-            if (edge.fromNodeId === nodeId || edge.toNodeId === nodeId) {
-                return {
-                    ...edge,
-                    fromX: edge.fromNodeId === nodeId ? (newX ?? edge.fromX) : edge.fromX,
-                    fromY: edge.fromNodeId === nodeId ? (newY ?? edge.fromY) : edge.fromY,
-                    toX: edge.toNodeId === nodeId ? (newX ?? edge.toX) : edge.toX,
-                    toY: edge.toNodeId === nodeId ? (newY ?? edge.toY) : edge.toY,
-                    // اگر فاصله قفل نیست، متناسب با جابجایی پیکسل، مسافت را هم آپدیت کن
-                    distance: isDistanceLocked ? edge.distance : parseFloat(Math.hypot(
-                        (edge.fromNodeId === nodeId ? (newX ?? edge.fromX) : edge.fromX) - (edge.toNodeId === nodeId ? (newX ?? edge.toX) : edge.toX),
-                        (edge.fromNodeId === nodeId ? (newY ?? edge.fromY) : edge.fromY) - (edge.toNodeId === nodeId ? (newY ?? edge.toY) : edge.toY)
-                    ).toFixed(2))
-                };
-            }
-            return edge;
-        }));
-    }, [isDistanceLocked]);
 
     const convertTransmissionsToMapData = useCallback((currentTransmissions: TransmissionRow[]) => {
         const nodesMap = new Map<string, MapNode>();
@@ -915,9 +877,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
     const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         e.preventDefault();
-        if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).closest('foreignObject')) {
-            return;
-        }
         if ((editingNodeId || editingEdgeId) && inputRef.current && !inputRef.current.contains(e.target as Node)) {
             if (editingEdgeId) handleEdgeDistanceSave();
             setEditingNodeId(null);
@@ -1240,7 +1199,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
 
     const { x: rotateOriginX, y: rotateOriginY } = getCenterOfViewBox();
 
-
     const renderHubNode = () => {
         const hubs = mapNodes.filter(n => n.isHub);
         return (
@@ -1254,80 +1212,17 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                 fill="transparent" stroke="transparent" strokeWidth={1 / scale}
                                 onPointerDown={(e) => handleNodeClick(h, e as any)}
                             />
-                            <path d={`M ${h.x || 0} ${(h.y || 0) - 20 / scale} L ${(h.x || 0) - 20 / scale} ${(h.y || 0) + 20 / scale} L ${(h.x || 0) + 20 / scale} ${(h.y || 0) + 20 / scale} Z`}
-                                fill={theme.palette.primary.main}
-                                stroke={selectedNodeIds.has(h.id) ? theme.palette.primary.dark : theme.palette.text.primary}
-                                strokeWidth={selectedNodeIds.has(h.id) ? 3 / scale : 1 / scale}
-                                style={{ pointerEvents: 'none' }}
-                            />
+                            <path d={`M ${h.x || 0} ${(h.y || 0) - 20 / scale} L ${(h.x || 0) - 20 / scale} ${(h.y || 0) + 20 / scale} L ${(h.x || 0) + 20 / scale} ${(h.y || 0) + 20 / scale} Z`} fill={theme.palette.primary.main} stroke={selectedNodeIds.has(h.id) ? theme.palette.primary.dark : theme.palette.text.primary} strokeWidth={selectedNodeIds.has(h.id) ? 3 / scale : 1 / scale} style={{ pointerEvents: 'none' }} />
                             <text x={h.x || 0} y={(h.y || 0) + (8 / scale)} fontSize={`${10 / scale}px`} fill="white" textAnchor="middle" dominantBaseline="middle" style={{ pointerEvents: 'none' }}>{h.name}</text>
                             {symbol && (<text x={(h.x || 0) + (30 / scale)} y={(h.y || 0) + (5 / scale)}
                                 fontSize={`${12 / scale}px`} fill={textColor} textAnchor="start" style={{ pointerEvents: 'none' }}>{symbol}</text>)}
-
-                            {/* --- اضافه کردن بخش مختصات جغرافیایی برای ترافو --- */}
-                            {activeTool === 'geoMode' && (
-                                <foreignObject
-                                    x={(h.x || 0) - 50 / scale}
-                                    y={(h.y || 0) - 95 / scale}
-                                    width={100 / scale}
-                                    height={75 / scale}
-                                    style={{ pointerEvents: 'auto' }}
-                                >
-                                    <Box
-                                        onMouseDown={(e) => e.stopPropagation()}
-                                        onPointerDown={(e) => e.stopPropagation()}
-                                        sx={{
-                                            bgcolor: 'white',
-                                            p: 0.5,
-                                            border: `${1.5 / scale}px solid #1976d2`,
-                                            borderRadius: `${4 / scale}px`,
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: `${3 / scale}px`,
-                                            boxShadow: '0px 4px 10px rgba(0,0,0,0.3)',
-                                        }}
-                                    >
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <Typography sx={{ fontSize: `${8 / scale}px`, fontWeight: 'bold' }}>Lat</Typography>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                style={{ fontSize: `${9 / scale}px`, width: '70%', border: '1px solid #ccc' }}
-                                                value={pixelToGeo(h.y || 0, true)}
-                                                onChange={(e) => {
-                                                    const val = parseFloat(e.target.value);
-                                                    if (!isNaN(val)) {
-                                                        const newY = ((val - geoBounds.minLat) / (geoBounds.maxLat - geoBounds.minLat)) * initialViewHeight;
-                                                        updateNodeLocation(h.id, undefined, newY);
-                                                    }
-                                                }}
-                                            />
-                                        </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <Typography sx={{ fontSize: `${8 / scale}px`, fontWeight: 'bold' }}>Lon</Typography>
-                                            <input
-                                                type="number"
-                                                step="0.000001"
-                                                style={{ fontSize: `${9 / scale}px`, width: '70%', border: '1px solid #ccc' }}
-                                                value={pixelToGeo(h.x || 0, false)}
-                                                onChange={(e) => {
-                                                    const val = parseFloat(e.target.value);
-                                                    if (!isNaN(val)) {
-                                                        const newX = ((val - geoBounds.minLon) / (geoBounds.maxLon - geoBounds.minLon)) * initialViewWidth;
-                                                        updateNodeLocation(h.id, newX, undefined);
-                                                    }
-                                                }}
-                                            />
-                                        </Box>
-                                    </Box>
-                                </foreignObject>
-                            )}
                         </g>
                     );
                 })}
             </>
         );
     };
+
 
     // --- توابع کمکی هدر و فوتر PDF ---
     const addPdfHeader = (doc: jsPDF, title: string) => {
@@ -1686,16 +1581,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                             <IconRotate2 size={20} />
                                         </Tooltip>
                                     </StyledToolButton>
-                                    <StyledToolButton
-                                        value="geoMode"
-                                        selected={activeTool === 'geoMode'}
-                                        onClick={() => setIsGeoModalOpen(true)}
-                                    >
-                                        <Tooltip placement="right" title="Coğrafi Koordinat Modu">
-                                            <IconWorld size={20} />
-                                        </Tooltip>
-                                    </StyledToolButton>
-
                                 </ToggleButtonGroup>
                             )}
 
@@ -1745,17 +1630,6 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                         >
                             <svg ref={svgElementRef} width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block' }}>
                                 <defs>{Object.keys(linkColors).map(key => (<marker key={key} id={`arrowhead-${key.toLowerCase().replace(/ /g, '-')}`} markerWidth="10" markerHeight="7" refX="12" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill={linkColors[key as keyof typeof linkColors]} /></marker>))}</defs>
-
-                                {activeTool === 'geoMode' && (
-                                    <g>
-                                        <defs>
-                                            <pattern id="geoGrid" width={50 / scale} height={50 / scale} patternUnits="userSpaceOnUse">
-                                                <path d={`M ${50 / scale} 0 L 0 0 0 ${50 / scale}`} fill="none" stroke="#ccc" strokeWidth={0.5 / scale} />
-                                            </pattern>
-                                        </defs>
-                                        <rect x={viewBox.x} y={viewBox.y} width={viewBox.width} height={viewBox.height} fill="url(#geoGrid)" />
-                                    </g>
-                                )}
                                 <g ref={svgGroupRef} transform={`rotate(${rotationAngle} ${rotateOriginX} ${rotateOriginY})`}>
                                     {mapEdges.map(edge => (
                                         <g key={edge.id}>
@@ -1792,8 +1666,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                 {status === 1 &&
                                                     (<circle cx={node.x || 0}
                                                         cy={node.y || 0} r={4 / scale} fill={baseStroke}
-                                                        style={{ pointerEvents: 'none' }} />)
-                                                }
+                                                        style={{ pointerEvents: 'none' }} />)}
 
 
 
@@ -1805,78 +1678,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                                                         pointerEvents: 'auto', cursor: activeTool === 'edit' ? 'text' : 'auto'
                                                     }}
                                                     onClick={(e) => handleTextClick(node.id, 'node', node.name, e as any)}>
-                                                    <tspan>{node.name}</tspan>{symbol && (<tspan dx={4 / scale}>{symbol}</tspan>)}
-                                                </text>
-                                                {activeTool === 'geoMode' && (
-                                                    <foreignObject
-                                                        x={(node.x || 0) - 50 / scale}
-                                                        y={(node.y || 0) - 95 / scale}
-                                                        width={100 / scale}
-                                                        height={75 / scale}
-                                                        style={{ pointerEvents: 'auto' }}
-                                                    >
-                                                        <Box
-                                                            onMouseDown={(e) => e.stopPropagation()}
-                                                            onPointerDown={(e) => e.stopPropagation()}
-                                                            sx={{
-                                                                bgcolor: 'white',
-                                                                p: 0.5,
-                                                                border: `${1.5 / scale}px solid #1976d2`,
-                                                                borderRadius: `${4 / scale}px`,
-                                                                display: 'flex',
-                                                                flexDirection: 'column',
-                                                                gap: `${3 / scale}px`,
-                                                                boxShadow: '0px 4px 10px rgba(0,0,0,0.3)',
-                                                            }}
-                                                        >
-                                                            {/* فیلد Latitude */}
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                <Typography sx={{ fontSize: `${8 / scale}px`, fontWeight: 'bold' }}>Lat</Typography>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.000001"
-                                                                    style={{ fontSize: `${9 / scale}px`, width: '70%', border: '1px solid #ccc' }}
-                                                                    value={pixelToGeo(node.y || 0, true)}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value);
-                                                                        if (!isNaN(val)) {
-                                                                            const newY = ((val - geoBounds.minLat) / (geoBounds.maxLat - geoBounds.minLat)) * initialViewHeight;
-                                                                            setMapNodes(prev => prev.map(n => n.id === node.id ? { ...n, y: newY, fy: newY } : n));
-                                                                            setMapEdges(prev => prev.map(edge => {
-                                                                                if (edge.fromNodeId === node.id) return { ...edge, fromY: newY };
-                                                                                if (edge.toNodeId === node.id) return { ...edge, toY: newY };
-                                                                                return edge;
-                                                                            }));
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </Box>
-
-                                                            {/* فیلد Longitude */}
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                <Typography sx={{ fontSize: `${8 / scale}px`, fontWeight: 'bold' }}>Lon</Typography>
-                                                                <input
-                                                                    type="number"
-                                                                    step="0.000001"
-                                                                    style={{ fontSize: `${9 / scale}px`, width: '70%', border: '1px solid #ccc' }}
-                                                                    value={pixelToGeo(node.x || 0, false)}
-                                                                    onChange={(e) => {
-                                                                        const val = parseFloat(e.target.value);
-                                                                        if (!isNaN(val)) {
-                                                                            const newX = ((val - geoBounds.minLon) / (geoBounds.maxLon - geoBounds.minLon)) * initialViewWidth;
-                                                                            setMapNodes(prev => prev.map(n => n.id === node.id ? { ...n, x: newX, fx: newX } : n));
-                                                                            setMapEdges(prev => prev.map(edge => {
-                                                                                if (edge.fromNodeId === node.id) return { ...edge, fromX: newX };
-                                                                                if (edge.toNodeId === node.id) return { ...edge, toX: newX };
-                                                                                return edge;
-                                                                            }));
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </Box>
-                                                        </Box>
-                                                    </foreignObject>
-                                                )}
+                                                    <tspan>{node.name}</tspan>{symbol && (<tspan dx={4 / scale}>{symbol}</tspan>)}</text>
                                             </g>
                                         );
                                     })}
@@ -2125,28 +1927,7 @@ const MapPreviewModal: React.FC<MapPreviewModalProps> = ({
                 </DialogActions>
             </Dialog>
 
-
-            <Dialog open={isGeoModalOpen} onClose={() => setIsGeoModalOpen(false)}>
-                <DialogTitle>Coğrafi Sınırları Belirleyin</DialogTitle>
-                <DialogContent>
-                    <Stack spacing={2} sx={{ mt: 1 }}>
-                        <Typography variant="caption">Harita düzlemini coğrafi koordinatlara eşlemek için sınırları girin.</Typography>
-                        <Grid container spacing={2}>
-                            <Grid item xs={6}><TextField label="Min Enlem (Lat)" type="number" fullWidth value={geoBounds.minLat} onChange={(e) => setGeoBounds({ ...geoBounds, minLat: Number(e.target.value) })} /></Grid>
-                            <Grid item xs={6}><TextField label="Max Enlem (Lat)" type="number" fullWidth value={geoBounds.maxLat} onChange={(e) => setGeoBounds({ ...geoBounds, maxLat: Number(e.target.value) })} /></Grid>
-                            <Grid item xs={6}><TextField label="Min Boylam (Lon)" type="number" fullWidth value={geoBounds.minLon} onChange={(e) => setGeoBounds({ ...geoBounds, minLon: Number(e.target.value) })} /></Grid>
-                            <Grid item xs={6}><TextField label="Max Boylam (Lon)" type="number" fullWidth value={geoBounds.maxLon} onChange={(e) => setGeoBounds({ ...geoBounds, maxLon: Number(e.target.value) })} /></Grid>
-                        </Grid>
-                    </Stack>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => { setIsGeoModalOpen(false); setActiveTool('select'); }}>İptal</Button>
-                    <Button variant="contained" onClick={() => { setIsGeoModalOpen(false); setActiveTool('geoMode'); }}>Uygula</Button>
-                </DialogActions>
-            </Dialog>
-
         </Dialog>
-
 
     );
 };

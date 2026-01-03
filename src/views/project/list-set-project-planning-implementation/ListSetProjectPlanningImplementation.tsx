@@ -196,25 +196,40 @@ interface ImplementRow {
     channelName: string | null;
     transmissionRowId: number | null;
     transmissionName: string | null;
-
+    cekilenKabloMiktari: number;
     description: string;
 
-    kaziYapilanDirekDurumu: number;
-    altMontajiYapilanDirekDurumu: number;
-    betonAtilanDirekDurumu: number;
-    ustMontajiOrulenDirekDurumu: number;
-    ustMontajiKurulanDirekDurumu: number;
-    dikilenBetonDirekDurumu: number;
-    iletkenCekilenDirekDurumu: number;
-    ayiriciTakilanDirekDurumu: number;
-    dikilenAydinlatmaDirekDurumu: number;
-    kabloKanaliDurumu: number;
-    cekilenKabloMiktari: number;
-    transformatorDurumu: number;
-    dagitimPanosuDurumu: number;
-    sahaDagTMKutusuDurumu: number;
-    betonKoskDurumu: number;
-    hucreDurumu: number;
+    // kaziYapilanDirekDurumu: number;
+    // altMontajiYapilanDirekDurumu: number;
+    // betonAtilanDirekDurumu: number;
+    // ustMontajiOrulenDirekDurumu: number;
+    // ustMontajiKurulanDirekDurumu: number;
+    // dikilenBetonDirekDurumu: number;
+    // iletkenCekilenDirekDurumu: number;
+    // ayiriciTakilanDirekDurumu: number;
+    // dikilenAydinlatmaDirekDurumu: number;
+    // kabloKanaliDurumu: number;
+    // cekilenKabloMiktari: number;
+    // transformatorDurumu: number;
+    // dagitimPanosuDurumu: number;
+    // sahaDagTMKutusuDurumu: number;
+    // betonKoskDurumu: number;
+    // hucreDurumu: number;
+    kaziYapilanDirekDurumu: number | null;
+    altMontajiYapilanDirekDurumu: number | null;
+    betonAtilanDirekDurumu: number | null;
+    ustMontajiOrulenDirekDurumu: number | null;
+    ustMontajiKurulanDirekDurumu: number | null;
+    dikilenBetonDirekDurumu: number | null;
+    iletkenCekilenDirekDurumu: number | null;
+    ayiriciTakilanDirekDurumu: number | null;
+    dikilenAydinlatmaDirekDurumu: number | null;
+    kabloKanaliDurumu: number | null;
+    transformatorDurumu: number | null;
+    dagitimPanosuDurumu: number | null;
+    sahaDagTMKutusuDurumu: number | null;
+    betonKoskDurumu: number | null;
+    hucreDurumu: number | null;
 }
 
 /* ============ Fields config ============ */
@@ -256,7 +271,73 @@ const getTransmissionName = (item: ApiImplementItem): string | null => {
     return `${names[0]} -> ${names[1]}`;
 };
 
+const formatDateDisplay = (dateString: string | null): string => {
+    if (!dateString) return "N/A";
+    try {
+        const date = new Date(dateString);
+        return format(date, 'dd MMMM yyyy', { locale: tr });
+    } catch (e) {
+        console.log("Tarih biçimlendirilirken hata oluştu:", e);
+        return "Geçersiz Tarih";
+    }
+};
+
+
 /* ============ Mapper (API → Row) ============ */
+// const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
+//     const proj = item.projectPlanningImplementationDate.projectPlanning.project;
+//     const plan = item.projectPlanningImplementationDate;
+
+//     const projectTitle = `${proj.title} (${proj.code})`;
+
+//     const chId = item.channelRow ? Number(item.channelRow.id) : null;
+//     const chName = getChannelName(item);
+
+//     const trId = item.transmissionRow ? Number(item.transmissionRow.id) : null;
+//     const trName = getTransmissionName(item);
+
+//     const recStatus = (item.recordStatus as 0 | 1 | 2);
+//     const statusStr = recStatus === 0 ? 'Aktif' : recStatus === 1 ? 'Pasif' : 'Silindi';
+
+//     return {
+//         id: Number(item.id),
+//         projectPlanningDateId: Number(plan.id),
+//         projectTitle,
+//         startDate: plan.startDate,
+//         endDate: plan.endDate,
+
+//         recordStatus: recStatus,
+//         status: statusStr,
+
+//         channelRowId: chId,
+//         channelName: chName,
+//         transmissionRowId: trId,
+//         transmissionName: trName,
+
+//         description: item.description || '',
+
+//         kaziYapilanDirekDurumu: nz(item.kaziYapilanDirekDurumu),
+//         altMontajiYapilanDirekDurumu: nz(item.altMontajiYapilanDirekDurumu),
+
+
+
+//         betonAtilanDirekDurumu: nz(item.betonAtilanDirekDurumu),
+//         ustMontajiOrulenDirekDurumu: nz(item.ustMontajiOrulenDirekDurumu),
+//         ustMontajiKurulanDirekDurumu: nz(item.ustMontajiKurulanDirekDurumu),
+//         dikilenBetonDirekDurumu: nz(item.dikilenBetonDirekDurumu),
+//         iletkenCekilenDirekDurumu: nz(item.iletkenCekilenDirekDurumu),
+//         ayiriciTakilanDirekDurumu: nz(item.ayiriciTakilanDirekDurumu),
+//         dikilenAydinlatmaDirekDurumu: nz(item.dikilenAydinlatmaDirekDurumu),
+//         kabloKanaliDurumu: nz((item as any).kabloKanaliDurumu ?? (item as any).kabloKanaliDurumu),
+//         cekilenKabloMiktari: nz(item.cekilenKabloMiktari),
+//         transformatorDurumu: nz(item.transformatorDurumu),
+//         dagitimPanosuDurumu: nz(item.dagitimPanosuDurumu),
+//         sahaDagTMKutusuDurumu: nz(item.sahaDagTMKutusuDurumu),
+//         betonKoskDurumu: nz(item.betonKoskDurumu),
+//         hucreDurumu: nz(item.hucreDurumu),
+//     };
+// };
+
 const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
     const proj = item.projectPlanningImplementationDate.projectPlanning.project;
     const plan = item.projectPlanningImplementationDate;
@@ -289,22 +370,26 @@ const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
 
         description: item.description || '',
 
-        kaziYapilanDirekDurumu: nz(item.kaziYapilanDirekDurumu),
-        altMontajiYapilanDirekDurumu: nz(item.altMontajiYapilanDirekDurumu),
-        betonAtilanDirekDurumu: nz(item.betonAtilanDirekDurumu),
-        ustMontajiOrulenDirekDurumu: nz(item.ustMontajiOrulenDirekDurumu),
-        ustMontajiKurulanDirekDurumu: nz(item.ustMontajiKurulanDirekDurumu),
-        dikilenBetonDirekDurumu: nz(item.dikilenBetonDirekDurumu),
-        iletkenCekilenDirekDurumu: nz(item.iletkenCekilenDirekDurumu),
-        ayiriciTakilanDirekDurumu: nz(item.ayiriciTakilanDirekDurumu),
-        dikilenAydinlatmaDirekDurumu: nz(item.dikilenAydinlatmaDirekDurumu),
-        kabloKanaliDurumu: nz((item as any).kabloKanaliDurumu ?? (item as any).kabloKanaliDurumu),
+        // 🟢 اصلاح شد: از تابع nz استفاده نمی‌کنیم تا null حفظ شود
+        kaziYapilanDirekDurumu: item.kaziYapilanDirekDurumu,
+        altMontajiYapilanDirekDurumu: item.altMontajiYapilanDirekDurumu,
+        betonAtilanDirekDurumu: item.betonAtilanDirekDurumu,
+        ustMontajiOrulenDirekDurumu: item.ustMontajiOrulenDirekDurumu,
+        ustMontajiKurulanDirekDurumu: item.ustMontajiKurulanDirekDurumu,
+        dikilenBetonDirekDurumu: item.dikilenBetonDirekDurumu,
+        iletkenCekilenDirekDurumu: item.iletkenCekilenDirekDurumu,
+        ayiriciTakilanDirekDurumu: item.ayiriciTakilanDirekDurumu,
+        dikilenAydinlatmaDirekDurumu: item.dikilenAydinlatmaDirekDurumu,
+        // kabloKanaliDurumu: (item as any).kabloKanaliDurumu,
+        kabloKanaliDurumu: item.kabloKanaliDurumu !== undefined ? item.kabloKanaliDurumu : null,
+        transformatorDurumu: item.transformatorDurumu,
+        dagitimPanosuDurumu: item.dagitimPanosuDurumu,
+        sahaDagTMKutusuDurumu: item.sahaDagTMKutusuDurumu,
+        betonKoskDurumu: item.betonKoskDurumu,
+        hucreDurumu: item.hucreDurumu,
+
+        // فیلدهایی که عدد مطلق هستند (مثل مقدار کابل) می‌توانند nz بمانند
         cekilenKabloMiktari: nz(item.cekilenKabloMiktari),
-        transformatorDurumu: nz(item.transformatorDurumu),
-        dagitimPanosuDurumu: nz(item.dagitimPanosuDurumu),
-        sahaDagTMKutusuDurumu: nz(item.sahaDagTMKutusuDurumu),
-        betonKoskDurumu: nz(item.betonKoskDurumu),
-        hucreDurumu: nz(item.hucreDurumu),
     };
 };
 
@@ -488,7 +573,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             setSelectedCombo(comboType);
 
             const base: any = { ...existingRow };
-            base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
+            // base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
             setFormData(base);
 
             showAlert(`Seçilen ${comboType === 'channel' ? 'Direk' : 'İletken'} daha önce kaydedilmiş. Düzenleme moduna geçildi.`, 'info');
@@ -504,6 +589,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             channelRowId: null,
             transmissionRowId: null,
             cekilenKabloMiktari: 0,
+            kabloKanaliDurumu: null,
         });
 
         if (comboType === 'channel' && value !== null) {
@@ -620,8 +706,48 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     }, [projectPlanningDateId, server.baseurl, server.warehouse, server.initialoperations]);
 
     /* Payloads & CRUD */
+    // const createPayload = (isEdit = false) => {
+    //     if (!projectPlanningDateId || !selectedCombo) { showAlert('Lütfen Direkler veya İletkenler seçiniz.', 'warning'); return null; }
+
+    //     const base: any = {
+    //         projectPlanningDateId,
+    //         description: formData.description || "",
+    //         channelRowId: null,
+    //         transmissionRowId: null,
+    //         cekilenKabloMiktari: Number(formData.cekilenKabloMiktari) || 0,
+    //     };
+
+    //     // const statusFields = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
+    //     //     (acc as any)[f.key] = Number(formData[f.key]) || 0;
+    //     //     return acc;
+    //     // }, {} as any);
+
+    //     const statusFields = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
+    //         // اگر کاربر انتخابی نکرده بود، مقدار 0 ارسال شود (یا نمایش خطا)
+    //         const val = formData[f.key];
+    //         (acc as any)[f.key] = val === null ? null : Number(val);
+    //         return acc;
+    //     }, {} as any);
+
+    //     if (selectedCombo === 'channel') {
+    //         base.channelRowId = formData.channelRowId;
+    //         base.cekilenKabloMiktari = 0;
+    //     } else {
+    //         base.transmissionRowId = formData.transmissionRowId;
+    //         ALL_IMPLEMENTATION_FIELDS.forEach(f => { statusFields[f.key] = 0; });
+    //     }
+
+    //     const finalPayload: any = { ...statusFields, ...base };
+    //     if (isEdit) finalPayload.id = Number(editingId);
+    //     return finalPayload;
+    // };
+
+
     const createPayload = (isEdit = false) => {
-        if (!projectPlanningDateId || !selectedCombo) { showAlert('Lütfen Direkler veya İletkenler seçiniz.', 'warning'); return null; }
+        if (!projectPlanningDateId || !selectedCombo) {
+            showAlert('Lütfen Direkler veya İletkenler seçiniz.', 'warning');
+            return null;
+        }
 
         const base: any = {
             projectPlanningDateId,
@@ -631,8 +757,14 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             cekilenKabloMiktari: Number(formData.cekilenKabloMiktari) || 0,
         };
 
+        // ⬇️ منطق جدید برای ارسال Null
         const statusFields = ALL_IMPLEMENTATION_FIELDS.reduce((acc, f) => {
-            (acc as any)[f.key] = Number(formData[f.key]) || 0;
+            const val = formData[f.key];
+
+            // اگر مقدار در formData وجود نداشت یا null بود، دقیقاً null بفرست
+            // در غیر این صورت مقدار عددی انتخاب شده (0, 1, 2) را بفرست
+            (acc as any)[f.key] = (val === null || val === undefined) ? null : Number(val);
+
             return acc;
         }, {} as any);
 
@@ -641,11 +773,15 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             base.cekilenKabloMiktari = 0;
         } else {
             base.transmissionRowId = formData.transmissionRowId;
-            ALL_IMPLEMENTATION_FIELDS.forEach(f => { statusFields[f.key] = 0; });
+            // در حالت İletkenler، تمام فیلدهای وضعیت دکل باید null باشند
+            ALL_IMPLEMENTATION_FIELDS.forEach(f => { statusFields[f.key] = null; });
         }
 
         const finalPayload: any = { ...statusFields, ...base };
         if (isEdit) finalPayload.id = Number(editingId);
+
+        debugger
+
         return finalPayload;
     };
 
@@ -691,7 +827,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         setSelectedCombo(comboType);
 
         const base: any = { ...selectedRowForMenu };
-        base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
+        // base.kabloKanaliDurumu = Number(base.kabloKanaliDurumu) || 0;
         setFormData(base);
 
         setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 100);
@@ -715,8 +851,18 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
 
         const cardWidth = (pageWidth - 30) / 2;
         doc.setFont('Arial', 'normal').setFontSize(14).text('Proje Uygulama Detayları', pageWidth / 2, 15, { align: 'center' });
-        doc.addImage(Logo, 'PNG', pageWidth - 60, 20, 50, 25);
-        doc.line(15, 40, pageWidth - 15, 40);
+
+
+
+        doc.setFontSize(10);
+        doc.setFont('NotoSans', 'bold');
+        doc.text(`Rapor Tarihi:`, 15, 40);
+        doc.setFont('NotoSans', 'normal');
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 40);
+        doc.addImage(Logo, 'PNG', pageWidth - 50, 10, 35, 18);
+
+        doc.setLineWidth(0.5);
+        doc.line(15, 41, pageWidth - 15, 41);
 
         data.forEach((item, index) => {
             if (index > 0) doc.addPage();
@@ -774,11 +920,20 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             doc.setPage(i);
             doc.setFont('NotoSans', 'normal').setFontSize(8).setTextColor(0);
             const companyInfo = ['SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.', 'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR', 'http://www.setasbilisim.com.tr e-mail:setas@setasbilisim.com.tr'];
-            let footerY = pageHeight - 30;
-            companyInfo.forEach(line => { doc.text(line, pageWidth / 2, footerY, { align: 'center' }); footerY += 4; });
-            doc.text(`Sayfa ${i} / ${pageCount}`, 15, pageHeight - 10);
-            doc.text('İmza', pageWidth - 15, pageHeight - 10, { align: 'right' });
-            doc.line(pageWidth - 65, pageHeight - 15, pageWidth - 15, pageHeight - 15);
+            let footerY = pageHeight - 20;
+            companyInfo.forEach(line => {
+                doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+                footerY += 4;
+            });
+
+            doc.setTextColor(0);
+            doc.setFontSize(10);
+            doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+            doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+            const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+            const pageCount = (doc as any).internal.getNumberOfPages();
+            doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
         }
         doc.save(`${titlePrefix}.pdf`);
         showAlert('PDF başarıyla oluşturuldu.', 'success');
@@ -970,23 +1125,61 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                     <Typography variant="h6" fontWeight="bold" mb={2} color="primary.main">2. Proje Uygulama Durumları</Typography>
                                     <Grid container >
                                         {selectedCombo === 'channel' ? (
-                                            ALL_IMPLEMENTATION_FIELDS.map(field => (
-                                                <Grid item xs={12} sm={6} key={field.key} sx={{ p: 1, border: '1px solid #e0e0e0', borderRadius: '8px', mb: 2 }}>
-                                                    <CustomFormLabel>{field.label}</CustomFormLabel>
-                                                    <ToggleButtonGroup
-                                                        value={formData[field.key] || 0}
-                                                        exclusive
-                                                        onChange={(_e, v) => { if (v !== undefined) handleFormInputChange(field.key, Number(v)); }}
-                                                        aria-label={`${field.label} durumu`} fullWidth
-                                                    >
-                                                        {STATUS_OPTIONS.map(opt => (
-                                                            <StatusToggleButton key={opt.value} value={opt.value} aria-label={opt.label} selected={formData[field.key] === opt.value} disabled={isFormDisabled}>
-                                                                {opt.label}
-                                                            </StatusToggleButton>
-                                                        ))}
-                                                    </ToggleButtonGroup>
-                                                </Grid>
-                                            ))
+                                            ALL_IMPLEMENTATION_FIELDS.map(field => {
+                                                // مقدار فعلی را استخراج می‌کنیم
+                                                // const currentValue = formData[field.key];
+
+                                                return (
+                                                    <Grid item xs={12} sm={6} key={field.key} sx={{ p: 1, border: '1px solid #e0e0e0', borderRadius: '8px', mb: 2 }}>
+                                                        <CustomFormLabel>{field.label}</CustomFormLabel>
+                                                        {/* <ToggleButtonGroup
+                                                            // 🟢 تغییر اصلی: اگر مقدار null یا undefined بود، دقیقاً null بده
+                                                            value={currentValue ?? null}
+                                                            exclusive
+                                                            onChange={(_e, v) => {
+                                                                // فقط اگر روی یک دکمه کلیک شد، مقدار را آپدیت کن
+                                                                if (v !== null) handleFormInputChange(field.key, Number(v));
+                                                            }}
+                                                            aria-label={`${field.label} durumu`}
+                                                            fullWidth
+                                                        >
+                                                            {STATUS_OPTIONS.map(opt => (
+                                                                <StatusToggleButton
+                                                                    key={opt.value}
+                                                                    value={opt.value}
+                                                                    aria-label={opt.label}
+                                                                    // 🟢 اطمینان از مقایسه دقیق
+                                                                    selected={currentValue === opt.value}
+                                                                    disabled={isFormDisabled}
+                                                                >
+                                                                    {opt.label}
+                                                                </StatusToggleButton>
+                                                            ))}
+                                                        </ToggleButtonGroup> */}
+                                                        <ToggleButtonGroup
+                                                            // استفاده از عملگر ?? برای اینکه فقط اگر null یا undefined بود مقدار null بدهد
+                                                            value={formData[field.key] ?? null}
+                                                            exclusive
+                                                            onChange={(_e, v) => {
+                                                                if (v !== null) handleFormInputChange(field.key, Number(v));
+                                                            }}
+                                                            fullWidth
+                                                        >
+                                                            {STATUS_OPTIONS.map(opt => (
+                                                                <StatusToggleButton
+                                                                    key={opt.value}
+                                                                    value={opt.value}
+                                                                    // انتخاب شدن فقط زمانی که مقدار دقیقاً برابر باشد
+                                                                    selected={formData[field.key] === opt.value}
+                                                                    disabled={isFormDisabled}
+                                                                >
+                                                                    {opt.label}
+                                                                </StatusToggleButton>
+                                                            ))}
+                                                        </ToggleButtonGroup>
+                                                    </Grid>
+                                                );
+                                            })
                                         ) : selectedCombo === 'transmission' ? (
                                             <Grid item xs={12}><Alert severity="info">İletkenler seçildi. Çekilen Kablo Miktarı dışındaki tüm durum alanları 0 (sıfır) olarak kaydedilecektir.</Alert></Grid>
                                         ) : (
@@ -1176,7 +1369,12 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{format(new Date(row.startDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{format(new Date(row.endDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="body2" sx={{ maxWidth: 320, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.description || '-'}</Typography></StyledTableCell>
+                                        <StyledTableCell><Typography variant="body2"
+                                            sx={{
+                                                maxWidth: 320, display: 'inline-block', overflow: 'hidden',
+                                                textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+                                            }}>{row.description || '-'}
+                                        </Typography></StyledTableCell>
                                         <StyledTableCell>
                                             <Chip label={row.status} sx={{ backgroundColor: row.recordStatus === 0 ? 'success.light' : 'error.light', color: row.recordStatus === 0 ? 'success.main' : 'error.main' }} size="small" />
                                         </StyledTableCell>
@@ -1262,7 +1460,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             </Dialog>
 
             {/* Details */}
-            <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="md">
+            {/* <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="md">
                 <DialogTitle>Uygulama Detayları</DialogTitle>
                 <DialogContent dividers>
                     {detailData && (
@@ -1284,6 +1482,67 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                                 >
                                                     {STATUS_OPTIONS.map(opt => (
                                                         <StatusToggleButton key={opt.value} value={opt.value} aria-label={opt.label} selected={value === opt.value}>
+                                                            {opt.label}
+                                                        </StatusToggleButton>
+                                                    ))}
+                                                </ToggleButtonGroup>
+
+                                            </Grid>
+                                        );
+                                    })}
+                                </>
+                            )}
+
+                            {detailData.transmissionRowId && (
+                                <>
+                                    <Grid item xs={12}><Typography variant="subtitle2" mt={2} color="info.main" fontWeight="bold">İletkenler Detayı</Typography></Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Typography variant="body2" color="primary.main">Hat: {detailData.transmissionName ?? `Hat ID: ${detailData.transmissionRowId}`}</Typography>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <Typography variant="body2" color="primary.main">Çekilen Kablo Miktarı: <Chip label={`${detailData.cekilenKabloMiktari} m`} size="small" /></Typography>
+                                    </Grid>
+                                </>
+                            )}
+                        </Grid>
+                    )}
+                </DialogContent>
+                <DialogActions><Button onClick={() => setOpenDetailModal(false)} color="primary">Kapat</Button></DialogActions>
+            </Dialog> */}
+            <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} fullWidth maxWidth="md">
+                <DialogTitle>Uygulama Detayları</DialogTitle>
+                <DialogContent dividers>
+                    {detailData && (
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}><Typography variant="subtitle1" fontWeight="bold">Proje: {detailData.projectTitle}</Typography></Grid>
+                            <Grid item xs={12}><Typography variant="body2" sx={{ wordBreak: 'break-word' }}>Açıklama: {detailData.description || '-'}</Typography></Grid>
+
+                            {detailData.channelRowId && (
+                                <>
+                                    <Grid item xs={12}><Typography variant="subtitle2" mt={2} color="info.main" fontWeight="bold">Direkler Durumları</Typography></Grid>
+                                    {ALL_IMPLEMENTATION_FIELDS.map(field => {
+                                        // مقدار واقعی از دیتای سطر را می‌گیریم
+                                        const statusValue = (detailData as any)[field.key];
+
+                                        return (
+                                            <Grid item xs={12} sm={6} md={4} key={String(field.key)} sx={{ p: 1 }}>
+                                                <CustomFormLabel>{field.label}</CustomFormLabel>
+                                                <ToggleButtonGroup
+                                                    // اگر statusValue مقدار null باشد، هیچ گزینه‌ای روشن نمی‌شود
+                                                    value={statusValue}
+                                                    exclusive
+                                                    aria-label={`${field.label} detayı`}
+                                                    fullWidth
+                                                    disabled
+                                                >
+                                                    {STATUS_OPTIONS.map(opt => (
+                                                        <StatusToggleButton
+                                                            key={opt.value}
+                                                            value={opt.value}
+                                                            aria-label={opt.label}
+                                                            // بررسی دقیق برای انتخاب شدن
+                                                            selected={statusValue === opt.value}
+                                                        >
                                                             {opt.label}
                                                         </StatusToggleButton>
                                                     ))}
