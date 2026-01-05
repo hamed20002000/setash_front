@@ -76,6 +76,7 @@ const linkColors = {
 
 type NodeStatus = 0 | 1 | 2;
 
+
 interface MapPreviewModalProps {
     open: boolean;
     onClose: () => void;

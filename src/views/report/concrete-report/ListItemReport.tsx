@@ -19,6 +19,7 @@ import { styled } from '@mui/material/styles';
 import {
     IconSearch, IconFileDownload, IconDots,
     IconRuler, IconClipboardList, IconFileSpreadsheet,
+    IconX,
 } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -378,7 +379,7 @@ const ListItemReport = () => {
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 35);
         doc.setFont('NotoSans', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
         // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
         // doc.setDrawColor(200, 200, 200);
@@ -400,10 +401,10 @@ const ListItemReport = () => {
             'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
 
-        let footerY = pageHeight - 20;
+        let footerY = pageHeight - 40;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 4;
+            footerY += 10;
         });
 
         doc.setTextColor(0);
@@ -551,11 +552,90 @@ const ListItemReport = () => {
             <BlankCard sx={{ mb: 5, p: 3 }}>
                 <Typography variant="h6" mb={2} p={2}>Filtreleme</Typography>
                 <Grid container spacing={3} p={2}>
+
                     <Grid item xs={12} sm={6} md={3}><Autocomplete id="workhouse-select" options={workhousesList} getOptionLabel={(o) => `${o.name} (${o.code})`} value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null} onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)} isOptionEqualToValue={(o, v) => o.id === v.id} renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)} /></Grid>
-                    <Grid item xs={12} sm={6} md={3}><LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}><DatePicker label="Başlangıç Tarihi" value={startDate} onChange={(v) => setStartDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => (<TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />)} /></LocalizationProvider></Grid>
-                    <Grid item xs={12} sm={6} md={3}><LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}><DatePicker label="Bitiş Tarihi" value={endDate} onChange={(v) => setEndDate(v)} inputFormat="dd/MM/yyyy" renderInput={(params) => (<TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />)} /></LocalizationProvider></Grid>
-                    <Grid item xs={12} sm={6} md={3}><CustomTextField label="Min. Miktar" size="small" type="number" fullWidth value={filterParams.minQuantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('minQuantity', Number(e.target.value) || null)} /></Grid>
-                    <Grid item xs={12} sm={6} md={3}><CustomTextField label="Max. Miktar" size="small" type="number" fullWidth value={filterParams.maxQuantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('maxQuantity', Number(e.target.value) || null)} /></Grid>
+
+                    {/* --- فیلتر تاریخ شروع --- */}
+                    <Grid item xs={12} sm={6} md={3}>
+                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                            <DatePicker
+                                label="Başlangıç Tarihi"
+                                value={startDate}
+                                onChange={(v) => setStartDate(v)}
+                                inputFormat="dd/MM/yyyy"
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        // غیرفعال کردن تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            setStartDate(currentYearStart);
+                                                        }}
+                                                        sx={{ marginRight: -1 }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
+                                )}
+                            />
+                        </LocalizationProvider>
+                    </Grid>
+
+                    {/* --- فیلتر تاریخ پایان --- */}
+                    <Grid item xs={12} sm={6} md={3}>
+                        <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
+                            <DatePicker
+                                label="Bitiş Tarihi"
+                                value={endDate}
+                                onChange={(v) => setEndDate(v)}
+                                inputFormat="dd/MM/yyyy"
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        // غیرفعال کردن تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            setEndDate(currentYearEnd);
+                                                        }}
+                                                        sx={{ marginRight: -1 }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
+                                )}
+                            />
+                        </LocalizationProvider>
+                    </Grid>
+                    {/* <Grid item xs={12} sm={6} md={3}><CustomTextField label="Min. Miktar" size="small" type="number" fullWidth value={filterParams.minQuantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('minQuantity', Number(e.target.value) || null)} /></Grid>
+                    <Grid item xs={12} sm={6} md={3}><CustomTextField label="Max. Miktar" size="small" type="number" fullWidth value={filterParams.maxQuantity || ''} onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('maxQuantity', Number(e.target.value) || null)} /></Grid> */}
                 </Grid>
 
                 <Box sx={{ p: 2 }}>

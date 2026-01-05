@@ -515,7 +515,7 @@ const ListPersonnelWorkhouseReport = () => {
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 35);
         doc.setFont('NotoSans', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
         // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
         // doc.setDrawColor(200, 200, 200);
@@ -537,10 +537,10 @@ const ListPersonnelWorkhouseReport = () => {
             'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
 
-        let footerY = pageHeight - 20;
+        let footerY = pageHeight - 40;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 4;
+            footerY += 10;
         });
 
         doc.setTextColor(0);

@@ -652,6 +652,8 @@ const ListCourses: React.FC = () => {
         setStartDateTime(null);
         // endDateTime از اینجا حذف شد
         setSelectedTeacher(null);
+        setSelectedWorkhouse(null);
+        setWorkhouseError(false);
         setHours('');
         setISG(false); // ⭐ NEW: Reset ISG
         setSelectedFiles([]);
@@ -669,7 +671,7 @@ const ListCourses: React.FC = () => {
             startDateTime: startDateTime?.toISOString(),
             endDateTime: null,
             teacherId: selectedTeacher ? Number(selectedTeacher.id) : 0,
-            workhouseId: selectedWorkhouse ? Number(selectedWorkhouse.id) : 0,
+            workhouseId: selectedWorkhouse ? Number(selectedWorkhouse.id) : null,
             attachments: finalAttachments,
             hours: Number(hours),
             ISG: ISG
@@ -1177,7 +1179,7 @@ const ListCourses: React.FC = () => {
                         <Grid container spacing={2}>
                             {/* Title & Teacher Selection */}
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Şantiye (Workhouse)</CustomFormLabel>
+                                <CustomFormLabel>Şantiye</CustomFormLabel>
                                 <Autocomplete
                                     size="small"
                                     options={workhousesList}

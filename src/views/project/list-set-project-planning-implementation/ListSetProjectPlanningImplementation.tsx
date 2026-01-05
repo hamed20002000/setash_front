@@ -7,7 +7,8 @@ import {
     Stack, Grid, Button, Alert, TablePagination, TextField, InputAdornment,
     ToggleButtonGroup, ToggleButton as MuiToggleButton,
     TableSortLabel, Dialog, DialogTitle, DialogContent, DialogActions,
-    CircularProgress, FormControl, Autocomplete
+    CircularProgress, FormControl, Autocomplete,
+    DialogContentText
 } from '@mui/material';
 
 import { LocalizationProvider } from '@mui/x-date-pickers';
@@ -24,6 +25,7 @@ import {
     IconEye
 } from '@tabler/icons-react';
 
+import "./style.css"
 import DeleteSetProjectPlanningImplementation from './DeleteSetProjectPlanningImplementation';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -350,6 +352,7 @@ const mapApiItemToRow = (item: ApiImplementItem): ImplementRow => {
     const trId = item.transmissionRow ? Number(item.transmissionRow.id) : null;
     const trName = getTransmissionName(item);
 
+
     const recStatus = (item.recordStatus as 0 | 1 | 2);
     const statusStr = recStatus === 0 ? 'Aktif' : recStatus === 1 ? 'Pasif' : 'Silindi';
 
@@ -526,6 +529,11 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const [openDetailModal, setOpenDetailModal] = useState(false);
     const [detailData, setDetailData] = useState<ImplementRow | null>(null);
 
+
+    const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
+    const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
+
+
     const { isTooltipGloballyEnabled } = useTooltip();
     const { allowedOperations } = useAuth();
     const hasCreatePermission = useMemo(() => allowedOperations?.some(op => op.systemOperationName === 'Eklemek') ?? false, [allowedOperations]);
@@ -608,6 +616,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
     const isCekilenKabloMiktariVisible = useMemo(() => selectedCombo === 'transmission' || selectedCombo === 'channel', [selectedCombo]);
 
     /* Fetch implementations (LIST) + filter by projectPlanningDateId */
+
     const getListImplementations = useCallback(async () => {
         setLoadingData(true);
         const authToken = localStorage.getItem('authToken');
@@ -623,7 +632,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             // const filtered = list.filter(it => Number(it.projectPlanningImplementationDate?.id) === projectPlanningDateId);
             // const rows = filtered.map(mapApiItemToRow);
             // setImplementationsList(rows);
-
+            debugger
             const list: ApiImplementItem[] = res.data?.data || [];
             const filtered = list.filter(it => Number(it.projectPlanningImplementationDate?.id) === projectPlanningDateId);
             const rows = filtered.map(mapApiItemToRow);
@@ -644,6 +653,7 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             setLoadingData(false);
         }
     }, [navigate, projectPlanningDateId, showAlert]);
+
 
     /* (Optional) fetch combos  */
     const fetchComboOptions = useCallback(async () => {
@@ -704,6 +714,9 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
             setComboLoading(false);
         }
     }, [projectPlanningDateId, server.baseurl, server.warehouse, server.initialoperations]);
+
+
+
 
     /* Payloads & CRUD */
     // const createPayload = (isEdit = false) => {
@@ -1033,6 +1046,19 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
         return stableSort(filtered, getComparator(order, orderBy));
     }, [implementationsList, searchTerm, statusFilter, order, orderBy, filterStartDate, filterEndDate]);
     const pageRows = sortedAndFiltered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+
+
+    const handleOpenDescriptionModal = (descriptionContent: string) => {
+        setFullDescriptionContent(descriptionContent);
+        setOpenDescriptionModal(true);
+    };
+
+    const handleCloseDescriptionModal = () => {
+        setOpenDescriptionModal(false);
+        setFullDescriptionContent('');
+    };
+
 
     /* effects */
     useEffect(() => { getListImplementations(); fetchComboOptions(); }, [getListImplementations, fetchComboOptions]);
@@ -1369,12 +1395,22 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                                         </StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{format(new Date(row.startDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
                                         <StyledTableCell><Typography variant="body1">{format(new Date(row.endDate), 'dd MMMM yyyy', { locale: tr })}</Typography></StyledTableCell>
-                                        <StyledTableCell><Typography variant="body2"
-                                            sx={{
-                                                maxWidth: 320, display: 'inline-block', overflow: 'hidden',
-                                                textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-                                            }}>{row.description || '-'}
-                                        </Typography></StyledTableCell>
+                                        <StyledTableCell sx={{ maxWidth: 150 }}>
+                                            {row.description && row.description.trim().length > 0 ? (
+                                                <CustomTooltip title={isTooltipGloballyEnabled ? "Tüm açıklamayı gör" : ""}>
+                                                    <Button
+
+                                                        variant="outlined"
+                                                        style={{ fontSize: "10px", padding: "2px 5px" }}
+                                                        onClick={() => handleOpenDescriptionModal(row.description)}
+                                                    >
+                                                        Açıklamayı Oku
+                                                    </Button>
+                                                </CustomTooltip>
+                                            ) : (
+                                                <Typography variant="body2" align="center">-</Typography>
+                                            )}
+                                        </StyledTableCell>
                                         <StyledTableCell>
                                             <Chip label={row.status} sx={{ backgroundColor: row.recordStatus === 0 ? 'success.light' : 'error.light', color: row.recordStatus === 0 ? 'success.main' : 'error.main' }} size="small" />
                                         </StyledTableCell>
@@ -1569,6 +1605,26 @@ const ListSetProjectPlanningImplementation: React.FC<Props> = ({ dateId: propDat
                 </DialogContent>
                 <DialogActions><Button onClick={() => setOpenDetailModal(false)} color="primary">Kapat</Button></DialogActions>
             </Dialog>
+
+            <Dialog
+                open={openDescriptionModal}
+                onClose={handleCloseDescriptionModal}
+                maxWidth="md"
+                fullWidth
+            >
+                <DialogTitle>Açıklamanın Tamamı</DialogTitle>
+                <DialogContent dividers>
+                    <DialogContentText>
+                        <div dangerouslySetInnerHTML={{ __html: fullDescriptionContent }} />
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCloseDescriptionModal} color="primary">
+                        Kapat
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
         </>
     );
 };

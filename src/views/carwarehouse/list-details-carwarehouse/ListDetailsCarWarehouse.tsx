@@ -11,6 +11,8 @@ import {
     DialogContentText,
     Autocomplete,
     TableCell,
+    Tabs,
+    Tab,
 } from '@mui/material';
 
 import "./style.css"
@@ -24,7 +26,6 @@ import {
     IconDots, IconEdit, IconTrash, IconSearch, IconFileDownload,
     IconX, IconFileSpreadsheet, IconFileText, IconBox,
     IconLink, IconGasStation,
-    IconRefresh,
 } from '@tabler/icons-react';
 import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
@@ -297,10 +298,10 @@ const ConsignmentFileUpload: React.FC<{
 };
 
 const FUEL_TYPES = [
-    { value: 'GASOLINE', label: 'Benzin' },
-    { value: 'DIESEL', label: 'Dizel' },
+    { value: 'Benzin', label: 'Benzin' },
+    { value: 'Dizel', label: 'Dizel' },
     { value: 'LPG', label: 'LPG' },
-    { value: 'ELECTRIC', label: 'Elektrik' },
+    { value: 'Elektrik', label: 'Elektrik' },
 ];
 
 const uploadFiles = async (
@@ -519,9 +520,13 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const [loadingConsignment, setLoadingConsignment] = useState(false);
 
 
+    const [activeTab, setActiveTab] = useState(0); // مدیریت تب فعال
+    const [availableCars, setAvailableCars] = useState<any[]>([]); // خودروهای آزاد
+    // const [loadingAvailable, setLoadingAvailable] = useState(false); 
+
     const years = useMemo(() => {
         const currentYear = new Date().getFullYear();
-        const startYear = 1990;
+        const startYear = 1970;
         return Array.from({ length: currentYear - startYear + 1 }, (_, i) => currentYear - i);
     }, []);
 
@@ -613,6 +618,7 @@ const ListDetailsCarWarehouse: React.FC = () => {
             const url = `${server.baseurl}${server.warehouse}get-car-warehouse-details-by-warehouseId/${warehouseId}`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${authToken}` } });
             if (res.data.httpStatusCode === 200) {
+                debugger
                 const rawRows = (res.data.data as any[]).map(mapApiDataToCarDetail);
                 setCarDetails(rawRows);
             } else {
@@ -630,16 +636,29 @@ const ListDetailsCarWarehouse: React.FC = () => {
     const handleOpenConsignmentModal = async () => {
         setLoadingConsignment(true);
         setOpenConsignmentModal(true);
+        setActiveTab(0); // شروع از تب اول
         const authToken = localStorage.getItem('authToken');
+
         try {
-            const res = await axios.get(`${server.baseurl}${server.warehouse}get-all-consigned-cars`, {
-                headers: { Authorization: `Bearer ${authToken}` }
-            });
-            if (res.data.httpStatusCode === 200) {
-                setConsignedCars(res.data.data);
+            // فراخوانی همزمان هر دو API برای سرعت بیشتر
+            const [resConsigned, resAvailable] = await Promise.all([
+                axios.get(`${server.baseurl}${server.warehouse}get-all-consigned-cars`, {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                }),
+                axios.get(`${server.baseurl}${server.warehouse}get-all-available-cars`, {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                })
+            ]);
+
+            if (resConsigned.data.httpStatusCode === 200) {
+                setConsignedCars(resConsigned.data.data);
+            }
+            if (resAvailable.data.httpStatusCode === 200) {
+                debugger
+                setAvailableCars(resAvailable.data.data);
             }
         } catch (e) {
-            showAlert('Emanet verileri yüklenemedi.', 'error');
+            showAlert('Veriler yüklenemedi.', 'error');
         } finally {
             setLoadingConsignment(false);
         }
@@ -780,6 +799,9 @@ const ListDetailsCarWarehouse: React.FC = () => {
         } catch (e: any) {
             if (e.response?.status === 500) showAlert('Bu kayıt, başka bir işlemde için silinemez veya düzenlenemez.', 'error');
             else if (e.response?.status === 401) { localStorage.removeItem('authToken'); showAlert('Oturum süreniz doldu, lütfen tekrar giriş yapın.', 'error'); navigate("/"); }
+            else if (e.response?.data?.message == 'The carwarehouse is in use and cannot be set to unavailable!') {
+                showAlert('Araç deposu kullanımda olduğu için pasif hale getirilemez', 'error')
+            }
             else showAlert(e.response?.data?.message || 'Giriş belgesi güncellenirken bir hata oluştu.', 'error');
         } finally { setLoadingButton(false); }
     };
@@ -1026,56 +1048,6 @@ const ListDetailsCarWarehouse: React.FC = () => {
             setLoadingData(false);
         }
     };
-
-    // const exportDetailsToExcel = (data: CarDetail[], title: string) => {
-    //     if (!data || data.length === 0) { showAlert('Excel oluşturulacak kayıt bulunamadı.', 'warning'); return; }
-    //     setLoadingData(true); showAlert('Excel dosyası oluşturuluyor...', 'info');
-
-    //     try {
-    //         const workbook = new Excel.Workbook();
-    //         const worksheet = workbook.addWorksheet(title.substring(0, 31));
-
-    //         const columns = ['Marka', 'Model', 'Plaka', 'Yakıt Tipi', 'Üretim Tarihi', 'Açıklama', 'Kayıt Tarihi'];
-    //         addExcelHeader(worksheet, title, columns.length);
-
-    //         const headerRow = worksheet.addRow(columns);
-    //         headerRow.font = { name: 'NotoSans', bold: true };
-    //         headerRow.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
-
-    //         data.forEach(r => {
-    //             worksheet.addRow([
-    //                 r.brand || '-', r.model || '-', r.plaque || '-',
-    //                 FUEL_TYPES.find(f => f.value === r.fuelType)?.label || r.fuelType || '-',
-    //                 formatDateDisplay(r.manufactureDate || null),
-    //                 r.description || '-',
-    //                 formatDateDisplay(r.createAt || null),
-    //             ]);
-    //         });
-
-    //         worksheet.columns.forEach((column) => {
-    //             let maxLength = 0;
-    //             // @ts-ignore
-    //             column.eachCell({ includeEmpty: true }, (cell) => {
-    //                 const columnLength = cell.value ? cell.value.toString().length : 10;
-    //                 if (columnLength > maxLength) { maxLength = columnLength; }
-    //             });
-    //             column.width = Math.min(Math.max(maxLength + 2, 12), 50);
-    //         });
-
-    //         addExcelCompanyInfo(worksheet, worksheet.lastRow!.number + 2, columns.length);
-
-    //         const fileName = `${title.replace(/ /g, '_')}_${format(new Date(), 'yyyyMMdd')}.xlsx`;
-    //         workbook.xlsx.writeBuffer().then(buffer => {
-    //             saveAs(new Blob([buffer]), fileName);
-    //             showAlert('Excel başarıyla oluşturuldu ve indiriliyor.', 'success');
-    //         });
-    //     } catch (error) {
-    //         console.error("Excel dışa aktarılırken hata:", error);
-    //         showAlert('Excel dışa aktarılırken bir hata oluştu.', 'error');
-    //     } finally {
-    //         setLoadingData(false);
-    //     }
-    // };
 
     const exportDetailsToExcel = (data: CarDetail[], title: string) => {
         if (!data || data.length === 0) { showAlert('Excel oluşturulacak kayıt bulunamadı.', 'warning'); return; }
@@ -1778,112 +1750,102 @@ const ListDetailsCarWarehouse: React.FC = () => {
             </Dialog>
 
             <Dialog open={openConsignmentModal} onClose={() => setOpenConsignmentModal(false)} maxWidth="lg" fullWidth>
-                <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'primary.main', color: 'white' }}>
-                    <Typography variant="h6">Araç Emanet ve Zimmet Takibi</Typography>
-                    <IconButton onClick={() => setOpenConsignmentModal(false)} sx={{ color: 'white' }}><IconX /></IconButton>
+                <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', p: 0 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" px={3} py={1}>
+                        <Typography variant="h6">Araç Takip Paneli</Typography>
+                        <IconButton onClick={() => setOpenConsignmentModal(false)} sx={{ color: 'white' }}><IconX /></IconButton>
+                    </Stack>
+                    {/* نوار تب‌ها */}
+                    <Tabs
+                        value={activeTab}
+                        onChange={(_, newValue) => setActiveTab(newValue)}
+                        textColor="inherit"
+                        indicatorColor="secondary"
+                        variant="fullWidth"
+                        sx={{ bgcolor: 'primary.dark' }}
+                    >
+                        <Tab label="Zimmetli Araçlar (Emanet)" />
+                        <Tab label="Mevcut Araçlar (Serbest)" />
+                    </Tabs>
                 </DialogTitle>
 
                 <DialogContent dividers>
                     {loadingConsignment ? (
                         <Box display="flex" flexDirection="column" alignItems="center" p={5}>
                             <CircularProgress size={40} />
-                            <Typography sx={{ mt: 2 }}>Veriler hazırlanıyor...</Typography>
+                            <Typography sx={{ mt: 2 }}>Veriler yükleniyor...</Typography>
                         </Box>
                     ) : (
-                        <Grid container spacing={4}>
-
-                            {/* --- بخش اول: خودروهای نزد پرسنل (Aktif Emanetlar) --- */}
-                            <Grid item xs={12}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                                    <Typography variant="h6" color="error.main" display="flex" alignItems="center">
-                                        <IconBox style={{ marginRight: '8px' }} /> Personeldeki Araçlar (Teslim Edilen)
-                                    </Typography>
-                                    <Button
-                                        variant="contained"
-                                        color="error"
-                                        startIcon={<IconFileText />}
-                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => c.consigned), "Aktif_Emanet_Listesi")}
-                                    >
-                                        PDF İndir
-                                    </Button>
-                                </Stack>
-                                <TableContainer component={Paper} variant="outlined">
-                                    <Table size="small">
-                                        <TableHead sx={{ bgcolor: '#fff5f5' }}>
-                                            <TableRow>
-                                                <TableCell>Plaka / Araç</TableCell>
-                                                <TableCell>Personel / Şantiye</TableCell>
-                                                <TableCell>KM</TableCell>
-                                                <TableCell>Tarih</TableCell>
-                                                <TableCell>Açıklama</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {consignedCars.filter(c => c.consigned).map((item) => (
-                                                <TableRow key={item.id} hover>
-                                                    <TableCell>
-                                                        <Typography variant="body2" fontWeight="bold">{item.carWarehouseDetail.plaque}</Typography>
-                                                        <Typography variant="caption">{item.carWarehouseDetail.brand} {item.carWarehouseDetail.model}</Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography variant="body2">{item.personnel.name} {item.personnel.family}</Typography>
-                                                        <Typography variant="caption" color="textSecondary">{item.workhouse.name}</Typography>
-                                                    </TableCell>
-                                                    <TableCell>{item.kilometer?.toLocaleString()} km</TableCell>
-                                                    <TableCell>{formatDateDisplay(item.date)}</TableCell>
-                                                    <TableCell sx={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {item.description}
-                                                    </TableCell>
+                        <>
+                            {/* محتوای تب اول: خودروهای در امانت */}
+                            {activeTab === 0 && (
+                                <Box>
+                                    <Stack direction="row" justifyContent="space-between" mb={2}>
+                                        <Typography variant="h6" color="error.main">Zimmetli Araç Listesi</Typography>
+                                        <Button variant="outlined" color="error" startIcon={<IconFileText />} onClick={() => exportConsignmentToPdf(consignedCars.filter(c => c.consigned), "Zimmetli_Araclar")}>PDF</Button>
+                                    </Stack>
+                                    <TableContainer component={Paper} variant="outlined">
+                                        <Table size="small">
+                                            <TableHead sx={{ bgcolor: '#fff5f5' }}>
+                                                <TableRow>
+                                                    <TableCell>Plaka / Araç</TableCell>
+                                                    <TableCell>Personel / Şantiye</TableCell>
+                                                    <TableCell>KM</TableCell>
+                                                    <TableCell>Tarih</TableCell>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </Grid>
+                                            </TableHead>
+                                            <TableBody>
+                                                {consignedCars.filter(c => c.consigned).map((item) => (
+                                                    <TableRow key={item.id}>
+                                                        <TableCell><b>{item.carWarehouseDetail?.plaque}</b><br />{item.carWarehouseDetail?.brand}</TableCell>
+                                                        <TableCell>{item.personnel?.name} {item.personnel?.family}<br /><small>{item.workhouse?.name}</small></TableCell>
+                                                        <TableCell>{item.kilometer} km</TableCell>
+                                                        <TableCell>{formatDateDisplay(item.date)}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </Box>
+                            )}
 
-                            {/* --- بخش دوم: تاریخچه امانات عودت داده شده (İade Edilenler) --- */}
-                            <Grid item xs={12}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                                    <Typography variant="h6" color="success.main" display="flex" alignItems="center">
-                                        <IconRefresh style={{ marginRight: '8px' }} /> İade Alınanlar (Geçmiş)
-                                    </Typography>
-
-
-                                    <Button
-                                        variant="contained"
-                                        color="success"
-                                        startIcon={<IconFileText />}
-                                        onClick={() => exportConsignmentToPdf(consignedCars.filter(c => !c.consigned), "Iade_Edilen_Emanet_Listesi")}
-                                    >
-                                        PDF İndir
-                                    </Button>
-                                </Stack>
-                                <TableContainer component={Paper} variant="outlined">
-                                    <Table size="small">
-                                        <TableHead sx={{ bgcolor: '#f5fff5' }}>
-                                            <TableRow>
-                                                <TableCell>Plaka / Araç</TableCell>
-                                                <TableCell>Personel / Şantiye</TableCell>
-                                                <TableCell>KM</TableCell>
-                                                <TableCell>Tarih</TableCell>
-                                                <TableCell>Durum</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {consignedCars.filter(c => !c.consigned).map((item) => (
-                                                <TableRow key={item.id} hover>
-                                                    <TableCell>{item.carWarehouseDetail.plaque}</TableCell>
-                                                    <TableCell>{item.personnel.name} {item.personnel.family}</TableCell>
-                                                    <TableCell>{item.kilometer} km</TableCell>
-                                                    <TableCell>{formatDateDisplay(item.date)}</TableCell>
-                                                    <TableCell><Chip label="İade Edildi" size="small" color="success" variant="outlined" /></TableCell>
+                            {/* محتوای تب دوم: خودروهای آزاد */}
+                            {activeTab === 1 && (
+                                <Box>
+                                    <Stack direction="row" justifyContent="space-between" mb={2}>
+                                        <Typography variant="h6" color="success.main">Mevcut (Boşta) Araçlar</Typography>
+                                        {/* می‌توانید یک تابع اکسپورت برای خودروهای آزاد هم اضافه کنید */}
+                                    </Stack>
+                                    <TableContainer component={Paper} variant="outlined">
+                                        <Table size="small">
+                                            <TableHead sx={{ bgcolor: '#f5fff5' }}>
+                                                <TableRow>
+                                                    <TableCell>Plaka</TableCell>
+                                                    <TableCell>Marka / Model</TableCell>
+                                                    <TableCell>Yakıt Tipi</TableCell>
+                                                    <TableCell>Durum</TableCell>
                                                 </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </Grid>
-                        </Grid>
+                                            </TableHead>
+                                            <TableBody>
+                                                {availableCars.map((car) => (
+                                                    <TableRow key={car.id}>
+                                                        <TableCell><b>{car.plaque}</b></TableCell>
+                                                        <TableCell>{car.brand} {car.model}</TableCell>
+                                                        <TableCell>{car.fuelType}</TableCell>
+                                                        <TableCell>
+                                                            <Chip label="Mevcut" size="small" color="success" variant="filled" />
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                                {availableCars.length === 0 && (
+                                                    <TableRow><TableCell colSpan={4} align="center">Boşta araç bulunamadی.</TableCell></TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </Box>
+                            )}
+                        </>
                     )}
                 </DialogContent>
                 <DialogActions>

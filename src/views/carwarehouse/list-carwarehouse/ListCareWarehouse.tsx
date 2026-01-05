@@ -145,10 +145,10 @@ const addPdfFooter = (doc: jsPDF) => {
         'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
     ];
 
-    let footerY = pageHeight - 20;
+    let footerY = pageHeight - 40;
     companyInfo.forEach(line => {
         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-        footerY += 4;
+        footerY += 10;
     });
 
     doc.setTextColor(0);
@@ -652,6 +652,11 @@ const ListCarWarehouse: React.FC = () => {
         const doc = new jsPDF();
         const docAny = doc as any;
 
+
+        (docAny as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+        (docAny as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+        docAny.setFont("NotoSans", "normal");
+
         const columns = ['Ad', 'Kod', 'Adres', 'Bölge', 'Kayıt Tarihi'];
         const body = data.map(r => [
             r.name || '-',
@@ -667,7 +672,7 @@ const ListCarWarehouse: React.FC = () => {
                 body: body,
                 startY: 45,
                 theme: 'grid',
-                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2, overflow: 'linebreak' },
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 2 },
                 headStyles: { font: 'NotoSans', fontStyle: 'normal', fillColor: [242, 242, 242], textColor: [0, 0, 0], fontSize: 10 },
                 didDrawPage: (_data: any) => { addPdfHeader(doc, title); addPdfFooter(doc); },
                 margin: { top: 30, bottom: 35, left: 10, right: 10 }

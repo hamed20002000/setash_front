@@ -95,7 +95,8 @@ interface ConsignedCarPayload {
     date: string; attachments: { fileUrl: string }[]; description: string; kilometer: number; carWarhouseDetailId: number | string;
     personnelId: number; consigned: boolean;
     // ⭐ NEW FIELD ⭐
-    workhouseId: number | string;
+    // workhouseId: number | string;
+    workhouseId?: string | number | null;
 }
 
 interface ConsignedCarRecord {
@@ -283,6 +284,71 @@ const addPdfFooter = (doc: jsPDF) => {
     companyInfo.forEach(line => {
         doc.text(line, pageWidth / 2, footerY, { align: 'center' });
         footerY += 4;
+    });
+
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    doc.text('İmza', pageWidth - 20, pageHeight - 12, { align: 'right' });
+    doc.line(pageWidth - 60, pageHeight - 10, pageWidth - 10, pageHeight - 10);
+
+    const pageNumber = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.text(`Sayfa ${pageNumber} / ${pageCount}`, 15, pageHeight - 10);
+};
+
+
+const addPdfHeaders = (doc: jsPDF, title: string) => {
+
+    const docAny = doc as any;
+    docAny.addFileToVFS('NotoSans-Regular.ttf', NotoSansRegular);
+    docAny.addFont('NotoSans-Regular.ttf', 'NotoSans', 'normal');
+    doc.setFont('NotoSans');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const logoWidth = 35; // کمی کوچک‌تر برای ظرافت بیشتر
+    const logoHeight = 18;
+    const margin = 15;
+    const logoX = pageWidth - logoWidth - margin; // لوگو سمت راست
+
+    try {
+        doc.addImage(Logo, 'PNG', logoX, 10, logoWidth, logoHeight);
+    } catch (e) {
+        console.error("Logo yüklenemedi", e);
+    }
+
+    doc.setFont('NotoSans', 'normal');
+    doc.setFontSize(14);
+    doc.text(title, pageWidth / 2, 25, { align: 'center' }); // عنوان وسط
+
+    doc.setFontSize(10);
+    doc.setFont('NotoSans', 'bold');
+    doc.text(`Rapor Tarihi:`, 15, 35);
+    doc.setFont('NotoSans', 'normal');
+    doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
+
+    // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
+    // doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, pageWidth - 15, 40);
+};
+
+const addPdfFooters = (doc: jsPDF) => {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    doc.setFontSize(8);
+    doc.setFont('NotoSans', 'normal');
+    doc.setTextColor(100);
+
+    const companyInfo = [
+        'SETAŞ SİSTEM BİLİŞİM İNŞAAT TAAHHÜT TİCARET LTD. ŞTİ.',
+        'Mansuroğlu Mh. 283/6 Sk. No: 2 Bayraklı - İZMİR | Tel: +90 (232) 347 74 74',
+        'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
+    ];
+
+    let footerY = pageHeight - 40;
+    companyInfo.forEach(line => {
+        doc.text(line, pageWidth / 2, footerY, { align: 'center' });
+        footerY += 10;
     });
 
     doc.setTextColor(0);
@@ -760,7 +826,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
         setWorkhouseError(false);
         if (!selectedWarehouse) { setWarehouseError(true); ok = false; }
         if (!selectedCarDetail) { setCarDetailError(true); ok = false; }
-        if (!selectedWorkhouse && !isReturnMode) { setWorkhouseError(true); ok = false; }
+        // if (!selectedWorkhouse && !isReturnMode) { setWorkhouseError(true); ok = false; }
         if (!selectedPersonnel && !isReturnMode) { setPersonnelError(true); ok = false; }
         if (kilometer === '' || Number(kilometer) <= 0) { setKilometerError(true); ok = false; }
 
@@ -813,7 +879,8 @@ const ListConsignedCarwarehouse: React.FC = () => {
             kilometer: Number(kilometer),
             carWarhouseDetailId: Number(selectedCarDetail!.id),
             personnelId: Number(personnelToSend),
-            workhouseId: Number(workhouseToSend),
+            // workhouseId: Number(workhouseToSend),
+            workhouseId: workhouseToSend ? Number(workhouseToSend) : null,
             consigned: consignedStatus,
         };
 
@@ -942,8 +1009,8 @@ const ListConsignedCarwarehouse: React.FC = () => {
             kilometer: Number(returnKilometer),
             carWarhouseDetailId: Number(rowToReturn.carWarhouseDetail.id),
             personnelId: Number(rowToReturn.personnel.id),
-            workhouseId: Number(rowToReturn!.workhouse.id),
-            consigned: false, // ⭐️ مهم: Consigned = False (برگشت داده شد)
+            workhouseId: rowToReturn?.workhouse?.id ? Number(rowToReturn.workhouse.id) : null,
+            consigned: false,
         };
 
         const url = `${server.baseurl}${server.warehouse}create-consigned-car`;
@@ -1096,7 +1163,8 @@ const ListConsignedCarwarehouse: React.FC = () => {
         handler(filteredConsignedCars, title, showAlert, setLoadingData);
         setOpenDownloadFilteredModal(false);
     };
-    const createSingleConsignmentPdf = (record: ConsignedCarRecord, showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
+    const createSingleConsignmentPdf = (record: ConsignedCarRecord,
+        showAlert: (m: string, s: 'success' | 'error' | 'warning' | 'info') => void) => {
 
         const title = "ARAÇ EMANET KAYDI RAPORU";
         const doc = new jsPDF("p", "pt", "a4");
@@ -1114,23 +1182,40 @@ const ListConsignedCarwarehouse: React.FC = () => {
         let finalY = 70; // شروع محتوای اصلی بعد از هدر
 
         // 2. افزودن هدر
-        addPdfHeader(doc, title);
+        addPdfHeaders(doc, title);
 
         // 3. اطلاعات پرسنل و خودرو (متن)
-        doc.setFontSize(12);
+        // 3. اطلاعات پرسنل و خودرو (متن)
+        const labelFontSize = 11; // سایز فونت عنوان
+        const valueFontSize = 9;  // سایز فونت جواب
 
-        // Personel Bilgileri
-        doc.text(`Emanet Alan: ${record.personnel.name} ${record.personnel.family} (${record.personnel.identityNumber})`, sideMargin, finalY);
+        // --- ردیف پرسنل ---
+        doc.setFontSize(labelFontSize).setFont('NotoSans', 'bold');
+        doc.text("Emanet Alan: ", sideMargin, finalY);
+
+        doc.setFontSize(valueFontSize).setFont('NotoSans', 'normal');
+        // جلو بردن X به اندازه تقریبی متن عنوان (حدود 70 واحد)
+        doc.text(`${record.personnel.name} ${record.personnel.family} (${record.personnel.identityNumber})`, sideMargin + 75, finalY);
         finalY += 16;
 
-        // Araç Bilgileri
-        doc.text(`Plaka: ${record.carWarehouseDetail.plaque}`, sideMargin, finalY);
+        // --- ردیف پلاک ---
+        doc.setFontSize(labelFontSize).setFont('NotoSans', 'bold');
+        doc.text("Plaka: ", sideMargin, finalY);
+
+        doc.setFontSize(valueFontSize).setFont('NotoSans', 'normal');
+        doc.text(`${record.carWarehouseDetail.plaque}`, sideMargin + 75, finalY);
         finalY += 16;
-        doc.text(`Marka/Model: ${record.carWarehouseDetail.brand} / ${record.carWarehouseDetail.model}`, sideMargin, finalY);
+
+        // --- ردیف برند و مدل ---
+        doc.setFontSize(labelFontSize).setFont('NotoSans', 'bold');
+        doc.text("Marka/Model: ", sideMargin, finalY);
+
+        doc.setFontSize(valueFontSize).setFont('NotoSans', 'normal');
+        doc.text(`${record.carWarehouseDetail.brand} / ${record.carWarehouseDetail.model}`, sideMargin + 75, finalY);
         finalY += 25;
 
         // 4. جدول جزئیات رکورد
-        doc.setFontSize(14);
+        doc.setFontSize(14).setFont('NotoSans', 'normal');
         doc.text("Emanet İşlem Detayları", sideMargin, finalY);
         finalY += 10;
 
@@ -1152,8 +1237,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
             columnStyles: { 0: { cellWidth: 150 }, 1: { cellWidth: 'auto' } },
             margin: { left: sideMargin, right: sideMargin },
             didDrawPage: (_data: any) => {
-                addPdfHeader(doc, title);
-                addPdfFooter(doc);
+                addPdfFooters(doc);
             },
         });
 
@@ -1306,7 +1390,7 @@ const ListConsignedCarwarehouse: React.FC = () => {
                         <Typography variant="h6" mb={2}>{isReturnMode ? 'Araç Geri Alma Formu (Yeni Kayıt)' : 'Yeni Araç Emanet Formu'}</Typography>
                         <Grid container spacing={2}>
                             <Grid item xs={12} sm={6} md={4}>
-                                <CustomFormLabel required>Şantiye</CustomFormLabel>
+                                <CustomFormLabel>Şantiye</CustomFormLabel>
                                 <Autocomplete
                                     size="small"
                                     options={workhousesList}

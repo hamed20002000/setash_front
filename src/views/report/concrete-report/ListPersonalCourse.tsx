@@ -20,10 +20,12 @@ import {
     TablePagination // ✅ اضافه شده
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
+import "./style.css"
 import {
     IconSearch, IconFileDownload, IconDots,
     IconSchool, IconFileSpreadsheet,
-    IconRuler
+    IconRuler,
+    IconX
 } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -496,7 +498,7 @@ const ListPersonalCourse = () => {
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 35);
         doc.setFont('NotoSans', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
         // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
         // doc.setDrawColor(200, 200, 200);
@@ -518,10 +520,10 @@ const ListPersonalCourse = () => {
             'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
 
-        let footerY = pageHeight - 20;
+        let footerY = pageHeight - 40;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 4;
+            footerY += 10;
         });
 
         doc.setTextColor(0);
@@ -833,7 +835,32 @@ const ListPersonalCourse = () => {
                                 onChange={(v) => setStartDate(v)}
                                 inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
-                                    <TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        // جلوگیری از تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم هنگام کلیک روی ضربدر
+                                                            setStartDate(initialStartDate); // بازگشت به تاریخ پیش‌فرض ابتدای سال
+                                                        }}
+                                                        sx={{ marginRight: -1 }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
                                 )}
                             />
                         </LocalizationProvider>
@@ -848,7 +875,32 @@ const ListPersonalCourse = () => {
                                 onChange={(v) => setEndDate(v)}
                                 inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
-                                    <TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        // جلوگیری از تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEndDate(initialEndDate); // بازگشت به تاریخ پیش‌فرض انتهای سال
+                                                        }}
+                                                        sx={{ marginRight: -1 }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
                                 )}
                             />
                         </LocalizationProvider>

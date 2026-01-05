@@ -13,6 +13,9 @@ import {
     Chip,
     DialogContentText,
     Autocomplete,
+    TableCell,
+    Tab,
+    Tabs,
 } from '@mui/material';
 import { keyframes, styled } from '@mui/material/styles';
 import BlankCard from '../../../components/shared/BlankCard';
@@ -581,6 +584,13 @@ const ListConsignments: React.FC = () => {
     const [openDescriptionModal, setOpenDescriptionModal] = useState(false);
     const [fullDescriptionContent, setFullDescriptionContent] = useState<string>('');
 
+
+    const [openStatusModal, setOpenStatusModal] = useState(false);
+    const [statusTab, setStatusTab] = useState(0);
+    const [inUsedConsignments, setInUsedConsignments] = useState<any[]>([]);
+    const [availableConsignments, setAvailableConsignments] = useState<any[]>([]);
+    const [loadingStatus, setLoadingStatus] = useState(false);
+
     const query = useQueryParams();
     const initialId = query.get('id');
     const initialCode = query.get('code');
@@ -840,6 +850,35 @@ const ListConsignments: React.FC = () => {
         storesList
     ]);
 
+
+    const handleOpenStatusModal = async () => {
+        setLoadingStatus(true);
+        setOpenStatusModal(true);
+        setStatusTab(0);
+        const authToken = localStorage.getItem('authToken');
+
+        try {
+            const [resInUsed, resAvailable] = await Promise.all([
+                axios.get(`${server.baseurl}${server.hr}get-in-used-consignments`, {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                }),
+                axios.get(`${server.baseurl}${server.hr}get-available-consignments`, {
+                    headers: { Authorization: `Bearer ${authToken}` }
+                })
+            ]);
+
+            if (resInUsed.data.httpStatusCode === 200) {
+                setInUsedConsignments(resInUsed.data.data);
+            }
+            if (resAvailable.data.httpStatusCode === 200) {
+                setAvailableConsignments(resAvailable.data.data);
+            }
+        } catch (e) {
+            showAlert('Veriler yüklenirken hata oluştu.', 'error');
+        } finally {
+            setLoadingStatus(false);
+        }
+    };
 
     // useEffect(() => {
     //     fetchWarehouses();
@@ -1924,6 +1963,15 @@ const ListConsignments: React.FC = () => {
                         {hasDownloadPermission && (
                             <Button variant="contained" color="primary" onClick={handleOpenDownloadAllModal} startIcon={<IconFileDownload />} disabled={loadingData}>Tümünü İndir</Button>
                         )}
+                        <Button
+                            variant="contained"
+                            color="warning"
+                            onClick={handleOpenStatusModal}
+                            startIcon={<IconBox />}
+                            size="small"
+                        >
+                            Mal Durumlarını Görüntüle
+                        </Button>
                     </Stack>
                 </Grid>
 
@@ -2330,6 +2378,76 @@ const ListConsignments: React.FC = () => {
 
                 <DialogActions>
                     <Button onClick={() => setOpenAttachmentsModal(false)} color="error" variant="outlined">Kapat</Button>
+                </DialogActions>
+            </Dialog>
+
+            <Dialog open={openStatusModal} onClose={() => setOpenStatusModal(false)} maxWidth="lg" fullWidth>
+                <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', p: 0 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" px={3} py={1.5}>
+                        <Typography variant="h6">Malzeme Durum Takibi</Typography>
+                        <IconButton onClick={() => setOpenStatusModal(false)} sx={{ color: 'white' }}><IconX /></IconButton>
+                    </Stack>
+                    <Tabs
+                        value={statusTab}
+                        onChange={(_, nv) => setStatusTab(nv)}
+                        textColor="inherit"
+                        indicatorColor="secondary"
+                        variant="fullWidth"
+                        sx={{ bgcolor: 'primary.dark' }}
+                    >
+                        <Tab label="Emanetteki Mallar (Kullanımda)" />
+                        <Tab label="Mevcut Mallar (Boşta)" />
+                    </Tabs>
+                </DialogTitle>
+
+                <DialogContent dividers>
+                    {loadingStatus ? (
+                        <Box display="flex" flexDirection="column" alignItems="center" p={5}>
+                            <CircularProgress size={40} />
+                            <Typography sx={{ mt: 2 }}>Veriler yükleniyor...</Typography>
+                        </Box>
+                    ) : (
+                        <Box sx={{ mt: 2 }}>
+                            <TableContainer component={Paper} variant="outlined">
+                                <Table size="small">
+                                    <TableHead sx={{ bgcolor: statusTab === 0 ? '#fff5f5' : '#f5fff5' }}>
+                                        <TableRow>
+                                            <TableCell>Kod</TableCell>
+                                            <TableCell>Mal Adı</TableCell>
+                                            <TableCell>Açıklama</TableCell>
+                                            <TableCell>Durum</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {(statusTab === 0 ? inUsedConsignments : availableConsignments).map((item) => (
+                                            <TableRow key={item.Id} hover>
+                                                <TableCell><Chip label={item.Code} size="small" variant="outlined" /></TableCell>
+                                                <TableCell><b>{item.Name}</b></TableCell>
+                                                <TableCell>{item.Description || '-'}</TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={statusTab === 0 ? "Emanette" : "Mevcut"}
+                                                        color={statusTab === 0 ? "error" : "success"}
+                                                        size="small"
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                        {(statusTab === 0 ? inUsedConsignments : availableConsignments).length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={4} align="center">
+                                                    <Typography sx={{ py: 2 }} color="textSecondary">Kayıt bulunamadı.</Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setOpenStatusModal(false)} color="inherit" variant="outlined">Kapat</Button>
                 </DialogActions>
             </Dialog>
 

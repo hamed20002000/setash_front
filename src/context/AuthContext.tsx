@@ -207,6 +207,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const getRawMenusFromApi = useCallback(async (): Promise<any[]> => {
     const authToken = localStorage.getItem('authToken');
+    debugger
     if (!authToken) return [];
     debugger
     try {
@@ -267,13 +268,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // }, [getRawMenusFromApi, mapApiDataToMenuItems]);
 
   const updateMenuAndOperations = useCallback(async (roleId: string) => {
+    debugger
     setIsAuthDataLoading(true);
     setAllowedOperations([]);
     setMenuItems([]);
 
     const authToken = localStorage.getItem('authToken');
     const decoded = authToken ? decodeJwtToken(authToken) : null;
-    const userId = decoded?.userid; // گرفتن userId از توکن
+    const userId = decoded?.userid;
 
     if (!authToken) {
       setIsAuthDataLoading(false);
@@ -425,21 +427,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       let ops: AllowedOperation[] = [];
       if (roleToActivate) {
-        const operationsResponse = await axios.get<{ data: { roleMenuOperations: RoleMenuOperationApiResponse[] } }>(
-          `${server.baseurl}${server.user}get-role-with-operations/${roleToActivate.id}`,
-          { headers: { "Authorization": `Bearer ${authToken}` } }
-        );
-        ops = operationsResponse.data?.data?.roleMenuOperations
-          .filter(op => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
-          .map(op => ({
-            menuOperationId: op.menuOperation.id,
-            systemOperationId: op.menuOperation.systemOperation.id,
-            systemOperationName: op.menuOperation.systemOperation.name
-          })) || [];
+        const userId = decodedToken?.userid; // مطمئن شوید نام فیلد در توکن درست است
 
-        // console.log("Allowed Operations from API:", ops);
+        const [roleOpsRes, userOpsRes] = await Promise.all([
+          axios.get(`${server.baseurl}${server.user}get-role-with-operations/${roleToActivate.id}`,
+            { headers: { "Authorization": `Bearer ${authToken}` } }),
+          userId ? axios.get(`${server.baseurl}${server.user}get-user-with-role-and-operations/${userId}`,
+            { headers: { "Authorization": `Bearer ${authToken}` } }) : Promise.resolve({ data: { data: { userMenuOperations: [] } } })
+        ]);
+
+        const allOpsMap = new Map<string, AllowedOperation>();
+
+        // ادغام عملیات‌های نقش
+        (roleOpsRes.data?.data?.roleMenuOperations || [])
+          .filter((op: any) => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
+          .forEach((op: any) => {
+            allOpsMap.set(op.menuOperation.id, {
+              menuOperationId: op.menuOperation.id,
+              systemOperationId: op.menuOperation.systemOperation.id,
+              systemOperationName: op.menuOperation.systemOperation.name
+            });
+          });
+
+        // ادغام عملیات‌های مستقیم کاربر
+        (userOpsRes.data?.data?.userMenuOperations || [])
+          .filter((op: any) => op.recordStatus === 0 && op.menuOperation?.recordStatus === 0)
+          .forEach((op: any) => {
+            allOpsMap.set(op.menuOperation.id, {
+              menuOperationId: op.menuOperation.id,
+              systemOperationId: op.menuOperation.systemOperation.id,
+              systemOperationName: op.menuOperation.systemOperation.name
+            });
+          });
+
+        ops = Array.from(allOpsMap.values());
       }
-
       // ✅ فقط زمانی که تمام داده‌ها آماده است، وضعیت‌ها را به روز کنید
       setUsername(currentUsername);
       setUserRoles(rolesFromToken);

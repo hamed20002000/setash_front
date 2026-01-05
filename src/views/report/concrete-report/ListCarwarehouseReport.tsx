@@ -24,7 +24,8 @@ import { styled } from '@mui/material/styles';
 import {
     IconSearch, IconFileDownload, IconDots,
     IconCar, IconFileSpreadsheet,
-    IconRuler
+    IconRuler,
+    IconX
 } from '@tabler/icons-react';
 import axios from 'axios';
 import server from '../../../assets/address.json';
@@ -522,7 +523,7 @@ const ListCarwarehouseReport = () => {
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 35);
         doc.setFont('NotoSans', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
         // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
         // doc.setDrawColor(200, 200, 200);
@@ -544,10 +545,10 @@ const ListCarwarehouseReport = () => {
             'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
 
-        let footerY = pageHeight - 20;
+        let footerY = pageHeight - 40;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 4;
+            footerY += 10;
         });
 
         doc.setTextColor(0);
@@ -859,16 +860,73 @@ const ListCarwarehouseReport = () => {
                     <Grid item xs={12} sm={4} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
-                                label="Başlangıç Tarihi" value={startDate} onChange={(v) => setStartDate(v)} inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (<TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />)}
+                                label="Başlangıç Tarihi"
+                                value={startDate}
+                                onChange={(v) => setStartDate(v)}
+                                inputFormat="dd/MM/yyyy"
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        // جلوگیری از تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم هنگام کلیک روی ضربدر
+                                                            setStartDate(currentYearStart);
+                                                        }}
+                                                    >
+                                                        <IconX size={16} /> {/* نیاز به import از tabler-icons دارد */}
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
+                                )}
                             />
                         </LocalizationProvider>
                     </Grid>
+
                     <Grid item xs={12} sm={4} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
-                                label="Bitiş Tarihi" value={endDate} onChange={(v) => setEndDate(v)} inputFormat="dd/MM/yyyy"
-                                renderInput={(params) => (<TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />)}
+                                label="Bitiş Tarihi"
+                                value={endDate}
+                                onChange={(v) => setEndDate(v)}
+                                inputFormat="dd/MM/yyyy"
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        // جلوگیری از تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEndDate(currentYearEnd);
+                                                        }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
+                                )}
                             />
                         </LocalizationProvider>
                     </Grid>

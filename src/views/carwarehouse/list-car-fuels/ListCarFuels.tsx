@@ -44,10 +44,10 @@ import { CustomTooltip, useTooltip } from "src/context/TooltipContext";
 
 // --- ثابت‌ها ---
 const FUEL_TYPES = [
-    { value: 'GASOLINE', label: 'Benzin' },
-    { value: 'DIESEL', label: 'Dizel' },
+    { value: 'Benzin', label: 'Benzin' },
+    { value: 'Dizel', label: 'Dizel' },
     { value: 'LPG', label: 'LPG' },
-    { value: 'ELECTRIC', label: 'Elektrik' },
+    { value: 'Elektrik', label: 'Elektrik' },
 ];
 
 

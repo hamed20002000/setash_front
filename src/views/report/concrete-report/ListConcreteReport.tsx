@@ -21,7 +21,8 @@ import { styled } from '@mui/material/styles';
 import {
     IconSearch, IconFileDownload, IconDots,
     IconRuler, IconClipboardList,
-    IconFileSpreadsheet
+    IconFileSpreadsheet,
+    IconX
 } from '@tabler/icons-react';
 import axios from 'axios';
 
@@ -470,7 +471,7 @@ const ListConcreteReport = () => {
         doc.setFont('NotoSans', 'bold');
         doc.text(`Rapor Tarihi:`, 15, 35);
         doc.setFont('NotoSans', 'normal');
-        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 40, 35);
+        doc.text(`${formatDateDisplay(new Date().toISOString())}`, 80, 35);
 
         // اضافه کردن خط جداکننده خاکستری طبق استاندارد جدید
         // doc.setDrawColor(200, 200, 200);
@@ -492,10 +493,10 @@ const ListConcreteReport = () => {
             'http://www.setasbilisim.com.tr | e-mail:setas@setasbilisim.com.tr'
         ];
 
-        let footerY = pageHeight - 20;
+        let footerY = pageHeight - 40;
         companyInfo.forEach(line => {
             doc.text(line, pageWidth / 2, footerY, { align: 'center' });
-            footerY += 4;
+            footerY += 10;
         });
 
         doc.setTextColor(0);
@@ -778,6 +779,7 @@ const ListConcreteReport = () => {
                             renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)}
                         />
                     </Grid>
+                    {/* --- Filter Section --- */}
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -786,11 +788,37 @@ const ListConcreteReport = () => {
                                 onChange={(v) => setStartDate(v)}
                                 inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
-                                    <TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        // جلوگیری از تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation(); // جلوگیری از باز شدن تقویم
+                                                            setStartDate(currentYearStart);
+                                                        }}
+                                                        sx={{ marginRight: -1 }}
+                                                    >
+                                                        <IconX size={16} /> {/* فراموش نکنید IconX را ایمپورت کنید */}
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
                                 )}
                             />
                         </LocalizationProvider>
                     </Grid>
+
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
                             <DatePicker
@@ -799,7 +827,32 @@ const ListConcreteReport = () => {
                                 onChange={(v) => setEndDate(v)}
                                 inputFormat="dd/MM/yyyy"
                                 renderInput={(params) => (
-                                    <TextField {...params} fullWidth size="small" InputLabelProps={{ shrink: true }} />
+                                    <TextField
+                                        {...params}
+                                        fullWidth
+                                        size="small"
+                                        InputLabelProps={{ shrink: true }}
+                                        // جلوگیری از تایپ دستی
+                                        onKeyDown={(e) => e.preventDefault()}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEndDate(currentYearEnd);
+                                                        }}
+                                                        sx={{ marginRight: -1 }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </IconButton>
+                                                    {params.InputProps?.endAdornment}
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                    />
                                 )}
                             />
                         </LocalizationProvider>
