@@ -222,14 +222,14 @@ const WorkhouseFuelStats = () => {
                             Tutar: <span style={{ color: color, fontWeight: 600 }}>{formatTR(value)} TL</span>
                         </Typography>
                     </Box>
-                    {!dataPoint.isOther && (
+                    {/* {!dataPoint.isOther && (
                         <Box display="flex" alignItems="center" gap={1} mt={0.5}>
                             <IconDroplet size={16} color="#666" />
                             <Typography variant="body2" color="textSecondary">
                                 Miktar: {formatTR(dataPoint.amount)} Lt
                             </Typography>
                         </Box>
-                    )}
+                    )} */}
                 </Card>
             );
         }

@@ -722,7 +722,8 @@ const ListTenderFlowReport = () => {
                     <Grid item xs={12} sm={6} md={4}><Autocomplete id="tender-select" options={tendersList} getOptionLabel={(o) => `${o.title} (${o.approvedTenderText})`} value={tendersList.find(t => t.id === filterParams.tenderId) || null} onChange={(_, newValue) => handleFilterChange('tenderId', newValue?.id || null)} renderInput={(params) => (<TextField {...params} label="İhale Seçiniz" fullWidth size="small" />)} /></Grid>
                     <Grid item xs={12} sm={6} md={4}><Autocomplete id="workhouse-select" options={workhousesList} getOptionLabel={(o) => `${o.name} (${o.code})`} value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null} onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)} renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)} /></Grid>
 
-                    <Grid item xs={12} sm={6} md={4}><Autocomplete id="item-select" options={itemsList} getOptionLabel={(o) => `${o.name} (${o.abbreviation})`} value={itemsList.find(i => i.id === filterParams.itemId) || null} onChange={(_, newValue) => handleFilterChange('itemId', newValue?.id || null)} renderInput={(params) => (<TextField {...params} label="Ürün Seçiniz" fullWidth size="small" />)} /></Grid>
+                    <Grid item xs={12} sm={6} md={4}><Autocomplete id="item-select" options={itemsList}
+                        getOptionLabel={(o) => `${o.name} `} value={itemsList.find(i => i.id === filterParams.itemId) || null} onChange={(_, newValue) => handleFilterChange('itemId', newValue?.id || null)} renderInput={(params) => (<TextField {...params} label="Ürün Seçiniz" fullWidth size="small" />)} /></Grid>
                 </Grid>
                 <Box sx={{ p: 2, mt: 1 }}>
                     <Grid container spacing={2} alignItems="center">

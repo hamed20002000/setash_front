@@ -30,6 +30,7 @@ import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import { tr } from 'date-fns/locale';
 
+import "./style.css"
 // --- PDF & Excel Exports ---
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -59,6 +60,30 @@ interface ReportRowType {
     ilce: string; proje_adi: string; is_turu: string; itemcode: string | null;
     itemname: string; unit: string; quantity: string; price: string | null; discount: string | null;
     total: string | null;
+    invoice_no: string | null;      // اضافه شد
+    discount_percent: string | null;
+
+}
+interface FirmType {
+    id: number;
+    title: string;
+    abbreviation: string;
+    createAt: string;
+    recordStatus: number;
+}
+interface ProjectType {
+    id: number;
+    title: string;
+    code: string;
+    type: 0 | 1 | 2;
+    startDate: string;
+    predictEndDate: string;
+    endDate: string | null;
+    workhouseId: number;
+    firmId: number;
+    workhouse: WorkhouseType;
+    projectFirm: FirmType;
+    recordStatus: number;
 }
 
 interface ReportResponseType {
@@ -80,6 +105,11 @@ const cleanNumber = (value: string | number | null): number => {
     return parseFloat(value.toString().replace(/[^0-9.-]+/g, "")) || 0;
 };
 
+const cleanCurrency = (value: string | null): string => {
+    if (!value) return '0.00';
+    // حذف علامت $ و کاما (جداکننده هزارگان)
+    return value.replace(/[$,]/g, "");
+};
 function descendingComparator<T>(a: T, b: T, orderBy: keyof T) {
     let aValue: any = a[orderBy];
     let bValue: any = b[orderBy];
@@ -192,6 +222,10 @@ const ListItemReport = () => {
     const [page, setPage] = useState(0); // MUI TablePagination starts at 0
     const [rowsPerPage, setRowsPerPage] = useState(10);
 
+
+    const [projectsList, setProjectsList] = useState<ProjectType[]>([]);
+    const [loadingProjects, setLoadingProjects] = useState(false);
+
     const [openDetailViewModal, setOpenDetailViewModal] = useState(false);
     const [selectedReportToDownload, setSelectedReportToDownload] = useState<ReportRowType | null>(null);
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -239,9 +273,9 @@ const ListItemReport = () => {
         setFilterParams(prev => ({ ...prev, [name]: value, page: 1 }));
     };
 
-    const cleanCurrencyValue = (value: string | null): number => {
-        return cleanNumber(value);
-    };
+    // const cleanCurrencyValue = (value: string | null): number => {
+    //     return cleanNumber(value);
+    // };
 
     // --- Data Fetching ---
     const getWorkhousesList = useCallback(async () => {
@@ -258,6 +292,32 @@ const ListItemReport = () => {
             } else { showAlert(response.data.message || 'Şantiye listesi alınamadı.', 'error'); }
         } catch (e: any) { handleApiError(e, 'Şantiye listesi alınamadı.'); }
     }, [navigate, showAlert, handleApiError]);
+
+    const getProjectsList = useCallback(async () => {
+        const authToken = localStorage.getItem('authToken');
+        if (!authToken) return;
+
+        setLoadingProjects(true);
+        try {
+            const response = await axios.get(server.baseurl + server.warehouse + "get-project", {
+                headers: { "Authorization": `Bearer ${authToken}` }
+            });
+            if (response.data.httpStatusCode === 200) {
+                // فقط پروژه‌های فعال را فیلتر می‌کنیم
+                const activeProjects = response.data.data.filter((p: ProjectType) => p.recordStatus === 0);
+                setProjectsList(activeProjects);
+            }
+        } catch (e: any) {
+            handleApiError(e, 'Proje listesi alınamadı.');
+        } finally {
+            setLoadingProjects(false);
+        }
+    }, [handleApiError]);
+
+    // فراخوانی در useEffect
+    useEffect(() => {
+        getProjectsList();
+    }, [getProjectsList]);
 
     const fetchListItemReportData = useCallback(async () => {
         const authToken = localStorage.getItem('authToken');
@@ -418,72 +478,158 @@ const ListItemReport = () => {
     };
 
 
+    // 1. PDF Single (تکی)
     const handleExportPdfSingle = async (report: ReportRowType) => {
         const authToken = localStorage.getItem('authToken');
         if (!authToken) { showAlert('Lütfen giriş yapın.', 'warning'); return; }
-        showAlert('PDF raporu hazırlanıyor, lütfen bekleyin...', 'info');
+        showAlert('PDF raporu hazırlanıyor...', 'info');
         try {
             const doc = new jsPDF('portrait', 'pt', 'a4');
-            (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular); (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal"); doc.setFont("NotoSans", "normal");
+            (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+            (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+            doc.setFont("NotoSans", "normal");
+
             addPdfHeader(doc, `Ürün Raporu Detayı: ${report.itemname}`);
-            const formattedQuantity = cleanCurrencyValue(report.quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            const formattedPrice = cleanCurrencyValue(report.price).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            const formattedTotal = cleanCurrencyValue(report.total).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
             const tableRows = [
-                ["Malzeme Adı", report.itemname], ["Malzeme Kodu", report.itemcode || '-'], ["Proje Adı", report.proje_adi],
-                ["Şantiye Adı", report.workhousen_name], ["Tarih", format(new Date(report.tarih), 'dd/MM/yyyy')],
-                ["Miktar (Quantity)", formattedQuantity], ["Birim", report.unit], ["Birim Fiyat (Price)", formattedPrice], ["Toplam Tutar (Total)", formattedTotal],
+                ["Fatura No", report.invoice_no || '-'], // اضافه شد
+                ["Malzeme Adı", report.itemname],
+                ["Malzeme Kodu", report.itemcode || '-'],
+                ["Proje Adı", report.proje_adi],
+                ["Şantiye Adı", report.workhousen_name],
+                ["Tarih", format(new Date(report.tarih), 'dd/MM/yyyy')],
+                ["Miktar", report.quantity],
+                ["Birim", report.unit],
+                ["Birim Fiyat", cleanCurrency(report.price)], // اصلاح شد
+                ["İndirim", cleanCurrency(report.discount)],   // اضافه شد
+                ["Toplam Tutar", cleanCurrency(report.total) + " TL"],
             ];
+
             autoTable(doc, {
-                startY: 70, head: [["Alan (Field)", "Değer (Value)"]], body: tableRows, theme: 'grid', styles: { font: 'NotoSans', fontStyle: "normal", fontSize: 9, cellPadding: 6, }, headStyles: { fillColor: [60, 141, 188], textColor: 255 }, didDrawPage: (_data) => { addPdfFooter(doc); }
+                startY: 70,
+                head: [["Alan (Field)", "Değer (Value)"]],
+                body: tableRows,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontSize: 9, cellPadding: 6 },
+                headStyles: { fillColor: [60, 141, 188] },
+                didDrawPage: () => { addPdfFooter(doc); }
             });
-            doc.save(`Urun_Detay_${report.itemcode || report.proje_kodu}_${format(new Date(), 'yyyyMMdd')}.pdf`); showAlert('PDF raporu başarıyla oluşturuldu.', 'success');
-        } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
+
+            doc.save(`Urun_Detay_${report.invoice_no || 'No'}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
+        } catch (e: any) { handleApiError(e, 'PDF hatası.'); }
     };
 
+    // 2. Excel Single (تکی)
     const handleExportExcelSingle = async (report: ReportRowType) => {
-        showAlert('Excel raporu hazırlanıyor, lütfen bekleyin...', 'info');
+        showAlert('Excel hazırlanıyor...', 'info');
         try {
-            const workbook = new Excel.Workbook(); const sheet = workbook.addWorksheet('Ürün Detay', { views: [{ rightToLeft: false }] });
-            const data = [['Malzeme Adı', report.itemname], ['Malzeme Kodu', report.itemcode || '-'], ['Proje Adı', report.proje_adi], ['Şantiye Adı', report.workhousen_name], ['Tarih', format(new Date(report.tarih), 'dd/MM/yyyy')], ['Miktar (Quantity)', cleanCurrencyValue(report.quantity)], ['Birim Fiyat (Price)', cleanCurrencyValue(report.price)], ['Toplam Tutar (Total)', cleanCurrencyValue(report.total)],];
-            const titleRow = sheet.addRow(['Ürün Raporu Detayı']); titleRow.font = { name: 'Calibri', size: 14, bold: true }; sheet.mergeCells('A1:B1'); sheet.addRow([]);
-            const headerRow = sheet.addRow(['Alan (Field)', 'Değer (Value)']); headerRow.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; cell.font = { bold: true }; cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
-            data.forEach(row => { const newRow = sheet.addRow(row); newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; }); const fieldName: string = row[0] as string; if (fieldName.startsWith('Miktar')) { newRow.getCell(2).numFmt = '#,##0.00'; } if (fieldName.includes('Fiyat') || fieldName.includes('Tutar')) { newRow.getCell(2).numFmt = '₺ #,##0.00'; } });
-            sheet.columns[0].width = 25; sheet.columns[1].width = 35;
-            const buffer = await workbook.xlsx.writeBuffer(); saveAs(new Blob([buffer]), `Urun_Detay_${report.itemcode || report.proje_kodu}_${format(new Date(), 'yyyyMMdd')}.xlsx`); showAlert('Excel raporu başarıyla oluşturuldu.', 'success');
-        } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
+            const workbook = new Excel.Workbook();
+            const sheet = workbook.addWorksheet('Ürün Detay');
+
+            const titleRow = sheet.addRow(['Ürün Raporu Detayı']);
+            titleRow.font = { bold: true, size: 14 };
+            sheet.mergeCells('A1:B1');
+            sheet.addRow([]);
+
+            const headerRow = sheet.addRow(['Alan (Field)', 'Değer (Value)']);
+            headerRow.eachCell(cell => { cell.font = { bold: true }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
+
+            const rows = [
+                ['Fatura No', report.invoice_no || '-'],
+                ['Malzeme Adı', report.itemname],
+                ['Proje Adı', report.proje_adi],
+                ['Tarih', format(new Date(report.tarih), 'dd/MM/yyyy')],
+                ['Miktar', cleanNumber(report.quantity)],
+                ['Birim Fiyat', cleanNumber(report.price)],
+                ['İndirim', cleanNumber(report.discount)],
+                ['Toplam Tutar', cleanNumber(report.total)],
+            ];
+
+            rows.forEach(row => {
+                const newRow = sheet.addRow(row);
+                if (typeof row[1] === 'number' && row[0] !== 'Miktar') newRow.getCell(2).numFmt = '#,##0.00';
+            });
+
+            sheet.columns = [{ width: 25 }, { width: 35 }];
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `Urun_Detay_${report.invoice_no || 'No'}.xlsx`);
+            showAlert('Excel başarıyla oluşturuldu.', 'success');
+        } catch (e: any) { handleApiError(e, 'Excel hatası.'); }
     };
 
+    // 3. PDF All (همه)
     const handleExportPdfAll = (data: ReportRowType[]) => {
-        if (!data || data.length === 0) { showAlert('Rapor indirilemedi: Tabloda veri bulunmamaktadır.', 'warning'); return; }
+        if (!data || data.length === 0) { showAlert('Veri yok.', 'warning'); return; }
         try {
-            const doc = new jsPDF('landscape', 'pt', 'a4'); (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular); (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal"); doc.setFont("NotoSans", "normal");
+            const doc = new jsPDF('landscape', 'pt', 'a4');
+            (doc as any).addFileToVFS("NotoSans-Regular.ttf", NotoSansRegular);
+            (doc as any).addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+            doc.setFont("NotoSans", "normal");
+
             addPdfHeader(doc, `Ürün Genel Raporu (${format(new Date(), 'dd/MM/yyyy')})`);
-            const headers = ["Malzeme Adı", "Şantiye Adı", "Proje Adı", "Tarih", "Miktar", "Birim", "Toplam Tutar (TL)"];
-            const totalPrice = data.reduce((sum, row) => sum + cleanCurrencyValue(row.total), 0);
-            const totalDisplay = totalPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
-            const body = data.map(row => {
-                return [row.itemname, row.workhousen_name, row.proje_adi, format(new Date(row.tarih), 'dd/MM/yyyy'), cleanCurrencyValue(row.quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2 }), row.unit, cleanCurrencyValue(row.total).toLocaleString('tr-TR', { minimumFractionDigits: 2 })];
+
+            const headers = ["Fatura No", "Malzeme", "Şantiye", "Tarih", "Miktar", "Fiyat", "İndirim", "Toplam (TL)"];
+            const body = data.map(row => [
+                row.invoice_no || '-',
+                row.itemname,
+                row.workhousen_name,
+                format(new Date(row.tarih), 'dd/MM/yyyy'),
+                row.quantity,
+                cleanCurrency(row.price),
+                cleanCurrency(row.discount),
+                cleanCurrency(row.total)
+            ]);
+
+            const totalPrice = data.reduce((sum, r) => sum + cleanNumber(r.total), 0);
+
+            autoTable(doc, {
+                startY: 70,
+                head: [headers],
+                body: body,
+                theme: 'grid',
+                styles: { font: 'NotoSans', fontSize: 8 },
+                headStyles: { fillColor: [60, 141, 188] },
+                foot: [['', '', '', '', '', '', 'GENEL TOPLAM:', totalPrice.toLocaleString('tr-TR') + ' TL']],
+                didDrawPage: () => { addPdfFooter(doc); }
             });
-            autoTable(doc, { startY: 70, head: [headers], body: body, theme: 'grid', styles: { font: 'NotoSans', fontSize: 8, cellPadding: 4, }, headStyles: { fillColor: [60, 141, 188], textColor: 255 }, foot: [['', '', '', '', '', 'TOPLAM MALİYET:', totalDisplay]], footStyles: { fillColor: [230, 240, 245], textColor: [192, 0, 0], fontStyle: 'normal', fontSize: 9 }, columnStyles: { 6: { fontStyle: 'normal', halign: 'right' } }, didDrawPage: (_data) => { addPdfFooter(doc); } });
-            doc.save(`Urun_Raporu_Tümü_${format(new Date(), 'yyyyMMdd')}.pdf`); showAlert('PDF raporu başarıyla oluşturuldu.', 'success');
-        } catch (e: any) { handleApiError(e, 'PDF raporu oluşturulurken bir hata oluştu.'); }
+
+            doc.save(`Urun_Raporu_Tumu.pdf`);
+            showAlert('PDF başarıyla oluşturuldu.', 'success');
+        } catch (e: any) { handleApiError(e, 'PDF hatası.'); }
     };
 
+    // 4. Excel All (همه)
     const handleExportExcelAll = async (data: ReportRowType[]) => {
-        if (!data || data.length === 0) { showAlert('Rapor indirilemedi: Tabloda veri bulunmamaktadır.', 'warning'); return; }
+        if (!data || data.length === 0) { showAlert('Veri yok.', 'warning'); return; }
         try {
-            const workbook = new Excel.Workbook(); const sheet = workbook.addWorksheet('Ürün Raporu', { views: [{ rightToLeft: false }] });
-            const headers = ["Malzeme Adı", "Şantiye Adı", "Proje Adı", "Tarih", "Miktar", "Birim", "Birim Fiyat", "Toplam Tutar (TL)"];
-            const headerRow = sheet.addRow(headers); headerRow.eachCell((cell) => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; cell.font = { bold: true }; cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+            const workbook = new Excel.Workbook();
+            const sheet = workbook.addWorksheet('Ürün Raporu');
+
+            const headers = ["Fatura No", "Malzeme Adı", "Şantiye", "Tarih", "Miktar", "Birim", "Fiyat", "İndirim", "Toplam"];
+            const headerRow = sheet.addRow(headers);
+            headerRow.eachCell(cell => { cell.font = { bold: true }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } }; });
+
             data.forEach(row => {
-                const newRow = sheet.addRow([row.itemname, row.workhousen_name, row.proje_adi, format(new Date(row.tarih), 'dd/MM/yyyy'), cleanCurrencyValue(row.quantity), row.unit, cleanCurrencyValue(row.price), cleanCurrencyValue(row.total)]);
-                newRow.getCell(5).numFmt = '#,##0.00'; newRow.getCell(7).numFmt = '₺ #,##0.00'; newRow.getCell(8).numFmt = '₺ #,##0.00';
-                newRow.eachCell((cell) => { cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }; });
+                const newRow = sheet.addRow([
+                    row.invoice_no || '-',
+                    row.itemname,
+                    row.workhousen_name,
+                    format(new Date(row.tarih), 'dd/MM/yyyy'),
+                    cleanNumber(row.quantity),
+                    row.unit,
+                    cleanNumber(row.price),
+                    cleanNumber(row.discount),
+                    cleanNumber(row.total)
+                ]);
+                [7, 8, 9].forEach(i => newRow.getCell(i).numFmt = '#,##0.00');
             });
-            sheet.columns.forEach((column, index) => { const header = headers[index]; if (header) { column.width = Math.max(header.length + 5, 15); } });
-            const buffer = await workbook.xlsx.writeBuffer(); saveAs(new Blob([buffer]), `Urun_Raporu_Tümü_${format(new Date(), 'yyyyMMdd')}.xlsx`); showAlert('Excel raporu başarıyla oluşturuldu.', 'success');
-        } catch (e: any) { handleApiError(e, 'Excel raporu oluşturulurken bir hata oluştu.'); }
+
+            sheet.columns.forEach(col => col.width = 18);
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), `Urun_Raporu_Tumu.xlsx`);
+            showAlert('Excel başarıyla oluşturuldu.', 'success');
+        } catch (e: any) { handleApiError(e, 'Excel hatası.'); }
     };
 
     // ✨✨✨ LOGIC FOR EXPORT WITH SEARCH & SORT APPLIED ✨✨✨
@@ -500,7 +646,8 @@ const ListItemReport = () => {
         showAlert(exportMessage, 'info');
 
         try {
-            const response = await axios.get(server.baseurl + server.report + `get-other-items-filtered-report-data`, { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams });
+            const response = await axios.get(server.baseurl + server.report +
+                `get-other-items-filtered-report-data`, { headers: { "Authorization": `Bearer ${authToken}` }, params: requestParams });
 
             if (response.data.httpStatusCode === 200 && response.data.data?.data) {
                 let allData = response.data.data.data as ReportRowType[];
@@ -535,12 +682,15 @@ const ListItemReport = () => {
     }, [processedData]);
 
     const tableHeaders: { label: string; key: keyof ReportRowType }[] = [
+        { label: 'Fatura No', key: 'invoice_no' }, // اضافه شد
         { label: 'Malzeme Adı', key: 'itemname' },
         { label: 'Şantiye Adı', key: 'workhousen_name' },
         { label: 'Proje Adı', key: 'proje_adi' },
         { label: 'Tarih', key: 'tarih' },
         { label: 'Miktar', key: 'quantity' },
         { label: 'Birim', key: 'unit' },
+        { label: 'Birim Fiyat', key: 'price' },    // اضافه شد
+        { label: 'İndirim', key: 'discount' },     // اضافه شد
         { label: 'Toplam Tutar (TL)', key: 'total' },
     ];
 
@@ -554,7 +704,34 @@ const ListItemReport = () => {
                 <Grid container spacing={3} p={2}>
 
                     <Grid item xs={12} sm={6} md={3}><Autocomplete id="workhouse-select" options={workhousesList} getOptionLabel={(o) => `${o.name} (${o.code})`} value={workhousesList.find(wh => wh.id === filterParams.workhouseId) || null} onChange={(_, newValue) => handleFilterChange('workhouseId', newValue?.id || null)} isOptionEqualToValue={(o, v) => o.id === v.id} renderInput={(params) => (<TextField {...params} label="Şantiye" fullWidth size="small" />)} /></Grid>
-
+                    <Grid item xs={12} sm={6} md={3}>
+                        <Autocomplete
+                            id="project-select"
+                            options={projectsList}
+                            loading={loadingProjects}
+                            getOptionLabel={(o) => `${o.title} (${o.code})`}
+                            value={projectsList.find(p => p.id === filterParams.projectId) || null}
+                            onChange={(_, newValue) => handleFilterChange('projectId', newValue?.id || null)}
+                            isOptionEqualToValue={(o, v) => o.id === v.id}
+                            renderInput={(params) => (
+                                <TextField
+                                    {...params}
+                                    label="Proje"
+                                    fullWidth
+                                    size="small"
+                                    InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                            <>
+                                                {loadingProjects ? <CircularProgress color="inherit" size={20} /> : null}
+                                                {params.InputProps.endAdornment}
+                                            </>
+                                        ),
+                                    }}
+                                />
+                            )}
+                        />
+                    </Grid>
                     {/* --- فیلتر تاریخ شروع --- */}
                     <Grid item xs={12} sm={6} md={3}>
                         <LocalizationProvider dateAdapter={AdapterDateFns} locale={tr}>
@@ -679,15 +856,25 @@ const ListItemReport = () => {
                                 // ✅ استفاده از visibleRows برای نمایش دیتا (برش خورده)
                                 visibleRows.map((row, index) => (
                                     <TableRow key={`${row.tarih}-${row.itemcode}-${index}`} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell sx={{ width: '120px', minWidth: '120px', maxWidth: '120px', whiteSpace: 'normal', wordBreak: 'break-word' }}>{row.itemname}</StyledTableCell>
+                                        <StyledTableCell>{row.invoice_no || '-'}</StyledTableCell> {/* فاکتور */}
+                                        <StyledTableCell sx={{ width: '140px', minWidth: '140px', maxWidth: '140px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                                            {row.itemname}
+                                        </StyledTableCell>
                                         <StyledTableCell>{row.workhousen_name}</StyledTableCell>
                                         <StyledTableCell>{row.proje_adi}</StyledTableCell>
                                         <StyledTableCell>{format(new Date(row.tarih), 'dd/MM/yyyy')}</StyledTableCell>
                                         <StyledTableCell><Typography fontWeight="bold">{row.quantity}</Typography></StyledTableCell>
                                         <StyledTableCell>{row.unit}</StyledTableCell>
-                                        <StyledTableCell><Typography color="primary" fontWeight="bold">{row.total || '-'} TL</Typography></StyledTableCell>
+                                        <StyledTableCell>{cleanCurrency(row.price)}</StyledTableCell>    {/* قیمت واحد */}
+                                        <StyledTableCell>{cleanCurrency(row.discount)}</StyledTableCell> {/* تخفیف */}
                                         <StyledTableCell>
-                                            <Tooltip title="Detaylar ve İşlemler"><IconButton id={`actions-button-${index}`} onClick={(event) => handleClickMenu(event, row)} color="secondary" size="small"><IconDots width={20} /></IconButton></Tooltip>
+                                            <Typography color="primary" fontWeight="bold">
+                                                {cleanCurrency(row.total)} TL
+                                            </Typography>
+                                        </StyledTableCell>
+                                        <StyledTableCell>
+                                            <Tooltip title="Detaylar ve İşlemler">
+                                                <IconButton id={`actions-button-${index}`} onClick={(event) => handleClickMenu(event, row)} color="secondary" size="small"><IconDots width={20} /></IconButton></Tooltip>
                                             <Menu id="actions-menu" anchorEl={anchorEl} open={openMenu && selectedRowForMenu === row} onClose={handleCloseMenu}>
                                                 <MenuItem onClick={() => handleOpenDetailViewModal(row)}><ListItemIcon><IconRuler width={18} /></ListItemIcon> Detayları Görüntüle</MenuItem>
                                                 <MenuItem onClick={() => handleExportPdfSingle(row)}><ListItemIcon><IconFileDownload width={18} /></ListItemIcon> PDF İndir</MenuItem>
@@ -701,7 +888,7 @@ const ListItemReport = () => {
                         {reportData && reportData.data?.length > 0 && (
                             <TableFooter>
                                 <TableRow>
-                                    <StyledTableCell colSpan={6} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
+                                    <StyledTableCell colSpan={9} align="right" sx={{ borderTop: '2px solid #ddd', padding: 2 }}>
                                         <Typography variant="h6" fontWeight="bold">
                                             {searchTerm ? 'Toplam (Filtrelenmiş):' : 'Genel Toplam (Tüm Veriler):'}
                                         </Typography>
@@ -742,3 +929,4 @@ const ListItemReport = () => {
 };
 
 export default ListItemReport;
+
