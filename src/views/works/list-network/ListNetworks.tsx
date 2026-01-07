@@ -170,23 +170,93 @@ const ListNetwork = () => {
     const [openDownloadModal, setOpenDownloadModal] = useState(false);
 
 
-    const { allowedOperations } = useAuth();
-    const hasCreatePermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    }, [allowedOperations]);
+    // const { allowedOperations } = useAuth();
+    // const hasCreatePermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    // }, [allowedOperations]);
 
-    const hasEditPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    }, [allowedOperations]);
+    // const hasEditPermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    // }, [allowedOperations]);
 
-    const hasDeletePermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    }, [allowedOperations]);
+    // const hasDeletePermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    // }, [allowedOperations]);
 
 
-    const hasDownloadPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    }, [allowedOperations]);
+    // const hasDownloadPermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    // }, [allowedOperations]);
+
+    const { menuItems, allowedOperations } = useAuth();
+    const findMenuByHref = (items: any[], path: string): any => {
+        for (const item of items) {
+            if (item.href) {
+                // ۱. نرمال‌سازی: تبدیل به حروف کوچک و حذف اسلش‌ها
+                const normalizedItemHref = item.href.toLowerCase().replace(/\//g, "");
+                const normalizedPath = path.toLowerCase().replace(/\//g, "");
+
+                // ۲. منطق تطبیق منعطف:
+                // اگر آدرس منو "network" است و در آدرس فعلی ما هم کلمه "network" وجود دارد
+                // این باعث می‌شود /work/15/networks با /network/list-network تطبیق پیدا کند
+                const menuKeyword = normalizedItemHref.replace("list", "").replace("report", "");
+
+                if (normalizedPath.includes(menuKeyword) || normalizedItemHref.includes(normalizedPath)) {
+                    return item;
+                }
+            }
+
+            if (item.children && item.children.length > 0) {
+                const found = findMenuByHref(item.children, path);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+    const findMenuByTitle = (items: any[], title: string): any => {
+        for (const item of items) {
+            // جستجو بر اساس متنی که در منو نمایش داده می‌شود (مثلاً "Şebekeler" یا "Networks")
+            if (item.title === title) return item;
+
+            if (item.children && item.children.length > 0) {
+                const found = findMenuByTitle(item.children, title);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
+    const currentMenu = useMemo(() => {
+        // نامی که در دیتابیس برای این صفحه ذخیره شده را اینجا بنویسید
+        return findMenuByTitle(menuItems, "Şebekeleri Listele");
+    }, [menuItems]);
+
+    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
+    const currentMenuOpIds = useMemo(() => {
+        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
+        if (!currentMenu || !currentMenu.menuOperations) return [];
+
+        return currentMenu.menuOperations.map((op: any) => {
+            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
+            return String(op.id);
+        });
+    }, [currentMenu]);
+
+    // ۴. تابع نهایی بررسی دسترسی
+    const hasPermission = (opName: string) => {
+        return allowedOperations.some((op: any) =>
+            op.systemOperationName === opName &&
+            currentMenuOpIds.includes(String(op.menuOperationId))
+        );
+    };
+
+    const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
+    const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
+    const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+
+    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
+
 
     useEffect(() => {
         let filtered = allNetworks;

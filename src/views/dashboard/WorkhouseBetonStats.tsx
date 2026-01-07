@@ -157,6 +157,7 @@ const WorkhouseBetonStats = () => {
                 });
 
                 if (response.data.httpStatusCode === 200 && response.data.data) {
+                    debugger
                     setData(response.data.data);
                 } else {
                     // اگر دیتا null بود یا مشکلی بود، آرایه خالی ست میکنیم که شرط‌های پایین کار کنن

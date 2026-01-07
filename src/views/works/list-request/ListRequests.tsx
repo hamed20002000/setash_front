@@ -300,11 +300,61 @@ const RequestTabs: React.FC = () => {
         return () => { if (timer) clearTimeout(timer); };
     }, [alertMessage]);
 
-    const { allowedOperations } = useAuth();
-    const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
-    const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
-    const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
-    const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
+    // const { allowedOperations } = useAuth();
+    // const hasCreatePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Eklemek'), [allowedOperations]);
+    // const hasEditPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Düzenlemek'), [allowedOperations]);
+    // const hasDeletePermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'Silmek'), [allowedOperations]);
+    // const hasDownloadPermission = useMemo(() => allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak'), [allowedOperations]);
+
+
+    const { menuItems, allowedOperations } = useAuth();
+    const findMenuByHref = (items: any[], path: string): any => {
+        for (const item of items) {
+            // اگر خود آیتم تطبیق داشت
+            if (item.href === path) return item;
+
+            // اگر آیتم فرزند داشت، داخل فرزندان جستجو کن
+            if (item.children && item.children.length > 0) {
+                const found = findMenuByHref(item.children, path);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+
+    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
+    const currentMenu = useMemo(() => {
+        debugger
+        return findMenuByHref(menuItems, location.pathname);
+    }, [menuItems, location.pathname]);
+
+    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
+    const currentMenuOpIds = useMemo(() => {
+        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
+        if (!currentMenu || !currentMenu.menuOperations) return [];
+
+        return currentMenu.menuOperations.map((op: any) => {
+            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
+            return String(op.id);
+        });
+    }, [currentMenu]);
+
+    // ۴. تابع نهایی بررسی دسترسی
+    const hasPermission = (opName: string) => {
+        return allowedOperations.some((op: any) =>
+            op.systemOperationName === opName &&
+            currentMenuOpIds.includes(String(op.menuOperationId))
+        );
+    };
+
+    const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
+    const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
+    const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+
+    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
+
+
     const [requestsList, setRequestsList] = useState<MaterialRequestType[]>([]);
     const [materialSubject, setMaterialSubject] = useState('');
     const [materialDescription, setMaterialDescription] = useState('');

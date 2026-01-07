@@ -99,11 +99,15 @@ interface FilterParams {
 // --- SORTING HELPERS ---
 type Order = 'asc' | 'desc';
 
-const cleanNumber = (value: string | number | null): number => {
-    if (typeof value === 'number') return value;
-    if (!value) return 0;
-    return parseFloat(value.toString().replace(/[^0-9.-]+/g, "")) || 0;
+
+
+const cleanNumber = (value: string | number | undefined | null): number => {
+    if (value === null || value === undefined) return 0;
+    const cleanedString = String(value).replace(/[^\d.-]/g, '');
+    const numericValue = parseFloat(cleanedString);
+    return isNaN(numericValue) ? 0 : numericValue;
 };
+
 
 const cleanCurrency = (value: string | null): string => {
     if (!value) return '0.00';
@@ -151,6 +155,61 @@ interface DetailViewModalProps {
     onExportExcel: (report: ReportRowType) => Promise<void>; onExportPdf: (report: ReportRowType) => Promise<void>;
 }
 
+// const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report, onExportExcel, onExportPdf }) => {
+//     if (!report) return null;
+//     const reportTitle = report.itemname ? `Ürün Raporu Detayları: ${report.itemname}` : `Rapor Detayları: ${report.proje_adi}`;
+
+//     return (
+//         <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+//             <DialogTitle>{reportTitle}</DialogTitle>
+//             <DialogContent dividers>
+//                 <Grid container spacing={2}>
+//                     <Grid item xs={12} md={6}>
+//                         <Typography variant="h6" mb={1} color="primary">Malzeme Bilgileri</Typography>
+//                         <Stack spacing={1}>
+//                             <CustomTextField label="Malzeme Adı" size="small" fullWidth value={report.itemname} disabled />
+//                             <CustomTextField label="Malzeme Kodu" size="small" fullWidth value={report.itemcode || '-'} disabled />
+//                             <CustomTextField label="Proje Adı" size="small" fullWidth value={report.proje_adi} disabled />
+//                             <CustomTextField label="Tarih" size="small" fullWidth value={format(new Date(report.tarih), 'dd/MM/yyyy')} disabled />
+//                         </Stack>
+//                     </Grid>
+//                     <Grid item xs={12} md={6}>
+//                         <Typography variant="h6" mb={1} color="success.main">Miktar ve Maliyet</Typography>
+//                         <Stack spacing={1}>
+//                             <CustomTextField label="Miktar" size="small" fullWidth value={report.quantity} disabled />
+//                             <CustomTextField label="Birim" size="small" fullWidth value={report.unit} disabled />
+//                             <CustomTextField label="Birim Fiyat" size="small" fullWidth value={report.price ? `${report.price}` : '-'} disabled />
+//                             <CustomTextField label="Toplam Tutar" size="small" fullWidth value={report.total ? `${report.total}` : '-'} disabled />
+//                         </Stack>
+//                     </Grid>
+//                     <Grid item xs={12}>
+//                         <Typography variant="h6" mt={2} mb={1} color="info">Konum ve Şantiye</Typography>
+//                         <Stack spacing={1}>
+//                             <CustomTextField label="Şantiye Adı" size="small" fullWidth value={report.workhousen_name} disabled />
+//                             <CustomTextField label="Bölge" size="small" fullWidth value={report.bolge_adi} disabled />
+//                             <CustomTextField label="İl / İlçe" size="small" fullWidth value={`${report.il || '-'} / ${report.ilce}`} disabled />
+//                         </Stack>
+//                     </Grid>
+//                     <Grid item xs={12} mt={3}>
+//                         <Typography variant="h6" mb={1} color="secondary">📥 Raporu İndir</Typography>
+//                         <Stack direction="row" spacing={2}>
+//                             <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => onExportPdf(report)} fullWidth>PDF Olarak İndir</Button>
+//                             <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => onExportExcel(report)} fullWidth>Excel Olarak İndir</Button>
+//                         </Stack>
+//                     </Grid>
+//                 </Grid>
+//             </DialogContent>
+//             <DialogActions>
+//                 <Button onClick={onClose} color="secondary">Kapat</Button>
+//             </DialogActions>
+//         </Dialog>
+//     );
+// };
+
+
+// --- MAIN COMPONENT ---
+
+
 const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report, onExportExcel, onExportPdf }) => {
     if (!report) return null;
     const reportTitle = report.itemname ? `Ürün Raporu Detayları: ${report.itemname}` : `Rapor Detayları: ${report.proje_adi}`;
@@ -160,50 +219,66 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
             <DialogTitle>{reportTitle}</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={2}>
+                    {/* اطلاعات فاکتور و پروژه */}
+                    <Grid item xs={12}>
+                        <Typography variant="h6" mb={1} color="primary">Genel Bilgiler</Typography>
+                        <Stack spacing={1}>
+                            <CustomTextField label="Fatura No" size="small" fullWidth value={report.invoice_no || '-'} disabled />
+                            <CustomTextField label="Proje Adı" size="small" fullWidth value={report.proje_adi} disabled />
+                            <CustomTextField label="Proje Kodu" size="small" fullWidth value={report.proje_kodu} disabled />
+                        </Stack>
+                    </Grid>
+
+                    {/* اطلاعات کالا */}
                     <Grid item xs={12} md={6}>
-                        <Typography variant="h6" mb={1} color="primary">Malzeme Bilgileri</Typography>
+                        <Typography variant="h6" mt={1} mb={1} color="info.main">Malzeme Bilgileri</Typography>
                         <Stack spacing={1}>
                             <CustomTextField label="Malzeme Adı" size="small" fullWidth value={report.itemname} disabled />
                             <CustomTextField label="Malzeme Kodu" size="small" fullWidth value={report.itemcode || '-'} disabled />
-                            <CustomTextField label="Proje Adı" size="small" fullWidth value={report.proje_adi} disabled />
+                            <CustomTextField label="Birim" size="small" fullWidth value={report.unit} disabled />
                             <CustomTextField label="Tarih" size="small" fullWidth value={format(new Date(report.tarih), 'dd/MM/yyyy')} disabled />
                         </Stack>
                     </Grid>
+
+                    {/* مبالغ و محاسبات */}
                     <Grid item xs={12} md={6}>
-                        <Typography variant="h6" mb={1} color="success.main">Miktar ve Maliyet</Typography>
+                        <Typography variant="h6" mt={1} mb={1} color="success.main">Miktar ve Maliyet</Typography>
                         <Stack spacing={1}>
                             <CustomTextField label="Miktar" size="small" fullWidth value={report.quantity} disabled />
-                            <CustomTextField label="Birim" size="small" fullWidth value={report.unit} disabled />
-                            <CustomTextField label="Birim Fiyat" size="small" fullWidth value={report.price ? `${report.price}` : '-'} disabled />
-                            <CustomTextField label="Toplam Tutar" size="small" fullWidth value={report.total ? `${report.total}` : '-'} disabled />
+                            <CustomTextField label="Birim Fiyat" size="small" fullWidth value={cleanNumber(report.price).toLocaleString('us-US') + " TL"} disabled />
+                            <CustomTextField label="İndirim Tutarı" size="small" fullWidth value={cleanNumber(report.discount).toLocaleString('us-US') + " TL"} disabled />
+                            <CustomTextField label="Toplam Tutar" size="small" fullWidth
+                                value={cleanNumber(report.total).toLocaleString('us-US', { minimumFractionDigits: 2 }) + " TL"}
+                                sx={{ "& .MuiInputBase-input": { fontWeight: 'bold', color: 'primary.main' } }}
+                                disabled
+                            />
                         </Stack>
                     </Grid>
+
+                    {/* اطلاعات موقعیت */}
                     <Grid item xs={12}>
-                        <Typography variant="h6" mt={2} mb={1} color="info">Konum ve Şantiye</Typography>
-                        <Stack spacing={1}>
-                            <CustomTextField label="Şantiye Adı" size="small" fullWidth value={report.workhousen_name} disabled />
-                            <CustomTextField label="Bölge" size="small" fullWidth value={report.bolge_adi} disabled />
+                        <Typography variant="h6" mt={1} mb={1} color="secondary">Konum ve Şantiye</Typography>
+                        <Stack direction="row" spacing={1}>
+                            <CustomTextField label="Şantiye" size="small" fullWidth value={report.workhousen_name} disabled />
                             <CustomTextField label="İl / İlçe" size="small" fullWidth value={`${report.il || '-'} / ${report.ilce}`} disabled />
                         </Stack>
                     </Grid>
-                    <Grid item xs={12} mt={3}>
-                        <Typography variant="h6" mb={1} color="secondary">📥 Raporu İndir</Typography>
+
+                    <Grid item xs={12} mt={2}>
                         <Stack direction="row" spacing={2}>
-                            <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => onExportPdf(report)} fullWidth>PDF Olarak İndir</Button>
-                            <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => onExportExcel(report)} fullWidth>Excel Olarak İndir</Button>
+                            <Button variant="contained" color="success" startIcon={<IconFileDownload />} onClick={() => onExportPdf(report)} fullWidth>PDF</Button>
+                            <Button variant="contained" color="primary" startIcon={<IconFileDownload />} onClick={() => onExportExcel(report)} fullWidth>Excel</Button>
                         </Stack>
                     </Grid>
                 </Grid>
             </DialogContent>
             <DialogActions>
-                <Button onClick={onClose} color="secondary">Kapat</Button>
+                <Button onClick={onClose} color="inherit">Kapat</Button>
             </DialogActions>
         </Dialog>
     );
 };
 
-
-// --- MAIN COMPONENT ---
 const ListItemReport = () => {
     const navigate = useNavigate();
     const currentYearStart = startOfYear(new Date());
@@ -510,7 +585,7 @@ const ListItemReport = () => {
                 head: [["Alan (Field)", "Değer (Value)"]],
                 body: tableRows,
                 theme: 'grid',
-                styles: { font: 'NotoSans', fontSize: 9, cellPadding: 6 },
+                styles: { font: 'NotoSans', fontStyle: 'normal', fontSize: 9, cellPadding: 6 },
                 headStyles: { fillColor: [60, 141, 188] },
                 didDrawPage: () => { addPdfFooter(doc); }
             });
@@ -590,7 +665,7 @@ const ListItemReport = () => {
                 theme: 'grid',
                 styles: { font: 'NotoSans', fontSize: 8 },
                 headStyles: { fillColor: [60, 141, 188] },
-                foot: [['', '', '', '', '', '', 'GENEL TOPLAM:', totalPrice.toLocaleString('tr-TR') + ' TL']],
+                foot: [['', '', '', '', '', '', 'GENEL TOPLAM:', totalPrice.toLocaleString('us-US') + ' TL']],
                 didDrawPage: () => { addPdfFooter(doc); }
             });
 
@@ -867,9 +942,18 @@ const ListItemReport = () => {
                                         <StyledTableCell>{row.unit}</StyledTableCell>
                                         <StyledTableCell>{cleanCurrency(row.price)}</StyledTableCell>    {/* قیمت واحد */}
                                         <StyledTableCell>{cleanCurrency(row.discount)}</StyledTableCell> {/* تخفیف */}
-                                        <StyledTableCell>
+                                        {/* <StyledTableCell>
                                             <Typography color="primary" fontWeight="bold">
                                                 {cleanCurrency(row.total)} TL
+                                            </Typography>
+                                        </StyledTableCell> */}
+                                        <StyledTableCell>
+                                            <Typography color="primary" fontWeight="bold">
+                                                {/* تبدیل به عدد و سپس فرمت‌بندی با جداکننده هزارگان */}
+                                                {cleanNumber(row.total).toLocaleString('us-US', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })} TL
                                             </Typography>
                                         </StyledTableCell>
                                         <StyledTableCell>

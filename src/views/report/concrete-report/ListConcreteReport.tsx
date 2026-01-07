@@ -122,6 +122,15 @@ const StyledTableCell = styled(MuiTableCell)(({ theme }) => ({
 }));
 
 
+const cleanCurrencyValue = (value: string | number | undefined | null): number => {
+    if (value === null || value === undefined) return 0;
+    const cleanedString = String(value).replace(/[^\d.-]/g, '');
+    const numericValue = parseFloat(cleanedString);
+    return isNaN(numericValue) ? 0 : numericValue;
+};
+
+
+
 // --- MODAL FOR SINGLE ROW DETAILS ---
 interface DetailViewModalProps {
     open: boolean;
@@ -152,8 +161,15 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         <Stack spacing={1}>
                             <CustomTextField label="Miktar" size="small" fullWidth value={report.quantity} disabled />
                             <CustomTextField label="Birim" size="small" fullWidth value={report.unit} disabled />
-                            <CustomTextField label="Birim Fiyat" size="small" fullWidth value={report.price} disabled />
-                            <CustomTextField label="Toplam Tutar" size="small" fullWidth value={report.total} disabled />
+                            <CustomTextField label="Birim Fiyat" size="small" fullWidth value={cleanCurrencyValue(report.price).toLocaleString('us-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })} disabled />
+                            <CustomTextField label="Toplam Tutar" size="small" fullWidth value={cleanCurrencyValue(report.total).toLocaleString('us-US', {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })} disabled />
+
                         </Stack>
                     </Grid>
                     <Grid item xs={12}>
@@ -247,9 +263,9 @@ const ListConcreteReport = () => {
         }
     };
 
-    const cleanCurrencyValue = (value: string) => {
-        return parseFloat(value.replace(/[^0-9,.]/g, '').replace(',', '')) || 0;
-    };
+    // const cleanCurrencyValue = (value: string) => {
+    //     return parseFloat(value.replace(/[^0-9,.]/g, '').replace(',', '')) || 0;
+    // };
 
     // --- Utility Callbacks ---
     const showAlert = useCallback((message: string, severity: 'success' | 'error' | 'warning' | 'info') => {
@@ -295,8 +311,6 @@ const ListConcreteReport = () => {
         if (!authToken) { navigate("/"); return; }
 
         if (!server || !server.baseurl || !server.report) {
-            console.error("Server Address Config Missing:", server);
-            showAlert("خطا در تنظیمات آدرس سرور (address.json)", 'error');
             return;
         }
 
@@ -323,6 +337,7 @@ const ListConcreteReport = () => {
             );
 
             if (response.data.httpStatusCode === 200 && response.data.data) {
+                debugger
                 setReportData(response.data.data as ConcreteReportResponseType);
             } else {
                 setReportData(null);
@@ -539,7 +554,7 @@ const ListConcreteReport = () => {
                 ["Toplam Tutar (Total)", report.total],
             ];
             doc.setFontSize(14);
-            doc.text(`Beton Raporu Detayı: ${report.proje_adi}`, 40, 40);
+            // doc.text(`Beton Raporu Detayı: ${report.proje_adi}`, 40, 40);
 
             autoTable(doc, {
                 startY: 60,
@@ -633,10 +648,10 @@ const ListConcreteReport = () => {
             const headers = ["Şantiye Adı", "Proje Adı", "Tarih", "İş Tipi", "Miktar", "Birim", "Toplam Tutar (TL)"];
 
             const totalPrice = data.reduce((sum, row) => sum + cleanCurrencyValue(row.total), 0);
-            const totalDisplay = totalPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
+            const totalDisplay = totalPrice.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
 
             const body = data.map(row => {
-                const formattedQuantity = cleanCurrencyValue(row.quantity).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                const formattedQuantity = cleanCurrencyValue(row.quantity).toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 const rawTotal = cleanCurrencyValue(row.total);
                 return [
                     row.workhousen_name,
@@ -645,7 +660,7 @@ const ListConcreteReport = () => {
                     row.is_turu,
                     formattedQuantity,
                     row.unit,
-                    rawTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    rawTotal.toLocaleString('us-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                 ];
             });
 
@@ -857,7 +872,7 @@ const ListConcreteReport = () => {
                             />
                         </LocalizationProvider>
                     </Grid>
-                    <Grid item xs={12} sm={6} md={3}>
+                    {/* <Grid item xs={12} sm={6} md={3}>
                         <CustomTextField
                             label="Min. Miktar"
                             size="small"
@@ -876,7 +891,7 @@ const ListConcreteReport = () => {
                             value={filterParams.maxQuantity || ''}
                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleFilterChange('maxQuantity', Number(e.target.value) || null)}
                         />
-                    </Grid>
+                    </Grid> */}
                 </Grid>
 
                 <Box sx={{ p: 2 }}>
@@ -961,7 +976,16 @@ const ListConcreteReport = () => {
                                         <StyledTableCell>{row.is_turu}</StyledTableCell>
                                         <StyledTableCell><Typography fontWeight="bold">{row.quantity}</Typography></StyledTableCell>
                                         <StyledTableCell>{row.unit}</StyledTableCell>
-                                        <StyledTableCell><Typography color="primary" fontWeight="bold">{row.total}</Typography></StyledTableCell>
+                                        {/* <StyledTableCell><Typography color="primary" fontWeight="bold">{row.total}</Typography></StyledTableCell> */}
+                                        <StyledTableCell>
+                                            <Typography color="primary" fontWeight="bold">
+                                                {/* تبدیل به عدد و سپس فرمت‌بندی با جداکننده هزارگان */}
+                                                {cleanCurrencyValue(row.total).toLocaleString('us-US', {
+                                                    minimumFractionDigits: 2,
+                                                    maximumFractionDigits: 2
+                                                })} TL
+                                            </Typography>
+                                        </StyledTableCell>
                                         <StyledTableCell>
                                             <Tooltip title="Detaylar ve İşlemler">
                                                 <IconButton

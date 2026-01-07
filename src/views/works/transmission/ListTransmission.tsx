@@ -157,6 +157,45 @@ const ListTransmission = () => {
         return allowedOperations.some(op => op.systemOperationName === 'Silmek');
     }, [allowedOperations]);
 
+    // const { menuItems, allowedOperations } = useAuth();
+    // const findMenuByHref = (items: any[], path: string): any => {
+    //     for (const item of items) {
+    //         if (item.href === path) return item;
+    //         if (item.children && item.children.length > 0) {
+    //             const found = findMenuByHref(item.children, path);
+    //             if (found) return found;
+    //         }
+    //     }
+    //     return null;
+    // };
+    // const currentMenu = useMemo(() => {
+    //     debugger
+    //     return findMenuByHref(menuItems, location.pathname);
+    // }, [menuItems, location.pathname]);
+
+    // const currentMenuOpIds = useMemo(() => {
+    //     if (!currentMenu || !currentMenu.menuOperations) return [];
+
+    //     return currentMenu.menuOperations.map((op: any) => {
+    //         return String(op.id);
+    //     });
+    // }, [currentMenu]);
+
+    // const hasPermission = (opName: string) => {
+    //     return allowedOperations.some((op: any) =>
+    //         op.systemOperationName === opName &&
+    //         currentMenuOpIds.includes(String(op.menuOperationId))
+    //     );
+    // };
+
+    // const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
+    // const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
+    // const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
+    //   const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+
+    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
+
+
 
     const clearAlert = useCallback(() => {
         setAlertMessage(null);

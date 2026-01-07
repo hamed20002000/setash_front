@@ -150,9 +150,19 @@ const parseNumberFromString = (value: string | number | null): number => {
     return isNaN(parsed) ? 0 : parsed;
 };
 
-const formatPriceDisplay = (priceString: string | number | null): string => {
-    const price = parseNumberFromString(priceString);
-    return price.toLocaleString('us-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// const formatPriceDisplay = (priceString: string | number | null): string => {
+//     const price = parseNumberFromString(priceString);
+//     return price.toLocaleString('us-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// };
+
+
+const formatPriceDisplay = (value: string | number | undefined | null): string => {
+    if (value === null || value === undefined) return '0,00';
+    const numericValue = parseNumberFromString(value);
+    return numericValue.toLocaleString('us-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
 };
 
 const formatDateDisplay = (dateString: string | null | undefined): string => {
@@ -240,9 +250,9 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                         <Stack spacing={1}>
                             <TextField label="Ürün Adı" size="small" fullWidth value={report.item_name} disabled />
                             <TextField label="Birim" size="small" fullWidth value={report.unit} disabled />
-                            <TextField label="Toplam Miktar (Makbuz)" size="small" fullWidth value={parseNumberFromString(report.Quantity)} disabled />
-                            <TextField label="Demontaj Miktarı (Net)" size="small" fullWidth value={parseNumberFromString(report.Demontaj)} disabled />
-                            <TextField label="Demontaj+Montaj Miktarı" size="small" fullWidth value={parseNumberFromString(report.DemontajMontaj)} disabled />
+                            <TextField label="Toplam Miktar (Makbuz)" size="small" fullWidth value={formatPriceDisplay(report.Quantity)} disabled />
+                            <TextField label="Demontaj Miktarı (Net)" size="small" fullWidth value={formatPriceDisplay(report.Demontaj)} disabled />
+                            <TextField label="Demontaj+Montaj Miktarı" size="small" fullWidth value={formatPriceDisplay(report.DemontajMontaj)} disabled />
                             <TextField label="Demontaj Tutarı" size="small" fullWidth value={formatPriceDisplay(report.DemontajTutari)} disabled />
                             <TextField label="Montaj Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.MontajPrice)} disabled />
                             <TextField label="Demontaj+Montaj Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.DemontajMontajPrice)} disabled />
@@ -256,12 +266,12 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                             <TextField label="Sipariş No" size="small" fullWidth value={report.order_no} disabled />
                             <TextField label="Sipariş Tarihi" size="small" fullWidth value={formatDateDisplay(report.order_date)} disabled />
                             <TextField label="Sipariş Ürün ID" size="small" fullWidth value={report.order_item_id} disabled />
-                            <TextField label="Sipariş Miktarı" size="small" fullWidth value={parseNumberFromString(report.order_qty)} disabled />
+                            <TextField label="Sipariş Miktarı" size="small" fullWidth value={formatPriceDisplay(report.order_qty)} disabled />
                             <TextField label="Fatura No" size="small" fullWidth value={report.invoice_no} disabled />
                             <TextField label="Fatura Tarihi" size="small" fullWidth value={formatDateDisplay(report.invoice_date)} disabled />
                             <TextField label="Fatura Ürün ID" size="small" fullWidth value={report.invoice_itemid} disabled />
                             <TextField label="Fatura Fiyatı" size="small" fullWidth value={formatPriceDisplay(report.invoice_price)} disabled />
-                            <TextField label="Fatura Miktarı" size="small" fullWidth value={parseNumberFromString(report.invoice_qty)} disabled />
+                            <TextField label="Fatura Miktarı" size="small" fullWidth value={formatPriceDisplay(report.invoice_qty)} disabled />
                         </Stack>
                     </Grid>
 
@@ -273,10 +283,10 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                             <TextField label=" Depo Adı" size="small" fullWidth value={`${report.warehouse_name} (${report.warehouse_code})`} disabled />
                             <TextField label=" Depo Sevk Kodu" size="small" fullWidth value={report.warhouse_dispatch_code} disabled />
                             <TextField label=" Depo Sevk Tarihi" size="small" fullWidth value={formatDateDisplay(report.warhouse_dispatch_date)} disabled />
-                            <TextField label=" Depo Sevk Miktarı" size="small" fullWidth value={parseNumberFromString(report.warhouse_dispatch_qty)} disabled />
+                            <TextField label=" Depo Sevk Miktarı" size="small" fullWidth value={formatPriceDisplay(report.warhouse_dispatch_qty)} disabled />
                             <TextField label=" Depo Makbuz Kodu" size="small" fullWidth value={report.store_receipt_code} disabled />
                             <TextField label=" Depo Makbuz Tarihi" size="small" fullWidth value={formatDateDisplay(report.store_receipt_date)} disabled />
-                            <TextField label=" Depo Makbuz Miktarı" size="small" fullWidth value={parseNumberFromString(report.store_receipt_qty)} disabled />
+                            <TextField label=" Depo Makbuz Miktarı" size="small" fullWidth value={formatPriceDisplay(report.store_receipt_qty)} disabled />
                             <TextField label=" Depo Stok Adı" size="small" fullWidth value={`${report.store_name} (${report.store_code})`} disabled />
                         </Stack>
                     </Grid>
@@ -695,7 +705,8 @@ const ListTenderFlowReport = () => {
 
     const tableHeaders: { label: string; key: keyof TenderFlowReportRowType | 'actions' }[] = [
         { label: 'İhale Başlığı', key: 'ihale_title' },          // عنوان مناقصه
-        { label: 'Şantiye Adı', key: 'workhouse_name' },         // نام کارگاه/سایت
+        { label: 'Şantiye Adı', key: 'workhouse_name' },
+        { label: 'Ürün Adı', key: 'item_name' },         // نام کارگاه/سایت
         { label: 'Top. Miktar', key: 'Quantity' },               // مقدار کل
         { label: 'Demontaj Miktarı', key: 'Demontaj' },          // مقدار دمونتاژ
         { label: 'D+M Miktarı', key: 'DemontajMontaj' },         // مقدار دمونتاژ + مونتاژ (مخفف D+M)
@@ -762,7 +773,10 @@ const ListTenderFlowReport = () => {
                                 // ✅ فقط ردیف‌های برش خورده نمایش داده شوند
                                 visibleRows.map((row, index) => (
                                     <TableRow key={index} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                                        <StyledTableCell>{row.ihale_title}</StyledTableCell> <StyledTableCell>{row.workhouse_name}</StyledTableCell>
+                                        <StyledTableCell>{row.ihale_title}</StyledTableCell>
+                                        <StyledTableCell>{row.workhouse_name}</StyledTableCell>
+
+                                        <StyledTableCell>{row.item_name}</StyledTableCell>
                                         <StyledTableCell>{parseNumberFromString(row.Quantity)}</StyledTableCell> <StyledTableCell>{parseNumberFromString(row.Demontaj)}</StyledTableCell>
                                         <StyledTableCell>{parseNumberFromString(row.DemontajMontaj)}</StyledTableCell> <StyledTableCell>{formatPriceDisplay(row.DemontajMontajPrice)}</StyledTableCell>
                                         <StyledTableCell>{formatPriceDisplay(row.DemontajTutari)}</StyledTableCell> <StyledTableCell>{formatPriceDisplay(row.MontajPrice)}</StyledTableCell>

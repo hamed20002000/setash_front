@@ -196,6 +196,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             icon: getIconComponent(item.icon),
             chipColor: 'secondary',
             children: children,
+            menuOperations: item.menuOperations,
           };
 
           filteredAndMappedMenus.push(menuItem);
@@ -281,7 +282,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthDataLoading(false);
       return { ops: [], rawMenus: [] };
     }
-
+    debugger
     try {
       // ۱. اجرای همزمان هر دو API برای سرعت بیشتر
       const [roleOpsRes, userOpsRes, rawMenus] = await Promise.all([
@@ -424,7 +425,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (rolesFromToken.length === 0) throw new Error('No roles resolved for user');
 
       const roleToActivate = pickAndPersistActiveRole(rolesFromToken, savedActiveRoleName);
-
+      debugger
       let ops: AllowedOperation[] = [];
       if (roleToActivate) {
         const userId = decodedToken?.userid; // مطمئن شوید نام فیلد در توکن درست است

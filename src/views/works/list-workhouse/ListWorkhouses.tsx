@@ -421,22 +421,78 @@ const ListWorkhouses = () => {
 
     const { isTooltipGloballyEnabled } = useTooltip();
 
-    const { allowedOperations } = useAuth();
-    const hasCreatePermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
-    }, [allowedOperations]);
+    // const { allowedOperations } = useAuth();
+    // const hasCreatePermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'Eklemek');
+    // }, [allowedOperations]);
 
-    const hasEditPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
-    }, [allowedOperations]);
+    // const hasEditPermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'Düzenlemek');
+    // }, [allowedOperations]);
 
-    const hasDeletePermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'Silmek');
-    }, [allowedOperations]);
+    // const hasDeletePermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'Silmek');
+    // }, [allowedOperations]);
 
-    const hasDownloadPermission = useMemo(() => {
-        return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
-    }, [allowedOperations]);
+    // const hasDownloadPermission = useMemo(() => {
+    //     return allowedOperations.some(op => op.systemOperationName === 'İndirmek ve Yazdırmak');
+    // }, [allowedOperations]);
+
+
+    const { menuItems, allowedOperations } = useAuth();
+    const findMenuByHref = (items: any[], path: string): any => {
+        for (const item of items) {
+            // حذف اسلش آخر برای مقایسه دقیق‌تر در صورت وجود
+            const normalizedItemHref = item.href?.replace(/\/$/, "");
+            const normalizedPath = path.replace(/\/$/, "");
+
+            // بررسی اینکه آیا مسیر فعلی با href منو شروع می‌شود یا خیر
+            if (normalizedItemHref && normalizedPath.startsWith(normalizedItemHref)) {
+                return item;
+            }
+
+            if (item.children && item.children.length > 0) {
+                const found = findMenuByHref(item.children, path);
+                if (found) return found;
+            }
+        }
+        return null;
+    };
+
+    // ۲. استفاده از تابع برای پیدا کردن منوی فعلی
+    const currentMenu = useMemo(() => {
+        // اگر آدرس دارای پارامتر بود (مثلاً بعد از آخرین / عدد یا ID بود)، آن را حذف کن
+        // این بخش بستگی به ساختار URL های شما دارد
+        const baseRoute = location.pathname.split('/').slice(0, 3).join('/');
+        return findMenuByHref(menuItems, baseRoute);
+    }, [menuItems, location.pathname]);
+
+    // ۳. استخراج ID عملیات‌ها (با اطمینان از وجود id)
+    const currentMenuOpIds = useMemo(() => {
+        // اگر منو یا عملیات‌های آن وجود نداشت، آرایه خالی برگردان
+        if (!currentMenu || !currentMenu.menuOperations) return [];
+
+        return currentMenu.menuOperations.map((op: any) => {
+            // با توجه به دیتای API شما، ID اصلی عملیات در این سطح است
+            return String(op.id);
+        });
+    }, [currentMenu]);
+
+    // ۴. تابع نهایی بررسی دسترسی
+    const hasPermission = (opName: string) => {
+        return allowedOperations.some((op: any) =>
+            op.systemOperationName === opName &&
+            currentMenuOpIds.includes(String(op.menuOperationId))
+        );
+    };
+
+    const hasCreatePermission = useMemo(() => hasPermission("Eklemek"), [allowedOperations, currentMenuOpIds]);
+    const hasEditPermission = useMemo(() => hasPermission("Düzenlemek"), [allowedOperations, currentMenuOpIds]);
+    const hasDeletePermission = useMemo(() => hasPermission("Silmek"), [allowedOperations, currentMenuOpIds]);
+    const hasDownloadPermission = useMemo(() => hasPermission("İndirmek ve Yazدırmak"), [allowedOperations, currentMenuOpIds]);
+
+    //   const hasStatusPermission = useMemo(() => hasPermission("Onaylamak"), [allowedOperations, currentMenuOpIds]);
+
 
     const fetchWorkInfo = useCallback(async () => {
         if (!workId) return;

@@ -202,8 +202,8 @@ const DetailViewModal: React.FC<DetailViewModalProps> = ({ open, onClose, report
                             <CustomTextField label="Yakıt Tipi" size="small" fullWidth value={report.fuel_type} disabled />
                             <CustomTextField label="Yakıt Tarihi" size="small" fullWidth value={format(new Date(report.fuel_date), 'dd/MM/yyyy HH:mm')} disabled />
                             <CustomTextField label="Miktar (Litre)" size="small" fullWidth value={`${report.fuel_amount}`} disabled />
-                            <CustomTextField label="Birim Fiyat" size="small" fullWidth value={`${fuelFeeNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}`} disabled />
-                            <CustomTextField label="Toplam Maliyet" size="small" fullWidth value={`${totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}`} disabled />
+                            <CustomTextField label="Birim Fiyat" size="small" fullWidth value={`${fuelFeeNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}`} disabled />
+                            <CustomTextField label="Toplam Maliyet" size="small" fullWidth value={`${totalCostNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })}`} disabled />
                         </Stack>
                     </Grid>
 
@@ -587,8 +587,8 @@ const ListCarwarehouseReport = () => {
                 ["Yakıt Tipi", report.fuel_type],
                 ["Yakıt Tarihi", format(new Date(report.fuel_date), 'dd/MM/yyyy HH:mm')],
                 ["Miktar (Litre)", report.fuel_amount],
-                ["Birim Fiyat", fuelFeeNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })],
-                ["Toplam Maliyet", totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })],
+                ["Birim Fiyat", fuelFeeNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })],
+                ["Toplam Maliyet", totalCostNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY' })],
             ];
 
             autoTable(doc, {
@@ -693,13 +693,13 @@ const ListCarwarehouseReport = () => {
                 return [
                     row.plaque, `${row.brand} / ${row.model}`, row.workhouse_name || '-', personnelFullName,
                     row.fuel_type, format(new Date(row.fuel_date), 'dd/MM/yyyy HH:mm'), row.fuel_amount.toString(),
-                    fuelFeeNumber.toLocaleString('tr-TR', { minimumFractionDigits: 2 }),
-                    totalCostNumber.toLocaleString('tr-TR', { minimumFractionDigits: 2 }),
+                    fuelFeeNumber.toLocaleString('us-US', { minimumFractionDigits: 2 }),
+                    totalCostNumber.toLocaleString('us-US', { minimumFractionDigits: 2 }),
                 ];
             });
 
             const calculatedTotalPrice = allData.reduce((sum, row) => sum + parseCurrencyToNumber(row.total_price), 0);
-            const totalDisplay = calculatedTotalPrice.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
+            const totalDisplay = calculatedTotalPrice.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 });
 
             autoTable(doc, {
                 startY: 70,
@@ -1000,7 +1000,7 @@ const ListCarwarehouseReport = () => {
                                             <StyledTableCell>{row.fuel_amount}</StyledTableCell>
                                             <StyledTableCell>{fuelFeeNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</StyledTableCell>
                                             {/* <StyledTableCell>{format(new Date(row.fuel_date), 'dd/MM/yyyy')}</StyledTableCell> */}
-                                            <StyledTableCell><Typography color="primary">{totalCostNumber.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</Typography></StyledTableCell>
+                                            <StyledTableCell><Typography color="primary">{totalCostNumber.toLocaleString('us-US', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 })}</Typography></StyledTableCell>
 
                                             {/* Actions Column (Menu) */}
                                             <StyledTableCell>

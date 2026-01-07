@@ -1164,7 +1164,7 @@ const ListCommiteeMembersReport = () => {
         { label: 'İlçe', key: 'town' },
         { label: 'Bölge', key: 'region' },
         { label: 'Tesis', key: 'tesistype' },
-        { label: 'Tradi', key: 'tradi' },
+        { label: 'TrAdi', key: 'tradi' },
         { label: 'Proje', key: 'projectcount' },
         // 👇 اینجا width اضافه شد
         { label: 'Komite Üyeleri', key: 'memberCount' },
